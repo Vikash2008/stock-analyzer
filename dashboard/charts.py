@@ -57,7 +57,7 @@ def render(sym_txns: pd.DataFrame, yf_symbol: str, current_price: float | None) 
         fig.add_trace(go.Scatter(
             x=hist_view["date"], y=hist_view["close"],
             mode="lines", name="Price",
-            line=dict(color="#2e4a8a", width=1.5),
+            line=dict(color="#3b82f6", width=2),
             hovertemplate="%{x|%d %b %Y}  %{y:,.2f}<extra></extra>",
         ))
     elif hist.empty:
@@ -68,7 +68,7 @@ def render(sym_txns: pd.DataFrame, yf_symbol: str, current_price: float | None) 
     txns_view = txns_view.copy()
     txns_view["tx_value"] = txns_view["quantity"] * txns_view["price"]
 
-    for tx_type, color in [("BUY", "#27ae60"), ("SELL", "#e74c3c")]:
+    for tx_type, color in [("BUY", "#10b981"), ("SELL", "#f43f5e")]:
         t = txns_view[txns_view["type"] == tx_type]
         if t.empty:
             continue
@@ -93,12 +93,16 @@ def render(sym_txns: pd.DataFrame, yf_symbol: str, current_price: float | None) 
     fig.update_layout(
         height=400,
         margin=dict(l=0, r=0, t=10, b=0),
-        legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="left", x=0),
+        legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="left", x=0,
+                    font=dict(size=11), bgcolor="rgba(0,0,0,0)"),
         hovermode="closest",
         plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
-        xaxis=dict(showgrid=True, gridcolor="#f0f4fb", zeroline=False),
-        yaxis=dict(showgrid=True, gridcolor="#f0f4fb", zeroline=False),
-        font=dict(size=12),
+        xaxis=dict(showgrid=True, gridcolor="#f1f5f9", zeroline=False, linecolor="#e2e8f0"),
+        yaxis=dict(showgrid=True, gridcolor="#f1f5f9", zeroline=False, linecolor="#e2e8f0",
+                   rangemode="normal"),
+        font=dict(size=12, color="#334155"),
+        hoverlabel=dict(bgcolor="#1e293b", font_color="#f8fafc", font_size=12,
+                        bordercolor="#1e293b"),
     )
 
     st.plotly_chart(fig, use_container_width=True,

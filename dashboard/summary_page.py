@@ -194,10 +194,12 @@ def _fmt_num(v: float) -> str:
     return f"₹{v:,.0f}"
 
 
-def _stat(label: str, value: str, color: str = "#1a2744") -> None:
+def _stat(label: str, value: str, color: str = "#0f172a") -> None:
     st.markdown(
-        f'<div style="margin-bottom:6px">'
-        f'<span style="font-size:11px;color:#7f8c8d;text-transform:uppercase">{label}: </span>'
+        f'<div style="margin-bottom:8px;padding:8px 12px;background:#f8fafc;'
+        f'border-radius:8px;border:1px solid #e2e8f0;display:inline-block">'
+        f'<span style="font-size:10px;color:#94a3b8;text-transform:uppercase;'
+        f'letter-spacing:0.07em;font-weight:600">{label}&ensp;</span>'
         f'<span style="font-size:15px;font-weight:700;color:{color}">{value}</span>'
         f'</div>',
         unsafe_allow_html=True,
@@ -239,14 +241,16 @@ _CHART_CONFIG = {"scrollZoom": False, "doubleClick": "reset", "displayModeBar": 
 
 def _style(fig: go.Figure, title: str, y_tick_suffix: str = "") -> None:
     fig.update_layout(
-        height=380, margin=dict(l=0, r=0, t=32, b=0),
-        title=dict(text=title, font=dict(size=13, color="#1a2744"), x=0),
+        height=380, margin=dict(l=0, r=0, t=36, b=0),
+        title=dict(text=title, font=dict(size=13, color="#0f172a", family="sans-serif"), x=0),
         plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
         dragmode=False,
-        xaxis=dict(showgrid=True, gridcolor="#f0f4fb", zeroline=False),
-        yaxis=dict(showgrid=True, gridcolor="#f0f4fb", zeroline=False,
+        xaxis=dict(showgrid=True, gridcolor="#f1f5f9", zeroline=False, linecolor="#e2e8f0"),
+        yaxis=dict(showgrid=True, gridcolor="#f1f5f9", zeroline=False, linecolor="#e2e8f0",
                    rangemode="normal", ticksuffix=y_tick_suffix),
-        font=dict(size=12), showlegend=False,
+        font=dict(size=12, color="#334155"), showlegend=False,
+        hoverlabel=dict(bgcolor="#1e293b", font_color="#f8fafc", font_size=12,
+                        bordercolor="#1e293b"),
     )
 
 
