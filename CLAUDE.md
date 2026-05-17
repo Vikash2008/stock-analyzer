@@ -8,6 +8,15 @@
 4. Assume all existing code is correct unless the user shows an error.
 5. Ask the user what they want to do next.
 
+## Working Style — Follow This Every Session
+
+- **Do exactly what is asked.** No more, no less.
+- **Do not over-assess.** If the task is a UI change, edit only the reported lines. Do not audit adjacent code, check edge cases, or refactor surrounding logic.
+- **No unsolicited cleanup.** Do not fix things that weren't broken, rename variables, or improve code that wasn't touched by the task.
+- **Speed over thoroughness.** One focused change done fast beats a wide review done slowly.
+- **One question max if ambiguous.** If the request is unclear, ask one specific question. Do not ask for confirmation on obvious steps.
+- **UI tasks = file edits only.** Do not start Streamlit, run tests, or check git status unless explicitly asked.
+
 ---
 
 ## Project Goal
