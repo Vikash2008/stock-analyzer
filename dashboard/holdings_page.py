@@ -58,10 +58,10 @@ def _summary_card(label: str, cur: float, inv: float, is_usd: bool = False) -> N
     sign  = "+" if gain >= 0 else ""
     color = "#0a7a42" if gain >= 0 else "#be1c1c"
     st.markdown(f"""
-<div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;
+<div class="summary-card" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;
             padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06)">
   <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;font-weight:600;margin-bottom:4px">{label}</div>
-  <div style="font-size:22px;font-weight:700;color:#0f172a;letter-spacing:-0.01em">{_fmt(cur, is_usd)}</div>
+  <div class="card-value" style="font-size:22px;font-weight:700;color:#0f172a;letter-spacing:-0.01em">{_fmt(cur, is_usd)}</div>
   <div style="font-size:13px;font-weight:600;color:{color};margin-top:2px">{sign}{_fmt(abs(gain), is_usd)} &nbsp; {sign}{pct:.1f}%</div>
 </div>
 """, unsafe_allow_html=True)

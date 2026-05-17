@@ -62,6 +62,22 @@ st.markdown("""
     border-color: #2563eb !important;
     box-shadow: 0 2px 6px rgba(37,99,235,0.25) !important;
   }
+
+  @media screen and (max-width: 768px) {
+    .block-container { padding-top: 0.4rem !important; padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+    .portfolio-tile { padding: 8px 10px !important; border-radius: 8px !important; }
+    .tile-label { font-size: 9px !important; margin-bottom: 2px !important; }
+    .tile-value { font-size: 17px !important; }
+    .tile-grid { margin-top: 6px !important; gap: 3px 6px !important; }
+    .tile-sublabel { font-size: 9px !important; }
+    .tile-subval { font-size: 12px !important; }
+    .summary-card { padding: 10px 12px !important; border-radius: 8px !important; }
+    .card-value { font-size: 18px !important; }
+    .stButton > button { font-size: 10px !important; padding: 2px 8px !important; }
+    [data-testid="stCaptionContainer"] { font-size: 10px !important; }
+    [data-testid="column"] { gap: 0.25rem !important; }
+    [data-testid="stVerticalBlock"] { gap: 0.3rem !important; }
+  }
 </style>
 """, unsafe_allow_html=True)
 

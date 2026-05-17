@@ -205,29 +205,29 @@ def _tile(col, label, cur, inv, xirr_str, key, portfolio=None):
     bg_color     = "#f0fdf8" if is_pos else "#fff5f5"
     xirr_display = xirr_str if xirr_str else "—"
     col.markdown(f"""
-<div style="background:{bg_color}; border:1px solid #e2e8f0;
+<div class="portfolio-tile" style="background:{bg_color}; border:1px solid #e2e8f0;
             border-radius:12px; padding:12px 14px; border-left:4px solid {border_color};
             box-shadow:0 1px 4px rgba(0,0,0,0.06)">
-  <div style="font-size:10px; color:#94a3b8; text-transform:uppercase;
+  <div class="tile-label" style="font-size:10px; color:#94a3b8; text-transform:uppercase;
               letter-spacing:0.08em; margin-bottom:4px; font-weight:600">{label}</div>
-  <div style="font-size:22px; font-weight:700; color:#0f172a; line-height:1.2;
+  <div class="tile-value" style="font-size:22px; font-weight:700; color:#0f172a; line-height:1.2;
               letter-spacing:-0.01em">{_fmt(cur)}</div>
-  <div style="margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:6px 8px">
+  <div class="tile-grid" style="margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:6px 8px">
     <div>
-      <div style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">INVESTED</div>
-      <div style="font-size:14px; font-weight:600; color:#334155">{_fmt(inv)}</div>
+      <div class="tile-sublabel" style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">INVESTED</div>
+      <div class="tile-subval" style="font-size:14px; font-weight:600; color:#334155">{_fmt(inv)}</div>
     </div>
     <div>
-      <div style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">P&amp;L</div>
-      <div style="font-size:14px; font-weight:700; color:{gain_color}">{sign}{_fmt(gain)}</div>
+      <div class="tile-sublabel" style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">P&amp;L</div>
+      <div class="tile-subval" style="font-size:14px; font-weight:700; color:{gain_color}">{sign}{_fmt(gain)}</div>
     </div>
     <div>
-      <div style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">RETURN</div>
-      <div style="font-size:14px; font-weight:700; color:{gain_color}">{sign}{pct:.1f}%</div>
+      <div class="tile-sublabel" style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">RETURN</div>
+      <div class="tile-subval" style="font-size:14px; font-weight:700; color:{gain_color}">{sign}{pct:.1f}%</div>
     </div>
     <div>
-      <div style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">XIRR</div>
-      <div style="font-size:14px; font-weight:600; color:#334155">{xirr_display}</div>
+      <div class="tile-sublabel" style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">XIRR</div>
+      <div class="tile-subval" style="font-size:14px; font-weight:600; color:#334155">{xirr_display}</div>
     </div>
   </div>
 </div>
