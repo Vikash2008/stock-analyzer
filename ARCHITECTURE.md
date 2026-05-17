@@ -119,13 +119,13 @@ msp_v2.csv
 
 | What                     | TTL    | Where                        |
 |--------------------------|--------|------------------------------|
-| `_load_bundle(currency)`        | 30 min | app.py — cleared on Refresh         |
-| `_compute_all(...)`             | 30 min | metrics.py                          |
-| `_batch_xirr(...)`              | 30 min | holdings_page.py                    |
-| `_fetch_history(symbol, start)` | 1 hr   | charts.py — lazy per symbol         |
-| `_build_value_series(h, fx)`    | 30 min | summary_page.py — full history      |
-| `_build_invested_series(t, p)`  | 30 min | summary_page.py — full history      |
-| `_build_xirr_trend(t, h, fx, p)`| 30 min | summary_page.py — monthly snapshots |
+| `_load_bundle(currency)`                    | **none** | app.py — manual Refresh button only         |
+| `_compute_all(...)`                         | 30 min   | metrics.py                                  |
+| `_batch_xirr(...)`                          | 30 min   | holdings_page.py                            |
+| `_fetch_history(symbol, start)`             | 1 hr     | charts.py — lazy per symbol                 |
+| `_build_value_series(port_h, txns, fx)`     | 30 min   | summary_page.py — historical qty × price    |
+| `_build_invested_series(port_h, txns, fx)`  | 30 min   | summary_page.py — historical qty × avg_cost |
+| `_build_xirr_trend(t, h, fx, p)`           | 30 min   | summary_page.py — monthly snapshots         |
 
 ---
 
@@ -148,10 +148,11 @@ msp_v2.csv
 ### portfolios page
 - Full-width Total tile + 2-col Stocks / MF tiles
 - Breakdown toggle: By Category (2×2) or By Portfolio (🇮🇳/🇺🇸 grouped)
-- Tile background tinted green/red by gain/loss
-- XIRR shown on all tiles (hidden when empty string passed)
-- Portfolio tiles → navigate to holdings page; aggregate/category tiles → navigate via segment key
+- Tile content: Current Value (large) + 2×2 grid — Invested / P&L / Return% / XIRR
+- Tile background tinted green/red by gain/loss; left border colored
+- Each tile: two side-by-side CTAs — `Holdings →` | `Summary →` via `col.columns(2, gap="small")`
 - By Portfolio breakdown renders max 2 tiles per row (mobile safe)
+- **Refresh button**: top-right of every page (above page router in app.py); clears disk prices+fx + Streamlit cache
 
 ### holdings page
 - Two entry modes: portfolio-specific (`sel_portfolio`) or segment-based (`sel_segment`)

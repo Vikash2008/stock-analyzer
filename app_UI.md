@@ -21,10 +21,11 @@
 
 ### Global button style
 ```css
-font-size: 12px; padding: 4px 12px; border-radius: 6px;
+font-size: 11px; padding: 2px 8px; border-radius: 5px;
 border: 1px solid #c8d6f0; color: #1a2744; background: #f0f4fb;
 hover → background: #2e4a8a; color: #fff;
 ```
+- Column element container spacing: `[data-testid="column"] [data-testid="element-container"] { margin-bottom: 2px }`
 
 ### Dataframe headers
 - Background: `#f0f4fb`, color: `#1a2744`, font-size: 12px
@@ -59,18 +60,23 @@ hover → background: #2e4a8a; color: #fff;
 ### Tile card style
 ```
 background: gain_bg or loss_bg
-border: 1px solid #dde6f0; border-radius: 10px; padding: 14px 16px
-border-left: 4px solid gain/loss border color
+border: 1px solid #dde6f0; border-radius: 8px; padding: 10px 12px
+border-left: 3px solid gain/loss border color
 ```
 - Label: 11px, `#7f8c8d`, uppercase, letter-spacing 0.07em
-- Value: 22px, bold, `#1a2744`
-- Gain/Loss: 13px bold + 15px bold, gain/loss color, side by side
-- XIRR: 11px, `#7f8c8d`, hidden when empty string passed
+- Current Value: 22px, bold `#1a2744`, line-height 1.2
+- 2×2 metric grid (CSS `grid-template-columns: 1fr 1fr; gap: 4px 8px`):
+  - INVESTED: label 11px `#7f8c8d`, value 15px bold `#1a2744`
+  - P&L: label 11px `#7f8c8d`, value 15px bold, gain/loss color, signed
+  - RETURN: label 11px `#7f8c8d`, value 15px bold, gain/loss color, signed %
+  - XIRR: label 11px `#7f8c8d`, value 15px `#1a2744`
+- Tile margin-top: 8px before 2×2 grid
 
 ### Tile interaction
-- **All tiles** show `"View Holdings →"` button
-- Portfolio tiles → navigate to holdings page filtered by that portfolio
-- Aggregate/category tiles → navigate to holdings page filtered by segment key (total / stk / mf / indian_stock / us_stock / indian_mf / us_mf)
+- **All tiles** show two side-by-side CTAs: `Holdings →` | `Summary →`
+  - Rendered via `col.columns(2, gap="small")` in each tile column
+- Portfolio tiles → navigate to holdings/summary page filtered by that portfolio
+- Aggregate/category tiles → navigate using segment key (total / stk / mf / indian_stock / us_stock / indian_mf / us_mf)
 - No inline holdings drawer — removed entirely
 
 ### By Category breakdown
@@ -216,4 +222,10 @@ Applied automatically by `/ship` command before every deploy:
 | 2026-05-17 | All portfolio tiles now show two CTAs: Holdings → and Summary → (stacked, not nested columns) |
 | 2026-05-17 | Summary → on aggregate/category tiles navigates to segment-level summary; XIRR Trend only available per-portfolio |
 | 2026-05-17 | Summary page registered as page=summary in app.py router; back button navigates to portfolios |
-| 2026-05-17 | summary_page.py has known bug in render() Portfolio Value block — _ used instead of fig variable — needs fix in next session |
+| 2026-05-17 | Tile redesign: Current Value large (22px) + 2×2 grid (Invested/P&L/Return/XIRR at 15px), compact padding 10px 12px, border-left 3px |
+| 2026-05-17 | Tile CTAs changed from stacked to side-by-side: Holdings → | Summary →  via col.columns(2, gap="small") |
+| 2026-05-17 | Manual-only refresh: _load_bundle has no TTL; Refresh button invalidates disk prices+fx, clears Streamlit cache, reruns |
+| 2026-05-17 | Refresh button top-right via st.columns([5,1]); shows "As of DD Mon HH:MM" caption above button |
+| 2026-05-17 | P&L and Invested series now use historical qty step function (BUY+/SELL-) × avg_cost — both aligned before subtraction |
+| 2026-05-17 | summary_page.py _ bug fixed: Portfolio Value block now assigns fig and passes it to st.plotly_chart |
+| 2026-05-17 | xirr_seg and xirr_multi_seg fixed: use ~isin(SKIP_PORTS) + filter txns by holdings syms/ports instead of segment() on txn rows |

@@ -40,15 +40,12 @@ python validate.py -r          # force price refresh
 
 ## Session State (2026-05-17)
 
-Last pushed commit: performance fixes + stale selection bug fix.
-Local-only changes NOT yet pushed (run /ship before next session):
-- dashboard/charts.py: range selector (1d–All) below chart, y-axis auto-scales, 5y history
-- dashboard/summary_page.py: NEW — portfolio/segment summary charts with full caching
-- dashboard/metrics.py: all tiles now show Holdings → and Summary → buttons
-- dashboard/holdings_page.py: Holdings | Summary tabs for portfolio view
-- dashboard/app.py: summary page route added
-- **Known bug in summary_page.py render()**: Portfolio Value block uses `_` instead of `fig` — fix first in next session
-- Refresh button + last-updated display: NOT YET IMPLEMENTED — planned for next session
+Last changes (not yet pushed — run `/ship` to deploy):
+- app.py: manual refresh button top-right; `_load_bundle` has NO TTL (manual-only)
+- dashboard/metrics.py: tile redesign — 2×2 grid (Invested / P&L / Return / XIRR), side-by-side CTAs
+- dashboard/metrics.py: `xirr_seg` + `xirr_multi_seg` fixed — `~isin(SKIP_PORTS)` + filter txns by holdings syms/ports
+- dashboard/summary_page.py: historical qty step function, invested FX fix, align-then-slice P&L, `_` → `fig` bug fixed
+- app_UI.md: updated with tile redesign, button styles, refresh decisions, all fixes logged
 
 ## Active Files
 
