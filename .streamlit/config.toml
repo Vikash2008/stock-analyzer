@@ -5,6 +5,10 @@ enableCORS = false
 [browser]
 gatherUsageStats = false
 
+[client]
+showSidebarNavigation = false
+toolbarMode = "minimal"
+
 [theme]
 base = "light"
 primaryColor = "#2e4a8a"

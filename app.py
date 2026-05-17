@@ -14,14 +14,18 @@ st.markdown("""
 <style>
   .block-container { padding-top: 1rem !important; }
   header[data-testid="stHeader"] { display: none; }
-  #MainMenu { visibility: hidden !important; }
-  footer { visibility: hidden !important; display: none !important; }
+  #MainMenu { display: none !important; }
+  footer { display: none !important; }
   [data-testid="stToolbar"] { display: none !important; }
   [data-testid="stDecoration"] { display: none !important; }
   [data-testid="stBottom"] { display: none !important; }
   [data-testid="stBottomBlockContainer"] { display: none !important; }
-  .st-emotion-cache-1dp5vir { display: none !important; }
-  section[data-testid="stSidebar"] + div > div > div > footer { display: none !important; }
+  [data-testid="stStatusWidget"] { display: none !important; }
+  .viewerBadge_container__r5tak { display: none !important; }
+  .viewerBadge_link__qRIco { display: none !important; }
+  #stDecoration { display: none !important; }
+  .block-container { padding-bottom: 1rem !important; }
+  .main > div { padding-bottom: 0 !important; }
 
   [data-testid="stSidebar"] { background: linear-gradient(180deg, #0d1b2e 0%, #162640 100%); }
   [data-testid="stSidebar"] * { color: #b8cce8 !important; }
