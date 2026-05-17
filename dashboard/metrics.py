@@ -3,6 +3,7 @@ import streamlit as st
 from src.engine import PortfolioBundle
 from src.xirr import portfolio_xirr
 from dashboard.classify import segment, SKIP_PORTS, USD_PORTS
+from dashboard import ui_state
 
 
 def _fmt(v: float) -> str:
@@ -189,12 +190,12 @@ def _show_holdings(h, usd_inr, txns=None, seg_filter=None, prices=None):
                 st.rerun()
 
 
-def _tile(col, label, cur, inv, xirr_str, key):
+def _tile(col, label, cur, inv, xirr_str, key, portfolio=None):
     gain = cur - inv
     pct  = (gain / inv * 100) if inv else 0.0
     sign = "+" if gain >= 0 else ""
     is_pos = gain >= 0
-    gain_color  = "#1a7a3a" if is_pos else "#c0392b"
+    gain_color   = "#1a7a3a" if is_pos else "#c0392b"
     border_color = "#27ae60" if is_pos else "#e74c3c"
     bg_color     = "#f0faf4" if is_pos else "#fdf3f2"
     xirr_line = f'<div style="font-size:11px; color:#7f8c8d; margin-top:5px">XIRR &nbsp;<b>{xirr_str}</b></div>' if xirr_str else ""
@@ -211,8 +212,11 @@ def _tile(col, label, cur, inv, xirr_str, key):
   {xirr_line}
 </div>
 """, unsafe_allow_html=True)
-    if col.button("↓ Holdings", key=key, use_container_width=True):
-        st.session_state["active_segment"] = None if st.session_state.get("active_segment") == key else key
+    if col.button("View Holdings →", key=key, use_container_width=True):
+        if portfolio:
+            ui_state.navigate("holdings", portfolio=portfolio)
+        else:
+            ui_state.navigate("holdings", segment=key)
 
 
 def render(bundle: PortfolioBundle) -> None:
@@ -271,29 +275,15 @@ def render(bundle: PortfolioBundle) -> None:
 
         st.markdown("<div style='font-size:11px;color:#6b7fa3;text-transform:uppercase;letter-spacing:0.06em;margin:6px 0 2px'>🇮🇳 &nbsp;India</div>",
                     unsafe_allow_html=True)
-        if indian:
-            for col, (cur_p, port, inv_p, xirr_p) in zip(st.columns(len(indian)), indian):
-                _tile(col, port, cur_p, inv_p, xirr_p, f"port_{port}")
+        for i in range(0, len(indian), 2):
+            chunk = indian[i:i+2]
+            for col, (cur_p, port, inv_p, xirr_p) in zip(st.columns(len(chunk)), chunk):
+                _tile(col, port, cur_p, inv_p, xirr_p, f"port_{port}", portfolio=port)
 
         st.markdown("<div style='font-size:11px;color:#6b7fa3;text-transform:uppercase;letter-spacing:0.06em;margin:8px 0 2px'>🇺🇸 &nbsp;US</div>",
                     unsafe_allow_html=True)
-        if us:
-            cols = st.columns(len(us) + (len(indian) - len(us)))  # align width with India row
-            for col, (cur_p, port, inv_p, xirr_p) in zip(cols, us):
-                _tile(col, port, cur_p, inv_p, xirr_p, f"port_{port}")
+        for i in range(0, len(us), 2):
+            chunk = us[i:i+2]
+            for col, (cur_p, port, inv_p, xirr_p) in zip(st.columns(len(chunk)), chunk):
+                _tile(col, port, cur_p, inv_p, xirr_p, f"port_{port}", portfolio=port)
 
-    # ── Holdings drawer ───────────────────────────────────────────────────────
-    seg_map = {
-        "total":        (None,                         "All Holdings"),
-        "mf":           ({"indian_mf", "us_mf"},       "Mutual Funds"),
-        "stk":          ({"indian_stock", "us_stock"}, "Stocks"),
-        "indian_mf":    ({"indian_mf"},                "Indian MF"),
-        "us_mf":        ({"us_mf"},                    "US MF"),
-        "indian_stock": ({"indian_stock"},              "Indian Stocks"),
-        "us_stock":     ({"us_stock"},                  "US Stocks"),
-    }
-    active = st.session_state.get("active_segment")
-    if active:
-        seg_filter, seg_label = seg_map.get(active, (None, "Holdings"))
-        with st.expander(f"{seg_label} — Holdings", expanded=True):
-            _show_holdings(h, usd_inr, txns=txns, seg_filter=seg_filter, prices=prices)
