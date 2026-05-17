@@ -223,7 +223,7 @@ def _auto_scale(s: pd.Series):
 
 def _line_fig(x, y, name: str, color: str,
               fmt: str = ",.2f", suffix: str = "",
-              divisor: float = 1.0, fill: bool = True) -> go.Figure:
+              divisor: float = 1.0, fill: bool = False) -> go.Figure:
     yv = [v / divisor for v in y] if divisor != 1.0 else list(y)
     return go.Figure(go.Scatter(
         x=x, y=yv, mode="lines", name=name,
@@ -234,11 +234,15 @@ def _line_fig(x, y, name: str, color: str,
     ))
 
 
+_CHART_CONFIG = {"scrollZoom": False, "doubleClick": "reset", "displayModeBar": False}
+
+
 def _style(fig: go.Figure, title: str, y_tick_suffix: str = "") -> None:
     fig.update_layout(
         height=380, margin=dict(l=0, r=0, t=32, b=0),
         title=dict(text=title, font=dict(size=13, color="#1a2744"), x=0),
         plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
+        dragmode=False,
         xaxis=dict(showgrid=True, gridcolor="#f0f4fb", zeroline=False),
         yaxis=dict(showgrid=True, gridcolor="#f0f4fb", zeroline=False,
                    rangemode="normal", ticksuffix=y_tick_suffix),
@@ -291,7 +295,7 @@ def render(bundle: PortfolioBundle, port: str) -> None:
                 _stat("Gain in period", f"{'+'if gain>=0 else ''}{_fmt_num(gain)}", gc2)
                 fig = _line_fig(val_s.index, val_s.values, "Value", "#2e4a8a", divisor=d, suffix=sf, fill=False)
                 _style(fig, "Portfolio Value Over Time", y_tick_suffix=tsf)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
         elif sel_m == "Invested":
             if inv_s.empty:
@@ -302,7 +306,7 @@ def render(bundle: PortfolioBundle, port: str) -> None:
                 _stat("Invested in period", _fmt_num(invested_in_period))
                 fig = _line_fig(inv_s.index, inv_s.values, "Invested", "#7f8c8d", divisor=d, suffix=sf, fill=False)
                 _style(fig, "Cumulative Invested Over Time", y_tick_suffix=tsf)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
         elif sel_m == "Profit / Loss":
             if val_full.empty or inv_full.empty:
@@ -320,7 +324,7 @@ def render(bundle: PortfolioBundle, port: str) -> None:
                     fig = _line_fig(pnl.index, pnl.values, "P&L", color, divisor=d, suffix=sf)
                     fig.add_hline(y=0, line_color="#aaaaaa", line_dash="dot", line_width=1)
                     _style(fig, "Profit / Loss Over Time", y_tick_suffix=tsf)
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
         elif sel_m == "Return %":
             if val_full.empty or inv_full.empty:
@@ -339,7 +343,7 @@ def render(bundle: PortfolioBundle, port: str) -> None:
                     fig = _line_fig(ret.index, ret.values, "Return %", rc, fmt=".1f", suffix="%")
                     fig.add_hline(y=0, line_color="#aaaaaa", line_dash="dot", line_width=1)
                     _style(fig, "Return % Over Time", y_tick_suffix="%")
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
         elif sel_m == "XIRR Trend":
             s = _slice(_build_xirr_trend(txns, port_h, usd_inr, port), sel_r)
@@ -352,7 +356,7 @@ def render(bundle: PortfolioBundle, port: str) -> None:
                 fig = _line_fig(s.index, s.values, "XIRR %", gc, fmt=".2f", suffix="%")
                 fig.add_hline(y=0, line_color="#aaaaaa", line_dash="dot", line_width=1)
                 _style(fig, "XIRR Trend (Monthly)", y_tick_suffix="%")
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
 
 # ── Chart renderer for a segment (multiple portfolios) ───────────────────────
@@ -393,7 +397,7 @@ def _render_multi(bundle: PortfolioBundle, filtered_h: pd.DataFrame) -> None:
                 _stat("Gain in period", f"{'+'if gain>=0 else ''}{_fmt_num(gain)}", gc2)
                 fig = _line_fig(val_s.index, val_s.values, "Value", "#2e4a8a", divisor=d, suffix=sf, fill=False)
                 _style(fig, "Portfolio Value Over Time", y_tick_suffix=tsf)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
         elif sel_m == "Invested":
             if inv_s.empty:
@@ -404,7 +408,7 @@ def _render_multi(bundle: PortfolioBundle, filtered_h: pd.DataFrame) -> None:
                 _stat("Invested in period", _fmt_num(invested_in_period))
                 fig = _line_fig(inv_s.index, inv_s.values, "Invested", "#7f8c8d", divisor=d, suffix=sf, fill=False)
                 _style(fig, "Cumulative Invested Over Time", y_tick_suffix=tsf)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
         elif sel_m == "Profit / Loss":
             if full_val.empty or full_inv.empty:
@@ -422,7 +426,7 @@ def _render_multi(bundle: PortfolioBundle, filtered_h: pd.DataFrame) -> None:
                     fig = _line_fig(pnl.index, pnl.values, "P&L", color, divisor=d, suffix=sf)
                     fig.add_hline(y=0, line_color="#aaaaaa", line_dash="dot", line_width=1)
                     _style(fig, "Profit / Loss Over Time", y_tick_suffix=tsf)
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
         elif sel_m == "Return %":
             if full_val.empty or full_inv.empty:
@@ -441,7 +445,7 @@ def _render_multi(bundle: PortfolioBundle, filtered_h: pd.DataFrame) -> None:
                     fig = _line_fig(ret.index, ret.values, "Return %", rc, fmt=".1f", suffix="%")
                     fig.add_hline(y=0, line_color="#aaaaaa", line_dash="dot", line_width=1)
                     _style(fig, "Return % Over Time", y_tick_suffix="%")
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
         elif sel_m == "XIRR Trend":
             syms      = set(filtered_h["yf_symbol"])
@@ -456,7 +460,7 @@ def _render_multi(bundle: PortfolioBundle, filtered_h: pd.DataFrame) -> None:
                 fig = _line_fig(s.index, s.values, "XIRR %", gc, fmt=".2f", suffix="%")
                 fig.add_hline(y=0, line_color="#aaaaaa", line_dash="dot", line_width=1)
                 _style(fig, "XIRR Trend (Monthly)", y_tick_suffix="%")
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
 
 # ── Standalone page entry point ───────────────────────────────────────────────
