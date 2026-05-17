@@ -245,9 +245,9 @@ def _style(fig: go.Figure, title: str, y_tick_suffix: str = "") -> None:
         title=dict(text=title, font=dict(size=13, color="#0f172a", family="sans-serif"), x=0),
         plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
         dragmode=False,
-        xaxis=dict(showgrid=True, gridcolor="#f1f5f9", zeroline=False, linecolor="#e2e8f0"),
+        xaxis=dict(showgrid=True, gridcolor="#f1f5f9", zeroline=False, linecolor="#e2e8f0", fixedrange=True),
         yaxis=dict(showgrid=True, gridcolor="#f1f5f9", zeroline=False, linecolor="#e2e8f0",
-                   rangemode="normal", ticksuffix=y_tick_suffix),
+                   rangemode="normal", ticksuffix=y_tick_suffix, fixedrange=True),
         font=dict(size=12, color="#334155"), showlegend=False,
         hoverlabel=dict(bgcolor="#1e293b", font_color="#f8fafc", font_size=12,
                         bordercolor="#1e293b"),
@@ -257,17 +257,25 @@ def _style(fig: go.Figure, title: str, y_tick_suffix: str = "") -> None:
 # ── Selector UI (shared) ──────────────────────────────────────────────────────
 
 def _selectors(mk: str, rk: str, mkey: str, rkey: str):
+    """Metric selector only — rendered above the chart."""
     sel_m = st.session_state.get(mk, "Portfolio Value")
     sel_r = st.session_state.get(rk, "1y")
     new_m = st.radio("", _METRICS, index=_METRICS.index(sel_m),
                      horizontal=True, key=mkey, label_visibility="collapsed")
-    new_r = st.radio("", _RANGES,  index=_RANGES.index(sel_r),
-                     horizontal=True, key=rkey, label_visibility="collapsed")
-    if new_m != sel_m or new_r != sel_r:
+    if new_m != sel_m:
         st.session_state[mk] = new_m
-        st.session_state[rk] = new_r
         st.rerun()
     return sel_m, sel_r
+
+
+def _range_sel(rk: str, rkey: str) -> None:
+    """Range selector — rendered below the chart."""
+    sel_r = st.session_state.get(rk, "1y")
+    new_r = st.radio("", _RANGES, index=_RANGES.index(sel_r),
+                     horizontal=True, key=rkey, label_visibility="collapsed")
+    if new_r != sel_r:
+        st.session_state[rk] = new_r
+        st.rerun()
 
 
 # ── Chart renderer for a single portfolio ────────────────────────────────────
@@ -280,8 +288,8 @@ def render(bundle: PortfolioBundle, port: str) -> None:
         st.info("No holdings to summarize.")
         return
 
-    sel_m, sel_r = _selectors(f"sum_m_{port}", f"sum_r_{port}",
-                               f"smm_{port}", f"smr_{port}")
+    mk, rk = f"sum_m_{port}", f"sum_r_{port}"
+    sel_m, sel_r = _selectors(mk, rk, f"smm_{port}", f"smr_{port}")
 
     with st.spinner("Loading… (first time only)"):
         val_full = _build_value_series(port_h, txns_port, usd_inr)
@@ -362,6 +370,8 @@ def render(bundle: PortfolioBundle, port: str) -> None:
                 _style(fig, "XIRR Trend (Monthly)", y_tick_suffix="%")
                 st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
+    _range_sel(rk, f"smr_{port}")
+
 
 # ── Chart renderer for a segment (multiple portfolios) ───────────────────────
 
@@ -369,6 +379,7 @@ def _render_multi(bundle: PortfolioBundle, filtered_h: pd.DataFrame) -> None:
     txns, usd_inr = bundle.transactions, bundle.usd_inr
     ports         = list(filtered_h["portfolio"].unique())
     sel_m, sel_r  = _selectors("sum_m_seg", "sum_r_seg", "smm_seg", "smr_seg")
+    _rk_seg = "sum_r_seg"
 
     def _val_series_list():
         out = []
@@ -465,6 +476,8 @@ def _render_multi(bundle: PortfolioBundle, filtered_h: pd.DataFrame) -> None:
                 fig.add_hline(y=0, line_color="#aaaaaa", line_dash="dot", line_width=1)
                 _style(fig, "XIRR Trend (Monthly)", y_tick_suffix="%")
                 st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
+
+    _range_sel(_rk_seg, "smr_seg")
 
 
 # ── Standalone page entry point ───────────────────────────────────────────────
