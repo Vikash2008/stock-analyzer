@@ -336,7 +336,7 @@ def render(bundle: PortfolioBundle, port: str) -> None:
                     rchg = ret.iloc[-1] - ret.iloc[0]
                     rc   = "#27ae60" if rchg >= 0 else "#e74c3c"
                     _stat("Return gain in period", f"{'+'if rchg>=0 else ''}{rchg:.1f}%", rc)
-                    fig = _line_fig(ret.index, ret.values, "Return %", gc, fmt=".1f", suffix="%")
+                    fig = _line_fig(ret.index, ret.values, "Return %", rc, fmt=".1f", suffix="%")
                     fig.add_hline(y=0, line_color="#aaaaaa", line_dash="dot", line_width=1)
                     _style(fig, "Return % Over Time", y_tick_suffix="%")
                     st.plotly_chart(fig, use_container_width=True)
@@ -438,7 +438,7 @@ def _render_multi(bundle: PortfolioBundle, filtered_h: pd.DataFrame) -> None:
                     rchg = ret.iloc[-1] - ret.iloc[0]
                     rc   = "#27ae60" if rchg >= 0 else "#e74c3c"
                     _stat("Return gain in period", f"{'+'if rchg>=0 else ''}{rchg:.1f}%", rc)
-                    fig = _line_fig(ret.index, ret.values, "Return %", gc, fmt=".1f", suffix="%")
+                    fig = _line_fig(ret.index, ret.values, "Return %", rc, fmt=".1f", suffix="%")
                     fig.add_hline(y=0, line_color="#aaaaaa", line_dash="dot", line_width=1)
                     _style(fig, "Return % Over Time", y_tick_suffix="%")
                     st.plotly_chart(fig, use_container_width=True)
