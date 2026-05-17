@@ -106,8 +106,9 @@ def _render_segment(bundle: PortfolioBundle) -> None:
             })
             meta.append({"sym": sym, "ports": ports})
 
-        rows.sort(key=lambda r: -r["_cur"])
-        meta = [m for _, m in sorted(zip([r["_cur"] for r in rows], meta), key=lambda x: -x[0])]
+        combined = sorted(zip(rows, meta), key=lambda x: -x[0]["_cur"])
+        rows = [r for r, _ in combined]
+        meta = [m for _, m in combined]
         df = pd.DataFrame(rows).drop(columns=["_cur"]).reset_index(drop=True)
 
         st.caption(f"{len(df)} symbols")
