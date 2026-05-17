@@ -45,7 +45,14 @@ with st.sidebar:
     refresh = st.button("🔄 Refresh prices")
 
 # ── Load bundle once (all portfolios) ─────────────────────────────────────────
-bundle = engine.build(currency=currency, force_refresh_prices=refresh)
+@st.cache_data(show_spinner="Loading portfolio…", ttl=1800)
+def _load_bundle(currency):
+    return engine.build(currency=currency, force_refresh_prices=False)
+
+if refresh:
+    _load_bundle.clear()
+
+bundle = _load_bundle(currency)
 
 with st.sidebar:
     st.caption(f"USD/INR: {bundle.usd_inr:.2f}")

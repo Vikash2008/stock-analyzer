@@ -41,6 +41,17 @@ def _xirr_str(txns, h_rows, prices, usd_inr) -> str:
     return f"{v*100:+.2f}%" if v is not None else "—"
 
 
+@st.cache_data(show_spinner=False, ttl=1800)
+def _batch_xirr(txns, h, usd_inr) -> dict:
+    prices = dict(zip(h["yf_symbol"], h["current_price"]))
+    out = {}
+    for sym, g in h.groupby("symbol"):
+        sym_t = txns[(txns["symbol"] == sym) & (~txns["portfolio"].isin(SKIP_PORTS))]
+        v = portfolio_xirr(sym_t, g, prices, usd_inr, "INR")
+        out[sym] = f"{v*100:+.2f}%" if v is not None else "—"
+    return out
+
+
 def _summary_card(label: str, cur: float, inv: float, is_usd: bool = False) -> None:
     gain  = cur - inv
     pct   = (gain / inv * 100) if inv else 0.0
@@ -82,6 +93,8 @@ def _render_segment(bundle: PortfolioBundle) -> None:
     view = st.radio("", ["Cumulative", "Standalone"], horizontal=True,
                     key="seg_view", label_visibility="collapsed")
 
+    xirr_map = _batch_xirr(txns, h, usd_inr)
+
     if view == "Cumulative":
         rows, meta = [], []
         for sym, g in h.groupby("symbol", sort=False):
@@ -92,14 +105,13 @@ def _render_segment(bundle: PortfolioBundle) -> None:
             pct_r  = (gain_r / inv_r * 100) if inv_r else 0.0
             s      = "+" if pct_r >= 0 else ""
             ports  = sorted(g["portfolio"].unique())
-            sym_t  = txns[(txns["symbol"] == sym) & (~txns["portfolio"].isin(SKIP_PORTS))]
             rows.append({
                 "Symbol":     sym,
                 "Invested":   _fmt(inv_r),
                 "Value":      _fmt(cur_r),
                 "G/L":        _fmt(gain_r),
                 "Return %":   f"{s}{pct_r:.1f}%",
-                "XIRR":       _xirr_str(sym_t, g, prices, usd_inr),
+                "XIRR":       xirr_map.get(sym, "—"),
                 "Qty":        round(qty, 2),
                 "Portfolios": ", ".join(ports),
                 "_cur":       cur_r,
@@ -128,9 +140,6 @@ def _render_segment(bundle: PortfolioBundle) -> None:
             gain_r = cur_r - inv_r
             pct_r  = (gain_r / inv_r * 100) if inv_r else 0.0
             s      = "+" if pct_r >= 0 else ""
-            sym_t  = txns[(txns["symbol"] == row["symbol"]) &
-                          (txns["portfolio"] == row["portfolio"]) &
-                          (~txns["portfolio"].isin(SKIP_PORTS))]
             rows.append({
                 "Symbol":    row["symbol"],
                 "Portfolio": row["portfolio"],
@@ -141,7 +150,7 @@ def _render_segment(bundle: PortfolioBundle) -> None:
                 "Value":     _fmt(cur_r),
                 "G/L":       _fmt(gain_r),
                 "Return %":  f"{s}{pct_r:.1f}%",
-                "XIRR":      _xirr_str(sym_t, row.to_frame().T, prices, usd_inr),
+                "XIRR":      xirr_map.get(row["symbol"], "—"),
                 "_cur":      cur_r,
             })
         rows.sort(key=lambda r: -r["_cur"])
@@ -188,6 +197,7 @@ def render(bundle: PortfolioBundle) -> None:
     view = st.radio("", ["Cumulative", "Standalone"], horizontal=True,
                     key="port_view", label_visibility="collapsed")
 
+    port_xirr_map = _batch_xirr(txns, port_h, usd_inr)
     rows = []
     for _, row in port_h.iterrows():
         inv_r  = row["total_invested"] if is_usd else row["disp_invested"]
@@ -195,7 +205,6 @@ def render(bundle: PortfolioBundle) -> None:
         gain_r = cur_r - inv_r
         pct_r  = (gain_r / inv_r * 100) if inv_r else 0.0
         s      = "+" if pct_r >= 0 else ""
-        sym_t  = txns[(txns["symbol"] == row["symbol"]) & (txns["portfolio"] == port)]
         rows.append({
             "Symbol":   row["symbol"],
             "Qty":      round(row["quantity"], 2),
@@ -205,7 +214,7 @@ def render(bundle: PortfolioBundle) -> None:
             "Value":    _fmt(cur_r, is_usd),
             "G/L":      _fmt(gain_r, is_usd),
             "Return %": f"{s}{pct_r:.1f}%",
-            "XIRR":     _xirr_str(sym_t, row.to_frame().T, prices, usd_inr),
+            "XIRR":     port_xirr_map.get(row["symbol"], "—"),
             "_cur":     cur_r,
         })
 
