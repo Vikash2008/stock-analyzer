@@ -198,25 +198,44 @@ def _tile(col, label, cur, inv, xirr_str, key, portfolio=None):
     gain_color   = "#1a7a3a" if is_pos else "#c0392b"
     border_color = "#27ae60" if is_pos else "#e74c3c"
     bg_color     = "#f0faf4" if is_pos else "#fdf3f2"
-    xirr_line = f'<div style="font-size:11px; color:#7f8c8d; margin-top:5px">XIRR &nbsp;<b>{xirr_str}</b></div>' if xirr_str else ""
+    xirr_display = xirr_str if xirr_str else "—"
     col.markdown(f"""
-<div style="background:{bg_color}; border:1px solid #dde6f0; border-radius:10px;
-            padding:14px 16px; margin-bottom:4px; border-left:4px solid {border_color}">
+<div style="background:{bg_color}; border:1px solid #dde6f0; border-radius:8px;
+            padding:10px 12px; border-left:3px solid {border_color}">
   <div style="font-size:11px; color:#7f8c8d; text-transform:uppercase;
-              letter-spacing:0.07em; margin-bottom:6px">{label}</div>
+              letter-spacing:0.07em; margin-bottom:3px">{label}</div>
   <div style="font-size:22px; font-weight:700; color:#1a2744; line-height:1.2">{_fmt(cur)}</div>
-  <div style="margin-top:6px; display:flex; gap:8px; align-items:baseline">
-    <span style="font-size:13px; font-weight:600; color:{gain_color}">{sign}{_fmt(gain)}</span>
-    <span style="font-size:15px; font-weight:700; color:{gain_color}">{sign}{pct:.1f}%</span>
+  <div style="margin-top:8px; display:grid; grid-template-columns:1fr 1fr; gap:4px 8px">
+    <div>
+      <div style="font-size:11px; color:#7f8c8d">INVESTED</div>
+      <div style="font-size:15px; font-weight:600; color:#1a2744">{_fmt(inv)}</div>
+    </div>
+    <div>
+      <div style="font-size:11px; color:#7f8c8d">P&amp;L</div>
+      <div style="font-size:15px; font-weight:700; color:{gain_color}">{sign}{_fmt(gain)}</div>
+    </div>
+    <div>
+      <div style="font-size:11px; color:#7f8c8d">RETURN</div>
+      <div style="font-size:15px; font-weight:700; color:{gain_color}">{sign}{pct:.1f}%</div>
+    </div>
+    <div>
+      <div style="font-size:11px; color:#7f8c8d">XIRR</div>
+      <div style="font-size:15px; font-weight:600; color:#1a2744">{xirr_display}</div>
+    </div>
   </div>
-  {xirr_line}
 </div>
 """, unsafe_allow_html=True)
-    if col.button("View Holdings →", key=key, use_container_width=True):
+    b1, b2 = col.columns(2, gap="small")
+    if b1.button("Holdings →", key=f"h_{key}", use_container_width=True):
         if portfolio:
             ui_state.navigate("holdings", portfolio=portfolio)
         else:
             ui_state.navigate("holdings", segment=key)
+    if b2.button("Summary →", key=f"s_{key}", use_container_width=True):
+        if portfolio:
+            ui_state.navigate("summary", portfolio=portfolio)
+        else:
+            ui_state.navigate("summary", segment=key)
 
 
 def render(bundle: PortfolioBundle) -> None:

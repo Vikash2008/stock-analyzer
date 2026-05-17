@@ -205,3 +205,15 @@ Applied automatically by `/ship` command before every deploy:
 | 2026-05-17 | Holdings table: added Invested and XIRR columns to both Cumulative and Standalone views |
 | 2026-05-17 | Row click in holdings directly navigates to transactions — no intermediate CTA button |
 | 2026-05-17 | sel_segment only cleared on navigate to "portfolios"; preserved through holdings→transactions→back flow |
+| 2026-05-17 | By Portfolio breakdown capped at 2 tiles per row for mobile safety |
+| 2026-05-17 | Fixed: stale Streamlit dataframe selection caused wrong holding to open — navigate() now clears all selection keys |
+| 2026-05-17 | Fixed: sel_segment not cleared when navigating to holdings via portfolio tile — navigate() now clears it for holdings too |
+| 2026-05-17 | Performance: bundle cached in memory (app.py @st.cache_data); XIRR batch-computed once per holdings render (holdings_page.py _batch_xirr) |
+| 2026-05-17 | Charts tab: range selector (1d–All) implemented as Streamlit radio below chart; data filtered before Plotly so y-axis auto-scales |
+| 2026-05-17 | Charts tab: history fetch extended to max(first_tx−30d, 5y ago) so all range buttons have data |
+| 2026-05-17 | Summary page added (dashboard/summary_page.py): Portfolio Value, Invested, P&L, XIRR Trend charts with range selector |
+| 2026-05-17 | Summary page: all heavy series (value, invested, XIRR) cached via @st.cache_data — range switching slices cached series (instant) |
+| 2026-05-17 | All portfolio tiles now show two CTAs: Holdings → and Summary → (stacked, not nested columns) |
+| 2026-05-17 | Summary → on aggregate/category tiles navigates to segment-level summary; XIRR Trend only available per-portfolio |
+| 2026-05-17 | Summary page registered as page=summary in app.py router; back button navigates to portfolios |
+| 2026-05-17 | summary_page.py has known bug in render() Portfolio Value block — _ used instead of fig variable — needs fix in next session |

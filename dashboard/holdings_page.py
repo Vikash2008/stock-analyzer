@@ -194,38 +194,45 @@ def render(bundle: PortfolioBundle) -> None:
     cur    = port_h["current_value"].sum()  * usd_inr if is_usd else port_h["disp_current"].sum()
     _summary_card(port, cur, inv, is_usd)
 
-    view = st.radio("", ["Cumulative", "Standalone"], horizontal=True,
-                    key="port_view", label_visibility="collapsed")
+    tab_hold, tab_sum = st.tabs(["Holdings", "Summary"])
 
-    port_xirr_map = _batch_xirr(txns, port_h, usd_inr)
-    rows = []
-    for _, row in port_h.iterrows():
-        inv_r  = row["total_invested"] if is_usd else row["disp_invested"]
-        cur_r  = row["current_value"]  if is_usd else row["disp_current"]
-        gain_r = cur_r - inv_r
-        pct_r  = (gain_r / inv_r * 100) if inv_r else 0.0
-        s      = "+" if pct_r >= 0 else ""
-        rows.append({
-            "Symbol":   row["symbol"],
-            "Qty":      round(row["quantity"], 2),
-            "Avg Cost": round(row["avg_cost"], 2),
-            "LTP":      round(row["current_price"], 2) if pd.notna(row.get("current_price")) else None,
-            "Invested": _fmt(inv_r, is_usd),
-            "Value":    _fmt(cur_r, is_usd),
-            "G/L":      _fmt(gain_r, is_usd),
-            "Return %": f"{s}{pct_r:.1f}%",
-            "XIRR":     port_xirr_map.get(row["symbol"], "—"),
-            "_cur":     cur_r,
-        })
+    with tab_hold:
+        view = st.radio("", ["Cumulative", "Standalone"], horizontal=True,
+                        key="port_view", label_visibility="collapsed")
 
-    rows.sort(key=lambda r: -r["_cur"])
-    df = pd.DataFrame(rows).drop(columns=["_cur"]).reset_index(drop=True)
+        port_xirr_map = _batch_xirr(txns, port_h, usd_inr)
+        rows = []
+        for _, row in port_h.iterrows():
+            inv_r  = row["total_invested"] if is_usd else row["disp_invested"]
+            cur_r  = row["current_value"]  if is_usd else row["disp_current"]
+            gain_r = cur_r - inv_r
+            pct_r  = (gain_r / inv_r * 100) if inv_r else 0.0
+            s      = "+" if pct_r >= 0 else ""
+            rows.append({
+                "Symbol":   row["symbol"],
+                "Qty":      round(row["quantity"], 2),
+                "Avg Cost": round(row["avg_cost"], 2),
+                "LTP":      round(row["current_price"], 2) if pd.notna(row.get("current_price")) else None,
+                "Invested": _fmt(inv_r, is_usd),
+                "Value":    _fmt(cur_r, is_usd),
+                "G/L":      _fmt(gain_r, is_usd),
+                "Return %": f"{s}{pct_r:.1f}%",
+                "XIRR":     port_xirr_map.get(row["symbol"], "—"),
+                "_cur":     cur_r,
+            })
 
-    st.caption(f"{len(df)} holdings")
-    ev = st.dataframe(df, use_container_width=True, hide_index=True,
-                      on_select="rerun", selection_mode="single-row", key="h_sel")
+        rows.sort(key=lambda r: -r["_cur"])
+        df = pd.DataFrame(rows).drop(columns=["_cur"]).reset_index(drop=True)
 
-    sel_rows = ev.selection.rows if ev and ev.selection else []
-    if sel_rows:
-        sym = df.iloc[sel_rows[0]]["Symbol"]
-        ui_state.navigate("transactions", portfolio=port, symbol=sym)
+        st.caption(f"{len(df)} holdings")
+        ev = st.dataframe(df, use_container_width=True, hide_index=True,
+                          on_select="rerun", selection_mode="single-row", key="h_sel")
+
+        sel_rows = ev.selection.rows if ev and ev.selection else []
+        if sel_rows:
+            sym = df.iloc[sel_rows[0]]["Symbol"]
+            ui_state.navigate("transactions", portfolio=port, symbol=sym)
+
+    with tab_sum:
+        from dashboard import summary_page
+        summary_page.render(bundle, port)

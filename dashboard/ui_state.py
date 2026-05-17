@@ -32,7 +32,7 @@ def navigate(page: str, portfolio: str = None, symbol: str = None, segment: str 
         st.session_state["sel_symbol"] = symbol
     if segment is not None:
         st.session_state["sel_segment"] = segment
-    elif page in ("portfolios", "holdings"):
+    elif page in ("portfolios", "holdings", "summary"):
         st.session_state.pop("sel_segment", None)
     for _k in ("h_sel", "seg_cum_sel", "seg_std_sel"):
         st.session_state.pop(_k, None)

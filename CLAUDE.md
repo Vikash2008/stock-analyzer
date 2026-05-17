@@ -40,8 +40,15 @@ python validate.py -r          # force price refresh
 
 ## Session State (2026-05-17)
 
-All UI work done locally. Not yet pushed to GitHub / Streamlit Cloud.
-Run `/ship` to deploy when ready.
+Last pushed commit: performance fixes + stale selection bug fix.
+Local-only changes NOT yet pushed (run /ship before next session):
+- dashboard/charts.py: range selector (1d–All) below chart, y-axis auto-scales, 5y history
+- dashboard/summary_page.py: NEW — portfolio/segment summary charts with full caching
+- dashboard/metrics.py: all tiles now show Holdings → and Summary → buttons
+- dashboard/holdings_page.py: Holdings | Summary tabs for portfolio view
+- dashboard/app.py: summary page route added
+- **Known bug in summary_page.py render()**: Portfolio Value block uses `_` instead of `fig` — fix first in next session
+- Refresh button + last-updated display: NOT YET IMPLEMENTED — planned for next session
 
 ## Active Files
 

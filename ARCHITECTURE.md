@@ -24,16 +24,18 @@ dashboard/
   ui_state.py               Navigation state (session_state + URL sync)
   classify.py               USD_PORTS, SKIP_PORTS, US_MF_SYMS, segment()
   metrics.py                Portfolio overview tiles, XIRR, breakdown
-  charts.py                 Price line + BUY/SELL bubble chart
+  charts.py                 Price line + BUY/SELL bubble chart + range selector
   portfolio_page.py         page=portfolios
-  holdings_page.py          page=holdings
+  holdings_page.py          page=holdings (Holdings tab + Summary tab)
   transactions_page.py      page=transactions (Transactions + Charts tabs)
+  summary_page.py           page=summary — portfolio/segment value, invested, P&L, XIRR charts
 
 data/
   msp_v2.csv                Transaction source file (source of truth)
   .cache.pkl                Persistent cache (do not delete)
 
 .streamlit/config.toml      Theme, headless, no usage stats
+.claude/commands/ship.md    Custom /ship slash command (mobile audit → commit → push)
 ```
 
 ---
@@ -44,16 +46,25 @@ data/
 app.py  (session_state["page"])
   ├─ "portfolios"   → portfolio_page.render(bundle)
   │      └─ metrics.render(bundle)
-  │            ├─ Portfolio tile "View Holdings →" → navigate("holdings", portfolio=X)
-  │            └─ Aggregate tile "View Holdings →" → navigate("holdings", segment=KEY)
+  │            ├─ Every tile → "Holdings →" + "Summary →" buttons
+  │            ├─ Portfolio tile "Holdings →"  → navigate("holdings", portfolio=X)
+  │            ├─ Portfolio tile "Summary →"   → navigate("summary",  portfolio=X)
+  │            ├─ Aggregate tile "Holdings →"  → navigate("holdings", segment=KEY)
+  │            └─ Aggregate tile "Summary →"   → navigate("summary",  segment=KEY)
   ├─ "holdings"     → holdings_page.render(bundle)
   │      ├─ sel_segment set → _render_segment() — Cumulative/Standalone toggle
   │      │      └─ row click → navigate("transactions", portfolio=X, symbol=Y)
-  │      └─ sel_portfolio set → portfolio holdings — Cumulative/Standalone toggle
-  │             └─ row click → navigate("transactions", portfolio=X, symbol=Y)
+  │      └─ sel_portfolio set → tabs: Holdings | Summary
+  │             ├─ Holdings tab: Cumulative/Standalone table → row click → transactions
+  │             └─ Summary tab: summary_page.render(bundle, port)
+  ├─ "summary"      → summary_page.render_page(bundle)
+  │      ├─ Metric selector: Portfolio Value | Invested | P&L | XIRR Trend
+  │      ├─ Range selector: 1m → All (slices cached series instantly)
+  │      ├─ sel_portfolio set → single-portfolio charts
+  │      └─ sel_segment set  → aggregated segment charts (XIRR not available)
   └─ "transactions" → transactions_page.render(bundle)
          ├─ Tab 1: Transactions table
-         └─ Tab 2: Charts (price history + BUY/SELL bubbles)
+         └─ Tab 2: Charts (price history + BUY/SELL bubbles + range selector)
 ```
 
 ### Session state keys
@@ -93,7 +104,9 @@ msp_v2.csv
 
 ---
 
-## Cache Layers (data/.cache.pkl)
+## Cache Layers
+
+### Disk cache (data/.cache.pkl)
 
 | Layer   | TTL       | Invalidated by                   |
 |---------|-----------|----------------------------------|
@@ -101,6 +114,18 @@ msp_v2.csv
 | prices  | 30 min    | TTL expiry or Refresh button     |
 | fx      | 30 min    | same as prices                   |
 | info    | 7 days    | TTL expiry                       |
+
+### Streamlit in-memory cache (@st.cache_data)
+
+| What                     | TTL    | Where                        |
+|--------------------------|--------|------------------------------|
+| `_load_bundle(currency)`        | 30 min | app.py — cleared on Refresh         |
+| `_compute_all(...)`             | 30 min | metrics.py                          |
+| `_batch_xirr(...)`              | 30 min | holdings_page.py                    |
+| `_fetch_history(symbol, start)` | 1 hr   | charts.py — lazy per symbol         |
+| `_build_value_series(h, fx)`    | 30 min | summary_page.py — full history      |
+| `_build_invested_series(t, p)`  | 30 min | summary_page.py — full history      |
+| `_build_xirr_trend(t, h, fx, p)`| 30 min | summary_page.py — monthly snapshots |
 
 ---
 
@@ -125,7 +150,8 @@ msp_v2.csv
 - Breakdown toggle: By Category (2×2) or By Portfolio (🇮🇳/🇺🇸 grouped)
 - Tile background tinted green/red by gain/loss
 - XIRR shown on all tiles (hidden when empty string passed)
-- Portfolio tiles link to holdings page; aggregate tiles show inline holdings drawer
+- Portfolio tiles → navigate to holdings page; aggregate/category tiles → navigate via segment key
+- By Portfolio breakdown renders max 2 tiles per row (mobile safe)
 
 ### holdings page
 - Two entry modes: portfolio-specific (`sel_portfolio`) or segment-based (`sel_segment`)
@@ -134,7 +160,8 @@ msp_v2.csv
 - Cumulative columns: Symbol / Invested / Value / G/L / Return% / XIRR / Qty / Portfolios
 - Standalone columns: Symbol / Portfolio / Qty / Avg Cost / LTP / Invested / Value / G/L / Return% / XIRR
 - Row click → immediately navigates to transactions page (no button)
-- `sel_segment` preserved through holdings → transactions → back navigation
+- `sel_segment` preserved through holdings → transactions → back; cleared when navigating to holdings via portfolio tile
+- Dataframe selection keys (`h_sel`, `seg_cum_sel`, `seg_std_sel`) cleared in `navigate()` to prevent stale-selection bug
 
 ### transactions page
 - Breadcrumb + back button
@@ -164,10 +191,10 @@ msp_v2.csv
 
 ## Commands (prompts/)
 
-| Slash command  | File                    | Does                                                  |
-|----------------|-------------------------|-------------------------------------------------------|
-| `/save_state`  | prompts/save_state.md   | Update app_UI.md → ARCHITECTURE.md → CLAUDE.md       |
-| `/ship`        | prompts/ship.md         | Mobile audit → git commit → git push → auto-deploy   |
+| Slash command  | File                          | Does                                                  |
+|----------------|-------------------------------|-------------------------------------------------------|
+| `/save_state`  | prompts/save_state.md         | Update app_UI.md → ARCHITECTURE.md → CLAUDE.md       |
+| `/ship`        | .claude/commands/ship.md      | Mobile audit → git commit → git push → auto-deploy   |
 
 ## Running
 
