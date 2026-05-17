@@ -229,3 +229,7 @@ Applied automatically by `/ship` command before every deploy:
 | 2026-05-17 | P&L and Invested series now use historical qty step function (BUY+/SELL-) × avg_cost — both aligned before subtraction |
 | 2026-05-17 | summary_page.py _ bug fixed: Portfolio Value block now assigns fig and passes it to st.plotly_chart |
 | 2026-05-17 | xirr_seg and xirr_multi_seg fixed: use ~isin(SKIP_PORTS) + filter txns by holdings syms/ports instead of segment() on txn rows |
+| 2026-05-17 | summary_page charts: zoom/drag disabled via dragmode=False + _CHART_CONFIG (scrollZoom:false, doubleClick:reset, displayModeBar:false) |
+| 2026-05-17 | summary_page Y-axis: fill default changed to False — rangemode="normal" now controls range without fill="tozeroy" forcing y=0 into view |
+| 2026-05-17 | summary_page stats: each chart shows one contextual value (gain in period / invested in period / P&L change / return gain / XIRR current) |
+| 2026-05-17 | summary_page Y-axis ticks: auto-scaled to Cr/L via _auto_scale(); % suffix for Return/XIRR charts |

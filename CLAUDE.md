@@ -46,6 +46,7 @@ Last changes (not yet pushed — run `/ship` to deploy):
 - dashboard/metrics.py: `xirr_seg` + `xirr_multi_seg` fixed — `~isin(SKIP_PORTS)` + filter txns by syms/ports sets
 - dashboard/summary_page.py: full rewrite — see summary_page key functions below
 - src/xirr.py: `portfolio_xirr` now accepts `terminal_override` + `terminal_date` optional params
+- dashboard/summary_page.py: zoom disabled on all charts (`dragmode=False` + `_CHART_CONFIG`); Y-axis range fixed (`fill=False` default — no longer forces y=0 into view); `gc` → `rc` bugfix in Return % chart
 
 ## summary_page.py — Key Functions & Decisions
 
