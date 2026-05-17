@@ -40,10 +40,14 @@ def portfolio_xirr(
     prices: Dict[str, Optional[float]],
     usd_inr: float = 85.5,
     display_currency: str = "INR",
+    terminal_override: Optional[float] = None,
+    terminal_date: Optional[pd.Timestamp] = None,
 ) -> Optional[float]:
     """
-    Build XIRR cash flows from all BUY/SELL/DIVIDEND transactions plus today's
-    portfolio value, normalising everything to `display_currency`.
+    Build XIRR cash flows from all BUY/SELL/DIVIDEND transactions plus a terminal
+    inflow, normalising everything to `display_currency`.
+    Pass terminal_override to use a pre-computed terminal value (e.g. historical),
+    otherwise it is computed from holdings × prices (today's value).
     """
     flows: List[Tuple[pd.Timestamp, float]] = []
 
@@ -61,18 +65,21 @@ def portfolio_xirr(
         else:  # DIVIDEND — pure inflow, no charges
             flows.append((tx["date"], amount))
 
-    # Terminal inflow: current portfolio value
-    today = pd.Timestamp.now().normalize()
-    current_total = 0.0
-    for _, row in holdings.iterrows():
-        price = prices.get(row["yf_symbol"])
-        if price is None:
-            continue
-        cv = float(row["quantity"]) * price
-        current_total += _convert(cv, row["currency"], display_currency, usd_inr)
-
-    if current_total > 0:
-        flows.append((today, current_total))
+    if terminal_override is not None:
+        t_date = terminal_date if terminal_date is not None else pd.Timestamp.now().normalize()
+        if terminal_override > 0:
+            flows.append((t_date, float(terminal_override)))
+    else:
+        today = pd.Timestamp.now().normalize()
+        current_total = 0.0
+        for _, row in holdings.iterrows():
+            price = prices.get(row["yf_symbol"])
+            if price is None:
+                continue
+            cv = float(row["quantity"]) * price
+            current_total += _convert(cv, row["currency"], display_currency, usd_inr)
+        if current_total > 0:
+            flows.append((today, current_total))
 
     return xirr(flows)
 

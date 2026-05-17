@@ -43,9 +43,35 @@ python validate.py -r          # force price refresh
 Last changes (not yet pushed — run `/ship` to deploy):
 - app.py: manual refresh button top-right; `_load_bundle` has NO TTL (manual-only)
 - dashboard/metrics.py: tile redesign — 2×2 grid (Invested / P&L / Return / XIRR), side-by-side CTAs
-- dashboard/metrics.py: `xirr_seg` + `xirr_multi_seg` fixed — `~isin(SKIP_PORTS)` + filter txns by holdings syms/ports
-- dashboard/summary_page.py: historical qty step function, invested FX fix, align-then-slice P&L, `_` → `fig` bug fixed
-- app_UI.md: updated with tile redesign, button styles, refresh decisions, all fixes logged
+- dashboard/metrics.py: `xirr_seg` + `xirr_multi_seg` fixed — `~isin(SKIP_PORTS)` + filter txns by syms/ports sets
+- dashboard/summary_page.py: full rewrite — see summary_page key functions below
+- src/xirr.py: `portfolio_xirr` now accepts `terminal_override` + `terminal_date` optional params
+
+## summary_page.py — Key Functions & Decisions
+
+**Metrics available:** Portfolio Value | Invested | Profit / Loss | Return % | XIRR Trend
+
+**Helpers:**
+- `_fmt_num(v)` — ₹ format: ≥1Cr → "₹X.XX Cr", ≥1L → "₹X.XX L", else "₹X,XXX"
+- `_auto_scale(s)` → (divisor, hover_suffix, tick_suffix) — picks Cr/L based on series magnitude
+- `_stat(label, value, color)` — one-line HTML stat above chart
+- `_line_fig(x, y, name, color, fmt, suffix, divisor, fill)` — divisor scales y; fill=False for Value/Invested
+- `_style(fig, title, y_tick_suffix)` — rangemode="normal" so Y axis fits data, not forced to 0
+
+**Stat shown per chart:**
+- Portfolio Value → gain in period (val[-1] - val[0])
+- Invested → invested in period (inv[-1] - inv[0])
+- Profit / Loss → gain/loss change in period (pnl[-1] - pnl[0])
+- Return % → return gain in period (ret[-1] - ret[0])
+- XIRR Trend → current XIRR (s[-1])
+
+**XIRR Trend — segment fix:**
+- `_build_xirr_trend_multi(txns_seg, port_h, usd_inr)` — uses historical val_series at each month T as terminal (not today's value), prevents artificial downtrend from multi-portfolio segments
+- `_build_xirr_trend(txns, port_h, usd_inr, portfolio)` — single portfolio, uses today's terminal (unchanged)
+
+**render(bundle, port)** — single portfolio entry point
+**_render_multi(bundle, filtered_h)** — segment entry; builds combined val+inv series, same chart/stat logic
+**render_page(bundle)** — routes to render() or _render_multi() based on sel_portfolio / sel_segment
 
 ## Active Files
 

@@ -123,9 +123,10 @@ msp_v2.csv
 | `_compute_all(...)`                         | 30 min   | metrics.py                                  |
 | `_batch_xirr(...)`                          | 30 min   | holdings_page.py                            |
 | `_fetch_history(symbol, start)`             | 1 hr     | charts.py — lazy per symbol                 |
-| `_build_value_series(port_h, txns, fx)`     | 30 min   | summary_page.py — historical qty × price    |
-| `_build_invested_series(port_h, txns, fx)`  | 30 min   | summary_page.py — historical qty × avg_cost |
-| `_build_xirr_trend(t, h, fx, p)`           | 30 min   | summary_page.py — monthly snapshots         |
+| `_build_value_series(port_h, txns, fx)`          | 30 min   | summary_page.py — historical qty × price         |
+| `_build_invested_series(port_h, txns, fx)`       | 30 min   | summary_page.py — historical qty × avg_cost      |
+| `_build_xirr_trend(txns, port_h, fx, portfolio)` | 30 min   | summary_page.py — monthly XIRR, today's terminal |
+| `_build_xirr_trend_multi(txns_seg, port_h, fx)`  | 30 min   | summary_page.py — segment XIRR, historical terminal |
 
 ---
 

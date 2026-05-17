@@ -41,9 +41,11 @@ def _compute_all(h, txns, usd_inr):
         totals[seg][1] += row["current_value"]  * usd_inr if is_usd else row["disp_current"]
 
     def xirr_seg(seg_name):
-        filt = h["portfolio"].apply(lambda p: segment(p, "") != "skip") & \
+        filt = (~h["portfolio"].isin(SKIP_PORTS)) & \
                h.apply(lambda r: segment(r["portfolio"], r["yf_symbol"]) == seg_name, axis=1)
-        filt_t = txns.apply(lambda r: segment(r.get("portfolio",""), r.get("yf_symbol","")) == seg_name, axis=1)
+        syms  = set(h[filt]["yf_symbol"])
+        ports = set(h[filt]["portfolio"])
+        filt_t = txns["portfolio"].isin(ports) & txns["yf_symbol"].isin(syms)
         v = portfolio_xirr(txns[filt_t], h[filt], prices, usd_inr, "INR")
         return f"{v*100:+.2f}%" if v is not None else "N/A"
 
