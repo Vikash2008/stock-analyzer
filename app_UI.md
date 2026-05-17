@@ -1,8 +1,8 @@
 # app_UI.md — UI Design Decisions
 
-> Load this at session start alongside ARCHITECTURE.md and CLAUDE.md.
+> Load at session start alongside ARCHITECTURE.md and CLAUDE.md.
 > All visual/layout/interaction decisions are recorded here.
-> When making a UI change, update this file before closing the session.
+> Update this file at session end if any UI decisions changed.
 
 ---
 
@@ -10,43 +10,73 @@
 
 - Layout: `wide`
 - Header: hidden via CSS (`header[data-testid="stHeader"] { display: none }`)
-- Top padding reduced: `.block-container { padding-top: 1rem }`
-- Config: `.streamlit/config.toml` — dark sidebar, custom primary color
+- Top padding: `.block-container { padding-top: 1rem }`
+- All Streamlit branding suppressed: `#MainMenu`, `footer`, `stToolbar`, `stDecoration`, `stBottom`, `stBottomBlockContainer`, `stStatusWidget`, `.viewerBadge_container__r5tak`, `.viewerBadge_link__qRIco`
+- `toolbarMode = "minimal"` in `.streamlit/config.toml` (config-level branding suppression)
 
 ### Sidebar
-- Background: `#1a2744` (dark navy)
-- Text: `#c8d6f0`
-- Buttons: background `#2e4a8a`, no border, white text
-- Contents: currency radio (INR/USD), Refresh button, USD/INR rate caption, cache expander
+- Background: `linear-gradient(180deg, #0d1b2e 0%, #162640 100%)`
+- Text: `#b8cce8`
+- Buttons: `#1e3a5f` bg, `#2a4a75` border, `#e2eaf5` text; hover → `#2563eb`
+- Contents: currency radio (INR/USD), divider, USD/INR rate caption, cache expander
 
 ### Global button style
 ```css
-font-size: 11px; padding: 2px 8px; border-radius: 5px;
-border: 1px solid #c8d6f0; color: #1a2744; background: #f0f4fb;
-hover → background: #2e4a8a; color: #fff;
+font-size: 11px; padding: 3px 10px; border-radius: 6px;
+border: 1px solid #e2e8f0; color: #334155; background: #ffffff;
+box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+hover → background: #2563eb; color: #fff; border-color: #2563eb;
 ```
-- Column element container spacing: `[data-testid="column"] [data-testid="element-container"] { margin-bottom: 2px }`
 
 ### Dataframe headers
-- Background: `#f0f4fb`, color: `#1a2744`, font-size: 12px
+```css
+background: #f1f5f9; color: #475569; font-size: 11px;
+font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+```
+
+### Dataframe rows
+```css
+font-size: 12px; color: #1e293b;
+```
+
+### Mobile media query (@media max-width: 768px)
+Targets CSS classes added to HTML markdown elements — desktop layout unchanged:
+```css
+.block-container { padding: 0.4rem 0.75rem }
+.portfolio-tile  { padding: 8px 10px; border-radius: 8px }
+.tile-label      { font-size: 9px; margin-bottom: 2px }
+.tile-value      { font-size: 17px }
+.tile-grid       { margin-top: 6px; gap: 3px 6px }
+.tile-sublabel   { font-size: 9px }
+.tile-subval     { font-size: 12px }
+.summary-card    { padding: 10px 12px; border-radius: 8px }
+.card-value      { font-size: 18px }
+.stButton > button { font-size: 10px; padding: 2px 8px }
+```
 
 ---
 
 ## Colour Palette
 
-| Role            | Hex       |
-|-----------------|-----------|
-| Gain / positive | `#27ae60` (border), `#1a7a3a` (text) |
-| Loss / negative | `#e74c3c` (border), `#c0392b` (text) |
-| Gain bg         | `#f0faf4` |
-| Loss bg         | `#fdf3f2` |
-| Navy (heading)  | `#1a2744` |
-| Blue (accent)   | `#2e4a8a` |
-| Tile border     | `#dde6f0` |
-| Card bg         | `#f0f4fb` |
-| Muted text      | `#7f8c8d` |
-| Caption text    | `#6b7fa3` |
-| Grid lines      | `#f0f4fb` |
+| Role                  | Hex        |
+|-----------------------|------------|
+| Gain text             | `#0a7a42`  |
+| Loss text             | `#be1c1c`  |
+| Gain border           | `#10b981`  |
+| Loss border           | `#f43f5e`  |
+| Gain tile bg          | `#f0fdf8`  |
+| Loss tile bg          | `#fff5f5`  |
+| Main text             | `#0f172a`  |
+| Sub-label text        | `#94a3b8`  |
+| Sub-value text        | `#334155`  |
+| Muted / caption text  | `#64748b`  |
+| Accent blue           | `#2563eb`  |
+| Primary navy          | `#2e4a8a`  |
+| Card border           | `#e2e8f0`  |
+| Grid lines            | `#f1f5f9`  |
+| Chart price line      | `#3b82f6`  |
+| Chart BUY marker      | `#10b981`  |
+| Chart SELL marker     | `#f43f5e`  |
 
 ---
 
@@ -57,47 +87,40 @@ hover → background: #2e4a8a; color: #fff;
 - Row 2: 2-col — **Stocks** | **Mutual Funds**
 - Row 3: Breakdown toggle (By Category / By Portfolio)
 
-### Tile card style
+### Tile card style (CSS class: `portfolio-tile`)
 ```
 background: gain_bg or loss_bg
-border: 1px solid #dde6f0; border-radius: 8px; padding: 10px 12px
-border-left: 3px solid gain/loss border color
+border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px
+border-left: 4px solid gain/loss border color
+box-shadow: 0 1px 4px rgba(0,0,0,0.06)
 ```
-- Label: 11px, `#7f8c8d`, uppercase, letter-spacing 0.07em
-- Current Value: 22px, bold `#1a2744`, line-height 1.2
-- 2×2 metric grid (CSS `grid-template-columns: 1fr 1fr; gap: 4px 8px`):
-  - INVESTED: label 11px `#7f8c8d`, value 15px bold `#1a2744`
-  - P&L: label 11px `#7f8c8d`, value 15px bold, gain/loss color, signed
-  - RETURN: label 11px `#7f8c8d`, value 15px bold, gain/loss color, signed %
-  - XIRR: label 11px `#7f8c8d`, value 15px `#1a2744`
-- Tile margin-top: 8px before 2×2 grid
+- Label (`tile-label`): 10px, `#94a3b8`, uppercase, letter-spacing 0.08em
+- Current Value (`tile-value`): 22px, bold `#0f172a`, line-height 1.2
+- 2×2 metric grid (`tile-grid`): `grid-template-columns: 1fr 1fr; gap: 6px 8px; margin-top: 10px`
+  - Sub-labels (`tile-sublabel`): 10px, `#94a3b8`, uppercase
+  - Sub-values (`tile-subval`): 14px bold — INVESTED `#334155`, P&L/RETURN gain/loss color, XIRR `#334155`
 
 ### Tile interaction
-- **All tiles** show two side-by-side CTAs: `Holdings →` | `Summary →`
-  - Rendered via `col.columns(2, gap="small")` in each tile column
-- Portfolio tiles → navigate to holdings/summary page filtered by that portfolio
-- Aggregate/category tiles → navigate using segment key (total / stk / mf / indian_stock / us_stock / indian_mf / us_mf)
-- No inline holdings drawer — removed entirely
-
-### By Category breakdown
-- 2×2 grid: Indian Stocks | US Stocks / Indian MF | US MF
+- Two side-by-side CTAs: `Holdings →` | `Summary →` via `col.columns(2, gap="small")`
+- Portfolio tiles → navigate by portfolio name
+- Aggregate/category tiles → navigate by segment key (total / stk / mf / indian_stock / us_stock / indian_mf / us_mf)
 
 ### By Portfolio breakdown
-- India section header: `🇮🇳 India` (11px, `#6b7fa3`, uppercase)
-- US section header: `🇺🇸 US` (same style)
-- Tiles sorted by current value descending within each group
-- Column count = number of portfolios in that group
+- India `🇮🇳` and US `🇺🇸` section headers (11px, `#6b7fa3`, uppercase)
+- Max 2 tiles per row (mobile safe)
+- Sorted by current value descending within each group
 
 ---
 
 ## Holdings Page (holdings_page.py)
 
-### Summary card (shared style)
+### Summary card (CSS class: `summary-card`)
 ```
-background: #f0f4fb; border: 1px solid #c8d6f0; border-radius: 10px; padding: 12px 16px
+background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px
+padding: 14px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06)
 ```
-- Label (portfolio name or segment name): 12px, `#7f8c8d`
-- Current value: 22px, bold, `#1a2744`
+- Label: 10px, `#94a3b8`, uppercase
+- Current value (`card-value`): 22px, bold `#0f172a`
 - Gain + %: 13px bold, gain/loss color
 
 ### Toggle
@@ -112,124 +135,123 @@ Symbol / Portfolio / Qty / Avg Cost / LTP / Invested / Value / G/L / Return% / X
 ### Interaction
 - Table sorted by current value descending
 - Row click → immediately navigates to Transactions page (no button)
-- Cumulative: single-portfolio symbol navigates with portfolio; multi-portfolio navigates with symbol only
 - Back button: `"← All Portfolios"` (portfolio view) or `"← Overview"` (segment view)
 
 ---
 
 ## Transactions Page (transactions_page.py)
 
-### Breadcrumb
-- With portfolio: `Portfolios → {port} → {sym}`
-- Without portfolio (multi-portfolio cumulative): `Portfolios → {sym}`
-- Back button: `"← Back to {port} Holdings"` or `"← Back to Holdings"` when no portfolio
-
-### Symbol overview card
-```
-background: #f0f4fb; border: 1px solid #c8d6f0; border-radius: 10px; padding: 12px 16px
-```
-- Context: `{port} · {sym}` — 12px, `#7f8c8d`
-- Current value: 22px, bold, `#1a2744`
+### Symbol overview card (same style as summary-card above)
+- Context: `{port} · {sym}` — 12px, `#94a3b8`
+- Current value: 22px bold `#0f172a`
 - Gain + %: 13px bold, gain/loss color
-- Footer: Qty · Avg Cost · LTP — 11px, `#7f8c8d`
+- Footer: Qty · Avg Cost · LTP — 11px, `#94a3b8`
 
 ### Tabs
-- Tab 1 **Transactions**: table, sorted newest-first, columns Date/Type/Qty/Price/Charges
-- Tab 2 **Charts**: price history line + BUY (green `#27ae60`) / SELL (red `#e74c3c`) bubbles
-
-### Charts tab (charts.py)
-- Price line: color `#2e4a8a`, width 1.5
-- Bubble size: proportional to tx_value (range 10–46px)
-- BUY marker: `#27ae60`, opacity 0.85, white outline
-- SELL marker: `#e74c3c`, opacity 0.85, white outline
-- Chart height: 400px, no margins
-- Legend: horizontal, top-right
-- Background: `#ffffff` (plot + paper)
-- Grid: `#f0f4fb`
-- If price history unavailable: warning shown, bubble chart still renders
+- Tab 1 **Transactions**: sorted newest-first, columns Date/Type/Qty/Price/Charges
+- Tab 2 **Charts**: price history line + BUY/SELL bubbles
 
 ---
 
-## Number Formatting (_fmt functions)
+## Charts (charts.py — BUY/SELL bubble chart)
 
-### INR (default)
-| Amount        | Format         |
-|---------------|----------------|
-| ≥ 1 Cr (1e7)  | `₹X.XX Cr`     |
-| ≥ 1 L (1e5)   | `₹X.XX L`      |
-| < 1 L         | `₹X,XXX`       |
+- Price line: `#3b82f6`, width 2
+- BUY marker: `#10b981`, opacity 0.85, white outline
+- SELL marker: `#f43f5e`, opacity 0.85, white outline
+- Bubble size: proportional to tx_value (range 10–46px)
+- Chart height: 400px; margins l/r/t/b = 0/0/10/0
+- Legend: horizontal, `y=1.01` (above chart area), left-aligned
+- Background: `#ffffff`; grid: `#f1f5f9`
+- Dark hover tooltip: bg `#1e293b`, text `#f8fafc`
+- **Zoom disabled**: `fixedrange=True` on both axes — no touch box-select, no pinch zoom
+- Range selector: radio below chart (`1d` → `All`), persisted in `chart_range_{yf_symbol}`
+- History fetch: from `min(first_tx − 30d, 5y ago)`
+
+---
+
+## Summary Page (summary_page.py)
+
+### Metrics
+Portfolio Value | Invested | Profit / Loss | Return % | XIRR Trend
+
+### Layout
+1. **Metric selector** (above chart) — horizontal radio, 5 options
+2. `_stat` pill — one contextual value for the selected period
+3. **Chart** — line chart, height 380px
+4. **Range selector** (below chart) — horizontal radio, `1m` → `All`
+
+Metric and range selectors are intentionally split above/below the chart to prevent
+visual crowding on mobile (was the cause of selector/legend overlap on narrow screens).
+
+### Chart style
+- All charts: `fixedrange=True` both axes, `dragmode=False`, `displayModeBar: False`
+- Y-axis: `rangemode="normal"` (auto-fits data, never forces y=0 into view)
+- Y-axis ticks: auto-scaled Cr/L via `_auto_scale()`, % suffix for Return/XIRR
+- No chart legend (`showlegend=False`)
+- Dark hover tooltip
+
+### Stat per chart
+| Metric          | Stat shown                         |
+|-----------------|------------------------------------|
+| Portfolio Value | Gain in period (val[-1] − val[0])  |
+| Invested        | Invested in period (inv[-1] − inv[0]) |
+| Profit / Loss   | P&L change in period               |
+| Return %        | Return gain in period (ret[-1] − ret[0]) |
+| XIRR Trend      | Current XIRR (s[-1])               |
+
+### XIRR Trend — segment vs single-portfolio
+- Single portfolio: `_build_xirr_trend()` — uses today's terminal value
+- Segment (multiple portfolios): `_build_xirr_trend_multi()` — uses historical val_series at each month T as terminal (prevents artificial downtrend when early months have fewer portfolios)
+
+---
+
+## Number Formatting
+
+### INR
+| Amount   | Format     |
+|----------|------------|
+| ≥ 1 Cr   | `₹X.XX Cr` |
+| ≥ 1 L    | `₹X.XX L`  |
+| < 1 L    | `₹X,XXX`   |
 
 ### USD
-| Amount        | Format         |
-|---------------|----------------|
-| ≥ 1K (1e3)    | `$X.XK`        |
-| < 1K          | `$X,XXX`       |
+| Amount | Format  |
+|--------|---------|
+| ≥ 1K   | `$X.XK` |
+| < 1K   | `$X,XXX`|
 
 ---
 
 ## Navigation UX
 
-- No back button on portfolios page (it is the root)
-- Holdings page: `"← All Portfolios"` button at top
-- Transactions page: `"← Back to {port} Holdings"` button at top
-- URL query params synced on load so browser refresh preserves page state
-- `go_back()`: transactions → holdings → portfolios
+- No back button on portfolios page (root)
+- Holdings: `"← All Portfolios"` or `"← Overview"` depending on entry mode
+- Transactions: `"← Back to {port} Holdings"` or `"← Back to Holdings"`
+- URL query params synced on load (browser refresh preserves page state)
+- `navigate()` clears all dataframe selection keys to prevent stale-selection bug
 
 ---
 
-## Mobile / Responsive
+## Mobile / Responsive Rules
 
-- 2-col grids used throughout (works on phone)
-- Full-width total tile
-- `use_container_width=True` on all dataframes and charts
-- Caption text 11px for compact display
-
----
-
-
-## Mobile Design Rules
-
-Applied automatically by `/ship` command before every deploy:
-- `st.columns(N)` — max 2 columns on any page that renders on mobile
-- All HTML markdown widths must fit within 375px (no fixed px widths wider than screen)
-- Font sizes in HTML markdown: labels 11–12px, values 18–22px max
+Applied automatically by `/ship` before every deploy:
+- `st.columns(N)` — max 2 on any mobile-rendered page
+- All HTML markdown fits within 375px (no fixed px widths wider than screen)
 - `use_container_width=True` on every `st.dataframe` and `st.plotly_chart`
-- Chart height 400px max (fits phone without scrolling)
-- Tile padding: `12px 16px` (compact but tappable)
+- Chart height ≤ 400px
+- Mobile overrides via `@media (max-width: 768px)` only — desktop unchanged
 
 ---
 
-## Decisions Log
+## Key Decisions (non-obvious only)
 
 | Date       | Decision |
 |------------|----------|
-| 2026-05-17 | Removed inline holdings drawer from overview page; portfolio tiles now navigate to holdings page via "View Holdings →" button |
-| 2026-05-17 | Deleted dead files: filters.py, holdings.py, transactions.py, portfolio_split.py, trade_bubbles.py, src/charts.py |
-| 2026-05-17 | Aggregate tiles (Total, Stocks, MF, category) are display-only — no drill-down button |
-| 2026-05-17 | All tiles now show "View Holdings →" button; aggregate tiles pass segment key, portfolio tiles pass portfolio name |
-| 2026-05-17 | Holdings page: Cumulative/Standalone toggle added; default is Cumulative |
-| 2026-05-17 | Holdings table: added Invested and XIRR columns to both Cumulative and Standalone views |
-| 2026-05-17 | Row click in holdings directly navigates to transactions — no intermediate CTA button |
-| 2026-05-17 | sel_segment only cleared on navigate to "portfolios"; preserved through holdings→transactions→back flow |
-| 2026-05-17 | By Portfolio breakdown capped at 2 tiles per row for mobile safety |
-| 2026-05-17 | Fixed: stale Streamlit dataframe selection caused wrong holding to open — navigate() now clears all selection keys |
-| 2026-05-17 | Fixed: sel_segment not cleared when navigating to holdings via portfolio tile — navigate() now clears it for holdings too |
-| 2026-05-17 | Performance: bundle cached in memory (app.py @st.cache_data); XIRR batch-computed once per holdings render (holdings_page.py _batch_xirr) |
-| 2026-05-17 | Charts tab: range selector (1d–All) implemented as Streamlit radio below chart; data filtered before Plotly so y-axis auto-scales |
-| 2026-05-17 | Charts tab: history fetch extended to max(first_tx−30d, 5y ago) so all range buttons have data |
-| 2026-05-17 | Summary page added (dashboard/summary_page.py): Portfolio Value, Invested, P&L, XIRR Trend charts with range selector |
-| 2026-05-17 | Summary page: all heavy series (value, invested, XIRR) cached via @st.cache_data — range switching slices cached series (instant) |
-| 2026-05-17 | All portfolio tiles now show two CTAs: Holdings → and Summary → (stacked, not nested columns) |
-| 2026-05-17 | Summary → on aggregate/category tiles navigates to segment-level summary; XIRR Trend only available per-portfolio |
-| 2026-05-17 | Summary page registered as page=summary in app.py router; back button navigates to portfolios |
-| 2026-05-17 | Tile redesign: Current Value large (22px) + 2×2 grid (Invested/P&L/Return/XIRR at 15px), compact padding 10px 12px, border-left 3px |
-| 2026-05-17 | Tile CTAs changed from stacked to side-by-side: Holdings → | Summary →  via col.columns(2, gap="small") |
-| 2026-05-17 | Manual-only refresh: _load_bundle has no TTL; Refresh button invalidates disk prices+fx, clears Streamlit cache, reruns |
-| 2026-05-17 | Refresh button top-right via st.columns([5,1]); shows "As of DD Mon HH:MM" caption above button |
-| 2026-05-17 | P&L and Invested series now use historical qty step function (BUY+/SELL-) × avg_cost — both aligned before subtraction |
-| 2026-05-17 | summary_page.py _ bug fixed: Portfolio Value block now assigns fig and passes it to st.plotly_chart |
-| 2026-05-17 | xirr_seg and xirr_multi_seg fixed: use ~isin(SKIP_PORTS) + filter txns by holdings syms/ports instead of segment() on txn rows |
-| 2026-05-17 | summary_page charts: zoom/drag disabled via dragmode=False + _CHART_CONFIG (scrollZoom:false, doubleClick:reset, displayModeBar:false) |
-| 2026-05-17 | summary_page Y-axis: fill default changed to False — rangemode="normal" now controls range without fill="tozeroy" forcing y=0 into view |
-| 2026-05-17 | summary_page stats: each chart shows one contextual value (gain in period / invested in period / P&L change / return gain / XIRR current) |
-| 2026-05-17 | summary_page Y-axis ticks: auto-scaled to Cr/L via _auto_scale(); % suffix for Return/XIRR charts |
+| 2026-05-17 | `_load_bundle` has **no TTL** — refresh is manual-only via Refresh button. Prevents stale prices without user intent. |
+| 2026-05-17 | `sel_segment` cleared only when navigating to `portfolios` — preserved through holdings→transactions→back flow. |
+| 2026-05-17 | `navigate()` clears all dataframe selection keys — fixes stale Streamlit selection showing wrong holding on click. |
+| 2026-05-17 | `xirr_seg`/`xirr_multi_seg`: filter holdings first, build syms+ports sets, filter txns by those sets. Do NOT call `segment()` on every txn row (wrong + slow). |
+| 2026-05-17 | XIRR Trend for segments uses historical `val_series[T]` as terminal at each month T (not today's value). Using today's terminal inflates early months and causes artificial downtrend. |
+| 2026-05-17 | Summary page: metric selector **above** chart, range selector **below** chart. Putting both above caused visual overlap on mobile narrow screens. |
+| 2026-05-17 | All charts: `fixedrange=True` on both axes. `dragmode=False` alone does not suppress touch box-select on mobile — `fixedrange` is required. |
+| 2026-05-17 | CSS classes added to tile/card HTML (`portfolio-tile`, `tile-value`, etc.) so `@media` queries can override inline styles without touching desktop. |

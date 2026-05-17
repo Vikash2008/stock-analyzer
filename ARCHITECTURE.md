@@ -58,10 +58,10 @@ app.py  (session_state["page"])
   │             ├─ Holdings tab: Cumulative/Standalone table → row click → transactions
   │             └─ Summary tab: summary_page.render(bundle, port)
   ├─ "summary"      → summary_page.render_page(bundle)
-  │      ├─ Metric selector: Portfolio Value | Invested | P&L | XIRR Trend
-  │      ├─ Range selector: 1m → All (slices cached series instantly)
+  │      ├─ Metric selector (above chart): Portfolio Value | Invested | P&L | Return % | XIRR Trend
+  │      ├─ Range selector (below chart): 1m → All (slices cached series instantly)
   │      ├─ sel_portfolio set → single-portfolio charts
-  │      └─ sel_segment set  → aggregated segment charts (XIRR not available)
+  │      └─ sel_segment set  → aggregated segment charts
   └─ "transactions" → transactions_page.render(bundle)
          ├─ Tab 1: Transactions table
          └─ Tab 2: Charts (price history + BUY/SELL bubbles + range selector)
