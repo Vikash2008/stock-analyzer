@@ -1,0 +1,19 @@
+# Cache
+data/.cache.pkl
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+venv/
+.venv/
+
+# Claude / editor
+.claude/
+SESSION_STATE.md
+*.pkl
+
+# OS
+.DS_Store
+Thumbs.db

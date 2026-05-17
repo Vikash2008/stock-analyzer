@@ -1,0 +1,88 @@
+from typing import Dict, List, Optional
+
+import pandas as pd
+import yfinance as yf
+
+
+def get_current_prices(symbols: List[str]) -> Dict[str, Optional[float]]:
+    """Batch-fetch the latest close price for each yfinance symbol."""
+    if not symbols:
+        return {}
+    try:
+        raw = yf.download(
+            symbols,
+            period="5d",
+            auto_adjust=True,
+            progress=False,
+            threads=True,
+        )
+        close = raw["Close"] if "Close" in raw else raw
+
+        # Single-symbol download returns a Series; multi-symbol returns a DataFrame
+        if isinstance(close, pd.Series):
+            close = close.to_frame(name=symbols[0])
+        elif isinstance(close.columns, pd.MultiIndex):
+            close = close.droplevel(0, axis=1)
+
+        result: Dict[str, Optional[float]] = {}
+        for sym in symbols:
+            try:
+                series = close[sym].dropna() if sym in close.columns else pd.Series()
+                result[sym] = float(series.iloc[-1]) if not series.empty else None
+            except Exception:
+                result[sym] = None
+        return result
+    except Exception:
+        return {s: None for s in symbols}
+
+
+def get_tickers_info(symbols: List[str]) -> Dict[str, dict]:
+    """
+    Fetch sector / company-name metadata for all symbols.
+    Uses fast_info for speed; falls back to full .info on failure.
+    """
+    result: Dict[str, dict] = {}
+    for sym in symbols:
+        try:
+            t = yf.Ticker(sym)
+            fi = t.fast_info
+            name = (
+                getattr(fi, "display_name", None)
+                or getattr(fi, "short_name", None)
+            )
+            # fast_info doesn't carry sector — fall back to .info for that
+            info = t.info
+            result[sym] = {
+                "sector":   info.get("sector")   or "Unknown",
+                "industry": info.get("industry") or "Unknown",
+                "name":     info.get("longName") or info.get("shortName") or name or sym,
+            }
+        except Exception:
+            result[sym] = {"sector": "Unknown", "industry": "Unknown", "name": sym}
+    return result
+
+
+def get_usd_inr_rate() -> float:
+    """Return live USD/INR rate, trying multiple methods, falling back to 85.5."""
+    for ticker in ("INR=X", "USDINR=X"):
+        try:
+            info = yf.Ticker(ticker).fast_info
+            rate = getattr(info, "last_price", None) or getattr(info, "regular_market_price", None)
+            if rate and 70 < rate < 120:
+                return float(rate)
+        except Exception:
+            pass
+    for ticker in ("INR=X", "USDINR=X"):
+        try:
+            raw = yf.download(ticker, period="5d", auto_adjust=True, progress=False)
+            close = raw["Close"] if "Close" in raw else raw
+            if hasattr(close, "squeeze"):
+                close = close.squeeze()
+            series = close.dropna()
+            if not series.empty:
+                rate = float(series.iloc[-1])
+                if 70 < rate < 120:
+                    return rate
+        except Exception:
+            pass
+    return 85.5
