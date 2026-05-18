@@ -2,7 +2,7 @@
 
 ## BOOT PROTOCOL — Execution Mode (Every Session)
 
-1. Read **always** at session start: this file (`CLAUDE.md`), `ARCHITECTURE.md`, and `app_UI.md`.
+1. Read **always** at session start: this file (`CLAUDE.md`), `ARCHITECTURE.md`, `app_UI.md`, and `~/.claude/projects/C--Users-Admin-stock-analyzer/memory/project_mobile_streamlit.md`.
 2. Then read files directly related to the task being asked.
 3. Do **not** perform a full repository scan unless explicitly requested.
 4. Assume all existing code is correct unless the user shows an error.
@@ -16,7 +16,7 @@
 - **No unsolicited cleanup.** Do not fix things that weren't broken, rename variables, or improve code that wasn't touched by the task.
 - **Speed over thoroughness.** Optimize for fast response and minimal token usage.
 - **One question max if ambiguous.** Ask one specific question. Do not ask for confirmation on obvious steps.
-- **UI tasks = file edits only.** Do not start Streamlit, run tests, or check git status unless explicitly asked.
+- **Ship after every change.** After any code edit (UI or backend), immediately run `/ship` — no confirmation needed. Local dashboard is obsolete; the user only verifies on mobile via Streamlit Cloud.
 - **Output rule.** Direct implementation or fix. No long explanations. No alternative approaches.
 
 ---

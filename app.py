@@ -96,6 +96,10 @@ st.markdown("""
     [data-testid="stCaptionContainer"] { font-size: 10px !important; }
     [data-testid="column"] { gap: 0.25rem !important; }
     [data-testid="stVerticalBlock"] { gap: 0.3rem !important; }
+    /* keep header title + refresh on same row */
+    [data-testid="stHorizontalBlock"] { flex-wrap: nowrap !important; align-items: center !important; }
+    /* prevent fused Explore/→ button from overlapping card on mobile */
+    .element-container:has(.portcard) + .element-container .stButton > button { margin-top: 0 !important; }
   }
 </style>
 """, unsafe_allow_html=True)

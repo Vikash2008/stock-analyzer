@@ -90,15 +90,20 @@ Targets CSS classes added to HTML markdown elements — desktop layout unchanged
 - By Broker: `🇮🇳 India` / `🇺🇸 US` section labels + one full-width card per broker, sorted by value desc
 
 ### Card style (CSS class: `portcard`, inline styles)
+
+**Hero** (`Total Portfolio`): `font-size:22px` value, `padding:9px 12px`, `border-radius:10px 10px 0 0`
+**Compact** (`Stocks`, `MF`, all breakdown items): `font-size:13px` value, `9px` gains/XIRR, `padding:6px 10px`, `border-radius:8px 8px 0 0`
+
 ```
 background: #f0fdf8 (gain) or #fff5f5 (loss)
 border: 1px solid #e2e8f0; border-left: 4px solid #10b981 (gain) or #f43f5e (loss)
-border-radius: 10px 10px 0 0; padding: 10px 12px; margin-bottom: 0
+margin-bottom: 0
 ```
 - Label row: 9px, `#94a3b8`, uppercase, letter-spacing 0.1em
-- Row A: `font-size:20px` bold value left · today's gain right (colored green/red, or "N/A" muted)
-- Row B: `font-size:10px` bold Total G/L+% in gain/loss color left · XIRR right (`#0a7a42`/`#be1c1c`/`#334155`)
-- **No footer** on main tiles (Invested/Realized removed from overview cards)
+- Row A: value bold left · today's gain right (colored green/red, or "N/A" muted)
+- Row B: Total G/L+% in gain/loss color left · XIRR right
+- **No footer** on any overview cards
+- `_card(..., compact=False)` for hero; `compact=True` for all others
 - Button: full-width `st.button("Explore →", key=f"click_{key}", use_container_width=True)` fused below card via CSS
 
 ### Card navigation
@@ -113,21 +118,21 @@ border-radius: 10px 10px 0 0; padding: 10px 12px; margin-bottom: 0
 Same portcard style (green/red bg + left border). Shows: label, current value (20px), N/A today gain, G/L+%, Invested. No button.
 
 ### Holding cards (`_h_card`)
-Same portcard style as overview tiles. Layout:
+Compact portcard style. Layout:
 - Label row: `TICKER · company` left | `LTP value` right (9px, muted)
-- Row A: current value (16px bold) left · N/A right
+- Row A: current value (16px bold) left · today's gain right
 - Row B: Total G/L+% left · XIRR right (colored by sign)
-- Footer: Invested · qty sh · avg/sh left | Realized right
-- Button: small `→` right-aligned via `st.columns([3,1])`
+- **No footer** — Invested/Realized removed from h-cards (they appear on the transactions page symbol card instead)
+- Button: full-width `st.button("→", use_container_width=True)` fused below card via CSS
 
-### Toggle (segment view only)
-- `Cumulative` (grouped by symbol across portfolios) | `Standalone` (per portfolio+symbol)
-- Portfolio-specific view: no toggle, always one card per holding
+### Tabs (both segment and portfolio views)
+Both entry modes now show two tabs below the summary card:
+- **Holdings** — Cumulative/Standalone toggle (segment) or flat list (portfolio) of `_h_card` tiles
+- **Charts** — `summary_page._render_multi(bundle, h)` (segment) or `summary_page.render(bundle, port)` (portfolio)
 
 ### Navigation
 - `→` button → `ui_state.navigate("transactions", portfolio=X, symbol=Y)`
-- Back: `"← Overview"` (segment) or `"← All Portfolios"` (portfolio)
-- Summary tab: `summary_page.render(bundle, port)` (unchanged)
+- Back: `"← Overview"` (segment) or `"← All Portfolios"` (portfolio), inline with `↻` refresh button via `st.columns([6,1])`
 
 ---
 
@@ -138,7 +143,7 @@ Same portcard style (green/red bg + left border). Layout:
 - Label row: `PORT · SYM · company` left | `LTP value` right
 - Row A: current value (20px bold) · N/A today gain
 - Row B: G/L+% in gain/loss color
-- Footer: Invested · qty sh · avg/sh (single line, muted)
+- Footer: `Invested <val> · qty sh · avg/sh` left | `Realized <val>` right (border-top separator)
 No button (it's the page header).
 
 ### Tab 1 — Transactions (tx-row HTML items)
@@ -330,3 +335,8 @@ Applied automatically by `/ship` before every deploy:
 | 2026-05-19 | Portfolio/segment summary card (`_summary_card`): full anatomy — value + today gain · G/L + XIRR row · Invested + Realized footer. XIRR computed via `portfolio_xirr()` call at render time (not cached separately). |
 | 2026-05-19 | Today's gain backend: `previous_close = iloc[-2]` from existing 5d yfinance download — zero extra API calls. Added `previous_close`, `today_gain`, `today_pct`, `disp_today_gain` columns to `bundle.holdings`. Cache layer `prev_closes` at 30-min TTL alongside `prices`. |
 | 2026-05-19 | Today's gain display: `+₹X.XX L (+Y.YY%)` green or `-₹X.XX L (-Y.YY%)` red. "N/A" (muted) when prev close unavailable (< 2 trading days in 5d window). Portfolio/segment today_gain = sum of `disp_today_gain`; today_pct = `tg / (cur - tg) × 100`. |
+| 2026-05-19 | `_card()` gains `compact=False` param. Hero (Total Portfolio) = 22px value, 10px gains, `9px 12px` padding. Compact (Stocks/MF/all breakdown) = 13px value, 9px gains, `6px 10px` padding, `8px` radius. |
+| 2026-05-19 | Holding cards (`_h_card`) footer removed — Invested/Realized not shown on holdings list cards. Those fields moved to transactions page symbol card footer only. |
+| 2026-05-19 | Transactions page symbol card footer: `Invested <val> · qty sh · avg/sh` left + `Realized <val>` right, separated by border-top. Realized computed from `_agg_realized()`. |
+| 2026-05-19 | Refresh button moved inline: tiny `↻` button in `st.columns([6,1])` alongside every page title/back button. Standalone refresh row removed from `app.py`. `do_refresh()` helper added to `ui_state.py` (invalidates prices+fx, clears st.cache_data, reruns). |
+| 2026-05-19 | Holdings page both views (segment + portfolio) now have **Holdings** and **Charts** tabs. Holdings tab = cards, Charts tab = `summary_page._render_multi(bundle, h)` or `summary_page.render(bundle, port)`. Previously segment view had no tabs. "Summary" tab label renamed to "Charts" everywhere. |

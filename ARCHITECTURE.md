@@ -21,7 +21,7 @@ src/
   xirr.py                   XIRR calculation
 
 dashboard/
-  ui_state.py               Navigation state (session_state + URL sync)
+  ui_state.py               Navigation state (session_state + URL sync); do_refresh() helper
   classify.py               USD_PORTS, SKIP_PORTS, US_MF_SYMS, segment()
   metrics.py                Portfolio overview tiles, XIRR, breakdown
   charts.py                 Price line + BUY/SELL bubble chart + range selector
@@ -265,9 +265,9 @@ msp_v2.csv
 | `dashboard/metrics.py`    | `_card(label, cur, inv, …)`        | Change card layout — all portfolio/segment overview tiles      |
 | `dashboard/metrics.py`    | `render(bundle)`                   | Change page layout (hero, stocks/mf, breakdown)                |
 | `dashboard/metrics.py`    | `_compute_all(h, txns, usd_inr)`   | Add new cached XIRR variants or segment totals                 |
-| `dashboard/holdings_page.py` | `_h_card(ticker, …)`            | Change holding card layout (label, rows, footer, button)       |
+| `dashboard/holdings_page.py` | `_h_card(ticker, …)`            | Change holding card layout (label, rows — no footer)           |
 | `dashboard/holdings_page.py` | `_summary_card(label, cur, inv)` | Change segment/portfolio header card                          |
-| `dashboard/holdings_page.py` | `_render_segment(bundle)`       | Segment cumulative/standalone card list                        |
+| `dashboard/holdings_page.py` | `_render_segment(bundle)`       | Segment Holdings/Charts tabs — cumulative/standalone cards + _render_multi |
 | `dashboard/holdings_page.py` | `render(bundle)`                | Portfolio-specific holdings card list + Summary tab            |
 | `dashboard/holdings_page.py` | `_agg_realized(realized_df, usd_inr)` | Realized gain aggregation helper (returns dict keyed by (portfolio, symbol)) |
 | `dashboard/transactions_page.py` | `render(bundle)`           | Symbol card + tx-row items + Charts tab                        |
