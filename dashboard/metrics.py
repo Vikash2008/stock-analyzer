@@ -227,13 +227,9 @@ def _card(label, cur, inv, real_gain, cost_of_sold, xirr_str, key,
     <span style="font-size:20px;font-weight:700;color:#0f172a;letter-spacing:-0.02em;">{_fmt(cur)}</span>
     <span style="font-size:10px;color:#94a3b8;">N/A (+0.00%)</span>
   </div>
-  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;">
     <span style="font-size:10px;font-weight:700;color:{gl_color};">{gl_str}&nbsp;{pct_str}</span>
     <span style="font-size:10px;color:#64748b;">XIRR&nbsp;<b style="color:{xirr_color};">{xirr_clean}</b></span>
-  </div>
-  <div style="border-top:1px solid #e2e8f0;padding-top:6px;display:flex;justify-content:space-between;">
-    <span style="font-size:9px;color:#94a3b8;">Invested&nbsp;<b style="color:#334155;font-weight:600;">{_fmt(inv)}</b></span>
-    <span style="font-size:9px;color:#94a3b8;">Realized&nbsp;<b style="color:{real_color};font-weight:600;">{real_str}</b></span>
   </div>
 </div>
 """, unsafe_allow_html=True)

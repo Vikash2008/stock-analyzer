@@ -70,27 +70,41 @@ def _batch_xirr(txns, h, usd_inr) -> dict:
     return out
 
 
-def _summary_card(label: str, cur: float, inv: float, is_usd: bool = False) -> None:
-    gain     = cur - inv
-    pct      = (gain / inv * 100) if inv else 0.0
-    gain_pos = gain >= 0
-    bg           = "#f0fdf8" if gain_pos else "#fff5f5"
-    border_left  = "#10b981" if gain_pos else "#f43f5e"
-    gl_color     = "#0a7a42" if gain_pos else "#be1c1c"
-    gain_sign    = "+" if gain >= 0 else ""
-    pct_sign     = "+" if pct >= 0 else ""
+def _summary_card(label: str, cur: float, inv: float, is_usd: bool = False,
+                  xirr_str: str = None, real_gain: float = 0.0, real_cost: float = 0.0) -> None:
+    total_gain = (cur - inv) + real_gain
+    total_pct  = (total_gain / (inv + real_cost) * 100) if (inv + real_cost) else 0.0
+    gain_pos   = total_gain >= 0
+    bg          = "#f0fdf8" if gain_pos else "#fff5f5"
+    border_left = "#10b981" if gain_pos else "#f43f5e"
+    gl_color    = "#0a7a42" if gain_pos else "#be1c1c"
+    real_color  = "#0a7a42" if real_gain >= 0 else "#be1c1c"
+    gain_sign   = "+" if total_gain >= 0 else ""
+    pct_sign    = "+" if total_pct  >= 0 else ""
+    real_sign   = "+" if real_gain  >= 0 else ""
+    gl_str      = f"{gain_sign}{_fmt(total_gain, is_usd)}"
+    pct_str     = f"({pct_sign}{total_pct:.1f}%)"
+    real_str    = f"{real_sign}{_fmt(real_gain, is_usd)}"
+    xirr_clean  = xirr_str or "N/A"
+    xirr_color  = "#334155"
+    if xirr_clean != "N/A":
+        xirr_color = "#be1c1c" if xirr_clean.startswith("-") else "#0a7a42"
     st.markdown(f"""
 <div style="background:{bg};border:1px solid #e2e8f0;border-left:4px solid {border_left};
             border-radius:10px;padding:10px 12px;margin-bottom:8px;">
   <div style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;
               letter-spacing:0.1em;margin-bottom:5px;">{label}</div>
-  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
     <span style="font-size:20px;font-weight:700;color:#0f172a;letter-spacing:-0.02em;">{_fmt(cur, is_usd)}</span>
     <span style="font-size:10px;color:#94a3b8;">N/A (+0.00%)</span>
   </div>
-  <div style="border-top:1px solid #e2e8f0;padding-top:5px;display:flex;justify-content:space-between;">
-    <span style="font-size:9px;color:#94a3b8;">G/L&nbsp;<b style="color:{gl_color};font-weight:700;">{gain_sign}{_fmt(gain, is_usd)}&nbsp;({pct_sign}{pct:.1f}%)</b></span>
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+    <span style="font-size:10px;font-weight:700;color:{gl_color};">{gl_str}&nbsp;{pct_str}</span>
+    <span style="font-size:10px;color:#64748b;">XIRR&nbsp;<b style="color:{xirr_color};">{xirr_clean}</b></span>
+  </div>
+  <div style="border-top:1px solid #e2e8f0;padding-top:6px;display:flex;justify-content:space-between;">
     <span style="font-size:9px;color:#94a3b8;">Invested&nbsp;<b style="color:#334155;font-weight:600;">{_fmt(inv, is_usd)}</b></span>
+    <span style="font-size:9px;color:#94a3b8;">Realized&nbsp;<b style="color:{real_color};font-weight:600;">{real_str}</b></span>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -175,13 +189,21 @@ def _render_segment(bundle: PortfolioBundle) -> None:
         st.info("No holdings in this segment.")
         return
 
-    _summary_card(label, h["disp_current"].sum(), h["disp_invested"].sum())
+    real_map  = _agg_realized(bundle.realized, usd_inr)
+    seg_ports = set(h["portfolio"].unique())
+    seg_real_g    = sum(v[0] for k, v in real_map.items() if k[0] in seg_ports)
+    seg_real_cost = sum(v[1] for k, v in real_map.items() if k[0] in seg_ports)
+    prices_map = dict(zip(h["yf_symbol"], h["current_price"]))
+    seg_txns   = txns[txns["portfolio"].isin(seg_ports) & txns["yf_symbol"].isin(set(h["yf_symbol"]))]
+    seg_xirr_v = portfolio_xirr(seg_txns, h, prices_map, usd_inr, "INR")
+    seg_xirr_str = f"{seg_xirr_v*100:+.2f}%" if seg_xirr_v is not None else "N/A"
+    _summary_card(label, h["disp_current"].sum(), h["disp_invested"].sum(),
+                  xirr_str=seg_xirr_str, real_gain=seg_real_g, real_cost=seg_real_cost)
 
     view = st.radio("", ["Cumulative", "Standalone"], horizontal=True,
                     key="seg_view", label_visibility="collapsed")
 
     xirr_map = _batch_xirr(txns, h, usd_inr)
-    real_map = _agg_realized(bundle.realized, usd_inr)
 
     if view == "Cumulative":
         rows = []
@@ -255,13 +277,20 @@ def render(bundle: PortfolioBundle) -> None:
     is_usd = port in USD_PORTS
     inv    = port_h["total_invested"].sum() * usd_inr if is_usd else port_h["disp_invested"].sum()
     cur    = port_h["current_value"].sum()  * usd_inr if is_usd else port_h["disp_current"].sum()
-    _summary_card(port, cur, inv, is_usd)
+    real_map      = _agg_realized(bundle.realized, usd_inr)
+    port_real_g   = sum(v[0] for k, v in real_map.items() if k[0] == port)
+    port_real_cost= sum(v[1] for k, v in real_map.items() if k[0] == port)
+    prices_map    = dict(zip(port_h["yf_symbol"], port_h["current_price"]))
+    port_txns     = txns[txns["portfolio"] == port] if "portfolio" in txns.columns else txns
+    port_xirr_v   = portfolio_xirr(port_txns, port_h, prices_map, usd_inr, "INR")
+    port_xirr_str = f"{port_xirr_v*100:+.2f}%" if port_xirr_v is not None else "N/A"
+    _summary_card(port, cur, inv, is_usd,
+                  xirr_str=port_xirr_str, real_gain=port_real_g, real_cost=port_real_cost)
 
     tab_hold, tab_sum = st.tabs(["Holdings", "Summary"])
 
     with tab_hold:
         port_xirr_map = _batch_xirr(txns, port_h, usd_inr)
-        real_map      = _agg_realized(bundle.realized, usd_inr)
 
         rows = []
         for _, row in port_h.iterrows():
