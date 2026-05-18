@@ -71,7 +71,7 @@ def build(
     """
     from src.data_loader import load_transactions
     from src.portfolio import calculate_holdings, enrich_holdings
-    from src.price_fetcher import get_current_prices, get_tickers_info, get_usd_inr_rate
+    from src.price_fetcher import get_prices_and_prev_close, get_tickers_info, get_usd_inr_rate
 
     cache = Cache()
 
@@ -89,13 +89,15 @@ def build(
     if force_refresh_prices or not cache.is_fresh("prices"):
         print("[engine] Fetching live prices…")
         symbols = list(holdings_raw["yf_symbol"].unique())
-        prices  = get_current_prices(symbols)
+        prices, prev_closes = get_prices_and_prev_close(symbols)
         usd_inr = get_usd_inr_rate()
         cache.set("prices", prices)
+        cache.set("prev_closes", prev_closes)
         cache.set("fx", usd_inr)
     else:
-        prices  = cache.get("prices")
-        usd_inr = cache.get("fx") or 85.5
+        prices      = cache.get("prices")
+        prev_closes = cache.get("prev_closes") or {}
+        usd_inr     = cache.get("fx") or 85.5
 
     # ── Layer 3: Sector / company info (7-day TTL) ────────────────────────────
     if not cache.is_fresh("info"):
@@ -107,7 +109,7 @@ def build(
         info = cache.get("info")
 
     # ── Enrich holdings ───────────────────────────────────────────────────────
-    holdings_all = enrich_holdings(holdings_raw, prices, info)
+    holdings_all = enrich_holdings(holdings_raw, prices, info, prev_closes)
     if "name" in txns.columns and "name" not in holdings_all.columns:
         name_map = txns.groupby("yf_symbol")["name"].first()
         holdings_all["name"] = holdings_all["yf_symbol"].map(name_map).fillna("")
@@ -139,6 +141,10 @@ def build(
     holdings["disp_pnl_pct"] = (
         holdings["disp_gain"] / holdings["disp_invested"].replace(0, float("nan")) * 100
     ).round(2)
+    holdings["disp_today_gain"] = holdings.apply(
+        lambda r: _to_display(r["today_gain"], r["currency"], currency, usd_inr)
+        if pd.notna(r.get("today_gain")) else None, axis=1
+    )
 
     # ── Summary ───────────────────────────────────────────────────────────────
     total_invested = holdings["disp_invested"].sum()

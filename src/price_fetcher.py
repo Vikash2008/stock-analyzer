@@ -1,13 +1,19 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 import yfinance as yf
 
 
-def get_current_prices(symbols: List[str]) -> Dict[str, Optional[float]]:
-    """Batch-fetch the latest close price for each yfinance symbol."""
+def get_prices_and_prev_close(
+    symbols: List[str],
+) -> Tuple[Dict[str, Optional[float]], Dict[str, Optional[float]]]:
+    """
+    Batch-fetch current price and previous-session close in one download.
+    Returns (prices, prev_closes) — both keyed by yf_symbol.
+    prev_close is None when fewer than 2 trading days exist in the window.
+    """
     if not symbols:
-        return {}
+        return {}, {}
     try:
         raw = yf.download(
             symbols,
@@ -18,22 +24,30 @@ def get_current_prices(symbols: List[str]) -> Dict[str, Optional[float]]:
         )
         close = raw["Close"] if "Close" in raw else raw
 
-        # Single-symbol download returns a Series; multi-symbol returns a DataFrame
         if isinstance(close, pd.Series):
             close = close.to_frame(name=symbols[0])
         elif isinstance(close.columns, pd.MultiIndex):
             close = close.droplevel(0, axis=1)
 
-        result: Dict[str, Optional[float]] = {}
+        prices: Dict[str, Optional[float]] = {}
+        prev_closes: Dict[str, Optional[float]] = {}
         for sym in symbols:
             try:
                 series = close[sym].dropna() if sym in close.columns else pd.Series()
-                result[sym] = float(series.iloc[-1]) if not series.empty else None
+                prices[sym]      = float(series.iloc[-1]) if len(series) >= 1 else None
+                prev_closes[sym] = float(series.iloc[-2]) if len(series) >= 2 else None
             except Exception:
-                result[sym] = None
-        return result
+                prices[sym] = None
+                prev_closes[sym] = None
+        return prices, prev_closes
     except Exception:
-        return {s: None for s in symbols}
+        return {s: None for s in symbols}, {s: None for s in symbols}
+
+
+def get_current_prices(symbols: List[str]) -> Dict[str, Optional[float]]:
+    """Batch-fetch the latest close price for each yfinance symbol."""
+    prices, _ = get_prices_and_prev_close(symbols)
+    return prices
 
 
 def get_tickers_info(symbols: List[str]) -> Dict[str, dict]:

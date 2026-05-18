@@ -160,8 +160,9 @@ def enrich_holdings(
     holdings: pd.DataFrame,
     prices: Dict[str, Optional[float]],
     ticker_info: Dict[str, dict],
+    prev_closes: Optional[Dict[str, Optional[float]]] = None,
 ) -> pd.DataFrame:
-    """Add live price, current value, unrealized P&L, sector, and company name."""
+    """Add live price, current value, unrealized P&L, sector, company name, and today's gain."""
     if holdings.empty:
         return holdings
 
@@ -176,4 +177,11 @@ def enrich_holdings(
     df["company"] = df["yf_symbol"].map(
         lambda s: (ticker_info.get(s) or {}).get("name", s)
     )
+
+    pc = prev_closes or {}
+    df["previous_close"] = df["yf_symbol"].map(pc)
+    price_change = df["current_price"] - df["previous_close"]
+    df["today_gain"] = price_change * df["quantity"]
+    df["today_pct"]  = (price_change / df["previous_close"] * 100).round(2)
+
     return df
