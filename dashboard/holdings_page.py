@@ -198,7 +198,13 @@ def _render_segment(bundle: PortfolioBundle) -> None:
     txns    = bundle.transactions
     usd_inr = bundle.usd_inr
 
-    if st.button("← Overview", key="back_seg"):
+    _bt, _br = st.columns([6, 1])
+    with _bt:
+        back_seg = st.button("← Overview", key="back_seg")
+    with _br:
+        if st.button("↻", key="ref_seg", help="Refresh prices"):
+            ui_state.do_refresh()
+    if back_seg:
         ui_state.navigate("portfolios")
         return
 
@@ -294,7 +300,13 @@ def render(bundle: PortfolioBundle) -> None:
     txns    = bundle.transactions
     usd_inr = bundle.usd_inr
 
-    if st.button("← All Portfolios", key="back_to_ports"):
+    _bt, _br = st.columns([6, 1])
+    with _bt:
+        back_ports = st.button("← All Portfolios", key="back_to_ports")
+    with _br:
+        if st.button("↻", key="ref_hold", help="Refresh prices"):
+            ui_state.do_refresh()
+    if back_ports:
         ui_state.navigate("portfolios")
         return
 

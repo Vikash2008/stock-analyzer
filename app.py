@@ -1,6 +1,5 @@
 import streamlit as st
 from src import engine
-from src.cache import Cache
 from dashboard import ui_state
 from dashboard import portfolio_page, holdings_page, transactions_page, summary_page
 
@@ -119,17 +118,6 @@ with st.sidebar:
     with st.expander("Cache"):
         st.code(bundle.cache_status)
 
-# ── Top-right refresh bar ─────────────────────────────────────────────────────
-_, _ref_col = st.columns([5, 1])
-with _ref_col:
-    st.caption(f"As of {bundle.as_of.strftime('%d %b %H:%M')}")
-    if st.button("🔄 Refresh", use_container_width=True):
-        c = Cache()
-        c.invalidate("prices")
-        c.invalidate("fx")
-        _load_bundle.clear()
-        st.rerun()
-
 # ── Page router ───────────────────────────────────────────────────────────────
 page = ui_state.get_page()
 
@@ -140,5 +128,10 @@ elif page == "transactions":
 elif page == "summary":
     summary_page.render_page(bundle)
 else:
-    st.markdown("### 📈 Portfolio Analyzer")
+    _t, _r = st.columns([6, 1])
+    with _t:
+        st.markdown("**📈 Portfolio Analyzer**")
+    with _r:
+        if st.button("↻", key="ref_port", help="Refresh prices"):
+            ui_state.do_refresh()
     portfolio_page.render(bundle)

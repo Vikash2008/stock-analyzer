@@ -70,3 +70,12 @@ def sel_symbol() -> str:
 
 def sel_segment() -> str:
     return st.session_state.get("sel_segment", "")
+
+
+def do_refresh():
+    from src.cache import Cache
+    c = Cache()
+    c.invalidate("prices")
+    c.invalidate("fx")
+    st.cache_data.clear()
+    st.rerun()
