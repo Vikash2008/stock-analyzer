@@ -176,13 +176,9 @@ def _h_card(ticker, sub_label, cur, inv, real_g, real_cost, xirr_str, nav_key,
     <span style="font-size:16px;font-weight:700;color:#0f172a;letter-spacing:-0.02em;">{_fmt(cur, is_usd)}</span>
     <span style="font-size:10px;">{tg_html}</span>
   </div>
-  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;">
     <span style="font-size:10px;font-weight:700;color:{gl_color};">{gl_str}&nbsp;{pct_str}</span>
     <span style="font-size:10px;color:#64748b;">XIRR&nbsp;<b style="color:{xirr_color};">{xirr_clean}</b></span>
-  </div>
-  <div style="border-top:1px solid #e2e8f0;padding-top:6px;display:flex;justify-content:space-between;">
-    <span style="font-size:9px;color:#94a3b8;">{footer_inv}</span>
-    <span style="font-size:9px;color:#94a3b8;">Realized&nbsp;<b style="color:{real_color};font-weight:600;">{real_str}</b></span>
   </div>
 </div>
 """, unsafe_allow_html=True)

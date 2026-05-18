@@ -21,6 +21,7 @@ def render(bundle: PortfolioBundle) -> None:
     h    = bundle.holdings
     txns = bundle.transactions
 
+    from dashboard.holdings_page import _agg_realized
     back_label = f"← {port} Holdings" if port else "← Holdings"
     if st.button(back_label, key="back_to_holdings"):
         ui_state.go_back()
@@ -32,6 +33,10 @@ def render(bundle: PortfolioBundle) -> None:
 
     is_usd = port in USD_PORTS if port else False
     h_row  = h[(h["symbol"] == sym) & (h["portfolio"] == port)] if port else h[h["symbol"] == sym]
+
+    real_map = _agg_realized(bundle.realized, bundle.usd_inr)
+    sym_real_g, _ = real_map.get((port, sym), (0.0, 0.0)) if port else (
+        sum(v[0] for k, v in real_map.items() if k[1] == sym), 0.0)
 
     if not h_row.empty:
         row           = h_row.iloc[0]
@@ -84,11 +89,9 @@ def render(bundle: PortfolioBundle) -> None:
   <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
     <span style="font-size:10px;font-weight:700;color:{gl_color};">{gain_sign}{_fmt(gain, is_usd)}&nbsp;({pct_sign}{pct:.1f}%)</span>
   </div>
-  <div style="border-top:1px solid #e2e8f0;padding-top:5px;">
-    <span style="font-size:9px;color:#94a3b8;">
-      Invested&nbsp;<b style="color:#334155;font-weight:600;">{_fmt(inv, is_usd)}</b>
-      &nbsp;·&nbsp;{qty}&nbsp;sh&nbsp;·&nbsp;{avg_c}/sh
-    </span>
+  <div style="border-top:1px solid #e2e8f0;padding-top:5px;display:flex;justify-content:space-between;">
+    <span style="font-size:9px;color:#94a3b8;">Invested&nbsp;<b style="color:#334155;font-weight:600;">{_fmt(inv, is_usd)}</b>&nbsp;·&nbsp;{qty}&nbsp;sh&nbsp;·&nbsp;{avg_c}/sh</span>
+    <span style="font-size:9px;color:#94a3b8;">Realized&nbsp;<b style="color:{"#0a7a42" if sym_real_g >= 0 else "#be1c1c"};font-weight:600;">{"+" if sym_real_g >= 0 else ""}{_fmt(sym_real_g, is_usd)}</b></span>
   </div>
 </div>
 """, unsafe_allow_html=True)
