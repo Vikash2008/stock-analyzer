@@ -96,8 +96,14 @@ st.markdown("""
     [data-testid="stCaptionContainer"] { font-size: 10px !important; }
     [data-testid="column"] { gap: 0.25rem !important; }
     [data-testid="stVerticalBlock"] { gap: 0.3rem !important; }
-    /* keep header title + refresh on same row */
-    [data-testid="stHorizontalBlock"] { flex-wrap: nowrap !important; align-items: center !important; }
+    /* keep header title + refresh on same row, let left col shrink */
+    [data-testid="stHorizontalBlock"] { flex-wrap: nowrap !important; }
+    [data-testid="stHorizontalBlock"] > [data-testid="column"] { min-width: 0 !important; }
+    [data-testid="stHorizontalBlock"] > [data-testid="column"]:first-child .stMarkdownContainer p,
+    [data-testid="stHorizontalBlock"] > [data-testid="column"]:first-child .stButton > button {
+      overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important;
+    }
+    .block-container { overflow-x: hidden !important; }
     /* prevent fused Explore/→ button from overlapping card on mobile */
     .element-container:has(.portcard) + .element-container .stButton > button { margin-top: 0 !important; }
   }
