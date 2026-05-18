@@ -231,63 +231,70 @@ def _render_segment(bundle: PortfolioBundle) -> None:
                   xirr_str=seg_xirr_str, real_gain=seg_real_g, real_cost=seg_real_cost,
                   today_gain=seg_tg, today_pct=seg_tp)
 
-    view = st.radio("", ["Cumulative", "Standalone"], horizontal=True,
-                    key="seg_view", label_visibility="collapsed")
+    tab_hold, tab_charts = st.tabs(["Holdings", "Charts"])
 
-    xirr_map = _batch_xirr(txns, h, usd_inr)
+    with tab_hold:
+        view = st.radio("", ["Cumulative", "Standalone"], horizontal=True,
+                        key="seg_view", label_visibility="collapsed")
 
-    if view == "Cumulative":
-        rows = []
-        for sym, g in h.groupby("symbol", sort=False):
-            qty      = g["quantity"].sum()
-            inv_r    = g["disp_invested"].sum()
-            cur_r    = g["disp_current"].sum()
-            ports    = sorted(g["portfolio"].unique())
-            real_g   = sum(real_map.get((p, sym), (0.0, 0.0))[0] for p in ports)
-            real_cost= sum(real_map.get((p, sym), (0.0, 0.0))[1] for p in ports)
-            company  = g["company"].iloc[0] if "company" in g.columns and pd.notna(g["company"].iloc[0]) else ""
-            ltp      = round(g["current_price"].iloc[0], 2) if "current_price" in g.columns and pd.notna(g["current_price"].iloc[0]) else None
-            avg_c    = round(inv_r / qty, 2) if qty else None
-            port_nav = ports[0] if len(ports) == 1 else None
-            tg_r     = g["disp_today_gain"].fillna(0.0).sum() if "disp_today_gain" in g.columns else None
-            tp_r     = round(tg_r / (cur_r - tg_r) * 100, 2) if (tg_r is not None and (cur_r - tg_r)) else None
-            rows.append(dict(_cur=cur_r, sym=sym, company=company, cur=cur_r, inv=inv_r,
-                             real_g=real_g, real_cost=real_cost, xirr=xirr_map.get(sym, "—"),
-                             ltp=ltp, qty=qty, avg_c=avg_c, port_nav=port_nav,
-                             today_gain=tg_r, today_pct=tp_r))
+        xirr_map = _batch_xirr(txns, h, usd_inr)
 
-        rows.sort(key=lambda r: -r["_cur"])
-        st.caption(f"{len(rows)} symbols")
-        for i, r in enumerate(rows):
-            _h_card(r["sym"], r["company"], r["cur"], r["inv"], r["real_g"], r["real_cost"],
-                    r["xirr"], f"seg_cum_{i}",
-                    nav_portfolio=r["port_nav"], nav_symbol=r["sym"],
-                    ltp=r["ltp"], qty=r["qty"], avg_cost=r["avg_c"],
-                    today_gain=r["today_gain"], today_pct=r["today_pct"])
+        if view == "Cumulative":
+            rows = []
+            for sym, g in h.groupby("symbol", sort=False):
+                qty      = g["quantity"].sum()
+                inv_r    = g["disp_invested"].sum()
+                cur_r    = g["disp_current"].sum()
+                ports    = sorted(g["portfolio"].unique())
+                real_g   = sum(real_map.get((p, sym), (0.0, 0.0))[0] for p in ports)
+                real_cost= sum(real_map.get((p, sym), (0.0, 0.0))[1] for p in ports)
+                company  = g["company"].iloc[0] if "company" in g.columns and pd.notna(g["company"].iloc[0]) else ""
+                ltp      = round(g["current_price"].iloc[0], 2) if "current_price" in g.columns and pd.notna(g["current_price"].iloc[0]) else None
+                avg_c    = round(inv_r / qty, 2) if qty else None
+                port_nav = ports[0] if len(ports) == 1 else None
+                tg_r     = g["disp_today_gain"].fillna(0.0).sum() if "disp_today_gain" in g.columns else None
+                tp_r     = round(tg_r / (cur_r - tg_r) * 100, 2) if (tg_r is not None and (cur_r - tg_r)) else None
+                rows.append(dict(_cur=cur_r, sym=sym, company=company, cur=cur_r, inv=inv_r,
+                                 real_g=real_g, real_cost=real_cost, xirr=xirr_map.get(sym, "—"),
+                                 ltp=ltp, qty=qty, avg_c=avg_c, port_nav=port_nav,
+                                 today_gain=tg_r, today_pct=tp_r))
 
-    else:
-        rows = []
-        for _, row in h.iterrows():
-            inv_r    = row["disp_invested"]
-            cur_r    = row["disp_current"]
-            real_g, real_cost = real_map.get((row["portfolio"], row["symbol"]), (0.0, 0.0))
-            ltp      = round(row["current_price"], 2) if pd.notna(row.get("current_price")) else None
-            tg_r     = row["disp_today_gain"] if "disp_today_gain" in row and pd.notna(row["disp_today_gain"]) else None
-            tp_r     = row["today_pct"] if "today_pct" in row and pd.notna(row["today_pct"]) else None
-            rows.append(dict(_cur=cur_r, sym=row["symbol"], port=row["portfolio"],
-                             cur=cur_r, inv=inv_r, real_g=real_g, real_cost=real_cost,
-                             xirr=xirr_map.get(row["symbol"], "—"),
-                             ltp=ltp, qty=row["quantity"], avg_c=row["avg_cost"],
-                             today_gain=tg_r, today_pct=tp_r))
+            rows.sort(key=lambda r: -r["_cur"])
+            st.caption(f"{len(rows)} symbols")
+            for i, r in enumerate(rows):
+                _h_card(r["sym"], r["company"], r["cur"], r["inv"], r["real_g"], r["real_cost"],
+                        r["xirr"], f"seg_cum_{i}",
+                        nav_portfolio=r["port_nav"], nav_symbol=r["sym"],
+                        ltp=r["ltp"], qty=r["qty"], avg_cost=r["avg_c"],
+                        today_gain=r["today_gain"], today_pct=r["today_pct"])
 
-        rows.sort(key=lambda r: -r["_cur"])
-        st.caption(f"{len(rows)} holdings")
-        for i, r in enumerate(rows):
-            _h_card(r["sym"], r["port"], r["cur"], r["inv"], r["real_g"], r["real_cost"],
-                    r["xirr"], f"seg_std_{i}",
-                    nav_portfolio=r["port"], nav_symbol=r["sym"],
-                    ltp=r["ltp"], qty=r["qty"], avg_cost=r["avg_c"],
-                    today_gain=r["today_gain"], today_pct=r["today_pct"])
+        else:
+            rows = []
+            for _, row in h.iterrows():
+                inv_r    = row["disp_invested"]
+                cur_r    = row["disp_current"]
+                real_g, real_cost = real_map.get((row["portfolio"], row["symbol"]), (0.0, 0.0))
+                ltp      = round(row["current_price"], 2) if pd.notna(row.get("current_price")) else None
+                tg_r     = row["disp_today_gain"] if "disp_today_gain" in row and pd.notna(row["disp_today_gain"]) else None
+                tp_r     = row["today_pct"] if "today_pct" in row and pd.notna(row["today_pct"]) else None
+                rows.append(dict(_cur=cur_r, sym=row["symbol"], port=row["portfolio"],
+                                 cur=cur_r, inv=inv_r, real_g=real_g, real_cost=real_cost,
+                                 xirr=xirr_map.get(row["symbol"], "—"),
+                                 ltp=ltp, qty=row["quantity"], avg_c=row["avg_cost"],
+                                 today_gain=tg_r, today_pct=tp_r))
+
+            rows.sort(key=lambda r: -r["_cur"])
+            st.caption(f"{len(rows)} holdings")
+            for i, r in enumerate(rows):
+                _h_card(r["sym"], r["port"], r["cur"], r["inv"], r["real_g"], r["real_cost"],
+                        r["xirr"], f"seg_std_{i}",
+                        nav_portfolio=r["port"], nav_symbol=r["sym"],
+                        ltp=r["ltp"], qty=r["qty"], avg_cost=r["avg_c"],
+                        today_gain=r["today_gain"], today_pct=r["today_pct"])
+
+    with tab_charts:
+        from dashboard import summary_page
+        summary_page._render_multi(bundle, h)
 
 
 def render(bundle: PortfolioBundle) -> None:
@@ -335,7 +342,7 @@ def render(bundle: PortfolioBundle) -> None:
                   xirr_str=port_xirr_str, real_gain=port_real_g, real_cost=port_real_cost,
                   today_gain=port_tg, today_pct=port_tp)
 
-    tab_hold, tab_sum = st.tabs(["Holdings", "Summary"])
+    tab_hold, tab_sum = st.tabs(["Holdings", "Charts"])
 
     with tab_hold:
         port_xirr_map = _batch_xirr(txns, port_h, usd_inr)
