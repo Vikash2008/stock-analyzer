@@ -243,10 +243,9 @@ def _card(label, cur, inv, real_gain, cost_of_sold, xirr_str, key,
         lbl_mb    = "5px"
         row_mb    = "4px"
 
-    with st.container():
-      st.markdown(f"""
+    st.markdown(f"""
 <div class="portcard" style="background:{bg};border:1px solid #e2e8f0;border-left:4px solid {border_left};
-            border-radius:{radius};padding:{padding};margin-bottom:0;">
+            border-radius:10px;padding:{padding};margin-bottom:0;">
   <div style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;
               letter-spacing:0.1em;margin-bottom:{lbl_mb};">{label}</div>
   <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:{row_mb};">
@@ -260,11 +259,11 @@ def _card(label, cur, inv, real_gain, cost_of_sold, xirr_str, key,
 </div>
 """, unsafe_allow_html=True)
 
-      if st.button("Explore →", key=f"click_{key}", use_container_width=True):
-          if nav_portfolio:
-              ui_state.navigate("holdings", portfolio=nav_portfolio)
-          else:
-              ui_state.navigate("holdings", segment=nav_segment or key)
+    if st.button("Explore →", key=f"click_{key}"):
+        if nav_portfolio:
+            ui_state.navigate("holdings", portfolio=nav_portfolio)
+        else:
+            ui_state.navigate("holdings", segment=nav_segment or key)
 
 
 def render(bundle: PortfolioBundle) -> None:

@@ -62,29 +62,26 @@ st.markdown("""
     box-shadow: 0 2px 6px rgba(37,99,235,0.25) !important;
   }
 
-  /* Zero gap between card and its explore button inside each container */
-  [data-testid="stVerticalBlock"]:has(> [data-testid="element-container"] .portcard) {
-    gap: 0 !important;
+  /* Explore button — small, right-aligned, auto width */
+  .element-container:has(.portcard) + .element-container [data-testid="stButton"] {
+    display: flex !important;
+    justify-content: flex-end !important;
   }
-  /* Button styled as the strip fused to the card bottom */
   .element-container:has(.portcard) + .element-container .stButton > button {
-    background: rgba(255,255,255,0.6) !important;
-    border: 1px solid #e2e8f0 !important;
-    border-top: none !important;
-    border-radius: 0 0 10px 10px !important;
-    color: #94a3b8 !important;
+    width: auto !important;
     font-size: 9px !important;
-    padding: 3px 12px !important;
-    text-align: right !important;
+    padding: 2px 8px !important;
+    border-radius: 6px !important;
+    border: 1px solid #e2e8f0 !important;
+    background: #fff !important;
+    color: #64748b !important;
     box-shadow: none !important;
-    margin-top: 0 !important;
+    margin-top: 2px !important;
   }
   .element-container:has(.portcard) + .element-container .stButton > button:hover {
-    background: #f1f5f9 !important;
-    color: #2563eb !important;
-    border-color: #e2e8f0 !important;
-    border-top: none !important;
-    box-shadow: none !important;
+    background: #2563eb !important;
+    color: #fff !important;
+    border-color: #2563eb !important;
   }
 
   @media screen and (max-width: 768px) {
