@@ -243,7 +243,8 @@ def _card(label, cur, inv, real_gain, cost_of_sold, xirr_str, key,
         lbl_mb    = "5px"
         row_mb    = "4px"
 
-    st.markdown(f"""
+    with st.container():
+        st.markdown(f"""
 <div class="portcard" style="background:{bg};border:1px solid #e2e8f0;border-left:4px solid {border_left};
             border-radius:10px;padding:{padding};margin-bottom:0;">
   <div style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;
@@ -258,10 +259,7 @@ def _card(label, cur, inv, real_gain, cost_of_sold, xirr_str, key,
   </div>
 </div>
 """, unsafe_allow_html=True)
-
-    _, _c = st.columns([10, 1])
-    with _c:
-        if st.button("→", key=f"click_{key}"):
+        if st.button("→", key=f"click_{key}", use_container_width=True):
             if nav_portfolio:
                 ui_state.navigate("holdings", portfolio=nav_portfolio)
             else:
