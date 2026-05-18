@@ -259,7 +259,7 @@ def _card(label, cur, inv, real_gain, cost_of_sold, xirr_str, key,
 </div>
 """, unsafe_allow_html=True)
 
-    if st.button("Explore →", key=f"click_{key}"):
+    if st.button("→", key=f"click_{key}"):
         if nav_portfolio:
             ui_state.navigate("holdings", portfolio=nav_portfolio)
         else:
