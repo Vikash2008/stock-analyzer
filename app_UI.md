@@ -176,7 +176,7 @@ Portfolio Value | Invested | Profit / Loss | Return % | XIRR Trend
 
 ### Layout
 1. **Metric selector** (above chart) — horizontal radio, 5 options
-2. `_stat` pill — one contextual value for the selected period
+2. **Stat pill** — centered, one line: large colored value + small muted label (`+₹4.2L  gain in period`). Updates on metric switch.
 3. **Chart** — line chart, height 380px
 4. **Range selector** (below chart) — horizontal radio, `1m` → `All`
 
@@ -315,3 +315,6 @@ Applied automatically by `/ship` before every deploy:
 | 2026-05-18 | Stocks and Mutual Funds tiles changed from 2-col `seg-grid` to full-width stacked `row-item` — consistent with all other overview tiles. |
 | 2026-05-18 | Added `page-holding` (third page): tap a holding card → opens with two tabs: Transactions and Summary. Same chart widget as portfolio detail Summary tab. |
 | 2026-05-18 | Holding card layout finalised: label row = ticker/name (left) + LTP (right). Footer = Invested value + `qty sh · avgCost/sh` sub-line (left), Realized profit colored green/red (right). |
+| 2026-05-18 | Holding card footer: Invested + `qty sh · avgCost/sh` on same single line (not two rows). |
+| 2026-05-18 | Summary tab stat pill: centered between metric selector and chart. Format: large colored value + small muted label inline (`+₹4.2L  gain in period`). Updates on metric switch. |
+| 2026-05-18 | Portfolio summary and holding summary tabs are identical in structure: metric selector → stat pill → chart → range bar. Design approved and finalised. |

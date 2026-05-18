@@ -126,6 +126,11 @@ body {
 .tx-detail { font-size: 10px; color: #64748b; }
 .tx-amount { font-size: 12px; font-weight: 700; color: #0f172a; flex-shrink: 0; }
 
+/* ════ STAT PILL ════ */
+.stat-pill { text-align: center; padding: 4px 0 8px; }
+.stat-val  { font-size: 17px; font-weight: 700; color: #0a7a42; }
+.stat-lbl  { font-size: 10px; color: #94a3b8; margin-left: 4px; }
+
 /* Summary chart */
 .chart-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 10px 8px; margin-bottom: 10px; }
 .chart-title { font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 8px; }
@@ -220,11 +225,14 @@ body {
 
   <div id="tab-summary" style="display:none">
     <div class="metric-bar">
-      <button class="metric-btn active">Portfolio Value</button>
-      <button class="metric-btn">Invested</button>
-      <button class="metric-btn">P&amp;L</button>
-      <button class="metric-btn">Return %</button>
-      <button class="metric-btn">XIRR</button>
+      <button class="metric-btn active" onclick="setMetric(this)">Portfolio Value</button>
+      <button class="metric-btn" onclick="setMetric(this)">Invested</button>
+      <button class="metric-btn" onclick="setMetric(this)">P&amp;L</button>
+      <button class="metric-btn" onclick="setMetric(this)">Return %</button>
+      <button class="metric-btn" onclick="setMetric(this)">XIRR</button>
+    </div>
+    <div class="stat-pill">
+      <span class="stat-val">+₹4.2L</span><span class="stat-lbl">gain in period</span>
     </div>
     <div class="chart-wrap">
       <div class="chart-title">Portfolio Value</div>
@@ -273,6 +281,9 @@ body {
       <button class="metric-btn" onclick="setMetric(this)">P&amp;L</button>
       <button class="metric-btn" onclick="setMetric(this)">Return %</button>
       <button class="metric-btn" onclick="setMetric(this)">XIRR</button>
+    </div>
+    <div class="stat-pill">
+      <span class="stat-val">+₹4.2L</span><span class="stat-lbl">gain in period</span>
     </div>
     <div class="chart-wrap">
       <div class="chart-title">Portfolio Value</div>
@@ -449,10 +460,7 @@ function openHolding(ticker) {
       <span style="font-size:10px;color:#64748b">XIRR <b style="color:${h.gain?'#334155':'#be1c1c'};font-weight:700">${h.xirr}</b></span>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-top:5px;border-top:1px solid #e2e8f0">
-      <div>
-        <div style="font-size:9px;color:#94a3b8">Invested <b style="color:#334155;font-weight:600">${h.inv}</b></div>
-        <div style="font-size:9px;color:#94a3b8;margin-top:1px">${h.qty} sh · ${h.avgCost}/sh</div>
-      </div>
+      <div style="font-size:9px;color:#94a3b8">Invested <b style="color:#334155;font-weight:600">${h.inv}</b> · ${h.qty} sh · ${h.avgCost}/sh</div>
       <div style="font-size:9px;color:#94a3b8;text-align:right">Realized <b style="color:${h.realizedGain?'#0a7a42':'#be1c1c'};font-weight:600">${h.realized}</b></div>
     </div>`;
 
@@ -488,6 +496,28 @@ function showTab(tab) {
     b.classList.toggle('active', (i===0)===(tab==='holdings')));
   document.getElementById('tab-holdings').style.display = tab==='holdings' ? 'block' : 'none';
   document.getElementById('tab-summary').style.display  = tab==='summary'  ? 'block' : 'none';
+}
+
+const statData = {
+  'Portfolio Value': { val: '+₹4.2L',  lbl: 'gain in period',        gain: true  },
+  'Invested':        { val: '+₹1.8L',  lbl: 'invested in period',    gain: true  },
+  'P&L':             { val: '+₹2.4L',  lbl: 'P&L change in period',  gain: true  },
+  'Return %':        { val: '+3.2%',   lbl: 'return gain in period',  gain: true  },
+  'XIRR':            { val: '18.2%',   lbl: 'current XIRR',          gain: true  },
+};
+
+function setMetric(btn) {
+  btn.closest('.metric-bar').querySelectorAll('.metric-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const pill = btn.closest('.metric-bar').nextElementSibling;
+  if (pill && pill.classList.contains('stat-pill')) {
+    const s = statData[btn.textContent] || { val: '—', lbl: '', gain: true };
+    const valEl = pill.querySelector('.stat-val');
+    const lblEl = pill.querySelector('.stat-lbl');
+    valEl.textContent = s.val;
+    valEl.style.color = s.gain ? '#0a7a42' : '#be1c1c';
+    lblEl.textContent = s.lbl;
+  }
 }
 
 function setRange(btn) {
