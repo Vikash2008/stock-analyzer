@@ -195,7 +195,8 @@ def _show_holdings(h, usd_inr, txns=None, seg_filter=None, prices=None):
 
 
 def _card(label, cur, inv, real_gain, cost_of_sold, xirr_str, key,
-          nav_portfolio=None, nav_segment=None, today_gain=None, today_pct=None):
+          nav_portfolio=None, nav_segment=None, today_gain=None, today_pct=None,
+          compact=False):
     """Mobile-first card matching page_portfolios.html tile style."""
     total_gain = (cur - inv) + real_gain
     total_pct  = (total_gain / (inv + cost_of_sold) * 100) if (inv + cost_of_sold) else 0.0
@@ -204,7 +205,6 @@ def _card(label, cur, inv, real_gain, cost_of_sold, xirr_str, key,
     bg          = "#f0fdf8"  if gain_pos else "#fff5f5"
     border_left = "#10b981"  if gain_pos else "#f43f5e"
     gl_color    = "#0a7a42"  if gain_pos else "#be1c1c"
-    real_color  = "#0a7a42"  if real_gain >= 0 else "#be1c1c"
 
     gain_sign = "+" if total_gain >= 0 else ""
     pct_sign  = "+" if total_pct  >= 0 else ""
@@ -215,9 +215,6 @@ def _card(label, cur, inv, real_gain, cost_of_sold, xirr_str, key,
     xirr_color = "#334155"
     if xirr_clean != "N/A":
         xirr_color = "#be1c1c" if xirr_clean.startswith("-") else "#0a7a42"
-
-    real_sign = "+" if real_gain >= 0 else ""
-    real_str  = f"{real_sign}{_fmt(real_gain)}"
 
     if today_gain is not None and not pd.isna(today_gain):
         tg_color = "#0a7a42" if today_gain >= 0 else "#be1c1c"
@@ -231,18 +228,33 @@ def _card(label, cur, inv, real_gain, cost_of_sold, xirr_str, key,
     else:
         tg_html = '<span style="color:#94a3b8;">N/A</span>'
 
+    if compact:
+        val_size  = "13px"
+        sub_size  = "9px"
+        padding   = "6px 10px"
+        radius    = "8px 8px 0 0"
+        lbl_mb    = "2px"
+        row_mb    = "2px"
+    else:
+        val_size  = "22px"
+        sub_size  = "10px"
+        padding   = "9px 12px"
+        radius    = "10px 10px 0 0"
+        lbl_mb    = "5px"
+        row_mb    = "4px"
+
     st.markdown(f"""
 <div class="portcard" style="background:{bg};border:1px solid #e2e8f0;border-left:4px solid {border_left};
-            border-radius:10px 10px 0 0;padding:10px 12px;margin-bottom:0;">
+            border-radius:{radius};padding:{padding};margin-bottom:0;">
   <div style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;
-              letter-spacing:0.1em;margin-bottom:5px;">{label}</div>
-  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
-    <span style="font-size:20px;font-weight:700;color:#0f172a;letter-spacing:-0.02em;">{_fmt(cur)}</span>
-    <span style="font-size:10px;">{tg_html}</span>
+              letter-spacing:0.1em;margin-bottom:{lbl_mb};">{label}</div>
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:{row_mb};">
+    <span style="font-size:{val_size};font-weight:700;color:#0f172a;letter-spacing:-0.02em;">{_fmt(cur)}</span>
+    <span style="font-size:{sub_size};">{tg_html}</span>
   </div>
   <div style="display:flex;justify-content:space-between;align-items:baseline;">
-    <span style="font-size:10px;font-weight:700;color:{gl_color};">{gl_str}&nbsp;{pct_str}</span>
-    <span style="font-size:10px;color:#64748b;">XIRR&nbsp;<b style="color:{xirr_color};">{xirr_clean}</b></span>
+    <span style="font-size:{sub_size};font-weight:700;color:{gl_color};">{gl_str}&nbsp;{pct_str}</span>
+    <span style="font-size:{sub_size};color:#64748b;">XIRR&nbsp;<b style="color:{xirr_color};">{xirr_clean}</b></span>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -328,10 +340,12 @@ def render(bundle: PortfolioBundle) -> None:
     # ── Stocks + MF ───────────────────────────────────────────────────────────
     _card("Stocks",       cur_stk, inv_stk, rg_stk, rc_stk, xirr_stk,
           "stk", nav_segment="stk",
-          today_gain=tg_stk, today_pct=_tg_pct(tg_stk, cur_stk) if tg_stk is not None else None)
+          today_gain=tg_stk, today_pct=_tg_pct(tg_stk, cur_stk) if tg_stk is not None else None,
+          compact=True)
     _card("Mutual Funds", cur_mf,  inv_mf,  rg_mf,  rc_mf,  xirr_mf,
           "mf",  nav_segment="mf",
-          today_gain=tg_mf, today_pct=_tg_pct(tg_mf, cur_mf) if tg_mf is not None else None)
+          today_gain=tg_mf, today_pct=_tg_pct(tg_mf, cur_mf) if tg_mf is not None else None,
+          compact=True)
 
     # ── Breakdown toggle ─────────────────────────────────────────────────────
     mode = st.radio(
@@ -343,16 +357,20 @@ def render(bundle: PortfolioBundle) -> None:
     if mode == "By Type":
         _card("Indian Stocks", cur_ind_stk, inv_ind_stk, rg_ind_stk, rc_ind_stk,
               xirr_ind_stk, "indian_stock", nav_segment="indian_stock",
-              today_gain=tg_ind_stk, today_pct=_tg_pct(tg_ind_stk, cur_ind_stk) if tg_ind_stk is not None else None)
+              today_gain=tg_ind_stk, today_pct=_tg_pct(tg_ind_stk, cur_ind_stk) if tg_ind_stk is not None else None,
+              compact=True)
         _card("US Stocks",     cur_us_stk,  inv_us_stk,  rg_us_stk,  rc_us_stk,
               xirr_us_stk,  "us_stock",     nav_segment="us_stock",
-              today_gain=tg_us_stk, today_pct=_tg_pct(tg_us_stk, cur_us_stk) if tg_us_stk is not None else None)
+              today_gain=tg_us_stk, today_pct=_tg_pct(tg_us_stk, cur_us_stk) if tg_us_stk is not None else None,
+              compact=True)
         _card("Indian MF",     cur_ind_mf,  inv_ind_mf,  rg_ind_mf,  rc_ind_mf,
               xirr_ind_mf,  "indian_mf",    nav_segment="indian_mf",
-              today_gain=tg_ind_mf, today_pct=_tg_pct(tg_ind_mf, cur_ind_mf) if tg_ind_mf is not None else None)
+              today_gain=tg_ind_mf, today_pct=_tg_pct(tg_ind_mf, cur_ind_mf) if tg_ind_mf is not None else None,
+              compact=True)
         _card("US MF",         cur_us_mf,   inv_us_mf,   rg_us_mf,   rc_us_mf,
               xirr_us_mf,   "us_mf",        nav_segment="us_mf",
-              today_gain=tg_us_mf, today_pct=_tg_pct(tg_us_mf, cur_us_mf) if tg_us_mf is not None else None)
+              today_gain=tg_us_mf, today_pct=_tg_pct(tg_us_mf, cur_us_mf) if tg_us_mf is not None else None,
+              compact=True)
 
     # ── By Broker ─────────────────────────────────────────────────────────────
     else:
@@ -376,11 +394,13 @@ def render(bundle: PortfolioBundle) -> None:
             tg_p = by_port.get(port)
             _card(port, cur_p, inv_p, rg_p, rc_p, xirr_p,
                   f"port_{port}", nav_portfolio=port,
-                  today_gain=tg_p, today_pct=_tg_pct(tg_p, cur_p) if tg_p is not None else None)
+                  today_gain=tg_p, today_pct=_tg_pct(tg_p, cur_p) if tg_p is not None else None,
+                  compact=True)
 
         st.markdown("🇺🇸 **US**")
         for cur_p, port, inv_p, xirr_p, rg_p, rc_p in us:
             tg_p = by_port.get(port)
             _card(port, cur_p, inv_p, rg_p, rc_p, xirr_p,
                   f"port_{port}", nav_portfolio=port,
-                  today_gain=tg_p, today_pct=_tg_pct(tg_p, cur_p) if tg_p is not None else None)
+                  today_gain=tg_p, today_pct=_tg_pct(tg_p, cur_p) if tg_p is not None else None,
+                  compact=True)
