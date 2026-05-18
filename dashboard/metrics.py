@@ -259,11 +259,13 @@ def _card(label, cur, inv, real_gain, cost_of_sold, xirr_str, key,
 </div>
 """, unsafe_allow_html=True)
 
-    if st.button("→", key=f"click_{key}"):
-        if nav_portfolio:
-            ui_state.navigate("holdings", portfolio=nav_portfolio)
-        else:
-            ui_state.navigate("holdings", segment=nav_segment or key)
+    _, _c = st.columns([10, 1])
+    with _c:
+        if st.button("→", key=f"click_{key}"):
+            if nav_portfolio:
+                ui_state.navigate("holdings", portfolio=nav_portfolio)
+            else:
+                ui_state.navigate("holdings", segment=nav_segment or key)
 
 
 def render(bundle: PortfolioBundle) -> None:
