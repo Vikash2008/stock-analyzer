@@ -62,23 +62,24 @@ st.markdown("""
     box-shadow: 0 2px 6px rgba(37,99,235,0.25) !important;
   }
 
-  /* Portfolio card nav buttons — flat strip fused to card bottom */
+  /* Invisible tap overlay positioned over the in-card explore strip */
   .element-container:has(.portcard) + .element-container .stButton > button {
     background: transparent !important;
-    border: 1px solid #e2e8f0 !important;
-    border-top: none !important;
-    border-radius: 0 0 10px 10px !important;
-    color: #64748b !important;
+    border: none !important;
     box-shadow: none !important;
-    font-size: 11px !important;
-    padding: 4px 12px !important;
-    margin-top: -6px !important;
+    color: transparent !important;
+    font-size: 1px !important;
+    padding: 0 !important;
+    margin-top: -22px !important;
+    height: 22px !important;
+    position: relative !important;
+    z-index: 100 !important;
+    cursor: pointer !important;
   }
-  .element-container:has(.portcard) + .element-container .stButton > button:hover {
-    background: #f8fafc !important;
-    color: #2563eb !important;
-    border-color: #e2e8f0 !important;
-    border-top: none !important;
+  .element-container:has(.portcard) + .element-container .stButton > button:hover,
+  .element-container:has(.portcard) + .element-container .stButton > button:active {
+    background: rgba(0,0,0,0.03) !important;
+    border: none !important;
     box-shadow: none !important;
   }
 
@@ -97,8 +98,6 @@ st.markdown("""
     [data-testid="column"] { gap: 0.25rem !important; }
     [data-testid="stVerticalBlock"] { gap: 0.3rem !important; }
     .block-container { overflow-x: hidden !important; }
-    /* prevent fused Explore/→ button from overlapping card on mobile */
-    .element-container:has(.portcard) + .element-container .stButton > button { margin-top: 0 !important; }
   }
 </style>
 """, unsafe_allow_html=True)

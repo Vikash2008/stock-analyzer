@@ -166,7 +166,7 @@ def _h_card(ticker, sub_label, cur, inv, real_g, real_cost, xirr_str, nav_key,
 
     st.markdown(f"""
 <div class="portcard" style="background:{bg};border:1px solid #e2e8f0;border-left:4px solid {border_left};
-            border-radius:10px 10px 0 0;padding:10px 12px;margin-bottom:0;">
+            border-radius:10px;padding:10px 12px;margin-bottom:0;">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
     <div style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;">
       {ticker}{f'&nbsp;·&nbsp;{sub_label}' if sub_label else ''}</div>
@@ -176,9 +176,13 @@ def _h_card(ticker, sub_label, cur, inv, real_g, real_cost, xirr_str, nav_key,
     <span style="font-size:16px;font-weight:700;color:#0f172a;letter-spacing:-0.02em;">{_fmt(cur, is_usd)}</span>
     <span style="font-size:10px;">{tg_html}</span>
   </div>
-  <div style="display:flex;justify-content:space-between;align-items:baseline;">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0;">
     <span style="font-size:10px;font-weight:700;color:{gl_color};">{gl_str}&nbsp;{pct_str}</span>
     <span style="font-size:10px;color:#64748b;">XIRR&nbsp;<b style="color:{xirr_color};">{xirr_clean}</b></span>
+  </div>
+  <div style="margin:4px -12px -10px -12px;padding:3px 12px;
+              border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;">
+    <span style="font-size:9px;color:#94a3b8;">→</span>
   </div>
 </div>
 """, unsafe_allow_html=True)

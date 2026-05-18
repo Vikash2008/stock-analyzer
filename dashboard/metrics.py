@@ -231,30 +231,32 @@ def _card(label, cur, inv, real_gain, cost_of_sold, xirr_str, key,
     if compact:
         val_size  = "13px"
         sub_size  = "9px"
-        padding   = "6px 10px"
-        radius    = "8px 8px 0 0"
+        pad_v, pad_h = 6, 10
         lbl_mb    = "2px"
         row_mb    = "2px"
     else:
         val_size  = "22px"
         sub_size  = "10px"
-        padding   = "9px 12px"
-        radius    = "10px 10px 0 0"
+        pad_v, pad_h = 9, 12
         lbl_mb    = "5px"
         row_mb    = "4px"
 
     st.markdown(f"""
 <div class="portcard" style="background:{bg};border:1px solid #e2e8f0;border-left:4px solid {border_left};
-            border-radius:{radius};padding:{padding};margin-bottom:0;">
+            border-radius:10px;padding:{pad_v}px {pad_h}px;margin-bottom:0;">
   <div style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;
               letter-spacing:0.1em;margin-bottom:{lbl_mb};">{label}</div>
   <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:{row_mb};">
     <span style="font-size:{val_size};font-weight:700;color:#0f172a;letter-spacing:-0.02em;">{_fmt(cur)}</span>
     <span style="font-size:{sub_size};">{tg_html}</span>
   </div>
-  <div style="display:flex;justify-content:space-between;align-items:baseline;">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0;">
     <span style="font-size:{sub_size};font-weight:700;color:{gl_color};">{gl_str}&nbsp;{pct_str}</span>
     <span style="font-size:{sub_size};color:#64748b;">XIRR&nbsp;<b style="color:{xirr_color};">{xirr_clean}</b></span>
+  </div>
+  <div style="margin:4px -{pad_h}px -{pad_v}px -{pad_h}px;padding:3px {pad_h}px;
+              border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;">
+    <span style="font-size:9px;color:#94a3b8;">Explore →</span>
   </div>
 </div>
 """, unsafe_allow_html=True)
