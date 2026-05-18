@@ -148,7 +148,6 @@ def _show_holdings(h, usd_inr, txns=None, seg_filter=None, prices=None):
     key = f"sel_row_{sorted(seg_filter) if seg_filter else 'all'}"
     sym_key = f"sym_{key}"
 
-    # If nothing selected yet, show full table with selection
     selected_sym = st.session_state.get(sym_key)
 
     def _txn_panel(sym):
@@ -174,7 +173,6 @@ def _show_holdings(h, usd_inr, txns=None, seg_filter=None, prices=None):
     else:
         idx = disp[disp["Symbol"] == selected_sym].index[0]
 
-        # Top slice — clicking the last row (selected) collapses; any other row expands it
         top_ev = st.dataframe(disp.iloc[:idx+1], use_container_width=True, hide_index=True,
                               on_select="rerun", selection_mode="single-row", key=f"top_{key}")
         top_sel = top_ev.selection.rows if top_ev and top_ev.selection else []
@@ -195,67 +193,56 @@ def _show_holdings(h, usd_inr, txns=None, seg_filter=None, prices=None):
                 st.rerun()
 
 
-def _tile(col, label, cur, inv, xirr_str, key, portfolio=None, real_gain=0.0, cost_of_sold=0.0):
-    gain = cur - inv
-    pct  = (gain / inv * 100) if inv else 0.0
-    real_pct  = (real_gain / cost_of_sold * 100) if cost_of_sold else 0.0
-    total_g   = gain + real_gain
-    total_pct = (total_g / (inv + cost_of_sold) * 100) if (inv + cost_of_sold) else 0.0
-    is_pos = gain >= 0
-    gain_color   = "#0a7a42" if is_pos else "#be1c1c"
-    real_color   = "#0a7a42" if real_gain >= 0 else "#be1c1c"
-    total_color  = "#0a7a42" if total_g >= 0 else "#be1c1c"
-    border_color = "#10b981" if is_pos else "#f43f5e"
-    bg_color     = "#f0fdf8" if is_pos else "#fff5f5"
-    xirr_display = xirr_str if xirr_str else "—"
-    def _s(v): return "+" if v >= 0 else ""
-    col.markdown(f"""
-<div class="portfolio-tile" style="background:{bg_color}; border:1px solid #e2e8f0;
-            border-radius:12px; padding:12px 14px; border-left:4px solid {border_color};
-            box-shadow:0 1px 4px rgba(0,0,0,0.06)">
-  <div class="tile-label" style="font-size:10px; color:#94a3b8; text-transform:uppercase;
-              letter-spacing:0.08em; margin-bottom:4px; font-weight:600">{label}</div>
-  <div class="tile-value" style="font-size:22px; font-weight:700; color:#0f172a; line-height:1.2;
-              letter-spacing:-0.01em">{_fmt(cur)}</div>
-  <div class="tile-grid" style="margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:6px 8px">
-    <div>
-      <div class="tile-sublabel" style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">INVESTED</div>
-      <div class="tile-subval" style="font-size:14px; font-weight:600; color:#334155">{_fmt(inv)}</div>
-    </div>
-    <div>
-      <div class="tile-sublabel" style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">UNREALIZED</div>
-      <div class="tile-subval" style="font-size:14px; font-weight:700; color:{gain_color}">{_s(gain)}{_fmt(gain)} · {_s(pct)}{pct:.1f}%</div>
-    </div>
-    <div>
-      <div class="tile-sublabel" style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">REALIZED</div>
-      <div class="tile-subval" style="font-size:14px; font-weight:700; color:{real_color}">{_s(real_gain)}{_fmt(real_gain)} · {_s(real_pct)}{real_pct:.1f}%</div>
-    </div>
-    <div>
-      <div class="tile-sublabel" style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">TOTAL G/L</div>
-      <div class="tile-subval" style="font-size:14px; font-weight:700; color:{total_color}">{_s(total_g)}{_fmt(total_g)} · {_s(total_pct)}{total_pct:.1f}%</div>
-    </div>
-    <div>
-      <div class="tile-sublabel" style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">TOTAL RTN</div>
-      <div class="tile-subval" style="font-size:14px; font-weight:700; color:{total_color}">{_s(total_pct)}{total_pct:.1f}%</div>
-    </div>
-    <div>
-      <div class="tile-sublabel" style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">XIRR</div>
-      <div class="tile-subval" style="font-size:14px; font-weight:600; color:#334155">{xirr_display}</div>
-    </div>
+def _card(label, cur, inv, real_gain, cost_of_sold, xirr_str, key,
+          nav_portfolio=None, nav_segment=None):
+    """Mobile-first card matching page_portfolios.html tile style."""
+    total_gain = (cur - inv) + real_gain
+    total_pct  = (total_gain / (inv + cost_of_sold) * 100) if (inv + cost_of_sold) else 0.0
+    gain_pos   = total_gain >= 0
+
+    bg          = "#f0fdf8"  if gain_pos else "#fff5f5"
+    border_left = "#10b981"  if gain_pos else "#f43f5e"
+    gl_color    = "#0a7a42"  if gain_pos else "#be1c1c"
+    real_color  = "#0a7a42"  if real_gain >= 0 else "#be1c1c"
+
+    gain_sign = "+" if total_gain >= 0 else ""
+    pct_sign  = "+" if total_pct  >= 0 else ""
+    gl_str    = f"{gain_sign}{_fmt(total_gain)}"
+    pct_str   = f"({pct_sign}{total_pct:.1f}%)"
+
+    xirr_clean = xirr_str or "N/A"
+    xirr_color = "#334155"
+    if xirr_clean != "N/A":
+        xirr_color = "#be1c1c" if xirr_clean.startswith("-") else "#0a7a42"
+
+    real_sign = "+" if real_gain >= 0 else ""
+    real_str  = f"{real_sign}{_fmt(real_gain)}"
+
+    st.markdown(f"""
+<div class="portcard" style="background:{bg};border:1px solid #e2e8f0;border-left:4px solid {border_left};
+            border-radius:10px;padding:10px 12px;margin-bottom:2px;">
+  <div style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;
+              letter-spacing:0.1em;margin-bottom:5px;">{label}</div>
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+    <span style="font-size:20px;font-weight:700;color:#0f172a;letter-spacing:-0.02em;">{_fmt(cur)}</span>
+    <span style="font-size:10px;color:#94a3b8;">N/A (+0.00%)</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+    <span style="font-size:10px;font-weight:700;color:{gl_color};">{gl_str}&nbsp;{pct_str}</span>
+    <span style="font-size:10px;color:#64748b;">XIRR&nbsp;<b style="color:{xirr_color};">{xirr_clean}</b></span>
+  </div>
+  <div style="border-top:1px solid #e2e8f0;padding-top:6px;display:flex;justify-content:space-between;">
+    <span style="font-size:9px;color:#94a3b8;">Invested&nbsp;<b style="color:#334155;font-weight:600;">{_fmt(inv)}</b></span>
+    <span style="font-size:9px;color:#94a3b8;">Realized&nbsp;<b style="color:{real_color};font-weight:600;">{real_str}</b></span>
   </div>
 </div>
 """, unsafe_allow_html=True)
-    b1, b2 = col.columns(2, gap="small")
-    if b1.button("Holdings →", key=f"h_{key}", use_container_width=True):
-        if portfolio:
-            ui_state.navigate("holdings", portfolio=portfolio)
+
+    if st.button("", key=f"btn_{key}", use_container_width=True):
+        if nav_portfolio:
+            ui_state.navigate("holdings", portfolio=nav_portfolio)
         else:
-            ui_state.navigate("holdings", segment=key)
-    if b2.button("Summary →", key=f"s_{key}", use_container_width=True):
-        if portfolio:
-            ui_state.navigate("summary", portfolio=portfolio)
-        else:
-            ui_state.navigate("summary", segment=key)
+            ui_state.navigate("holdings", segment=nav_segment or key)
 
 
 def render(bundle: PortfolioBundle) -> None:
@@ -302,54 +289,78 @@ def render(bundle: PortfolioBundle) -> None:
     rg_mf  = rg_ind_mf  + rg_us_mf;   rc_mf  = rc_ind_mf  + rc_us_mf
     rg_tot = rg_stk + rg_mf;           rc_tot = rc_stk + rc_mf
 
-    # ── Row 1: 3 tiles ────────────────────────────────────────────────────────
-    st.caption("**Overview**")
-    _tile(st, "Total Portfolio", cur_total, inv_total, xirr_total, "total", real_gain=rg_tot, cost_of_sold=rc_tot)
-    oc1, oc2 = st.columns(2)
-    _tile(oc1, "Stocks",       cur_stk, inv_stk, xirr_stk, "stk", real_gain=rg_stk, cost_of_sold=rc_stk)
-    _tile(oc2, "Mutual Funds", cur_mf,  inv_mf,  xirr_mf,  "mf",  real_gain=rg_mf,  cost_of_sold=rc_mf)
+    # ── Invisible overlay: makes entire card tappable ────────────────────────
+    st.markdown("""
+<style>
+[data-testid="element-container"]:has(.portcard) + [data-testid="element-container"] button {
+    margin-top: -130px !important;
+    height: 130px !important;
+    background: transparent !important;
+    border: none !important;
+    color: transparent !important;
+    box-shadow: none !important;
+    cursor: pointer;
+    position: relative;
+    z-index: 5;
+    width: 100%;
+}
+[data-testid="element-container"]:has(.portcard) + [data-testid="element-container"] button:hover {
+    background: rgba(0,0,0,0.03) !important;
+    border: none !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
-    # ── Row 2: breakdown ─────────────────────────────────────────────────────
-    bl, br = st.columns([0.4, 0.6])
-    bl.caption("**Breakdown**")
-    breakdown_mode = br.radio("", ["By Category", "By Portfolio"],
-                              horizontal=True, key="breakdown_mode",
-                              label_visibility="collapsed")
+    # ── Hero ──────────────────────────────────────────────────────────────────
+    _card("Total Portfolio", cur_total, inv_total, rg_tot, rc_tot, xirr_total,
+          "total", nav_segment="total")
 
-    if breakdown_mode == "By Category":
-        r1c1, r1c2 = st.columns(2)
-        _tile(r1c1, "Indian Stocks", cur_ind_stk, inv_ind_stk, xirr_ind_stk, "indian_stock", real_gain=rg_ind_stk, cost_of_sold=rc_ind_stk)
-        _tile(r1c2, "US Stocks",     cur_us_stk,  inv_us_stk,  xirr_us_stk,  "us_stock",     real_gain=rg_us_stk,  cost_of_sold=rc_us_stk)
-        r2c1, r2c2 = st.columns(2)
-        _tile(r2c1, "Indian MF",     cur_ind_mf,  inv_ind_mf,  xirr_ind_mf,  "indian_mf",    real_gain=rg_ind_mf,  cost_of_sold=rc_ind_mf)
-        _tile(r2c2, "US MF",         cur_us_mf,   inv_us_mf,   xirr_us_mf,   "us_mf",        real_gain=rg_us_mf,   cost_of_sold=rc_us_mf)
+    # ── Stocks + MF ───────────────────────────────────────────────────────────
+    _card("Stocks",       cur_stk, inv_stk, rg_stk, rc_stk, xirr_stk,
+          "stk", nav_segment="stk")
+    _card("Mutual Funds", cur_mf,  inv_mf,  rg_mf,  rc_mf,  xirr_mf,
+          "mf",  nav_segment="mf")
+
+    # ── Breakdown toggle ─────────────────────────────────────────────────────
+    mode = st.radio(
+        "Breakdown", ["By Type", "By Broker"],
+        horizontal=True, key="breakdown_mode",
+    )
+
+    # ── By Type ───────────────────────────────────────────────────────────────
+    if mode == "By Type":
+        _card("Indian Stocks", cur_ind_stk, inv_ind_stk, rg_ind_stk, rc_ind_stk,
+              xirr_ind_stk, "indian_stock", nav_segment="indian_stock")
+        _card("US Stocks",     cur_us_stk,  inv_us_stk,  rg_us_stk,  rc_us_stk,
+              xirr_us_stk,  "us_stock",     nav_segment="us_stock")
+        _card("Indian MF",     cur_ind_mf,  inv_ind_mf,  rg_ind_mf,  rc_ind_mf,
+              xirr_ind_mf,  "indian_mf",    nav_segment="indian_mf")
+        _card("US MF",         cur_us_mf,   inv_us_mf,   rg_us_mf,   rc_us_mf,
+              xirr_us_mf,   "us_mf",        nav_segment="us_mf")
+
+    # ── By Broker ─────────────────────────────────────────────────────────────
     else:
         _SKIP_PORT_VIEW = SKIP_PORTS | {"IndMoney Ind"}
         indian, us = [], []
         for port, g in h.groupby("portfolio"):
-            if port in _SKIP_PORT_VIEW: continue
+            if port in _SKIP_PORT_VIEW:
+                continue
             is_usd = port in USD_PORTS
-            inv = g["total_invested"].sum() * usd_inr if is_usd else g["disp_invested"].sum()
-            cur = g["current_value"].sum()  * usd_inr if is_usd else g["disp_current"].sum()
-            xirr_s = port_xirr.get(port, "N/A")
-            (us if is_usd else indian).append((cur, port, inv, xirr_s))
+            inv_p = g["total_invested"].sum() * usd_inr if is_usd else g["disp_invested"].sum()
+            cur_p = g["current_value"].sum()  * usd_inr if is_usd else g["disp_current"].sum()
+            xirr_p = port_xirr.get(port, "N/A")
+            rg_p, rc_p = _rg(_rport, port)
+            (us if is_usd else indian).append((cur_p, port, inv_p, xirr_p, rg_p, rc_p))
 
         indian.sort(key=lambda x: -x[0])
         us.sort(key=lambda x: -x[0])
 
-        st.markdown("<div style='font-size:11px;color:#6b7fa3;text-transform:uppercase;letter-spacing:0.06em;margin:6px 0 2px'>🇮🇳 &nbsp;India</div>",
-                    unsafe_allow_html=True)
-        for i in range(0, len(indian), 2):
-            chunk = indian[i:i+2]
-            for col, (cur_p, port, inv_p, xirr_p) in zip(st.columns(len(chunk)), chunk):
-                rg_p, rc_p = _rg(_rport, port)
-                _tile(col, port, cur_p, inv_p, xirr_p, f"port_{port}", portfolio=port, real_gain=rg_p, cost_of_sold=rc_p)
+        st.markdown("🇮🇳 **India**")
+        for cur_p, port, inv_p, xirr_p, rg_p, rc_p in indian:
+            _card(port, cur_p, inv_p, rg_p, rc_p, xirr_p,
+                  f"port_{port}", nav_portfolio=port)
 
-        st.markdown("<div style='font-size:11px;color:#6b7fa3;text-transform:uppercase;letter-spacing:0.06em;margin:8px 0 2px'>🇺🇸 &nbsp;US</div>",
-                    unsafe_allow_html=True)
-        for i in range(0, len(us), 2):
-            chunk = us[i:i+2]
-            for col, (cur_p, port, inv_p, xirr_p) in zip(st.columns(len(chunk)), chunk):
-                rg_p, rc_p = _rg(_rport, port)
-                _tile(col, port, cur_p, inv_p, xirr_p, f"port_{port}", portfolio=port, real_gain=rg_p, cost_of_sold=rc_p)
-
+        st.markdown("🇺🇸 **US**")
+        for cur_p, port, inv_p, xirr_p, rg_p, rc_p in us:
+            _card(port, cur_p, inv_p, rg_p, rc_p, xirr_p,
+                  f"port_{port}", nav_portfolio=port)
