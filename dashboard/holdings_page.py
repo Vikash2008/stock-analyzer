@@ -127,7 +127,7 @@ def _h_card(ticker, sub_label, cur, inv, real_g, real_cost, xirr_str, nav_key,
 
     st.markdown(f"""
 <div class="portcard" style="background:{bg};border:1px solid #e2e8f0;border-left:4px solid {border_left};
-            border-radius:10px;padding:10px 12px;margin-bottom:2px;">
+            border-radius:10px 10px 0 0;padding:10px 12px;margin-bottom:0;">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
     <div style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;">
       {ticker}{f'&nbsp;·&nbsp;{sub_label}' if sub_label else ''}</div>
@@ -148,8 +148,7 @@ def _h_card(ticker, sub_label, cur, inv, real_g, real_cost, xirr_str, nav_key,
 </div>
 """, unsafe_allow_html=True)
 
-    _, btn_col = st.columns([3, 1])
-    if btn_col.button("→", key=f"hbtn_{nav_key}"):
+    if st.button("→", key=f"hbtn_{nav_key}", use_container_width=True):
         if nav_portfolio:
             ui_state.navigate("transactions", portfolio=nav_portfolio, symbol=nav_symbol)
         else:
