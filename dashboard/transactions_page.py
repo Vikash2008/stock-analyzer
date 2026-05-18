@@ -55,6 +55,20 @@ def render(bundle: PortfolioBundle) -> None:
         port_prefix = f"{port}&nbsp;·&nbsp;" if port else ""
         name_suffix = f"&nbsp;·&nbsp;{company}" if company else ""
 
+        tg_raw = row.get("disp_today_gain") if not h_row.empty else None
+        tp_raw = row.get("today_pct") if not h_row.empty else None
+        if tg_raw is not None and pd.notna(tg_raw):
+            tg_color = "#0a7a42" if tg_raw >= 0 else "#be1c1c"
+            tg_sign  = "+" if tg_raw >= 0 else ""
+            tg_txt   = f"{tg_sign}{_fmt(tg_raw, is_usd)}"
+            if tp_raw is not None and pd.notna(tp_raw):
+                tp_sign = "+" if tp_raw >= 0 else ""
+                tg_html = f'<b style="color:{tg_color};">{tg_txt}</b><span style="color:{tg_color};">&nbsp;({tp_sign}{tp_raw:.2f}%)</span>'
+            else:
+                tg_html = f'<b style="color:{tg_color};">{tg_txt}</b>'
+        else:
+            tg_html = '<span style="color:#94a3b8;">N/A</span>'
+
         st.markdown(f"""
 <div style="background:{bg};border:1px solid #e2e8f0;border-left:4px solid {border_left};
             border-radius:10px;padding:10px 12px;margin-bottom:8px;">
@@ -65,7 +79,7 @@ def render(bundle: PortfolioBundle) -> None:
   </div>
   <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
     <span style="font-size:20px;font-weight:700;color:#0f172a;letter-spacing:-0.02em;">{_fmt(cur, is_usd)}</span>
-    <span style="font-size:10px;color:#94a3b8;">N/A (+0.00%)</span>
+    <span style="font-size:10px;">{tg_html}</span>
   </div>
   <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
     <span style="font-size:10px;font-weight:700;color:{gl_color};">{gain_sign}{_fmt(gain, is_usd)}&nbsp;({pct_sign}{pct:.1f}%)</span>

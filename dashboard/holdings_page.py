@@ -71,7 +71,8 @@ def _batch_xirr(txns, h, usd_inr) -> dict:
 
 
 def _summary_card(label: str, cur: float, inv: float, is_usd: bool = False,
-                  xirr_str: str = None, real_gain: float = 0.0, real_cost: float = 0.0) -> None:
+                  xirr_str: str = None, real_gain: float = 0.0, real_cost: float = 0.0,
+                  today_gain=None, today_pct=None) -> None:
     total_gain = (cur - inv) + real_gain
     total_pct  = (total_gain / (inv + real_cost) * 100) if (inv + real_cost) else 0.0
     gain_pos   = total_gain >= 0
@@ -89,6 +90,17 @@ def _summary_card(label: str, cur: float, inv: float, is_usd: bool = False,
     xirr_color  = "#334155"
     if xirr_clean != "N/A":
         xirr_color = "#be1c1c" if xirr_clean.startswith("-") else "#0a7a42"
+    if today_gain is not None and pd.notna(today_gain):
+        tg_color = "#0a7a42" if today_gain >= 0 else "#be1c1c"
+        tg_sign  = "+" if today_gain >= 0 else ""
+        tg_txt   = f"{tg_sign}{_fmt(today_gain, is_usd)}"
+        if today_pct is not None and pd.notna(today_pct):
+            tp_sign = "+" if today_pct >= 0 else ""
+            tg_html = f'<b style="color:{tg_color};">{tg_txt}</b><span style="color:{tg_color};">&nbsp;({tp_sign}{today_pct:.2f}%)</span>'
+        else:
+            tg_html = f'<b style="color:{tg_color};">{tg_txt}</b>'
+    else:
+        tg_html = '<span style="color:#94a3b8;">N/A</span>'
     st.markdown(f"""
 <div style="background:{bg};border:1px solid #e2e8f0;border-left:4px solid {border_left};
             border-radius:10px;padding:10px 12px;margin-bottom:8px;">
@@ -96,7 +108,7 @@ def _summary_card(label: str, cur: float, inv: float, is_usd: bool = False,
               letter-spacing:0.1em;margin-bottom:5px;">{label}</div>
   <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
     <span style="font-size:20px;font-weight:700;color:#0f172a;letter-spacing:-0.02em;">{_fmt(cur, is_usd)}</span>
-    <span style="font-size:10px;color:#94a3b8;">N/A (+0.00%)</span>
+    <span style="font-size:10px;">{tg_html}</span>
   </div>
   <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
     <span style="font-size:10px;font-weight:700;color:{gl_color};">{gl_str}&nbsp;{pct_str}</span>
@@ -111,7 +123,8 @@ def _summary_card(label: str, cur: float, inv: float, is_usd: bool = False,
 
 
 def _h_card(ticker, sub_label, cur, inv, real_g, real_cost, xirr_str, nav_key,
-            nav_portfolio=None, nav_symbol=None, ltp=None, qty=None, avg_cost=None, is_usd=False):
+            nav_portfolio=None, nav_symbol=None, ltp=None, qty=None, avg_cost=None, is_usd=False,
+            today_gain=None, today_pct=None):
     total_gain = (cur - inv) + real_g
     total_pct  = (total_gain / (inv + real_cost) * 100) if (inv + real_cost) else 0.0
     gain_pos   = total_gain >= 0
@@ -139,6 +152,18 @@ def _h_card(ticker, sub_label, cur, inv, real_g, real_cost, xirr_str, nav_key,
     if qty is not None and avg_cost is not None:
         footer_inv += f"&nbsp;·&nbsp;{round(qty, 2)}&nbsp;sh&nbsp;·&nbsp;{round(avg_cost, 2)}/sh"
 
+    if today_gain is not None and pd.notna(today_gain):
+        tg_color = "#0a7a42" if today_gain >= 0 else "#be1c1c"
+        tg_sign  = "+" if today_gain >= 0 else ""
+        tg_txt   = f"{tg_sign}{_fmt(today_gain, is_usd)}"
+        if today_pct is not None and pd.notna(today_pct):
+            tp_sign = "+" if today_pct >= 0 else ""
+            tg_html = f'<b style="color:{tg_color};">{tg_txt}</b><span style="color:{tg_color};">&nbsp;({tp_sign}{today_pct:.2f}%)</span>'
+        else:
+            tg_html = f'<b style="color:{tg_color};">{tg_txt}</b>'
+    else:
+        tg_html = '<span style="color:#94a3b8;">N/A</span>'
+
     st.markdown(f"""
 <div class="portcard" style="background:{bg};border:1px solid #e2e8f0;border-left:4px solid {border_left};
             border-radius:10px 10px 0 0;padding:10px 12px;margin-bottom:0;">
@@ -149,7 +174,7 @@ def _h_card(ticker, sub_label, cur, inv, real_g, real_cost, xirr_str, nav_key,
   </div>
   <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
     <span style="font-size:16px;font-weight:700;color:#0f172a;letter-spacing:-0.02em;">{_fmt(cur, is_usd)}</span>
-    <span style="font-size:10px;color:#94a3b8;">N/A (+0.00%)</span>
+    <span style="font-size:10px;">{tg_html}</span>
   </div>
   <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
     <span style="font-size:10px;font-weight:700;color:{gl_color};">{gl_str}&nbsp;{pct_str}</span>
@@ -197,8 +222,12 @@ def _render_segment(bundle: PortfolioBundle) -> None:
     seg_txns   = txns[txns["portfolio"].isin(seg_ports) & txns["yf_symbol"].isin(set(h["yf_symbol"]))]
     seg_xirr_v = portfolio_xirr(seg_txns, h, prices_map, usd_inr, "INR")
     seg_xirr_str = f"{seg_xirr_v*100:+.2f}%" if seg_xirr_v is not None else "N/A"
-    _summary_card(label, h["disp_current"].sum(), h["disp_invested"].sum(),
-                  xirr_str=seg_xirr_str, real_gain=seg_real_g, real_cost=seg_real_cost)
+    seg_cur  = h["disp_current"].sum()
+    seg_tg   = h["disp_today_gain"].fillna(0.0).sum() if "disp_today_gain" in h.columns else None
+    seg_tp   = round(seg_tg / (seg_cur - seg_tg) * 100, 2) if (seg_tg is not None and (seg_cur - seg_tg)) else None
+    _summary_card(label, seg_cur, h["disp_invested"].sum(),
+                  xirr_str=seg_xirr_str, real_gain=seg_real_g, real_cost=seg_real_cost,
+                  today_gain=seg_tg, today_pct=seg_tp)
 
     view = st.radio("", ["Cumulative", "Standalone"], horizontal=True,
                     key="seg_view", label_visibility="collapsed")
@@ -218,9 +247,12 @@ def _render_segment(bundle: PortfolioBundle) -> None:
             ltp      = round(g["current_price"].iloc[0], 2) if "current_price" in g.columns and pd.notna(g["current_price"].iloc[0]) else None
             avg_c    = round(inv_r / qty, 2) if qty else None
             port_nav = ports[0] if len(ports) == 1 else None
+            tg_r     = g["disp_today_gain"].fillna(0.0).sum() if "disp_today_gain" in g.columns else None
+            tp_r     = round(tg_r / (cur_r - tg_r) * 100, 2) if (tg_r is not None and (cur_r - tg_r)) else None
             rows.append(dict(_cur=cur_r, sym=sym, company=company, cur=cur_r, inv=inv_r,
                              real_g=real_g, real_cost=real_cost, xirr=xirr_map.get(sym, "—"),
-                             ltp=ltp, qty=qty, avg_c=avg_c, port_nav=port_nav))
+                             ltp=ltp, qty=qty, avg_c=avg_c, port_nav=port_nav,
+                             today_gain=tg_r, today_pct=tp_r))
 
         rows.sort(key=lambda r: -r["_cur"])
         st.caption(f"{len(rows)} symbols")
@@ -228,7 +260,8 @@ def _render_segment(bundle: PortfolioBundle) -> None:
             _h_card(r["sym"], r["company"], r["cur"], r["inv"], r["real_g"], r["real_cost"],
                     r["xirr"], f"seg_cum_{i}",
                     nav_portfolio=r["port_nav"], nav_symbol=r["sym"],
-                    ltp=r["ltp"], qty=r["qty"], avg_cost=r["avg_c"])
+                    ltp=r["ltp"], qty=r["qty"], avg_cost=r["avg_c"],
+                    today_gain=r["today_gain"], today_pct=r["today_pct"])
 
     else:
         rows = []
@@ -237,10 +270,13 @@ def _render_segment(bundle: PortfolioBundle) -> None:
             cur_r    = row["disp_current"]
             real_g, real_cost = real_map.get((row["portfolio"], row["symbol"]), (0.0, 0.0))
             ltp      = round(row["current_price"], 2) if pd.notna(row.get("current_price")) else None
+            tg_r     = row["disp_today_gain"] if "disp_today_gain" in row and pd.notna(row["disp_today_gain"]) else None
+            tp_r     = row["today_pct"] if "today_pct" in row and pd.notna(row["today_pct"]) else None
             rows.append(dict(_cur=cur_r, sym=row["symbol"], port=row["portfolio"],
                              cur=cur_r, inv=inv_r, real_g=real_g, real_cost=real_cost,
                              xirr=xirr_map.get(row["symbol"], "—"),
-                             ltp=ltp, qty=row["quantity"], avg_c=row["avg_cost"]))
+                             ltp=ltp, qty=row["quantity"], avg_c=row["avg_cost"],
+                             today_gain=tg_r, today_pct=tp_r))
 
         rows.sort(key=lambda r: -r["_cur"])
         st.caption(f"{len(rows)} holdings")
@@ -248,7 +284,8 @@ def _render_segment(bundle: PortfolioBundle) -> None:
             _h_card(r["sym"], r["port"], r["cur"], r["inv"], r["real_g"], r["real_cost"],
                     r["xirr"], f"seg_std_{i}",
                     nav_portfolio=r["port"], nav_symbol=r["sym"],
-                    ltp=r["ltp"], qty=r["qty"], avg_cost=r["avg_c"])
+                    ltp=r["ltp"], qty=r["qty"], avg_cost=r["avg_c"],
+                    today_gain=r["today_gain"], today_pct=r["today_pct"])
 
 
 def render(bundle: PortfolioBundle) -> None:
@@ -284,8 +321,11 @@ def render(bundle: PortfolioBundle) -> None:
     port_txns     = txns[txns["portfolio"] == port] if "portfolio" in txns.columns else txns
     port_xirr_v   = portfolio_xirr(port_txns, port_h, prices_map, usd_inr, "INR")
     port_xirr_str = f"{port_xirr_v*100:+.2f}%" if port_xirr_v is not None else "N/A"
+    port_tg  = port_h["disp_today_gain"].fillna(0.0).sum() if "disp_today_gain" in port_h.columns else None
+    port_tp  = round(port_tg / (cur - port_tg) * 100, 2) if (port_tg is not None and (cur - port_tg)) else None
     _summary_card(port, cur, inv, is_usd,
-                  xirr_str=port_xirr_str, real_gain=port_real_g, real_cost=port_real_cost)
+                  xirr_str=port_xirr_str, real_gain=port_real_g, real_cost=port_real_cost,
+                  today_gain=port_tg, today_pct=port_tp)
 
     tab_hold, tab_sum = st.tabs(["Holdings", "Summary"])
 
@@ -299,10 +339,13 @@ def render(bundle: PortfolioBundle) -> None:
             real_g, real_cost = real_map.get((port, row["symbol"]), (0.0, 0.0))
             ltp      = round(row["current_price"], 2) if pd.notna(row.get("current_price")) else None
             company  = row.get("company", "") if pd.notna(row.get("company", None)) else ""
+            tg_r     = row["disp_today_gain"] if "disp_today_gain" in row and pd.notna(row["disp_today_gain"]) else None
+            tp_r     = row["today_pct"] if "today_pct" in row and pd.notna(row["today_pct"]) else None
             rows.append(dict(_cur=cur_r, sym=row["symbol"], company=company,
                              cur=cur_r, inv=inv_r, real_g=real_g, real_cost=real_cost,
                              xirr=port_xirr_map.get(row["symbol"], "—"),
-                             ltp=ltp, qty=row["quantity"], avg_c=row["avg_cost"]))
+                             ltp=ltp, qty=row["quantity"], avg_c=row["avg_cost"],
+                             today_gain=tg_r, today_pct=tp_r))
 
         rows.sort(key=lambda r: -r["_cur"])
         st.caption(f"{len(rows)} holdings")
@@ -310,7 +353,8 @@ def render(bundle: PortfolioBundle) -> None:
             _h_card(r["sym"], r["company"], r["cur"], r["inv"], r["real_g"], r["real_cost"],
                     r["xirr"], f"port_{port}_{i}",
                     nav_portfolio=port, nav_symbol=r["sym"],
-                    ltp=r["ltp"], qty=r["qty"], avg_cost=r["avg_c"], is_usd=is_usd)
+                    ltp=r["ltp"], qty=r["qty"], avg_cost=r["avg_c"], is_usd=is_usd,
+                    today_gain=r["today_gain"], today_pct=r["today_pct"])
 
     with tab_sum:
         from dashboard import summary_page
