@@ -16,15 +16,12 @@ def _fmt(v: float, is_usd=False) -> str:
 
 
 def render(bundle: PortfolioBundle) -> None:
-    port    = ui_state.sel_portfolio()
-    sym     = ui_state.sel_symbol()
-    h       = bundle.holdings
-    txns    = bundle.transactions
+    port = ui_state.sel_portfolio()
+    sym  = ui_state.sel_symbol()
+    h    = bundle.holdings
+    txns = bundle.transactions
 
-    # ── Back nav ──────────────────────────────────────────────────────────────
-    crumb     = f"Portfolios → {port} → {sym}" if port else f"Portfolios → {sym}"
-    back_label = f"← Back to {port} Holdings" if port else "← Back to Holdings"
-    st.caption(crumb)
+    back_label = f"← {port} Holdings" if port else "← Holdings"
     if st.button(back_label, key="back_to_holdings"):
         ui_state.go_back()
         return
@@ -33,40 +30,61 @@ def render(bundle: PortfolioBundle) -> None:
         st.warning("No symbol selected.")
         return
 
-    # ── Symbol overview card ──────────────────────────────────────────────────
     is_usd = port in USD_PORTS if port else False
     h_row  = h[(h["symbol"] == sym) & (h["portfolio"] == port)] if port else h[h["symbol"] == sym]
 
     if not h_row.empty:
-        row      = h_row.iloc[0]
-        inv      = row["total_invested"] if is_usd else row["disp_invested"]
-        cur      = row["current_value"]  if is_usd else row["disp_current"]
-        gain     = cur - inv
-        pct      = (gain / inv * 100) if inv else 0.0
-        sign     = "+" if gain >= 0 else ""
-        color    = "#1a7a3a" if gain >= 0 else "#c0392b"
-        ltp      = round(row["current_price"], 2) if pd.notna(row.get("current_price")) else "—"
-        yf_sym   = row["yf_symbol"]
+        row           = h_row.iloc[0]
+        inv           = row["total_invested"] if is_usd else row["disp_invested"]
+        cur           = row["current_value"]  if is_usd else row["disp_current"]
+        gain          = cur - inv
+        pct           = (gain / inv * 100) if inv else 0.0
+        gain_pos      = gain >= 0
+        bg            = "#f0fdf8" if gain_pos else "#fff5f5"
+        border_left   = "#10b981" if gain_pos else "#f43f5e"
+        gl_color      = "#0a7a42" if gain_pos else "#be1c1c"
+        gain_sign     = "+" if gain >= 0 else ""
+        pct_sign      = "+" if pct >= 0 else ""
+        ltp           = round(row["current_price"], 2) if pd.notna(row.get("current_price")) else "—"
+        qty           = round(row["quantity"], 3)
+        avg_c         = round(row["avg_cost"], 2)
+        company       = row.get("company", "") or ""
+        yf_sym        = row["yf_symbol"]
         current_price = float(row["current_price"]) if pd.notna(row.get("current_price")) else None
+
+        port_prefix = f"{port}&nbsp;·&nbsp;" if port else ""
+        name_suffix = f"&nbsp;·&nbsp;{company}" if company else ""
+
         st.markdown(f"""
-<div style="background:#f0f4fb;border:1px solid #c8d6f0;border-radius:10px;
-            padding:12px 16px;margin-bottom:12px">
-  <div style="font-size:12px;color:#7f8c8d">{port} · {sym}</div>
-  <div style="font-size:22px;font-weight:700;color:#1a2744">{_fmt(cur, is_usd)}</div>
-  <div style="font-size:13px;font-weight:600;color:{color};margin-top:2px">
-    {sign}{_fmt(abs(gain), is_usd)} &nbsp; {sign}{pct:.1f}%
+<div style="background:{bg};border:1px solid #e2e8f0;border-left:4px solid {border_left};
+            border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+    <div style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;">
+      {port_prefix}{sym}{name_suffix}</div>
+    <span style="font-size:9px;color:#94a3b8;">LTP&nbsp;<b style="color:#334155;font-weight:600;">{ltp}</b></span>
   </div>
-  <div style="font-size:11px;color:#7f8c8d;margin-top:6px">
-    Qty {round(row['quantity'],3)} &nbsp;·&nbsp; Avg {round(row['avg_cost'],2)} &nbsp;·&nbsp; LTP {ltp}
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+    <span style="font-size:20px;font-weight:700;color:#0f172a;letter-spacing:-0.02em;">{_fmt(cur, is_usd)}</span>
+    <span style="font-size:10px;color:#94a3b8;">N/A (+0.00%)</span>
   </div>
-</div>""", unsafe_allow_html=True)
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+    <span style="font-size:10px;font-weight:700;color:{gl_color};">{gain_sign}{_fmt(gain, is_usd)}&nbsp;({pct_sign}{pct:.1f}%)</span>
+  </div>
+  <div style="border-top:1px solid #e2e8f0;padding-top:5px;">
+    <span style="font-size:9px;color:#94a3b8;">
+      Invested&nbsp;<b style="color:#334155;font-weight:600;">{_fmt(inv, is_usd)}</b>
+      &nbsp;·&nbsp;{qty}&nbsp;sh&nbsp;·&nbsp;{avg_c}/sh
+    </span>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
     else:
-        h_any = h[h["symbol"] == sym]
-        yf_sym = h_any["yf_symbol"].iloc[0] if not h_any.empty else sym
+        h_any         = h[h["symbol"] == sym]
+        yf_sym        = h_any["yf_symbol"].iloc[0] if not h_any.empty else sym
         current_price = None
         st.markdown(f"**{sym}** — position fully sold")
 
-    # ── Transactions filter ───────────────────────────────────────────────────
     sym_txns = txns[
         (txns["symbol"] == sym) &
         (txns["type"].isin(["BUY", "SELL"])) &
@@ -75,25 +93,43 @@ def render(bundle: PortfolioBundle) -> None:
     if port:
         sym_txns = sym_txns[sym_txns["portfolio"] == port]
 
-    # ── Tabs ──────────────────────────────────────────────────────────────────
     tab_txn, tab_chart = st.tabs(["Transactions", "Charts"])
 
     with tab_txn:
         if sym_txns.empty:
             st.info("No transactions found.")
         else:
-            st.caption(f"{len(sym_txns)} rows")
-            display = sym_txns[["date", "type", "quantity", "price", "charges"]].copy()
-            display = display.sort_values("date", ascending=False)
-            display["date"]     = display["date"].dt.strftime("%d %b %Y")
-            display["quantity"] = display["quantity"].round(3)
-            display["price"]    = display["price"].round(2)
-            display["charges"]  = display["charges"].round(2)
-            display = display.rename(columns={
-                "date": "Date", "type": "Type",
-                "quantity": "Qty", "price": "Price", "charges": "Charges",
-            })
-            st.dataframe(display, use_container_width=True, hide_index=True)
+            sorted_txns = sym_txns.sort_values("date", ascending=False)
+            html_rows = []
+            for _, t in sorted_txns.iterrows():
+                tx_type = t["type"]
+                if tx_type == "BUY":
+                    badge_bg, badge_fg = "#d1fae5", "#065f46"
+                elif tx_type == "SELL":
+                    badge_bg, badge_fg = "#fee2e2", "#991b1b"
+                else:
+                    badge_bg, badge_fg = "#dbeafe", "#1e40af"
+                date_str   = t["date"].strftime("%d %b %Y")
+                detail_str = f"{round(t['quantity'], 3)} sh · {round(t['price'], 2)}/sh"
+                amount_str = _fmt(t["quantity"] * t["price"], is_usd)
+                html_rows.append(f"""
+<div style="display:flex;justify-content:space-between;align-items:center;
+            padding:8px 10px;background:#fff;border:1px solid #e2e8f0;
+            border-radius:8px;margin-bottom:4px;">
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;
+                 letter-spacing:0.05em;flex-shrink:0;
+                 background:{badge_bg};color:{badge_fg};">{tx_type}</span>
+    <div>
+      <div style="font-size:11px;font-weight:600;color:#0f172a;">{date_str}</div>
+      <div style="font-size:10px;color:#64748b;">{detail_str}</div>
+    </div>
+  </div>
+  <div style="font-size:12px;font-weight:700;color:#0f172a;flex-shrink:0;">{amount_str}</div>
+</div>""")
+
+            st.caption(f"{len(sorted_txns)} transactions")
+            st.markdown("\n".join(html_rows), unsafe_allow_html=True)
 
     with tab_chart:
         charts.render(sym_txns, yf_sym, current_price)

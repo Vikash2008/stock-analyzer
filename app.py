@@ -63,6 +63,26 @@ st.markdown("""
     box-shadow: 0 2px 6px rgba(37,99,235,0.25) !important;
   }
 
+  /* Portfolio card nav buttons — flat strip fused to card bottom */
+  .element-container:has(.portcard) + .element-container .stButton > button {
+    background: transparent !important;
+    border: 1px solid #e2e8f0 !important;
+    border-top: none !important;
+    border-radius: 0 0 10px 10px !important;
+    color: #64748b !important;
+    box-shadow: none !important;
+    font-size: 11px !important;
+    padding: 4px 12px !important;
+    margin-top: -6px !important;
+  }
+  .element-container:has(.portcard) + .element-container .stButton > button:hover {
+    background: #f8fafc !important;
+    color: #2563eb !important;
+    border-color: #e2e8f0 !important;
+    border-top: none !important;
+    box-shadow: none !important;
+  }
+
   @media screen and (max-width: 768px) {
     .block-container { padding-top: 0.4rem !important; padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
     .portfolio-tile { padding: 8px 10px !important; border-radius: 8px !important; }

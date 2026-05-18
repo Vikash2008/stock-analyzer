@@ -257,13 +257,15 @@ msp_v2.csv
 
 | File                      | Function / Symbol                  | Purpose / Edit here when…                                      |
 |---------------------------|------------------------------------|-----------------------------------------------------------------|
-| `dashboard/metrics.py`    | `_tile(col, label, cur, inv, …)`   | Change tile card layout, add/remove tile metrics               |
-| `dashboard/metrics.py`    | `render(bundle)`                   | Add realized computation, change segment tile calls            |
+| `dashboard/metrics.py`    | `_card(label, cur, inv, …)`        | Change card layout — all portfolio/segment overview tiles      |
+| `dashboard/metrics.py`    | `render(bundle)`                   | Change page layout (hero, stocks/mf, breakdown)                |
 | `dashboard/metrics.py`    | `_compute_all(h, txns, usd_inr)`   | Add new cached XIRR variants or segment totals                 |
-| `dashboard/holdings_page.py` | `_render_segment(bundle)`       | Segment cumulative/standalone table columns                    |
-| `dashboard/holdings_page.py` | `render(bundle)`                | Portfolio-specific holdings tab columns                        |
+| `dashboard/holdings_page.py` | `_h_card(ticker, …)`            | Change holding card layout (label, rows, footer, button)       |
+| `dashboard/holdings_page.py` | `_summary_card(label, cur, inv)` | Change segment/portfolio header card                          |
+| `dashboard/holdings_page.py` | `_render_segment(bundle)`       | Segment cumulative/standalone card list                        |
+| `dashboard/holdings_page.py` | `render(bundle)`                | Portfolio-specific holdings card list + Summary tab            |
 | `dashboard/holdings_page.py` | `_agg_realized(realized_df, usd_inr)` | Realized gain aggregation helper (returns dict keyed by (portfolio, symbol)) |
-| `dashboard/holdings_page.py` | `_fmt_gain(gain, pct, is_usd)` | Combined gain+% cell format (`+₹X.XX L (+Y.Y%)`)              |
+| `dashboard/transactions_page.py` | `render(bundle)`           | Symbol card + tx-row items + Charts tab                        |
 | `dashboard/summary_page.py`  | `_METRICS` list                 | Add new chart metric option here + matching `elif` block       |
 | `dashboard/summary_page.py`  | `render(bundle, port)`          | Single-portfolio summary charts                                |
 | `dashboard/summary_page.py`  | `_render_multi(bundle, filtered_h)` | Segment summary charts                                     |

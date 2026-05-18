@@ -71,18 +71,89 @@ def _batch_xirr(txns, h, usd_inr) -> dict:
 
 
 def _summary_card(label: str, cur: float, inv: float, is_usd: bool = False) -> None:
-    gain  = cur - inv
-    pct   = (gain / inv * 100) if inv else 0.0
-    sign  = "+" if gain >= 0 else ""
-    color = "#0a7a42" if gain >= 0 else "#be1c1c"
+    gain     = cur - inv
+    pct      = (gain / inv * 100) if inv else 0.0
+    gain_pos = gain >= 0
+    bg           = "#f0fdf8" if gain_pos else "#fff5f5"
+    border_left  = "#10b981" if gain_pos else "#f43f5e"
+    gl_color     = "#0a7a42" if gain_pos else "#be1c1c"
+    gain_sign    = "+" if gain >= 0 else ""
+    pct_sign     = "+" if pct >= 0 else ""
     st.markdown(f"""
-<div class="summary-card" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;
-            padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06)">
-  <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;font-weight:600;margin-bottom:4px">{label}</div>
-  <div class="card-value" style="font-size:22px;font-weight:700;color:#0f172a;letter-spacing:-0.01em">{_fmt(cur, is_usd)}</div>
-  <div style="font-size:13px;font-weight:600;color:{color};margin-top:2px">{sign}{_fmt(abs(gain), is_usd)} &nbsp; {sign}{pct:.1f}%</div>
+<div style="background:{bg};border:1px solid #e2e8f0;border-left:4px solid {border_left};
+            border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+  <div style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;
+              letter-spacing:0.1em;margin-bottom:5px;">{label}</div>
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+    <span style="font-size:20px;font-weight:700;color:#0f172a;letter-spacing:-0.02em;">{_fmt(cur, is_usd)}</span>
+    <span style="font-size:10px;color:#94a3b8;">N/A (+0.00%)</span>
+  </div>
+  <div style="border-top:1px solid #e2e8f0;padding-top:5px;display:flex;justify-content:space-between;">
+    <span style="font-size:9px;color:#94a3b8;">G/L&nbsp;<b style="color:{gl_color};font-weight:700;">{gain_sign}{_fmt(gain, is_usd)}&nbsp;({pct_sign}{pct:.1f}%)</b></span>
+    <span style="font-size:9px;color:#94a3b8;">Invested&nbsp;<b style="color:#334155;font-weight:600;">{_fmt(inv, is_usd)}</b></span>
+  </div>
 </div>
 """, unsafe_allow_html=True)
+
+
+def _h_card(ticker, sub_label, cur, inv, real_g, real_cost, xirr_str, nav_key,
+            nav_portfolio=None, nav_symbol=None, ltp=None, qty=None, avg_cost=None, is_usd=False):
+    total_gain = (cur - inv) + real_g
+    total_pct  = (total_gain / (inv + real_cost) * 100) if (inv + real_cost) else 0.0
+    gain_pos   = total_gain >= 0
+
+    bg          = "#f0fdf8" if gain_pos else "#fff5f5"
+    border_left = "#10b981" if gain_pos else "#f43f5e"
+    gl_color    = "#0a7a42" if gain_pos else "#be1c1c"
+    real_color  = "#0a7a42" if real_g >= 0 else "#be1c1c"
+
+    gain_sign  = "+" if total_gain >= 0 else ""
+    pct_sign   = "+" if total_pct  >= 0 else ""
+    gl_str     = f"{gain_sign}{_fmt(total_gain, is_usd)}"
+    pct_str    = f"({pct_sign}{total_pct:.1f}%)"
+
+    xirr_clean = xirr_str or "—"
+    xirr_color = "#334155"
+    if xirr_clean not in ("—", "N/A"):
+        xirr_color = "#be1c1c" if xirr_clean.startswith("-") else "#0a7a42"
+
+    real_sign  = "+" if real_g >= 0 else ""
+    real_str   = f"{real_sign}{_fmt(real_g, is_usd)}"
+    ltp_html   = f"LTP&nbsp;<b style='color:#334155;font-weight:600;'>{ltp}</b>" if ltp is not None else ""
+
+    footer_inv = f"Invested&nbsp;<b style='color:#334155;font-weight:600;'>{_fmt(inv, is_usd)}</b>"
+    if qty is not None and avg_cost is not None:
+        footer_inv += f"&nbsp;·&nbsp;{round(qty, 2)}&nbsp;sh&nbsp;·&nbsp;{round(avg_cost, 2)}/sh"
+
+    st.markdown(f"""
+<div class="portcard" style="background:{bg};border:1px solid #e2e8f0;border-left:4px solid {border_left};
+            border-radius:10px;padding:10px 12px;margin-bottom:2px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+    <div style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;">
+      {ticker}{f'&nbsp;·&nbsp;{sub_label}' if sub_label else ''}</div>
+    <span style="font-size:9px;color:#94a3b8;">{ltp_html}</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+    <span style="font-size:16px;font-weight:700;color:#0f172a;letter-spacing:-0.02em;">{_fmt(cur, is_usd)}</span>
+    <span style="font-size:10px;color:#94a3b8;">N/A (+0.00%)</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+    <span style="font-size:10px;font-weight:700;color:{gl_color};">{gl_str}&nbsp;{pct_str}</span>
+    <span style="font-size:10px;color:#64748b;">XIRR&nbsp;<b style="color:{xirr_color};">{xirr_clean}</b></span>
+  </div>
+  <div style="border-top:1px solid #e2e8f0;padding-top:6px;display:flex;justify-content:space-between;">
+    <span style="font-size:9px;color:#94a3b8;">{footer_inv}</span>
+    <span style="font-size:9px;color:#94a3b8;">Realized&nbsp;<b style="color:{real_color};font-weight:600;">{real_str}</b></span>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+    _, btn_col = st.columns([3, 1])
+    if btn_col.button("→", key=f"hbtn_{nav_key}"):
+        if nav_portfolio:
+            ui_state.navigate("transactions", portfolio=nav_portfolio, symbol=nav_symbol)
+        else:
+            ui_state.navigate("transactions", symbol=nav_symbol)
 
 
 def _render_segment(bundle: PortfolioBundle) -> None:
@@ -92,7 +163,6 @@ def _render_segment(bundle: PortfolioBundle) -> None:
     h       = bundle.holdings
     txns    = bundle.transactions
     usd_inr = bundle.usd_inr
-    prices  = dict(zip(h["yf_symbol"], h["current_price"]))
 
     if st.button("← Overview", key="back_seg"):
         ui_state.navigate("portfolios")
@@ -115,82 +185,49 @@ def _render_segment(bundle: PortfolioBundle) -> None:
     real_map = _agg_realized(bundle.realized, usd_inr)
 
     if view == "Cumulative":
-        rows, meta = [], []
+        rows = []
         for sym, g in h.groupby("symbol", sort=False):
-            qty    = g["quantity"].sum()
-            inv_r  = g["disp_invested"].sum()
-            cur_r  = g["disp_current"].sum()
-            gain_r = cur_r - inv_r
-            pct_r  = (gain_r / inv_r * 100) if inv_r else 0.0
-            ports  = sorted(g["portfolio"].unique())
-            real_g    = sum(real_map.get((p, sym), (0.0, 0.0))[0] for p in ports)
-            real_cost = sum(real_map.get((p, sym), (0.0, 0.0))[1] for p in ports)
-            real_pct  = (real_g / real_cost * 100) if real_cost else 0.0
-            total_g   = gain_r + real_g
-            total_pct = (total_g / (inv_r + real_cost) * 100) if (inv_r + real_cost) else 0.0
-            rows.append({
-                "Symbol":     sym,
-                "Invested":   _fmt(inv_r),
-                "Value":      _fmt(cur_r),
-                "Unrealized": _fmt_gain(gain_r, pct_r),
-                "Realized":   _fmt_gain(real_g, real_pct),
-                "Total G/L":  _fmt_gain(total_g, total_pct),
-                "XIRR":       xirr_map.get(sym, "—"),
-                "Qty":        round(qty, 2),
-                "Portfolios": ", ".join(ports),
-                "_cur":       cur_r,
-            })
-            meta.append({"sym": sym, "ports": ports})
+            qty      = g["quantity"].sum()
+            inv_r    = g["disp_invested"].sum()
+            cur_r    = g["disp_current"].sum()
+            ports    = sorted(g["portfolio"].unique())
+            real_g   = sum(real_map.get((p, sym), (0.0, 0.0))[0] for p in ports)
+            real_cost= sum(real_map.get((p, sym), (0.0, 0.0))[1] for p in ports)
+            company  = g["company"].iloc[0] if "company" in g.columns and pd.notna(g["company"].iloc[0]) else ""
+            ltp      = round(g["current_price"].iloc[0], 2) if "current_price" in g.columns and pd.notna(g["current_price"].iloc[0]) else None
+            avg_c    = round(inv_r / qty, 2) if qty else None
+            port_nav = ports[0] if len(ports) == 1 else None
+            rows.append(dict(_cur=cur_r, sym=sym, company=company, cur=cur_r, inv=inv_r,
+                             real_g=real_g, real_cost=real_cost, xirr=xirr_map.get(sym, "—"),
+                             ltp=ltp, qty=qty, avg_c=avg_c, port_nav=port_nav))
 
-        combined = sorted(zip(rows, meta), key=lambda x: -x[0]["_cur"])
-        rows = [r for r, _ in combined]
-        meta = [m for _, m in combined]
-        df = pd.DataFrame(rows).drop(columns=["_cur"]).reset_index(drop=True)
-
-        st.caption(f"{len(df)} symbols")
-        ev = st.dataframe(df, use_container_width=True, hide_index=True,
-                          on_select="rerun", selection_mode="single-row", key="seg_cum_sel")
-        sel = ev.selection.rows if ev and ev.selection else []
-        if sel:
-            m = meta[sel[0]]
-            port_nav = m["ports"][0] if len(m["ports"]) == 1 else ""
-            ui_state.navigate("transactions", portfolio=port_nav, symbol=m["sym"])
+        rows.sort(key=lambda r: -r["_cur"])
+        st.caption(f"{len(rows)} symbols")
+        for i, r in enumerate(rows):
+            _h_card(r["sym"], r["company"], r["cur"], r["inv"], r["real_g"], r["real_cost"],
+                    r["xirr"], f"seg_cum_{i}",
+                    nav_portfolio=r["port_nav"], nav_symbol=r["sym"],
+                    ltp=r["ltp"], qty=r["qty"], avg_cost=r["avg_c"])
 
     else:
         rows = []
         for _, row in h.iterrows():
-            inv_r  = row["disp_invested"]
-            cur_r  = row["disp_current"]
-            gain_r = cur_r - inv_r
-            pct_r  = (gain_r / inv_r * 100) if inv_r else 0.0
+            inv_r    = row["disp_invested"]
+            cur_r    = row["disp_current"]
             real_g, real_cost = real_map.get((row["portfolio"], row["symbol"]), (0.0, 0.0))
-            real_pct  = (real_g / real_cost * 100) if real_cost else 0.0
-            total_g   = gain_r + real_g
-            total_pct = (total_g / (inv_r + real_cost) * 100) if (inv_r + real_cost) else 0.0
-            rows.append({
-                "Symbol":     row["symbol"],
-                "Portfolio":  row["portfolio"],
-                "Qty":        round(row["quantity"], 2),
-                "Avg Cost":   round(row["avg_cost"], 2),
-                "LTP":        round(row["current_price"], 2) if pd.notna(row.get("current_price")) else None,
-                "Invested":   _fmt(inv_r),
-                "Value":      _fmt(cur_r),
-                "Unrealized": _fmt_gain(gain_r, pct_r),
-                "Realized":   _fmt_gain(real_g, real_pct),
-                "Total G/L":  _fmt_gain(total_g, total_pct),
-                "XIRR":       xirr_map.get(row["symbol"], "—"),
-                "_cur":       cur_r,
-            })
-        rows.sort(key=lambda r: -r["_cur"])
-        df = pd.DataFrame(rows).drop(columns=["_cur"]).reset_index(drop=True)
+            ltp      = round(row["current_price"], 2) if pd.notna(row.get("current_price")) else None
+            rows.append(dict(_cur=cur_r, sym=row["symbol"], port=row["portfolio"],
+                             cur=cur_r, inv=inv_r, real_g=real_g, real_cost=real_cost,
+                             xirr=xirr_map.get(row["symbol"], "—"),
+                             ltp=ltp, qty=row["quantity"], avg_c=row["avg_cost"]))
 
-        st.caption(f"{len(df)} holdings")
-        ev = st.dataframe(df, use_container_width=True, hide_index=True,
-                          on_select="rerun", selection_mode="single-row", key="seg_std_sel")
-        sel = ev.selection.rows if ev and ev.selection else []
-        if sel:
-            row = df.iloc[sel[0]]
-            ui_state.navigate("transactions", portfolio=row["Portfolio"], symbol=row["Symbol"])
+        rows.sort(key=lambda r: -r["_cur"])
+        st.caption(f"{len(rows)} holdings")
+        for i, r in enumerate(rows):
+            _h_card(r["sym"], r["port"], r["cur"], r["inv"], r["real_g"], r["real_cost"],
+                    r["xirr"], f"seg_std_{i}",
+                    nav_portfolio=r["port"], nav_symbol=r["sym"],
+                    ltp=r["ltp"], qty=r["qty"], avg_cost=r["avg_c"])
 
 
 def render(bundle: PortfolioBundle) -> None:
@@ -202,7 +239,6 @@ def render(bundle: PortfolioBundle) -> None:
     h       = bundle.holdings
     txns    = bundle.transactions
     usd_inr = bundle.usd_inr
-    prices  = dict(zip(h["yf_symbol"], h["current_price"]))
 
     if st.button("← All Portfolios", key="back_to_ports"):
         ui_state.navigate("portfolios")
@@ -225,46 +261,28 @@ def render(bundle: PortfolioBundle) -> None:
     tab_hold, tab_sum = st.tabs(["Holdings", "Summary"])
 
     with tab_hold:
-        view = st.radio("", ["Cumulative", "Standalone"], horizontal=True,
-                        key="port_view", label_visibility="collapsed")
-
         port_xirr_map = _batch_xirr(txns, port_h, usd_inr)
-        real_map = _agg_realized(bundle.realized, usd_inr)
+        real_map      = _agg_realized(bundle.realized, usd_inr)
+
         rows = []
         for _, row in port_h.iterrows():
-            inv_r  = row["total_invested"] if is_usd else row["disp_invested"]
-            cur_r  = row["current_value"]  if is_usd else row["disp_current"]
-            gain_r = cur_r - inv_r
-            pct_r  = (gain_r / inv_r * 100) if inv_r else 0.0
+            inv_r    = row["total_invested"] if is_usd else row["disp_invested"]
+            cur_r    = row["current_value"]  if is_usd else row["disp_current"]
             real_g, real_cost = real_map.get((port, row["symbol"]), (0.0, 0.0))
-            real_pct  = (real_g / real_cost * 100) if real_cost else 0.0
-            total_g   = gain_r + real_g
-            total_pct = (total_g / (inv_r + real_cost) * 100) if (inv_r + real_cost) else 0.0
-            rows.append({
-                "Symbol":     row["symbol"],
-                "Qty":        round(row["quantity"], 2),
-                "Avg Cost":   round(row["avg_cost"], 2),
-                "LTP":        round(row["current_price"], 2) if pd.notna(row.get("current_price")) else None,
-                "Invested":   _fmt(inv_r, is_usd),
-                "Value":      _fmt(cur_r, is_usd),
-                "Unrealized": _fmt_gain(gain_r, pct_r, is_usd),
-                "Realized":   _fmt_gain(real_g, real_pct, is_usd),
-                "Total G/L":  _fmt_gain(total_g, total_pct, is_usd),
-                "XIRR":       port_xirr_map.get(row["symbol"], "—"),
-                "_cur":       cur_r,
-            })
+            ltp      = round(row["current_price"], 2) if pd.notna(row.get("current_price")) else None
+            company  = row.get("company", "") if pd.notna(row.get("company", None)) else ""
+            rows.append(dict(_cur=cur_r, sym=row["symbol"], company=company,
+                             cur=cur_r, inv=inv_r, real_g=real_g, real_cost=real_cost,
+                             xirr=port_xirr_map.get(row["symbol"], "—"),
+                             ltp=ltp, qty=row["quantity"], avg_c=row["avg_cost"]))
 
         rows.sort(key=lambda r: -r["_cur"])
-        df = pd.DataFrame(rows).drop(columns=["_cur"]).reset_index(drop=True)
-
-        st.caption(f"{len(df)} holdings")
-        ev = st.dataframe(df, use_container_width=True, hide_index=True,
-                          on_select="rerun", selection_mode="single-row", key="h_sel")
-
-        sel_rows = ev.selection.rows if ev and ev.selection else []
-        if sel_rows:
-            sym = df.iloc[sel_rows[0]]["Symbol"]
-            ui_state.navigate("transactions", portfolio=port, symbol=sym)
+        st.caption(f"{len(rows)} holdings")
+        for i, r in enumerate(rows):
+            _h_card(r["sym"], r["company"], r["cur"], r["inv"], r["real_g"], r["real_cost"],
+                    r["xirr"], f"port_{port}_{i}",
+                    nav_portfolio=port, nav_symbol=r["sym"],
+                    ltp=r["ltp"], qty=r["qty"], avg_cost=r["avg_c"], is_usd=is_usd)
 
     with tab_sum:
         from dashboard import summary_page

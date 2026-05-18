@@ -82,74 +82,74 @@ Targets CSS classes added to HTML markdown elements — desktop layout unchanged
 
 ## Portfolios Page (metrics.py)
 
-### Tile layout
-- Row 1: Full-width **Total Portfolio** tile
-- Row 2: 2-col — **Stocks** | **Mutual Funds**
-- Row 3: Breakdown toggle (By Category / By Portfolio)
+### Card layout (mobile-first, matches page_portfolios.html)
+- Hero card: full-width **Total Portfolio**
+- Two full-width stacked cards: **Stocks** | **Mutual Funds**
+- Breakdown toggle: `By Type` / `By Broker` (`st.radio`, horizontal)
+- By Type: 4 full-width cards (Indian Stocks / US Stocks / Indian MF / US MF)
+- By Broker: `🇮🇳 India` / `🇺🇸 US` section labels + one full-width card per broker, sorted by value desc
 
-### Tile card style (CSS class: `portfolio-tile`)
+### Card style (CSS class: `portcard`, inline styles)
 ```
-background: gain_bg or loss_bg
-border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px
-border-left: 4px solid gain/loss border color
-box-shadow: 0 1px 4px rgba(0,0,0,0.06)
+background: #f0fdf8 (gain) or #fff5f5 (loss)
+border: 1px solid #e2e8f0; border-left: 4px solid #10b981 (gain) or #f43f5e (loss)
+border-radius: 10px; padding: 10px 12px
 ```
-- Label (`tile-label`): 10px, `#94a3b8`, uppercase, letter-spacing 0.08em
-- Current Value (`tile-value`): 22px, bold `#0f172a`, line-height 1.2
-- 2×2 metric grid (`tile-grid`): `grid-template-columns: 1fr 1fr; gap: 6px 8px; margin-top: 10px`
-  - Sub-labels (`tile-sublabel`): 10px, `#94a3b8`, uppercase
-  - Sub-values (`tile-subval`): 14px bold — INVESTED `#334155`, P&L/RETURN gain/loss color, XIRR `#334155`
+- Label row: 9px, `#94a3b8`, uppercase, letter-spacing 0.1em
+- Row A: `font-size:20px` bold value left · `font-size:10px` `#94a3b8` "N/A (+0.00%)" right
+- Row B: `font-size:10px` bold Total G/L+% in gain/loss color left · XIRR right (`#0a7a42`/`#be1c1c`/`#334155`)
+- Footer (border-top): `font-size:9px` Invested left · Realized right (colored by sign)
+- Button: small `"Explore →"` right-aligned via `st.columns([3,1])`
 
-### Tile interaction
-- Two side-by-side CTAs: `Holdings →` | `Summary →` via `col.columns(2, gap="small")`
-- Portfolio tiles → navigate by portfolio name
-- Aggregate/category tiles → navigate by segment key (total / stk / mf / indian_stock / us_stock / indian_mf / us_mf)
-
-### By Portfolio breakdown
-- India `🇮🇳` and US `🇺🇸` section headers (11px, `#6b7fa3`, uppercase)
-- Max 2 tiles per row (mobile safe)
-- Sorted by current value descending within each group
+### Card navigation
+- `Explore →` button → `ui_state.navigate("holdings", portfolio=X)` or `segment=Y`
+- Segment keys: `total / stk / mf / indian_stock / us_stock / indian_mf / us_mf`
 
 ---
 
 ## Holdings Page (holdings_page.py)
 
-### Summary card (CSS class: `summary-card`)
-```
-background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px
-padding: 14px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06)
-```
-- Label: 10px, `#94a3b8`, uppercase
-- Current value (`card-value`): 22px, bold `#0f172a`
-- Gain + %: 13px bold, gain/loss color
+### Summary card (`_summary_card`)
+Same portcard style (green/red bg + left border). Shows: label, current value (20px), N/A today gain, G/L+%, Invested. No button.
 
-### Toggle
-- `Cumulative` (default) | `Standalone` radio, horizontal, label hidden
+### Holding cards (`_h_card`)
+Same portcard style as overview tiles. Layout:
+- Label row: `TICKER · company` left | `LTP value` right (9px, muted)
+- Row A: current value (16px bold) left · N/A right
+- Row B: Total G/L+% left · XIRR right (colored by sign)
+- Footer: Invested · qty sh · avg/sh left | Realized right
+- Button: small `→` right-aligned via `st.columns([3,1])`
 
-### Cumulative view columns
-Symbol / Invested / Value / G/L / Return% / XIRR / Qty / Portfolios
+### Toggle (segment view only)
+- `Cumulative` (grouped by symbol across portfolios) | `Standalone` (per portfolio+symbol)
+- Portfolio-specific view: no toggle, always one card per holding
 
-### Standalone view columns
-Symbol / Portfolio / Qty / Avg Cost / LTP / Invested / Value / G/L / Return% / XIRR
-
-### Interaction
-- Table sorted by current value descending
-- Row click → immediately navigates to Transactions page (no button)
-- Back button: `"← All Portfolios"` (portfolio view) or `"← Overview"` (segment view)
+### Navigation
+- `→` button → `ui_state.navigate("transactions", portfolio=X, symbol=Y)`
+- Back: `"← Overview"` (segment) or `"← All Portfolios"` (portfolio)
+- Summary tab: `summary_page.render(bundle, port)` (unchanged)
 
 ---
 
 ## Transactions Page (transactions_page.py)
 
-### Symbol overview card (same style as summary-card above)
-- Context: `{port} · {sym}` — 12px, `#94a3b8`
-- Current value: 22px bold `#0f172a`
-- Gain + %: 13px bold, gain/loss color
-- Footer: Qty · Avg Cost · LTP — 11px, `#94a3b8`
+### Symbol overview card
+Same portcard style (green/red bg + left border). Layout:
+- Label row: `PORT · SYM · company` left | `LTP value` right
+- Row A: current value (20px bold) · N/A today gain
+- Row B: G/L+% in gain/loss color
+- Footer: Invested · qty sh · avg/sh (single line, muted)
+No button (it's the page header).
 
-### Tabs
-- Tab 1 **Transactions**: sorted newest-first, columns Date/Type/Qty/Price/Charges
-- Tab 2 **Charts**: price history line + BUY/SELL bubbles
+### Tab 1 — Transactions (tx-row HTML items)
+Each row rendered as HTML (no dataframe):
+- Left: BUY/SELL/DIVIDEND badge (green/red/blue) + date (11px bold) + `qty sh · price/sh` (10px muted)
+- Right: amount in `_fmt()` (12px bold)
+- Sorted newest-first
+- Badge colors: BUY `#d1fae5`/`#065f46` · SELL `#fee2e2`/`#991b1b` · DIV `#dbeafe`/`#1e40af`
+
+### Tab 2 — Charts
+Unchanged: price history line + BUY/SELL bubbles via `charts.render()`.
 
 ---
 
@@ -318,3 +318,10 @@ Applied automatically by `/ship` before every deploy:
 | 2026-05-18 | Holding card footer: Invested + `qty sh · avgCost/sh` on same single line (not two rows). |
 | 2026-05-18 | Summary tab stat pill: centered between metric selector and chart. Format: large colored value + small muted label inline (`+₹4.2L  gain in period`). Updates on metric switch. |
 | 2026-05-18 | Portfolio summary and holding summary tabs are identical in structure: metric selector → stat pill → chart → range bar. Design approved and finalised. |
+| 2026-05-18 | Mobile redesign implemented in Streamlit. All three pages (portfolios, holdings, transactions) now use HTML inline-style cards matching `page_portfolios.html`. |
+| 2026-05-18 | Cards use inline HTML (not `st.container`) to support green/red background + colored left border — native Streamlit containers don't support dynamic border colors. |
+| 2026-05-18 | `portcard` CSS class added to all card divs. Used for CSS overlay targeting (invisible button trick attempted, reverted — using small `Explore →` / `→` button right-aligned via `st.columns([3,1])` instead). |
+| 2026-05-18 | Holdings page: dataframe + row-click selection replaced entirely with `_h_card()` tile cards + small `→` button. Cleaner on mobile, no selection state needed. |
+| 2026-05-18 | Transactions page: dataframe replaced with HTML `tx-row` items (badge + date/detail + amount). Charts tab unchanged. |
+| 2026-05-18 | Today's gain hardcoded as "N/A (+0.00%)" across all cards — daily price change not available in bundle without backend changes. |
+| 2026-05-18 | Cumulative/Standalone toggle retained in segment view only. Portfolio-specific holdings view shows one card per holding directly (no toggle needed for single-portfolio). |

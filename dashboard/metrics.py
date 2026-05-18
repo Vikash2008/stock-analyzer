@@ -220,7 +220,7 @@ def _card(label, cur, inv, real_gain, cost_of_sold, xirr_str, key,
 
     st.markdown(f"""
 <div class="portcard" style="background:{bg};border:1px solid #e2e8f0;border-left:4px solid {border_left};
-            border-radius:10px;padding:10px 12px;margin-bottom:2px;">
+            border-radius:10px 10px 0 0;padding:10px 12px;margin-bottom:0;">
   <div style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;
               letter-spacing:0.1em;margin-bottom:5px;">{label}</div>
   <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
@@ -238,7 +238,7 @@ def _card(label, cur, inv, real_gain, cost_of_sold, xirr_str, key,
 </div>
 """, unsafe_allow_html=True)
 
-    if st.button("", key=f"btn_{key}", use_container_width=True):
+    if st.button("Explore →", key=f"click_{key}", use_container_width=True):
         if nav_portfolio:
             ui_state.navigate("holdings", portfolio=nav_portfolio)
         else:
@@ -288,28 +288,6 @@ def render(bundle: PortfolioBundle) -> None:
     rg_stk = rg_ind_stk + rg_us_stk;  rc_stk = rc_ind_stk + rc_us_stk
     rg_mf  = rg_ind_mf  + rg_us_mf;   rc_mf  = rc_ind_mf  + rc_us_mf
     rg_tot = rg_stk + rg_mf;           rc_tot = rc_stk + rc_mf
-
-    # ── Invisible overlay: makes entire card tappable ────────────────────────
-    st.markdown("""
-<style>
-[data-testid="element-container"]:has(.portcard) + [data-testid="element-container"] button {
-    margin-top: -130px !important;
-    height: 130px !important;
-    background: transparent !important;
-    border: none !important;
-    color: transparent !important;
-    box-shadow: none !important;
-    cursor: pointer;
-    position: relative;
-    z-index: 5;
-    width: 100%;
-}
-[data-testid="element-container"]:has(.portcard) + [data-testid="element-container"] button:hover {
-    background: rgba(0,0,0,0.03) !important;
-    border: none !important;
-}
-</style>
-""", unsafe_allow_html=True)
 
     # ── Hero ──────────────────────────────────────────────────────────────────
     _card("Total Portfolio", cur_total, inv_total, rg_tot, rc_tot, xirr_total,
