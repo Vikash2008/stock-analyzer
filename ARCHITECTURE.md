@@ -129,6 +129,10 @@ msp_v2.csv
 | disp_current    | float   | display   | `current_value` converted to INR/USD display       |
 | disp_gain       | float   | display   | `disp_current − disp_invested`                     |
 | disp_pnl_pct    | float   | —         | `disp_gain / disp_invested × 100`                  |
+| previous_close  | float   | native    | Previous session close from yfinance 5d download   |
+| today_gain      | float / NaN | native | `(current_price − previous_close) × qty`          |
+| today_pct       | float / NaN | —      | `(current_price − previous_close) / previous_close × 100` |
+| disp_today_gain | float / None | display | `today_gain` converted to display currency; None if today_gain is NaN |
 
 ### bundle.realized — one row per closed lot or dividend
 
@@ -170,12 +174,13 @@ msp_v2.csv
 
 ### Disk cache (data/.cache.pkl)
 
-| Layer   | TTL       | Invalidated by                   |
-|---------|-----------|----------------------------------|
-| fifo    | permanent | source file mtime change         |
-| prices  | 30 min    | TTL expiry or Refresh button     |
-| fx      | 30 min    | same as prices                   |
-| info    | 7 days    | TTL expiry                       |
+| Layer       | TTL       | Invalidated by                   |
+|-------------|-----------|----------------------------------|
+| fifo        | permanent | source file mtime change         |
+| prices      | 30 min    | TTL expiry or Refresh button     |
+| prev_closes | 30 min    | same as prices (fetched together)|
+| fx          | 30 min    | same as prices                   |
+| info        | 7 days    | TTL expiry                       |
 
 ### Streamlit in-memory cache (@st.cache_data)
 

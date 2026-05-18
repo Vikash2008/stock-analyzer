@@ -93,13 +93,13 @@ Targets CSS classes added to HTML markdown elements — desktop layout unchanged
 ```
 background: #f0fdf8 (gain) or #fff5f5 (loss)
 border: 1px solid #e2e8f0; border-left: 4px solid #10b981 (gain) or #f43f5e (loss)
-border-radius: 10px; padding: 10px 12px
+border-radius: 10px 10px 0 0; padding: 10px 12px; margin-bottom: 0
 ```
 - Label row: 9px, `#94a3b8`, uppercase, letter-spacing 0.1em
-- Row A: `font-size:20px` bold value left · `font-size:10px` `#94a3b8` "N/A (+0.00%)" right
+- Row A: `font-size:20px` bold value left · today's gain right (colored green/red, or "N/A" muted)
 - Row B: `font-size:10px` bold Total G/L+% in gain/loss color left · XIRR right (`#0a7a42`/`#be1c1c`/`#334155`)
-- Footer (border-top): `font-size:9px` Invested left · Realized right (colored by sign)
-- Button: small `"Explore →"` right-aligned via `st.columns([3,1])`
+- **No footer** on main tiles (Invested/Realized removed from overview cards)
+- Button: full-width `st.button("Explore →", key=f"click_{key}", use_container_width=True)` fused below card via CSS
 
 ### Card navigation
 - `Explore →` button → `ui_state.navigate("holdings", portfolio=X)` or `segment=Y`
@@ -325,3 +325,8 @@ Applied automatically by `/ship` before every deploy:
 | 2026-05-18 | Transactions page: dataframe replaced with HTML `tx-row` items (badge + date/detail + amount). Charts tab unchanged. |
 | 2026-05-18 | Today's gain hardcoded as "N/A (+0.00%)" across all cards — daily price change not available in bundle without backend changes. |
 | 2026-05-18 | Cumulative/Standalone toggle retained in segment view only. Portfolio-specific holdings view shows one card per holding directly (no toggle needed for single-portfolio). |
+| 2026-05-19 | Clickable tile approach finalised: HTML portcard (`border-radius:10px 10px 0 0`, `margin-bottom:0`) + full-width `st.button(use_container_width=True)` immediately below. CSS fuses them: `.element-container:has(.portcard) + .element-container .stButton > button` → transparent bg, no border, `border-radius:0 0 10px 10px`, `margin-top:-6px`. Attempts tried and rejected: `st.popover` (opens popup, not inline), `<a href>` anchor in `st.html` (sandboxed iframe), `<a href>` with page reload (breaks session state). |
+| 2026-05-19 | Main portfolio/segment overview tiles: footer (Invested + Realized) removed. Those fields belong only on the portfolio summary card (top of holdings page). |
+| 2026-05-19 | Portfolio/segment summary card (`_summary_card`): full anatomy — value + today gain · G/L + XIRR row · Invested + Realized footer. XIRR computed via `portfolio_xirr()` call at render time (not cached separately). |
+| 2026-05-19 | Today's gain backend: `previous_close = iloc[-2]` from existing 5d yfinance download — zero extra API calls. Added `previous_close`, `today_gain`, `today_pct`, `disp_today_gain` columns to `bundle.holdings`. Cache layer `prev_closes` at 30-min TTL alongside `prices`. |
+| 2026-05-19 | Today's gain display: `+₹X.XX L (+Y.YY%)` green or `-₹X.XX L (-Y.YY%)` red. "N/A" (muted) when prev close unavailable (< 2 trading days in 5d window). Portfolio/segment today_gain = sum of `disp_today_gain`; today_pct = `tg / (cur - tg) × 100`. |
