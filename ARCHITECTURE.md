@@ -214,13 +214,12 @@ msp_v2.csv
 ## Finalized UI Sections
 
 ### portfolios page
-- Full-width Total tile + 2-col Stocks / MF tiles
-- Breakdown toggle: By Category (2×2) or By Portfolio (🇮🇳/🇺🇸 grouped)
-- Tile content: Current Value (large) + 2×2 grid — Invested / P&L / Return% / XIRR
-- Tile background tinted green/red by gain/loss; left border colored
-- Each tile: two side-by-side CTAs — `Holdings →` | `Summary →` via `col.columns(2, gap="small")`
-- By Portfolio breakdown renders max 2 tiles per row (mobile safe)
-- **Refresh button**: top-right of every page (above page router in app.py); clears disk prices+fx + Streamlit cache
+- Full-width Total tile + full-width Stocks / MF tiles (stacked)
+- Breakdown toggle: By Type / By Broker (`st.radio`, horizontal)
+- Tile content: label · current value + today gain · G/L + XIRR
+- Tile background tinted green/red by gain/loss; left border colored; fully rounded (`border-radius:10px`)
+- Each tile: small auto-width right-aligned `Explore →` button below (CSS right-aligned via flex-end, 9px font)
+- No manual refresh button — pull-to-refresh on mobile triggers new session which invalidates disk cache
 
 ### holdings page
 - Two entry modes: portfolio-specific (`sel_portfolio`) or segment-based (`sel_segment`)

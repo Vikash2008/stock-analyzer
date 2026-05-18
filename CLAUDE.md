@@ -59,6 +59,13 @@ python validate.py -r          # force price refresh
 
 ---
 
+## UI State (as of 2026-05-19)
+
+- **Explore button**: small auto-width, right-aligned, 9px font, CSS `display:flex; justify-content:flex-end` on stButton container. No `use_container_width`. No fusing to card.
+- **Card border-radius**: fully rounded `10px` on all overview tiles (`_card()` in metrics.py).
+- **Refresh**: pull-to-refresh only. `session_init` block in `app.py` invalidates disk cache on new session. No manual button anywhere.
+- **h-card** (`holdings_page.py`): wrapped in `st.container()`, open-bottom radius (`10px 10px 0 0`), `→` button below.
+
 ## Validated Numbers (as of May 2026)
 
 - USD/INR live rate: ~95.95
