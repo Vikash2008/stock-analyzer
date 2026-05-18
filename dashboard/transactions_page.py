@@ -23,12 +23,7 @@ def render(bundle: PortfolioBundle) -> None:
 
     from dashboard.holdings_page import _agg_realized
     back_label = f"← {port} Holdings" if port else "← Holdings"
-    _bt, _br = st.columns([6, 1])
-    with _bt:
-        back_txn = st.button(back_label, key="back_to_holdings")
-    with _br:
-        if st.button("↻", key="ref_txn", help="Refresh prices"):
-            ui_state.do_refresh()
+    back_txn = st.button(back_label, key="back_to_holdings")
     if back_txn:
         ui_state.go_back()
         return

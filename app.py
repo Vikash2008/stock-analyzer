@@ -96,14 +96,6 @@ st.markdown("""
     [data-testid="stCaptionContainer"] { font-size: 10px !important; }
     [data-testid="column"] { gap: 0.25rem !important; }
     [data-testid="stVerticalBlock"] { gap: 0.3rem !important; }
-    /* keep header title + refresh on same row, let left col shrink, lock right col */
-    [data-testid="stHorizontalBlock"] { flex-wrap: nowrap !important; }
-    [data-testid="stHorizontalBlock"] > [data-testid="column"]:first-child { min-width: 0 !important; flex-shrink: 1 !important; }
-    [data-testid="stHorizontalBlock"] > [data-testid="column"]:last-child { flex-shrink: 0 !important; min-width: fit-content !important; }
-    [data-testid="stHorizontalBlock"] > [data-testid="column"]:first-child .stMarkdownContainer p,
-    [data-testid="stHorizontalBlock"] > [data-testid="column"]:first-child .stButton > button {
-      overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important;
-    }
     .block-container { overflow-x: hidden !important; }
     /* prevent fused Explore/→ button from overlapping card on mobile */
     .element-container:has(.portcard) + .element-container .stButton > button { margin-top: 0 !important; }
@@ -122,6 +114,12 @@ with st.sidebar:
 def _load_bundle(currency):
     return engine.build(currency=currency, force_refresh_prices=False)
 
+if "session_init" not in st.session_state:
+    st.session_state["session_init"] = True
+    from src.cache import Cache
+    Cache().invalidate("prices")
+    Cache().invalidate("fx")
+
 bundle = _load_bundle(currency)
 
 with st.sidebar:
@@ -139,10 +137,5 @@ elif page == "transactions":
 elif page == "summary":
     summary_page.render_page(bundle)
 else:
-    _t, _r = st.columns([6, 1])
-    with _t:
-        st.markdown("**📈 Portfolio Analyzer**")
-    with _r:
-        if st.button("↻", key="ref_port", help="Refresh prices"):
-            ui_state.do_refresh()
+    st.markdown("**📈 Portfolio Analyzer**")
     portfolio_page.render(bundle)
