@@ -62,24 +62,28 @@ st.markdown("""
     box-shadow: 0 2px 6px rgba(37,99,235,0.25) !important;
   }
 
-  /* Invisible tap overlay positioned over the in-card explore strip */
-  .element-container:has(.portcard) + .element-container .stButton > button {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    color: transparent !important;
-    font-size: 1px !important;
-    padding: 0 !important;
-    margin-top: -22px !important;
-    height: 22px !important;
-    position: relative !important;
-    z-index: 100 !important;
-    cursor: pointer !important;
+  /* Zero gap between card and its explore button inside each container */
+  [data-testid="stVerticalBlock"]:has(> [data-testid="element-container"] .portcard) {
+    gap: 0 !important;
   }
-  .element-container:has(.portcard) + .element-container .stButton > button:hover,
-  .element-container:has(.portcard) + .element-container .stButton > button:active {
-    background: rgba(0,0,0,0.03) !important;
-    border: none !important;
+  /* Button styled as the strip fused to the card bottom */
+  .element-container:has(.portcard) + .element-container .stButton > button {
+    background: rgba(255,255,255,0.6) !important;
+    border: 1px solid #e2e8f0 !important;
+    border-top: none !important;
+    border-radius: 0 0 10px 10px !important;
+    color: #94a3b8 !important;
+    font-size: 9px !important;
+    padding: 3px 12px !important;
+    text-align: right !important;
+    box-shadow: none !important;
+    margin-top: 0 !important;
+  }
+  .element-container:has(.portcard) + .element-container .stButton > button:hover {
+    background: #f1f5f9 !important;
+    color: #2563eb !important;
+    border-color: #e2e8f0 !important;
+    border-top: none !important;
     box-shadow: none !important;
   }
 
