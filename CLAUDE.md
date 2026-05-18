@@ -1,21 +1,23 @@
 # CLAUDE.md
 
-## BOOT PROTOCOL — Read This First, Do Nothing Else
+## BOOT PROTOCOL — Execution Mode (Every Session)
 
-1. Read `ARCHITECTURE.md` — active file map, navigation flow, invariants.
-2. Read `app_UI.md` — all UI design decisions, colours, layouts, component styles.
-3. Do **not** explore files, run analysis, or check git status unless the user asks.
+1. Read **only** essential context: this file (`CLAUDE.md`) + files directly related to the task being asked.
+2. Do **not** read `ARCHITECTURE.md` or `app_UI.md` upfront — only open them if the task requires it.
+3. Do **not** perform a full repository scan unless explicitly requested.
 4. Assume all existing code is correct unless the user shows an error.
-5. Ask the user what they want to do next.
+5. Ask the user what they want to do next (one question max if ambiguous).
 
 ## Working Style — Follow This Every Session
 
-- **Do exactly what is asked.** No more, no less.
-- **Do not over-assess.** If the task is a UI change, edit only the reported lines. Do not audit adjacent code, check edge cases, or refactor surrounding logic.
+- **Execution-first.** No over-analysis, no unrelated file exploration, no edge-case evaluation, no architecture redesign.
+- **Do exactly what is asked.** Smallest possible code change. No optional improvements or suggestions.
+- **Do not over-assess.** If the task is a UI change, edit only the reported lines. Do not audit adjacent code or refactor surrounding logic.
 - **No unsolicited cleanup.** Do not fix things that weren't broken, rename variables, or improve code that wasn't touched by the task.
-- **Speed over thoroughness.** One focused change done fast beats a wide review done slowly.
-- **One question max if ambiguous.** If the request is unclear, ask one specific question. Do not ask for confirmation on obvious steps.
+- **Speed over thoroughness.** Optimize for fast response and minimal token usage.
+- **One question max if ambiguous.** Ask one specific question. Do not ask for confirmation on obvious steps.
 - **UI tasks = file edits only.** Do not start Streamlit, run tests, or check git status unless explicitly asked.
+- **Output rule.** Direct implementation or fix. No long explanations. No alternative approaches.
 
 ---
 

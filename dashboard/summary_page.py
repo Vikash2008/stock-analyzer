@@ -8,7 +8,7 @@ from dashboard import ui_state
 from src.engine import PortfolioBundle
 from src.xirr import portfolio_xirr
 
-_METRICS    = ["Portfolio Value", "Invested", "Profit / Loss", "Return %", "XIRR Trend"]
+_METRICS    = ["Portfolio Value", "Invested", "Unrealized Gains", "Realized Gains", "Total Gains", "Return %", "XIRR Trend"]
 _RANGES     = ["1m", "3m", "6m", "1y", "2y", "3y", "5y", "All"]
 _RANGE_DAYS = {"1m": 30, "3m": 90, "6m": 182, "1y": 365,
                "2y": 730, "3y": 1095, "5y": 1825}
@@ -172,6 +172,20 @@ def _build_xirr_trend_multi(txns_seg: pd.DataFrame, port_h: pd.DataFrame,
     return pd.Series([x[1] for x in out], index=[x[0] for x in out])
 
 
+@st.cache_data(ttl=1800, show_spinner=False)
+def _build_realized_series(realized_df: pd.DataFrame, usd_inr: float) -> pd.Series:
+    """Cumulative realized P&L over time, indexed by sell_date."""
+    if realized_df.empty:
+        return pd.Series(dtype=float)
+    r = realized_df.copy()
+    r["date"] = pd.to_datetime(r["sell_date"])
+    r["pnl_inr"] = r.apply(
+        lambda row: float(row["realized_pnl"]) * (usd_inr if row.get("currency", "INR") == "USD" else 1.0),
+        axis=1,
+    )
+    return r.groupby("date")["pnl_inr"].sum().cumsum().sort_index()
+
+
 def _slice(s: pd.Series, sel_r: str) -> pd.Series:
     if sel_r == "All" or s.empty:
         return s
@@ -240,6 +254,12 @@ _CHART_CONFIG = {"scrollZoom": False, "doubleClick": "reset", "displayModeBar": 
 
 
 def _style(fig: go.Figure, title: str, y_tick_suffix: str = "") -> None:
+    if y_tick_suffix in (" Cr", " L"):
+        tick_fmt = ".2f"
+    elif y_tick_suffix == "%":
+        tick_fmt = ".1f"
+    else:
+        tick_fmt = ",.0f"
     fig.update_layout(
         height=380, margin=dict(l=0, r=0, t=36, b=0),
         title=dict(text=title, font=dict(size=13, color="#0f172a", family="sans-serif"), x=0),
@@ -247,7 +267,7 @@ def _style(fig: go.Figure, title: str, y_tick_suffix: str = "") -> None:
         dragmode=False,
         xaxis=dict(showgrid=True, gridcolor="#f1f5f9", zeroline=False, linecolor="#e2e8f0", fixedrange=True),
         yaxis=dict(showgrid=True, gridcolor="#f1f5f9", zeroline=False, linecolor="#e2e8f0",
-                   rangemode="normal", ticksuffix=y_tick_suffix, fixedrange=True),
+                   rangemode="normal", ticksuffix=y_tick_suffix, tickformat=tick_fmt, fixedrange=True),
         font=dict(size=12, color="#334155"), showlegend=False,
         hoverlabel=dict(bgcolor="#1e293b", font_color="#f8fafc", font_size=12,
                         bordercolor="#1e293b"),
@@ -320,7 +340,7 @@ def render(bundle: PortfolioBundle, port: str) -> None:
                 _style(fig, "Cumulative Invested Over Time", y_tick_suffix=tsf)
                 st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
-        elif sel_m == "Profit / Loss":
+        elif sel_m == "Unrealized Gains":
             if val_full.empty or inv_full.empty:
                 st.info("Not enough data.")
             else:
@@ -331,11 +351,49 @@ def render(bundle: PortfolioBundle, port: str) -> None:
                     d, sf, tsf = _auto_scale(pnl)
                     chg = pnl.iloc[-1] - pnl.iloc[0]
                     gc  = "#27ae60" if chg >= 0 else "#e74c3c"
-                    _stat("Gain / Loss in period", f"{'+'if chg>=0 else ''}{_fmt_num(chg)}", gc)
+                    _stat("Unrealized gain in period", f"{'+'if chg>=0 else ''}{_fmt_num(chg)}", gc)
                     color = "#27ae60" if pnl.iloc[-1] >= 0 else "#e74c3c"
-                    fig = _line_fig(pnl.index, pnl.values, "P&L", color, divisor=d, suffix=sf)
+                    fig = _line_fig(pnl.index, pnl.values, "Unrealized", color, divisor=d, suffix=sf)
                     fig.add_hline(y=0, line_color="#aaaaaa", line_dash="dot", line_width=1)
-                    _style(fig, "Profit / Loss Over Time", y_tick_suffix=tsf)
+                    _style(fig, "Unrealized Gains Over Time", y_tick_suffix=tsf)
+                    st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
+
+        elif sel_m == "Realized Gains":
+            rl_df = bundle.realized[bundle.realized["portfolio"] == port]
+            rl = _slice(_build_realized_series(rl_df, usd_inr), sel_r)
+            if rl.empty:
+                st.info("No realized gains in this range.")
+            else:
+                d, sf, tsf = _auto_scale(rl)
+                chg = rl.iloc[-1] - rl.iloc[0]
+                gc  = "#27ae60" if chg >= 0 else "#e74c3c"
+                _stat("Realized gain in period", f"{'+'if chg>=0 else ''}{_fmt_num(chg)}", gc)
+                color = "#27ae60" if rl.iloc[-1] >= 0 else "#e74c3c"
+                fig = _line_fig(rl.index, rl.values, "Realized", color, divisor=d, suffix=sf)
+                fig.add_hline(y=0, line_color="#aaaaaa", line_dash="dot", line_width=1)
+                _style(fig, "Cumulative Realized Gains Over Time", y_tick_suffix=tsf)
+                st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
+
+        elif sel_m == "Total Gains":
+            if val_full.empty or inv_full.empty:
+                st.info("Not enough data.")
+            else:
+                unrl = _pnl_series(val_full, inv_full)
+                rl_df = bundle.realized[bundle.realized["portfolio"] == port]
+                rl_full = _build_realized_series(rl_df, usd_inr)
+                rl_aligned = rl_full.reindex(unrl.index).ffill().fillna(0) if not rl_full.empty else pd.Series(0, index=unrl.index)
+                total = _slice(unrl + rl_aligned, sel_r)
+                if total.empty:
+                    st.info("Not enough data.")
+                else:
+                    d, sf, tsf = _auto_scale(total)
+                    chg = total.iloc[-1] - total.iloc[0]
+                    gc  = "#27ae60" if chg >= 0 else "#e74c3c"
+                    _stat("Total gain in period", f"{'+'if chg>=0 else ''}{_fmt_num(chg)}", gc)
+                    color = "#27ae60" if total.iloc[-1] >= 0 else "#e74c3c"
+                    fig = _line_fig(total.index, total.values, "Total G/L", color, divisor=d, suffix=sf)
+                    fig.add_hline(y=0, line_color="#aaaaaa", line_dash="dot", line_width=1)
+                    _style(fig, "Total Gains Over Time", y_tick_suffix=tsf)
                     st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
         elif sel_m == "Return %":
@@ -425,7 +483,7 @@ def _render_multi(bundle: PortfolioBundle, filtered_h: pd.DataFrame) -> None:
                 _style(fig, "Cumulative Invested Over Time", y_tick_suffix=tsf)
                 st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
-        elif sel_m == "Profit / Loss":
+        elif sel_m == "Unrealized Gains":
             if full_val.empty or full_inv.empty:
                 st.info("Not enough data.")
             else:
@@ -436,11 +494,49 @@ def _render_multi(bundle: PortfolioBundle, filtered_h: pd.DataFrame) -> None:
                     d, sf, tsf = _auto_scale(pnl)
                     chg = pnl.iloc[-1] - pnl.iloc[0]
                     gc  = "#27ae60" if chg >= 0 else "#e74c3c"
-                    _stat("Gain / Loss in period", f"{'+'if chg>=0 else ''}{_fmt_num(chg)}", gc)
+                    _stat("Unrealized gain in period", f"{'+'if chg>=0 else ''}{_fmt_num(chg)}", gc)
                     color = "#27ae60" if pnl.iloc[-1] >= 0 else "#e74c3c"
-                    fig = _line_fig(pnl.index, pnl.values, "P&L", color, divisor=d, suffix=sf)
+                    fig = _line_fig(pnl.index, pnl.values, "Unrealized", color, divisor=d, suffix=sf)
                     fig.add_hline(y=0, line_color="#aaaaaa", line_dash="dot", line_width=1)
-                    _style(fig, "Profit / Loss Over Time", y_tick_suffix=tsf)
+                    _style(fig, "Unrealized Gains Over Time", y_tick_suffix=tsf)
+                    st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
+
+        elif sel_m == "Realized Gains":
+            rl_df = bundle.realized[bundle.realized["portfolio"].isin(ports)]
+            rl = _slice(_build_realized_series(rl_df, usd_inr), sel_r)
+            if rl.empty:
+                st.info("No realized gains in this range.")
+            else:
+                d, sf, tsf = _auto_scale(rl)
+                chg = rl.iloc[-1] - rl.iloc[0]
+                gc  = "#27ae60" if chg >= 0 else "#e74c3c"
+                _stat("Realized gain in period", f"{'+'if chg>=0 else ''}{_fmt_num(chg)}", gc)
+                color = "#27ae60" if rl.iloc[-1] >= 0 else "#e74c3c"
+                fig = _line_fig(rl.index, rl.values, "Realized", color, divisor=d, suffix=sf)
+                fig.add_hline(y=0, line_color="#aaaaaa", line_dash="dot", line_width=1)
+                _style(fig, "Cumulative Realized Gains Over Time", y_tick_suffix=tsf)
+                st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
+
+        elif sel_m == "Total Gains":
+            if full_val.empty or full_inv.empty:
+                st.info("Not enough data.")
+            else:
+                unrl = _pnl_series(full_val, full_inv)
+                rl_df = bundle.realized[bundle.realized["portfolio"].isin(ports)]
+                rl_full = _build_realized_series(rl_df, usd_inr)
+                rl_aligned = rl_full.reindex(unrl.index).ffill().fillna(0) if not rl_full.empty else pd.Series(0, index=unrl.index)
+                total = _slice(unrl + rl_aligned, sel_r)
+                if total.empty:
+                    st.info("Not enough data.")
+                else:
+                    d, sf, tsf = _auto_scale(total)
+                    chg = total.iloc[-1] - total.iloc[0]
+                    gc  = "#27ae60" if chg >= 0 else "#e74c3c"
+                    _stat("Total gain in period", f"{'+'if chg>=0 else ''}{_fmt_num(chg)}", gc)
+                    color = "#27ae60" if total.iloc[-1] >= 0 else "#e74c3c"
+                    fig = _line_fig(total.index, total.values, "Total G/L", color, divisor=d, suffix=sf)
+                    fig.add_hline(y=0, line_color="#aaaaaa", line_dash="dot", line_width=1)
+                    _style(fig, "Total Gains Over Time", y_tick_suffix=tsf)
                     st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
         elif sel_m == "Return %":

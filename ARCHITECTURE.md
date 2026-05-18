@@ -97,10 +97,72 @@ msp_v2.csv
 |---------------|---------------|--------------------------------------|
 | holdings      | DataFrame     | One row per (portfolio, symbol)      |
 | transactions  | DataFrame     | All raw transactions post-FIFO       |
-| realized      | DataFrame     | Closed positions                     |
+| realized      | DataFrame     | Closed positions + dividends         |
 | usd_inr       | float         | Live FX rate (fallback ~95.5)        |
 | as_of         | datetime      | Price fetch timestamp                |
 | cache_status  | str           | Human-readable cache summary         |
+
+---
+
+## DataFrame Column Reference
+
+### bundle.holdings — one row per (portfolio, symbol)
+
+| Column          | Type    | Currency  | Notes                                              |
+|-----------------|---------|-----------|----------------------------------------------------|
+| portfolio       | str     | —         | Portfolio name                                     |
+| symbol          | str     | —         | Clean ticker (e.g. `INFY`)                         |
+| exchange        | str     | —         | `NSE`, `BSE`, or US exchange                       |
+| yf_symbol       | str     | —         | yfinance key (`INFY.NS`, `META`)                   |
+| currency        | str     | —         | `INR` or `USD` (native)                            |
+| quantity        | float   | —         | Current open qty                                   |
+| avg_cost        | float   | native    | Cost per share incl. charges                       |
+| total_invested  | float   | native    | `qty × avg_cost`                                   |
+| current_price   | float   | native    | Live price from yfinance                           |
+| current_value   | float   | native    | `qty × current_price`                              |
+| unrealized_pnl  | float   | native    | `current_value − total_invested`                   |
+| pnl_pct         | float   | —         | `unrealized_pnl / total_invested × 100`            |
+| sector          | str     | —         | From yfinance ticker info                          |
+| company         | str     | —         | Company name from yfinance                         |
+| name            | str     | —         | Name from transaction CSV                         |
+| disp_invested   | float   | display   | `total_invested` converted to INR/USD display      |
+| disp_current    | float   | display   | `current_value` converted to INR/USD display       |
+| disp_gain       | float   | display   | `disp_current − disp_invested`                     |
+| disp_pnl_pct    | float   | —         | `disp_gain / disp_invested × 100`                  |
+
+### bundle.realized — one row per closed lot or dividend
+
+| Column       | Type      | Currency | Notes                                              |
+|--------------|-----------|----------|----------------------------------------------------|
+| portfolio    | str       | —        | Portfolio name                                     |
+| symbol       | str       | —        | Clean ticker                                       |
+| exchange     | str       | —        | `NSE`, `BSE`, or US exchange                       |
+| currency     | str       | —        | `INR` or `USD` (native) — use this for FX          |
+| type         | str       | —        | `SELL` or `DIVIDEND`                               |
+| buy_date     | Timestamp | —        | Date of the matched BUY lot (`None` for DIVIDEND)  |
+| sell_date    | Timestamp | —        | Date of SELL / DIVIDEND                            |
+| quantity     | float     | —        | Units sold / dividend units                        |
+| buy_price    | float     | native   | Cost per share of matched BUY lot                  |
+| sell_price   | float     | native   | Net sell price per share (after charges)           |
+| realized_pnl | float     | native   | `qty × (sell_price − buy_price)`                   |
+
+> **FX rule for realized:** `if currency == "USD": multiply realized_pnl and (qty × buy_price) by usd_inr`
+
+### bundle.transactions — all raw transactions post-FIFO
+
+| Column    | Type      | Notes                                   |
+|-----------|-----------|-----------------------------------------|
+| portfolio | str       | Portfolio name                          |
+| symbol    | str       | Clean ticker                            |
+| exchange  | str       | `NSE`, `BSE`, or US exchange            |
+| yf_symbol | str       | yfinance key                            |
+| currency  | str       | `INR` or `USD`                          |
+| type      | str       | `BUY`, `SELL`, `DIVIDEND`               |
+| date      | Timestamp | Transaction date                        |
+| quantity  | float     | Units                                   |
+| price     | float     | Per-share price (native currency)       |
+| charges   | float     | Total brokerage/charges for the trade   |
+| name      | str       | Instrument name from CSV (optional)     |
 
 ---
 
@@ -188,6 +250,29 @@ msp_v2.csv
 | 4 | `validate.py` is terminal-only — no Streamlit imports |
 | 5 | `src/charts.py` deleted — do not recreate; chart code lives in `dashboard/charts.py` |
 | 6 | No features added unless user requests them |
+
+---
+
+## Key Functions — Edit Anchors
+
+| File                      | Function / Symbol                  | Purpose / Edit here when…                                      |
+|---------------------------|------------------------------------|-----------------------------------------------------------------|
+| `dashboard/metrics.py`    | `_tile(col, label, cur, inv, …)`   | Change tile card layout, add/remove tile metrics               |
+| `dashboard/metrics.py`    | `render(bundle)`                   | Add realized computation, change segment tile calls            |
+| `dashboard/metrics.py`    | `_compute_all(h, txns, usd_inr)`   | Add new cached XIRR variants or segment totals                 |
+| `dashboard/holdings_page.py` | `_render_segment(bundle)`       | Segment cumulative/standalone table columns                    |
+| `dashboard/holdings_page.py` | `render(bundle)`                | Portfolio-specific holdings tab columns                        |
+| `dashboard/holdings_page.py` | `_agg_realized(realized_df, usd_inr)` | Realized gain aggregation helper (returns dict keyed by (portfolio, symbol)) |
+| `dashboard/holdings_page.py` | `_fmt_gain(gain, pct, is_usd)` | Combined gain+% cell format (`+₹X.XX L (+Y.Y%)`)              |
+| `dashboard/summary_page.py`  | `_METRICS` list                 | Add new chart metric option here + matching `elif` block       |
+| `dashboard/summary_page.py`  | `render(bundle, port)`          | Single-portfolio summary charts                                |
+| `dashboard/summary_page.py`  | `_render_multi(bundle, filtered_h)` | Segment summary charts                                     |
+| `dashboard/summary_page.py`  | `_build_value_series()`         | Historical portfolio value series (cached)                     |
+| `dashboard/summary_page.py`  | `_build_invested_series()`      | Historical invested series (cached)                            |
+| `dashboard/charts.py`        | `render(sym_txns, yf_symbol, …)` | BUY/SELL bubble chart + price line                            |
+| `src/engine.py`              | `build()`                       | Add new bundle fields here                                     |
+| `src/portfolio.py`           | `_run_fifo()`                   | FIFO logic, realized_pnl calculation                          |
+| `dashboard/classify.py`      | `segment(portfolio, yf_symbol)` | Segment classification — single source of truth               |
 
 ---
 

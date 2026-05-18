@@ -41,6 +41,24 @@ def _xirr_str(txns, h_rows, prices, usd_inr) -> str:
     return f"{v*100:+.2f}%" if v is not None else "—"
 
 
+def _agg_realized(realized_df: pd.DataFrame, usd_inr: float) -> dict:
+    """Returns dict of (portfolio, symbol) -> (realized_gain_inr, cost_of_sold_inr)."""
+    out = {}
+    for _, row in realized_df.iterrows():
+        fx = usd_inr if row.get("currency", "INR") == "USD" else 1.0
+        key = (row.get("portfolio", ""), row["symbol"])
+        g, c = out.get(key, (0.0, 0.0))
+        out[key] = (g + float(row["realized_pnl"]) * fx,
+                    c + float(row["quantity"]) * float(row["buy_price"]) * fx)
+    return out
+
+
+def _fmt_gain(gain: float, pct: float, is_usd: bool = False) -> str:
+    sign = "+" if gain >= 0 else "−"
+    psign = "+" if pct >= 0 else ""
+    return f"{sign}{_fmt(abs(gain), is_usd)} ({psign}{pct:.1f}%)"
+
+
 @st.cache_data(show_spinner=False, ttl=1800)
 def _batch_xirr(txns, h, usd_inr) -> dict:
     prices = dict(zip(h["yf_symbol"], h["current_price"]))
@@ -94,6 +112,7 @@ def _render_segment(bundle: PortfolioBundle) -> None:
                     key="seg_view", label_visibility="collapsed")
 
     xirr_map = _batch_xirr(txns, h, usd_inr)
+    real_map = _agg_realized(bundle.realized, usd_inr)
 
     if view == "Cumulative":
         rows, meta = [], []
@@ -103,14 +122,19 @@ def _render_segment(bundle: PortfolioBundle) -> None:
             cur_r  = g["disp_current"].sum()
             gain_r = cur_r - inv_r
             pct_r  = (gain_r / inv_r * 100) if inv_r else 0.0
-            s      = "+" if pct_r >= 0 else ""
             ports  = sorted(g["portfolio"].unique())
+            real_g    = sum(real_map.get((p, sym), (0.0, 0.0))[0] for p in ports)
+            real_cost = sum(real_map.get((p, sym), (0.0, 0.0))[1] for p in ports)
+            real_pct  = (real_g / real_cost * 100) if real_cost else 0.0
+            total_g   = gain_r + real_g
+            total_pct = (total_g / (inv_r + real_cost) * 100) if (inv_r + real_cost) else 0.0
             rows.append({
                 "Symbol":     sym,
                 "Invested":   _fmt(inv_r),
                 "Value":      _fmt(cur_r),
-                "G/L":        _fmt(gain_r),
-                "Return %":   f"{s}{pct_r:.1f}%",
+                "Unrealized": _fmt_gain(gain_r, pct_r),
+                "Realized":   _fmt_gain(real_g, real_pct),
+                "Total G/L":  _fmt_gain(total_g, total_pct),
                 "XIRR":       xirr_map.get(sym, "—"),
                 "Qty":        round(qty, 2),
                 "Portfolios": ", ".join(ports),
@@ -139,19 +163,23 @@ def _render_segment(bundle: PortfolioBundle) -> None:
             cur_r  = row["disp_current"]
             gain_r = cur_r - inv_r
             pct_r  = (gain_r / inv_r * 100) if inv_r else 0.0
-            s      = "+" if pct_r >= 0 else ""
+            real_g, real_cost = real_map.get((row["portfolio"], row["symbol"]), (0.0, 0.0))
+            real_pct  = (real_g / real_cost * 100) if real_cost else 0.0
+            total_g   = gain_r + real_g
+            total_pct = (total_g / (inv_r + real_cost) * 100) if (inv_r + real_cost) else 0.0
             rows.append({
-                "Symbol":    row["symbol"],
-                "Portfolio": row["portfolio"],
-                "Qty":       round(row["quantity"], 2),
-                "Avg Cost":  round(row["avg_cost"], 2),
-                "LTP":       round(row["current_price"], 2) if pd.notna(row.get("current_price")) else None,
-                "Invested":  _fmt(inv_r),
-                "Value":     _fmt(cur_r),
-                "G/L":       _fmt(gain_r),
-                "Return %":  f"{s}{pct_r:.1f}%",
-                "XIRR":      xirr_map.get(row["symbol"], "—"),
-                "_cur":      cur_r,
+                "Symbol":     row["symbol"],
+                "Portfolio":  row["portfolio"],
+                "Qty":        round(row["quantity"], 2),
+                "Avg Cost":   round(row["avg_cost"], 2),
+                "LTP":        round(row["current_price"], 2) if pd.notna(row.get("current_price")) else None,
+                "Invested":   _fmt(inv_r),
+                "Value":      _fmt(cur_r),
+                "Unrealized": _fmt_gain(gain_r, pct_r),
+                "Realized":   _fmt_gain(real_g, real_pct),
+                "Total G/L":  _fmt_gain(total_g, total_pct),
+                "XIRR":       xirr_map.get(row["symbol"], "—"),
+                "_cur":       cur_r,
             })
         rows.sort(key=lambda r: -r["_cur"])
         df = pd.DataFrame(rows).drop(columns=["_cur"]).reset_index(drop=True)
@@ -201,24 +229,29 @@ def render(bundle: PortfolioBundle) -> None:
                         key="port_view", label_visibility="collapsed")
 
         port_xirr_map = _batch_xirr(txns, port_h, usd_inr)
+        real_map = _agg_realized(bundle.realized, usd_inr)
         rows = []
         for _, row in port_h.iterrows():
             inv_r  = row["total_invested"] if is_usd else row["disp_invested"]
             cur_r  = row["current_value"]  if is_usd else row["disp_current"]
             gain_r = cur_r - inv_r
             pct_r  = (gain_r / inv_r * 100) if inv_r else 0.0
-            s      = "+" if pct_r >= 0 else ""
+            real_g, real_cost = real_map.get((port, row["symbol"]), (0.0, 0.0))
+            real_pct  = (real_g / real_cost * 100) if real_cost else 0.0
+            total_g   = gain_r + real_g
+            total_pct = (total_g / (inv_r + real_cost) * 100) if (inv_r + real_cost) else 0.0
             rows.append({
-                "Symbol":   row["symbol"],
-                "Qty":      round(row["quantity"], 2),
-                "Avg Cost": round(row["avg_cost"], 2),
-                "LTP":      round(row["current_price"], 2) if pd.notna(row.get("current_price")) else None,
-                "Invested": _fmt(inv_r, is_usd),
-                "Value":    _fmt(cur_r, is_usd),
-                "G/L":      _fmt(gain_r, is_usd),
-                "Return %": f"{s}{pct_r:.1f}%",
-                "XIRR":     port_xirr_map.get(row["symbol"], "—"),
-                "_cur":     cur_r,
+                "Symbol":     row["symbol"],
+                "Qty":        round(row["quantity"], 2),
+                "Avg Cost":   round(row["avg_cost"], 2),
+                "LTP":        round(row["current_price"], 2) if pd.notna(row.get("current_price")) else None,
+                "Invested":   _fmt(inv_r, is_usd),
+                "Value":      _fmt(cur_r, is_usd),
+                "Unrealized": _fmt_gain(gain_r, pct_r, is_usd),
+                "Realized":   _fmt_gain(real_g, real_pct, is_usd),
+                "Total G/L":  _fmt_gain(total_g, total_pct, is_usd),
+                "XIRR":       port_xirr_map.get(row["symbol"], "—"),
+                "_cur":       cur_r,
             })
 
         rows.sort(key=lambda r: -r["_cur"])

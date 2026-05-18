@@ -195,15 +195,20 @@ def _show_holdings(h, usd_inr, txns=None, seg_filter=None, prices=None):
                 st.rerun()
 
 
-def _tile(col, label, cur, inv, xirr_str, key, portfolio=None):
+def _tile(col, label, cur, inv, xirr_str, key, portfolio=None, real_gain=0.0, cost_of_sold=0.0):
     gain = cur - inv
     pct  = (gain / inv * 100) if inv else 0.0
-    sign = "+" if gain >= 0 else ""
+    real_pct  = (real_gain / cost_of_sold * 100) if cost_of_sold else 0.0
+    total_g   = gain + real_gain
+    total_pct = (total_g / (inv + cost_of_sold) * 100) if (inv + cost_of_sold) else 0.0
     is_pos = gain >= 0
     gain_color   = "#0a7a42" if is_pos else "#be1c1c"
+    real_color   = "#0a7a42" if real_gain >= 0 else "#be1c1c"
+    total_color  = "#0a7a42" if total_g >= 0 else "#be1c1c"
     border_color = "#10b981" if is_pos else "#f43f5e"
     bg_color     = "#f0fdf8" if is_pos else "#fff5f5"
     xirr_display = xirr_str if xirr_str else "—"
+    def _s(v): return "+" if v >= 0 else ""
     col.markdown(f"""
 <div class="portfolio-tile" style="background:{bg_color}; border:1px solid #e2e8f0;
             border-radius:12px; padding:12px 14px; border-left:4px solid {border_color};
@@ -218,12 +223,20 @@ def _tile(col, label, cur, inv, xirr_str, key, portfolio=None):
       <div class="tile-subval" style="font-size:14px; font-weight:600; color:#334155">{_fmt(inv)}</div>
     </div>
     <div>
-      <div class="tile-sublabel" style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">P&amp;L</div>
-      <div class="tile-subval" style="font-size:14px; font-weight:700; color:{gain_color}">{sign}{_fmt(gain)}</div>
+      <div class="tile-sublabel" style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">UNREALIZED</div>
+      <div class="tile-subval" style="font-size:14px; font-weight:700; color:{gain_color}">{_s(gain)}{_fmt(gain)} · {_s(pct)}{pct:.1f}%</div>
     </div>
     <div>
-      <div class="tile-sublabel" style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">RETURN</div>
-      <div class="tile-subval" style="font-size:14px; font-weight:700; color:{gain_color}">{sign}{pct:.1f}%</div>
+      <div class="tile-sublabel" style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">REALIZED</div>
+      <div class="tile-subval" style="font-size:14px; font-weight:700; color:{real_color}">{_s(real_gain)}{_fmt(real_gain)} · {_s(real_pct)}{real_pct:.1f}%</div>
+    </div>
+    <div>
+      <div class="tile-sublabel" style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">TOTAL G/L</div>
+      <div class="tile-subval" style="font-size:14px; font-weight:700; color:{total_color}">{_s(total_g)}{_fmt(total_g)} · {_s(total_pct)}{total_pct:.1f}%</div>
+    </div>
+    <div>
+      <div class="tile-sublabel" style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">TOTAL RTN</div>
+      <div class="tile-subval" style="font-size:14px; font-weight:700; color:{total_color}">{_s(total_pct)}{total_pct:.1f}%</div>
     </div>
     <div>
       <div class="tile-sublabel" style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em">XIRR</div>
@@ -264,12 +277,37 @@ def render(bundle: PortfolioBundle) -> None:
     inv_stk   = inv_ind_stk + inv_us_stk
     cur_stk   = cur_ind_stk + cur_us_stk
 
+    # ── Realized gains by segment ─────────────────────────────────────────────
+    _sym_yf = {(r["portfolio"], r["symbol"]): r["yf_symbol"] for _, r in txns.iterrows()}
+    _rseg, _rport = {}, {}
+    for _, r in bundle.realized.iterrows():
+        p = r.get("portfolio", "")
+        if p in SKIP_PORTS:
+            continue
+        fx  = usd_inr if r.get("currency", "INR") == "USD" else 1.0
+        g   = float(r["realized_pnl"]) * fx
+        c   = float(r["quantity"]) * float(r["buy_price"]) * fx
+        seg = segment(p, _sym_yf.get((p, r["symbol"]), r["symbol"]))
+        if seg == "skip":
+            continue
+        _rseg.setdefault(seg,  [0.0, 0.0]); _rseg[seg][0]  += g; _rseg[seg][1]  += c
+        _rport.setdefault(p,   [0.0, 0.0]); _rport[p][0]   += g; _rport[p][1]   += c
+
+    def _rg(d, k): v = d.get(k, [0.0, 0.0]); return v[0], v[1]
+    rg_ind_stk, rc_ind_stk = _rg(_rseg, "indian_stock")
+    rg_us_stk,  rc_us_stk  = _rg(_rseg, "us_stock")
+    rg_ind_mf,  rc_ind_mf  = _rg(_rseg, "indian_mf")
+    rg_us_mf,   rc_us_mf   = _rg(_rseg, "us_mf")
+    rg_stk = rg_ind_stk + rg_us_stk;  rc_stk = rc_ind_stk + rc_us_stk
+    rg_mf  = rg_ind_mf  + rg_us_mf;   rc_mf  = rc_ind_mf  + rc_us_mf
+    rg_tot = rg_stk + rg_mf;           rc_tot = rc_stk + rc_mf
+
     # ── Row 1: 3 tiles ────────────────────────────────────────────────────────
     st.caption("**Overview**")
-    _tile(st, "Total Portfolio", cur_total, inv_total, xirr_total, "total")
+    _tile(st, "Total Portfolio", cur_total, inv_total, xirr_total, "total", real_gain=rg_tot, cost_of_sold=rc_tot)
     oc1, oc2 = st.columns(2)
-    _tile(oc1, "Stocks",       cur_stk, inv_stk, xirr_stk, "stk")
-    _tile(oc2, "Mutual Funds", cur_mf,  inv_mf,  xirr_mf,  "mf")
+    _tile(oc1, "Stocks",       cur_stk, inv_stk, xirr_stk, "stk", real_gain=rg_stk, cost_of_sold=rc_stk)
+    _tile(oc2, "Mutual Funds", cur_mf,  inv_mf,  xirr_mf,  "mf",  real_gain=rg_mf,  cost_of_sold=rc_mf)
 
     # ── Row 2: breakdown ─────────────────────────────────────────────────────
     bl, br = st.columns([0.4, 0.6])
@@ -280,11 +318,11 @@ def render(bundle: PortfolioBundle) -> None:
 
     if breakdown_mode == "By Category":
         r1c1, r1c2 = st.columns(2)
-        _tile(r1c1, "Indian Stocks", cur_ind_stk, inv_ind_stk, xirr_ind_stk, "indian_stock")
-        _tile(r1c2, "US Stocks",     cur_us_stk,  inv_us_stk,  xirr_us_stk,  "us_stock")
+        _tile(r1c1, "Indian Stocks", cur_ind_stk, inv_ind_stk, xirr_ind_stk, "indian_stock", real_gain=rg_ind_stk, cost_of_sold=rc_ind_stk)
+        _tile(r1c2, "US Stocks",     cur_us_stk,  inv_us_stk,  xirr_us_stk,  "us_stock",     real_gain=rg_us_stk,  cost_of_sold=rc_us_stk)
         r2c1, r2c2 = st.columns(2)
-        _tile(r2c1, "Indian MF",     cur_ind_mf,  inv_ind_mf,  xirr_ind_mf,  "indian_mf")
-        _tile(r2c2, "US MF",         cur_us_mf,   inv_us_mf,   xirr_us_mf,   "us_mf")
+        _tile(r2c1, "Indian MF",     cur_ind_mf,  inv_ind_mf,  xirr_ind_mf,  "indian_mf",    real_gain=rg_ind_mf,  cost_of_sold=rc_ind_mf)
+        _tile(r2c2, "US MF",         cur_us_mf,   inv_us_mf,   xirr_us_mf,   "us_mf",        real_gain=rg_us_mf,   cost_of_sold=rc_us_mf)
     else:
         _SKIP_PORT_VIEW = SKIP_PORTS | {"IndMoney Ind"}
         indian, us = [], []
@@ -304,12 +342,14 @@ def render(bundle: PortfolioBundle) -> None:
         for i in range(0, len(indian), 2):
             chunk = indian[i:i+2]
             for col, (cur_p, port, inv_p, xirr_p) in zip(st.columns(len(chunk)), chunk):
-                _tile(col, port, cur_p, inv_p, xirr_p, f"port_{port}", portfolio=port)
+                rg_p, rc_p = _rg(_rport, port)
+                _tile(col, port, cur_p, inv_p, xirr_p, f"port_{port}", portfolio=port, real_gain=rg_p, cost_of_sold=rc_p)
 
         st.markdown("<div style='font-size:11px;color:#6b7fa3;text-transform:uppercase;letter-spacing:0.06em;margin:8px 0 2px'>🇺🇸 &nbsp;US</div>",
                     unsafe_allow_html=True)
         for i in range(0, len(us), 2):
             chunk = us[i:i+2]
             for col, (cur_p, port, inv_p, xirr_p) in zip(st.columns(len(chunk)), chunk):
-                _tile(col, port, cur_p, inv_p, xirr_p, f"port_{port}", portfolio=port)
+                rg_p, rc_p = _rg(_rport, port)
+                _tile(col, port, cur_p, inv_p, xirr_p, f"port_{port}", portfolio=port, real_gain=rg_p, cost_of_sold=rc_p)
 

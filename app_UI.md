@@ -222,6 +222,55 @@ visual crowding on mobile (was the cause of selector/legend overlap on narrow sc
 
 ---
 
+## Gains Display Convention
+
+### Three gain types
+
+| Type        | Value                              | % Denominator                          |
+|-------------|------------------------------------|-----------------------------------------|
+| Unrealized  | `disp_current − disp_invested`     | `disp_invested`                         |
+| Realized    | `sum(realized_pnl × fx)`          | `sum(qty × buy_price × fx)` (cost basis)|
+| Total       | Unrealized + Realized              | `disp_invested + cost_of_sold`          |
+
+> **FX rule:** for rows where `currency == "USD"`, multiply `realized_pnl` and `qty × buy_price` by `usd_inr` before summing.
+
+### Display format
+
+- Combined cell (tables): `₹X.XX L (+Y.Y%)` — value and % always on one line
+- Sign: always explicit `+` or `−` prefix on both value and %
+- Tile sub-grid cells: value on one line, % inline after a thin space `·`
+
+### Tile grid layout (3×2)
+
+```
+INVESTED        | UNREALIZED  ·  +X%
+REALIZED  ·+Y%  | TOTAL G/L  ·  +Z%
+TOTAL RETURN %  | XIRR
+```
+
+- **TOTAL RETURN %** = `(unrealized + realized) / (disp_invested + cost_of_sold) × 100`
+- Gain color `#0a7a42` / loss color `#be1c1c` applied to all three gain cells
+
+### Holdings table columns (replaces G/L + Return %)
+
+Replace the two columns `G/L` and `Return %` with three combined columns:
+
+| Column      | Content                              |
+|-------------|--------------------------------------|
+| Unrealized  | `₹X.XX L (+Y.Y%)`                   |
+| Realized    | `₹X.XX L (+Y.Y%)`                   |
+| Total G/L   | `₹X.XX L (+Y.Y%)`                   |
+
+### Summary page metric selector additions
+
+Add after existing 5 metrics: `Realized Gains` · `Unrealized Gains` · `Total Gains`
+
+- **Realized Gains** chart: cumulative `sum(realized_pnl × fx)` over time, grouped by `sell_date`
+- **Unrealized Gains** chart: `val_series − inv_series` (same as existing P&L series)
+- **Total Gains** chart: realized_series (reindexed + ffilled to market dates) + unrealized_series
+
+---
+
 ## Navigation UX
 
 - No back button on portfolios page (root)
@@ -255,3 +304,6 @@ Applied automatically by `/ship` before every deploy:
 | 2026-05-17 | Summary page: metric selector **above** chart, range selector **below** chart. Putting both above caused visual overlap on mobile narrow screens. |
 | 2026-05-17 | All charts: `fixedrange=True` on both axes. `dragmode=False` alone does not suppress touch box-select on mobile — `fixedrange` is required. |
 | 2026-05-17 | CSS classes added to tile/card HTML (`portfolio-tile`, `tile-value`, etc.) so `@media` queries can override inline styles without touching desktop. |
+| 2026-05-17 | Tile grid expanded from 2×2 to 3×2: INVESTED · UNREALIZED(+%) · REALIZED(+%) · TOTAL G/L(+%) · TOTAL RTN% · XIRR. Each gain cell has its own color based on its own sign. |
+| 2026-05-17 | Holdings table: replaced `G/L` + `Return %` with three combined columns — `Unrealized`, `Realized`, `Total G/L` — each formatted as `+₹X.XX L (+Y.Y%)`. |
+| 2026-05-17 | Realized % denominator = cost basis of sold lots (`sum(qty × buy_price × fx)`). Total % denominator = `disp_invested + cost_of_sold`. |
