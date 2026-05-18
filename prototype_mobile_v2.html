@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio — Mobile Prototype v2</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f1f5f9;
+  color: #0f172a;
+  max-width: 390px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+/* ── Tab bar ───────────────────────────────────────── */
+.tab-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  padding: 0 4px;
+}
+.tab-btn {
+  flex: 1;
+  padding: 12px 2px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; }
+
+/* ── Filter badge ──────────────────────────────────── */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  background: #eff6ff;
+  border-bottom: 1px solid #bfdbfe;
+}
+.filter-badge { flex: 1; font-size: 11px; font-weight: 600; color: #1d4ed8; }
+.filter-reset {
+  font-size: 11px; font-weight: 600; color: #64748b;
+  background: #fff; border: 1px solid #cbd5e1;
+  border-radius: 6px; padding: 3px 10px; cursor: pointer;
+}
+
+/* ── Page content ──────────────────────────────────── */
+.tab-content { display: none; padding: 12px; }
+.tab-content.active { display: block; }
+
+/* ══════════════════════════════════════════════════════
+   TILE — same as prototype v1
+══════════════════════════════════════════════════════ */
+.tile {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  border-left: 4px solid #e2e8f0;
+  padding: 14px 14px 10px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+.tile.gain { border-left-color: #10b981; background: #f0fdf8; }
+.tile.loss { border-left-color: #f43f5e; background: #fff5f5; }
+
+.tile-label {
+  font-size: 9px; font-weight: 700; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px;
+}
+.tile-row1 {
+  display: flex; justify-content: space-between;
+  align-items: baseline; margin-bottom: 6px;
+}
+.tile-value {
+  font-size: 22px; font-weight: 700; color: #0f172a;
+  letter-spacing: -0.02em; line-height: 1.1;
+}
+.tile-tag {
+  font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 20px;
+}
+.tile-tag.gain { background: #dcfce7; color: #166534; }
+.tile-tag.loss { background: #ffe4e6; color: #9f1239; }
+
+.tile-stats {
+  display: flex; gap: 14px; margin-bottom: 10px; flex-wrap: wrap;
+}
+.stat-item { display: flex; flex-direction: column; gap: 1px; }
+.stat-label {
+  font-size: 9px; font-weight: 600; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: 0.07em;
+}
+.stat-val { font-size: 12px; font-weight: 600; color: #334155; }
+.stat-val.gain { color: #0a7a42; }
+.stat-val.loss { color: #be1c1c; }
+
+.tile-btns { display: flex; gap: 8px; }
+.tile-btn {
+  flex: 1; padding: 7px 0;
+  border: 1px solid #e2e8f0; border-radius: 8px;
+  background: #fff; font-size: 12px; font-weight: 600;
+  color: #334155; text-align: center; cursor: pointer;
+}
+.tile-btn:hover, .tile-btn:active { background: #2563eb; color: #fff; border-color: #2563eb; }
+.tile-btn.single { flex: none; width: 100%; }
+
+/* ── 2-col grid ────────────────────────────────────── */
+.tile-grid-2 {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  margin-bottom: 2px;
+}
+.tile-grid-2 .tile { margin-bottom: 0; }
+.tile-grid-2 .tile-value { font-size: 17px; }
+.tile-grid-2 .stat-val   { font-size: 11px; }
+.tile-grid-2 .tile-btn   { font-size: 11px; padding: 5px 0; }
+
+/* ── Section header ────────────────────────────────── */
+.section-hdr {
+  font-size: 10px; font-weight: 700; color: #64748b;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  margin: 16px 0 8px 2px;
+}
+.section-hdr:first-child { margin-top: 0; }
+
+/* ══════════════════════════════════════════════════════
+   HOLDINGS CARDS
+══════════════════════════════════════════════════════ */
+.holding-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 12px 10px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.holding-card.gain { border-left-color: #10b981; background: #f0fdf8; }
+.holding-card.loss { border-left-color: #f43f5e; background: #fff5f5; }
+
+.h-row1 { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 3px; }
+.h-ticker { font-size: 14px; font-weight: 700; color: #0f172a; }
+.h-name   { font-size: 10px; color: #94a3b8; margin-top: 1px; }
+.h-value  { font-size: 14px; font-weight: 700; color: #0f172a; text-align: right; }
+.h-row2   { display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px; }
+.h-invested { font-size: 10px; color: #94a3b8; }
+.h-ret { font-size: 11px; font-weight: 600; }
+.h-ret.gain { color: #0a7a42; }
+.h-ret.loss { color: #be1c1c; }
+
+.analyze-btn {
+  width: 100%; padding: 7px;
+  border: 1px solid #e2e8f0; border-radius: 8px;
+  background: #fff; font-size: 11px; font-weight: 600;
+  color: #334155; cursor: pointer; text-align: center;
+}
+.analyze-btn:hover { background: #2563eb; color: #fff; border-color: #2563eb; }
+
+/* ══════════════════════════════════════════════════════
+   DEEP DIVE
+══════════════════════════════════════════════════════ */
+.info-card {
+  background: #eff6ff; border: 1px solid #bfdbfe;
+  border-radius: 14px; padding: 20px 16px; text-align: center;
+}
+.info-card-icon { font-size: 28px; margin-bottom: 10px; }
+.info-card-title { font-size: 14px; font-weight: 700; color: #1d4ed8; margin-bottom: 6px; }
+.info-card-body  { font-size: 12px; color: #3b82f6; line-height: 1.6; }
+
+.asset-header {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+}
+.asset-icon {
+  width: 42px; height: 42px; border-radius: 10px;
+  background: #eff6ff; display: flex; align-items: center;
+  justify-content: center; font-size: 13px; font-weight: 800;
+  color: #2563eb; flex-shrink: 0; letter-spacing: -0.5px;
+}
+.asset-name    { font-size: 17px; font-weight: 700; color: #0f172a; }
+.asset-subname { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+
+.sub-tab-bar {
+  display: flex; background: #f1f5f9; border-radius: 10px;
+  padding: 3px; margin-bottom: 12px;
+}
+.sub-tab-btn {
+  flex: 1; padding: 7px 4px; font-size: 11px; font-weight: 600;
+  color: #64748b; background: none; border: none;
+  border-radius: 8px; cursor: pointer; text-align: center;
+}
+.sub-tab-btn.active { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+.chart-wrap {
+  background: #fff; border: 1px solid #e2e8f0;
+  border-radius: 12px; padding: 10px 10px 6px; margin-bottom: 10px;
+}
+.chart-title {
+  font-size: 9px; font-weight: 700; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;
+}
+.chart-legend { display: flex; gap: 12px; margin-top: 5px; padding-left: 2px; }
+.chart-legend span { font-size: 10px; font-weight: 600; }
+
+.tx-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 9px 0; border-bottom: 1px solid #f1f5f9;
+}
+.tx-row:last-child { border-bottom: none; }
+.tx-date  { font-size: 10px; color: #94a3b8; margin-bottom: 3px; }
+.tx-badge {
+  font-size: 11px; font-weight: 700; padding: 1px 8px;
+  border-radius: 4px; display: inline-block;
+}
+.tx-badge.buy  { background: #dcfce7; color: #166534; }
+.tx-badge.sell { background: #ffe4e6; color: #9f1239; }
+.tx-qty   { font-size: 12px; font-weight: 600; color: #0f172a; text-align: right; }
+.tx-price { font-size: 10px; color: #64748b; margin-top: 1px; text-align: right; }
+
+.holdings-count {
+  font-size: 10px; font-weight: 700; color: #64748b;
+  text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 8px;
+}
+</style>
+</head>
+<body>
+
+<!-- ── Tab Bar ───────────────────────────────────────── -->
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('overview')">Overview</button>
+  <button class="tab-btn"        onclick="switchTab('segments')">Segments</button>
+  <button class="tab-btn"        onclick="switchTab('holdings')">Holdings</button>
+  <button class="tab-btn"        onclick="switchTab('deepdive')">Deep Dive</button>
+</div>
+
+<!-- ── Filter badge ─────────────────────────────────── -->
+<div class="filter-bar" id="filterBar" style="display:none">
+  <div class="filter-badge" id="filterLabel"></div>
+  <button class="filter-reset" onclick="resetFilters()">✕ Reset</button>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     TAB 1 — OVERVIEW
+═════════════════════════════════════════════════════ -->
+<div id="tab-overview" class="tab-content active">
+
+  <!-- Hero tile (full width) -->
+  <div class="tile gain">
+    <div class="tile-label">Total Portfolio</div>
+    <div class="tile-row1">
+      <div class="tile-value">₹1.48 Cr</div>
+      <div class="tile-tag gain">+22.4%</div>
+    </div>
+    <div class="tile-stats">
+      <div class="stat-item">
+        <span class="stat-label">Invested</span>
+        <span class="stat-val">₹1.21 Cr</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Total G/L</span>
+        <span class="stat-val gain">+₹27.1L</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">XIRR</span>
+        <span class="stat-val">18.2%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stocks tile -->
+  <div class="tile gain">
+    <div class="tile-label">Stocks</div>
+    <div class="tile-row1">
+      <div class="tile-value">₹98.4L</div>
+      <div class="tile-tag gain">+19.8%</div>
+    </div>
+    <div class="tile-stats">
+      <div class="stat-item">
+        <span class="stat-label">Invested</span>
+        <span class="stat-val">₹82.1L</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">G/L</span>
+        <span class="stat-val gain">+₹16.3L</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">XIRR</span>
+        <span class="stat-val">17.1%</span>
+      </div>
+    </div>
+    <div class="tile-btns">
+      <button class="tile-btn" onclick="selectPortfolio('Stocks')">View All Stocks →</button>
+    </div>
+  </div>
+
+  <!-- MF tile -->
+  <div class="tile gain">
+    <div class="tile-label">Mutual Funds</div>
+    <div class="tile-row1">
+      <div class="tile-value">₹49.6L</div>
+      <div class="tile-tag gain">+27.9%</div>
+    </div>
+    <div class="tile-stats">
+      <div class="stat-item">
+        <span class="stat-label">Invested</span>
+        <span class="stat-val">₹38.8L</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">G/L</span>
+        <span class="stat-val gain">+₹10.8L</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">XIRR</span>
+        <span class="stat-val">21.4%</span>
+      </div>
+    </div>
+    <div class="tile-btns">
+      <button class="tile-btn" onclick="selectPortfolio('Mutual Funds')">View All Mutual Funds →</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     TAB 2 — SEGMENTS
+═════════════════════════════════════════════════════ -->
+<div id="tab-segments" class="tab-content">
+
+  <div class="section-hdr">By Asset Type</div>
+  <div class="tile-grid-2">
+
+    <div class="tile gain">
+      <div class="tile-label">Indian Stocks</div>
+      <div class="tile-row1">
+        <div class="tile-value">₹72.3L</div>
+        <div class="tile-tag gain">+18.3%</div>
+      </div>
+      <div class="tile-stats">
+        <div class="stat-item"><span class="stat-label">G/L</span><span class="stat-val gain">+₹11.2L</span></div>
+        <div class="stat-item"><span class="stat-label">XIRR</span><span class="stat-val">15.8%</span></div>
+      </div>
+      <div class="tile-btns">
+        <button class="tile-btn" onclick="selectPortfolio('Indian Stocks')">Holdings →</button>
+      </div>
+    </div>
+
+    <div class="tile gain">
+      <div class="tile-label">US Stocks</div>
+      <div class="tile-row1">
+        <div class="tile-value">₹26.1L</div>
+        <div class="tile-tag gain">+24.3%</div>
+      </div>
+      <div class="tile-stats">
+        <div class="stat-item"><span class="stat-label">G/L</span><span class="stat-val gain">+₹5.1L</span></div>
+        <div class="stat-item"><span class="stat-label">XIRR</span><span class="stat-val">22.1%</span></div>
+      </div>
+      <div class="tile-btns">
+        <button class="tile-btn" onclick="selectPortfolio('US Stocks')">Holdings →</button>
+      </div>
+    </div>
+
+    <div class="tile gain">
+      <div class="tile-label">Indian MF</div>
+      <div class="tile-row1">
+        <div class="tile-value">₹38.2L</div>
+        <div class="tile-tag gain">+30.4%</div>
+      </div>
+      <div class="tile-stats">
+        <div class="stat-item"><span class="stat-label">G/L</span><span class="stat-val gain">+₹8.9L</span></div>
+        <div class="stat-item"><span class="stat-label">XIRR</span><span class="stat-val">24.2%</span></div>
+      </div>
+      <div class="tile-btns">
+        <button class="tile-btn" onclick="selectPortfolio('Indian MF')">Holdings →</button>
+      </div>
+    </div>
+
+    <div class="tile loss">
+      <div class="tile-label">US MF</div>
+      <div class="tile-row1">
+        <div class="tile-value">₹11.4L</div>
+        <div class="tile-tag loss">−4.2%</div>
+      </div>
+      <div class="tile-stats">
+        <div class="stat-item"><span class="stat-label">G/L</span><span class="stat-val loss">−₹0.5L</span></div>
+        <div class="stat-item"><span class="stat-label">XIRR</span><span class="stat-val loss">−3.1%</span></div>
+      </div>
+      <div class="tile-btns">
+        <button class="tile-btn" onclick="selectPortfolio('US MF')">Holdings →</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="section-hdr">By Broker</div>
+  <div class="tile-grid-2">
+
+    <div class="tile gain">
+      <div class="tile-label">Zerodha</div>
+      <div class="tile-row1">
+        <div class="tile-value">₹45.2L</div>
+        <div class="tile-tag gain">+21.9%</div>
+      </div>
+      <div class="tile-stats">
+        <div class="stat-item"><span class="stat-label">G/L</span><span class="stat-val gain">+₹8.1L</span></div>
+        <div class="stat-item"><span class="stat-label">XIRR</span><span class="stat-val">18.2%</span></div>
+      </div>
+      <div class="tile-btns">
+        <button class="tile-btn" onclick="selectPortfolio('Zerodha')">Holdings →</button>
+      </div>
+    </div>
+
+    <div class="tile gain">
+      <div class="tile-label">Groww</div>
+      <div class="tile-row1">
+        <div class="tile-value">₹32.8L</div>
+        <div class="tile-tag gain">+18.3%</div>
+      </div>
+      <div class="tile-stats">
+        <div class="stat-item"><span class="stat-label">G/L</span><span class="stat-val gain">+₹5.1L</span></div>
+        <div class="stat-item"><span class="stat-label">XIRR</span><span class="stat-val">15.4%</span></div>
+      </div>
+      <div class="tile-btns">
+        <button class="tile-btn" onclick="selectPortfolio('Groww')">Holdings →</button>
+      </div>
+    </div>
+
+    <div class="tile gain">
+      <div class="tile-label">Angel One</div>
+      <div class="tile-row1">
+        <div class="tile-value">₹20.4L</div>
+        <div class="tile-tag gain">+17.9%</div>
+      </div>
+      <div class="tile-stats">
+        <div class="stat-item"><span class="stat-label">G/L</span><span class="stat-val gain">+₹3.1L</span></div>
+        <div class="stat-item"><span class="stat-label">XIRR</span><span class="stat-val">14.8%</span></div>
+      </div>
+      <div class="tile-btns">
+        <button class="tile-btn" onclick="selectPortfolio('Angel One')">Holdings →</button>
+      </div>
+    </div>
+
+    <div class="tile gain">
+      <div class="tile-label">IndMoney</div>
+      <div class="tile-row1">
+        <div class="tile-value">₹12.1L</div>
+        <div class="tile-tag gain">+11.0%</div>
+      </div>
+      <div class="tile-stats">
+        <div class="stat-item"><span class="stat-label">G/L</span><span class="stat-val gain">+₹1.2L</span></div>
+        <div class="stat-item"><span class="stat-label">XIRR</span><span class="stat-val">9.8%</span></div>
+      </div>
+      <div class="tile-btns">
+        <button class="tile-btn" onclick="selectPortfolio('IndMoney')">Holdings →</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     TAB 3 — HOLDINGS
+═════════════════════════════════════════════════════ -->
+<div id="tab-holdings" class="tab-content">
+  <div id="holdings-list"></div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     TAB 4 — DEEP DIVE
+═════════════════════════════════════════════════════ -->
+<div id="tab-deepdive" class="tab-content">
+  <div id="deepdive-content"></div>
+</div>
+
+
+<script>
+// ── State ──────────────────────────────────────────────
+let selectedPortfolio = null;
+let selectedAsset     = null;
+let activeTab         = 'overview';
+
+// ── Dummy holdings ─────────────────────────────────────
+const holdings = [
+  { ticker:'INFY',    name:'Infosys Ltd',             value:'₹8.2L',  invested:'₹6.8L',  ret:'+20.6%', xirr:'22.1%', gain:true,  seg:'Indian Stocks', broker:'Zerodha'   },
+  { ticker:'HDFCBANK',name:'HDFC Bank',                value:'₹12.4L', invested:'₹10.1L', ret:'+22.8%', xirr:'19.4%', gain:true,  seg:'Indian Stocks', broker:'Zerodha'   },
+  { ticker:'RELIANCE',name:'Reliance Industries',      value:'₹9.1L',  invested:'₹8.4L',  ret:'+8.3%',  xirr:'7.2%',  gain:true,  seg:'Indian Stocks', broker:'Groww'     },
+  { ticker:'PAYTM',   name:'One97 Communications',     value:'₹0.8L',  invested:'₹1.2L',  ret:'−33.3%', xirr:'−28%',  gain:false, seg:'Indian Stocks', broker:'Groww'     },
+  { ticker:'TCS',     name:'Tata Consultancy',         value:'₹7.3L',  invested:'₹6.1L',  ret:'+19.7%', xirr:'17.3%', gain:true,  seg:'Indian Stocks', broker:'Angel One' },
+  { ticker:'META',    name:'Meta Platforms',           value:'₹9.4L',  invested:'₹7.2L',  ret:'+30.6%', xirr:'28.4%', gain:true,  seg:'US Stocks',     broker:'Zerodha'   },
+  { ticker:'NVDA',    name:'NVIDIA Corp',              value:'₹11.2L', invested:'₹7.8L',  ret:'+43.6%', xirr:'38.1%', gain:true,  seg:'US Stocks',     broker:'Zerodha'   },
+  { ticker:'MIRAE',   name:'Mirae Asset Large Cap',    value:'₹14.2L', invested:'₹10.8L', ret:'+31.5%', xirr:'25.3%', gain:true,  seg:'Indian MF',     broker:'Groww'     },
+  { ticker:'PPFAS',   name:'Parag Parikh Flexi Cap',   value:'₹13.1L', invested:'₹9.9L',  ret:'+32.3%', xirr:'26.7%', gain:true,  seg:'Indian MF',     broker:'Groww'     },
+  { ticker:'MOTILAL', name:'Motilal Oswal US Q100',    value:'₹6.2L',  invested:'₹6.8L',  ret:'−8.8%',  xirr:'−6.1%', gain:false, seg:'US MF',         broker:'Angel One' },
+  { ticker:'PGIM',    name:'PGIM India Global',        value:'₹5.2L',  invested:'₹5.1L',  ret:'+2.0%',  xirr:'1.4%',  gain:true,  seg:'US MF',         broker:'IndMoney'  },
+];
+
+const txns = [
+  { date:'12 May 2026', type:'buy',  qty:'50',  price:'₹1,842' },
+  { date:'03 Mar 2026', type:'buy',  qty:'30',  price:'₹1,610' },
+  { date:'18 Jan 2026', type:'sell', qty:'20',  price:'₹1,750' },
+  { date:'05 Nov 2025', type:'buy',  qty:'100', price:'₹1,480' },
+  { date:'22 Aug 2025', type:'buy',  qty:'50',  price:'₹1,320' },
+];
+
+// ── Tab switching ──────────────────────────────────────
+function switchTab(tab) {
+  const names = ['overview','segments','holdings','deepdive'];
+  document.querySelectorAll('.tab-btn').forEach((b,i) =>
+    b.classList.toggle('active', names[i] === tab));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  activeTab = tab;
+  if (tab === 'holdings') renderHoldings();
+  if (tab === 'deepdive') renderDeepDive();
+}
+
+// ── Portfolio selection ────────────────────────────────
+function selectPortfolio(name) {
+  selectedPortfolio = name;
+  updateFilterBar();
+  switchTab('holdings');
+}
+
+function resetFilters() {
+  selectedPortfolio = null;
+  selectedAsset = null;
+  updateFilterBar();
+  renderHoldings();
+  renderDeepDive();
+}
+
+function updateFilterBar() {
+  const bar = document.getElementById('filterBar');
+  const lbl = document.getElementById('filterLabel');
+  if (selectedPortfolio) {
+    bar.style.display = 'flex';
+    lbl.textContent = 'Showing: ' + selectedPortfolio;
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+// ── Holdings renderer ──────────────────────────────────
+function renderHoldings() {
+  const list = document.getElementById('holdings-list');
+  let filtered = holdings;
+  if (selectedPortfolio) {
+    filtered = holdings.filter(h =>
+      h.seg    === selectedPortfolio ||
+      h.broker === selectedPortfolio ||
+      (selectedPortfolio === 'Stocks'       && (h.seg==='Indian Stocks'||h.seg==='US Stocks')) ||
+      (selectedPortfolio === 'Mutual Funds' && (h.seg==='Indian MF'||h.seg==='US MF'))
+    );
+  }
+
+  const count = `<div class="holdings-count">${selectedPortfolio || 'All'} · ${filtered.length} holdings</div>`;
+  const cards = filtered.map(h => `
+    <div class="holding-card ${h.gain ? 'gain' : 'loss'}">
+      <div class="h-row1">
+        <div>
+          <div class="h-ticker">${h.ticker}</div>
+          <div class="h-name">${h.name}</div>
+        </div>
+        <div class="h-value">${h.value}</div>
+      </div>
+      <div class="h-row2">
+        <div class="h-invested">Invested ${h.invested}</div>
+        <div class="h-ret ${h.gain?'gain':'loss'}">${h.ret} · XIRR ${h.xirr}</div>
+      </div>
+      <button class="analyze-btn" onclick="selectAsset('${h.ticker}','${h.name}')">Analyze Holding 📈</button>
+    </div>`).join('');
+
+  list.innerHTML = count + cards;
+}
+
+// ── Asset → Deep Dive ──────────────────────────────────
+function selectAsset(ticker, name) {
+  selectedAsset = { ticker, name };
+  switchTab('deepdive');
+}
+
+// ── Deep Dive renderer ─────────────────────────────────
+function renderDeepDive() {
+  const el = document.getElementById('deepdive-content');
+  if (!selectedAsset) {
+    el.innerHTML = `
+      <div class="info-card">
+        <div class="info-card-icon">📊</div>
+        <div class="info-card-title">No asset selected</div>
+        <div class="info-card-body">Go to <strong>Holdings</strong> and tap <em>"Analyze Holding 📈"</em> on any stock or fund.</div>
+      </div>`;
+    return;
+  }
+  const initials = selectedAsset.ticker.slice(0,3);
+  el.innerHTML = `
+    <div class="asset-header">
+      <div class="asset-icon">${initials}</div>
+      <div>
+        <div class="asset-name">${selectedAsset.ticker}</div>
+        <div class="asset-subname">${selectedAsset.name}</div>
+      </div>
+    </div>
+
+    <div class="sub-tab-bar">
+      <button class="sub-tab-btn active" id="st-charts" onclick="switchSubTab('charts')">📊 Performance</button>
+      <button class="sub-tab-btn"        id="st-txns"   onclick="switchSubTab('txns')">📜 Transactions</button>
+    </div>
+
+    <div id="sub-charts">
+      <div class="chart-wrap">
+        <div class="chart-title">Price History · ${selectedAsset.ticker}</div>
+        <svg viewBox="0 0 340 110" width="100%" height="110">
+          <defs>
+            <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.15"/>
+              <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <line x1="0" y1="28" x2="340" y2="28" stroke="#f1f5f9" stroke-width="1"/>
+          <line x1="0" y1="56" x2="340" y2="56" stroke="#f1f5f9" stroke-width="1"/>
+          <line x1="0" y1="84" x2="340" y2="84" stroke="#f1f5f9" stroke-width="1"/>
+          <path d="M0,88 C40,84 70,66 100,60 C130,54 150,70 180,50 C210,30 235,36 265,20 C290,8 315,14 340,10 L340,110 L0,110Z" fill="url(#g1)"/>
+          <path d="M0,88 C40,84 70,66 100,60 C130,54 150,70 180,50 C210,30 235,36 265,20 C290,8 315,14 340,10" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linejoin="round"/>
+          <circle cx="100" cy="60" r="5" fill="#10b981" stroke="#fff" stroke-width="1.5"/>
+          <circle cx="180" cy="50" r="5" fill="#10b981" stroke="#fff" stroke-width="1.5"/>
+          <circle cx="265" cy="20" r="7" fill="#10b981" stroke="#fff" stroke-width="1.5"/>
+          <circle cx="220" cy="33" r="5" fill="#f43f5e" stroke="#fff" stroke-width="1.5"/>
+          <text x="0"   y="107" font-size="8" fill="#94a3b8">Aug</text>
+          <text x="90"  y="107" font-size="8" fill="#94a3b8">Oct</text>
+          <text x="170" y="107" font-size="8" fill="#94a3b8">Jan</text>
+          <text x="250" y="107" font-size="8" fill="#94a3b8">Mar</text>
+          <text x="316" y="107" font-size="8" fill="#94a3b8">May</text>
+        </svg>
+        <div class="chart-legend">
+          <span style="color:#10b981">● BUY</span>
+          <span style="color:#f43f5e">● SELL</span>
+        </div>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-title">Invested vs Current Value</div>
+        <svg viewBox="0 0 340 90" width="100%" height="90">
+          <line x1="0" y1="22" x2="340" y2="22" stroke="#f1f5f9" stroke-width="1"/>
+          <line x1="0" y1="45" x2="340" y2="45" stroke="#f1f5f9" stroke-width="1"/>
+          <line x1="0" y1="68" x2="340" y2="68" stroke="#f1f5f9" stroke-width="1"/>
+          <path d="M0,72 C80,70 160,65 240,62 C280,60 310,58 340,57" fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="5,3"/>
+          <path d="M0,72 C80,65 160,50 240,36 C280,28 310,22 340,16" fill="none" stroke="#0a7a42" stroke-width="2"/>
+          <text x="2"   y="87" font-size="8" fill="#94a3b8">Aug</text>
+          <text x="155" y="87" font-size="8" fill="#94a3b8">Jan</text>
+          <text x="312" y="87" font-size="8" fill="#94a3b8">May</text>
+        </svg>
+        <div class="chart-legend">
+          <span style="color:#0a7a42">─ Value</span>
+          <span style="color:#94a3b8">╌ Invested</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="sub-txns" style="display:none">
+      <div class="tile" style="padding:10px 14px;border-left-width:1px">
+        ${txns.map(t => `
+        <div class="tx-row">
+          <div>
+            <div class="tx-date">${t.date}</div>
+            <span class="tx-badge ${t.type}">${t.type.toUpperCase()}</span>
+          </div>
+          <div>
+            <div class="tx-qty">${t.qty} units</div>
+            <div class="tx-price">@ ${t.price}</div>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+function switchSubTab(tab) {
+  document.getElementById('sub-charts').style.display = tab==='charts' ? 'block' : 'none';
+  document.getElementById('sub-txns').style.display   = tab==='txns'   ? 'block' : 'none';
+  document.getElementById('st-charts').classList.toggle('active', tab==='charts');
+  document.getElementById('st-txns').classList.toggle('active',   tab==='txns');
+}
+
+// ── Init ───────────────────────────────────────────────
+renderHoldings();
+renderDeepDive();
+</script>
+</body>
+</html>

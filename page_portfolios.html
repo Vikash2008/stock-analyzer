@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolios</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f1f5f9; color: #0f172a;
+  max-width: 420px; margin: 0 auto; min-height: 100vh;
+}
+.topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 14px; background: #fff;
+  border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 50;
+}
+.topbar-left { display: flex; align-items: center; gap: 8px; }
+.back-btn { font-size: 13px; font-weight: 600; color: #2563eb; background: none; border: none; cursor: pointer; display: none; }
+.topbar-title { font-size: 13px; font-weight: 700; color: #0f172a; }
+.as-of { font-size: 8px; color: #cbd5e1; }
+.refresh-btn { font-size: 13px; color: #94a3b8; background: none; border: none; cursor: pointer; }
+
+.page { display: none; padding: 8px 12px 20px; }
+.page.active { display: block; }
+
+/* ── Shared tile ── */
+.tile {
+  background: #f0fdf8; border: 1px solid #e2e8f0; border-left: 3px solid #10b981;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04); cursor: pointer;
+}
+.tile.loss { border-left-color: #f43f5e; background: #fff5f5; }
+.tile:active { opacity: 0.85; }
+
+.t-label { font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 3px; }
+
+/* Row A: value (big left) | today gain (small right) */
+.t-rowa { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px; }
+.t-value { font-weight: 700; color: #0f172a; letter-spacing: -0.02em; line-height: 1.1; }
+.t-today-val { font-weight: 600; flex-shrink: 0; margin-left: 6px; }
+.t-today-val.gain { color: #0a7a42; }
+.t-today-val.loss { color: #be1c1c; }
+
+/* Row B: total G/L+% (left) | XIRR (right) */
+.t-rowb { display: flex; justify-content: space-between; align-items: baseline; }
+.t-gl-wrap { display: flex; align-items: baseline; gap: 3px; }
+.t-gl  { font-weight: 700; }
+.t-gl.gain { color: #0a7a42; }
+.t-gl.loss { color: #be1c1c; }
+.t-pct { font-weight: 600; }
+.t-pct.gain { color: #0a7a42; }
+.t-pct.loss { color: #be1c1c; }
+.t-xirr { color: #64748b; flex-shrink: 0; }
+.t-xirr b { font-weight: 700; color: #334155; }
+
+/* ════ HERO ════ */
+.hero { border-radius: 12px; padding: 9px 12px; margin-bottom: 7px; }
+.hero .t-value      { font-size: 22px; }
+.hero .t-today-val  { font-size: 10px; }
+.hero .t-gl         { font-size: 10px; }
+.hero .t-pct        { font-size: 10px; }
+.hero .t-xirr       { font-size: 10px; }
+.hero .t-rowb       { margin-top: 2px; }
+
+
+/* ════ BREAKDOWN ════ */
+.breakdown-hdr { display: flex; justify-content: space-between; align-items: center; margin: 4px 2px 6px; }
+.breakdown-lbl { font-size: 10px; font-weight: 700; color: #6b7fa3; text-transform: uppercase; letter-spacing: 0.1em; }
+.toggle-row { display: flex; background: #e2e8f0; border-radius: 7px; padding: 2px; }
+.toggle-btn { padding: 3px 10px; border-radius: 5px; font-size: 10px; font-weight: 600; color: #64748b; border: none; background: transparent; cursor: pointer; }
+.toggle-btn.active { background: #fff; color: #0f172a; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+.section-lbl { font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; margin: 7px 2px 4px; }
+
+/* ════ ROW ITEMS ════ */
+.row-item {
+  background: #f0fdf8; border: 1px solid #e2e8f0; border-left: 3px solid #10b981;
+  border-radius: 8px; padding: 6px 10px; margin-bottom: 4px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03); cursor: pointer;
+}
+.row-item.loss { border-left-color: #f43f5e; background: #fff5f5; }
+.row-item:active { opacity: 0.85; }
+.row-item .t-label     { margin-bottom: 2px; }
+.row-item .t-value     { font-size: 13px; }
+.row-item .t-today-val { font-size: 9px; }
+.row-item .t-gl        { font-size: 9px; }
+.row-item .t-pct       { font-size: 9px; }
+.row-item .t-xirr      { font-size: 9px; }
+
+/* ════ DETAIL PAGE ════ */
+.detail-card {
+  background: #f0fdf8; border: 1px solid #e2e8f0; border-left: 4px solid #10b981;
+  border-radius: 12px; padding: 10px 12px; margin-bottom: 10px;
+}
+.detail-card.loss { border-left-color: #f43f5e; background: #fff5f5; }
+
+.tab-bar { display: flex; background: #fff; border-bottom: 1px solid #e2e8f0; margin-bottom: 12px; }
+.tab-btn { flex: 1; padding: 10px 4px; font-size: 12px; font-weight: 600; color: #94a3b8; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; }
+
+/* Holdings cards — same format as overview tiles */
+.h-card {
+  background: #f0fdf8; border: 1px solid #e2e8f0; border-left: 3px solid #10b981;
+  border-radius: 8px; padding: 7px 10px; margin-bottom: 5px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03); cursor: pointer;
+}
+.h-card.loss { border-left-color: #f43f5e; background: #fff5f5; }
+.h-card:active { opacity: 0.85; }
+.h-card .t-label     { margin-bottom: 2px; }
+.h-card .t-value     { font-size: 13px; }
+.h-card .t-today-val { font-size: 9px; }
+.h-card .t-gl        { font-size: 9px; }
+.h-card .t-pct       { font-size: 9px; }
+.h-card .t-xirr      { font-size: 9px; }
+.h-card .t-rowb      { margin-top: 2px; }
+
+/* ════ TX ROWS ════ */
+.tx-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 4px; }
+.tx-left { display: flex; align-items: center; gap: 8px; }
+.tx-badge { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; flex-shrink: 0; }
+.tx-badge.buy  { background: #d1fae5; color: #065f46; }
+.tx-badge.sell { background: #fee2e2; color: #991b1b; }
+.tx-badge.div  { background: #dbeafe; color: #1e40af; }
+.tx-meta { display: flex; flex-direction: column; gap: 1px; }
+.tx-date   { font-size: 11px; font-weight: 600; color: #0f172a; }
+.tx-detail { font-size: 10px; color: #64748b; }
+.tx-amount { font-size: 12px; font-weight: 700; color: #0f172a; flex-shrink: 0; }
+
+/* Summary chart */
+.chart-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 10px 8px; margin-bottom: 10px; }
+.chart-title { font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 8px; }
+.metric-bar { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; }
+.metric-btn { padding: 4px 9px; font-size: 10px; font-weight: 600; color: #64748b; background: #fff; border: 1px solid #e2e8f0; border-radius: 20px; cursor: pointer; }
+.metric-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+.range-bar { display: flex; gap: 4px; margin-top: 8px; }
+.range-btn { flex: 1; padding: 4px 2px; font-size: 9px; font-weight: 600; color: #64748b; background: #f1f5f9; border: none; border-radius: 5px; cursor: pointer; }
+.range-btn.active { background: #2563eb; color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <button class="back-btn" id="backBtn" onclick="goBack()">← Back</button>
+    <div class="topbar-title" id="topbarTitle">Portfolio Analyzer</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:4px" id="refreshArea">
+    <span class="as-of">18 May 14:32</span>
+    <button class="refresh-btn">↻</button>
+  </div>
+</div>
+
+<!-- ══ PAGE: PORTFOLIOS ══ -->
+<div class="page active" id="page-portfolios">
+
+  <div class="tile hero" onclick="openDetail('Total Portfolio','₹1.48 Cr','+₹1,240 (+0.08%)','gain','+₹27.1L','(+22.4%)','gain','18.2%','₹1.21 Cr','+₹4.2L')">
+    <div class="t-label">Total Portfolio</div>
+    <div class="t-rowa">
+      <div class="t-value">₹1.48 Cr</div>
+      <span class="t-today-val gain">+₹1,240 (+0.08%)</span>
+    </div>
+    <div class="t-rowb">
+      <div class="t-gl-wrap"><span class="t-gl gain">+₹27.1L</span><span class="t-pct gain">(+22.4%)</span></div>
+      <div class="t-xirr">XIRR <b>18.2%</b></div>
+    </div>
+  </div>
+
+  <div class="row-item" onclick="openDetail('Stocks','₹98.4L','+₹820 (+0.8%)','gain','+₹16.3L','(+19.8%)','gain','17.1%','₹82.1L','+₹1.8L')">
+    <div class="t-label">Stocks</div>
+    <div class="t-rowa"><div class="t-value">₹98.4L</div><span class="t-today-val gain">+₹820 (+0.8%)</span></div>
+    <div class="t-rowb"><div class="t-gl-wrap"><span class="t-gl gain">+₹16.3L</span><span class="t-pct gain">(+19.8%)</span></div><div class="t-xirr">XIRR <b>17.1%</b></div></div>
+  </div>
+  <div class="row-item" style="margin-bottom:7px" onclick="openDetail('Mutual Funds','₹49.6L','+₹420 (+0.8%)','gain','+₹10.8L','(+27.9%)','gain','21.4%','₹38.8L','+₹2.4L')">
+    <div class="t-label">Mutual Funds</div>
+    <div class="t-rowa"><div class="t-value">₹49.6L</div><span class="t-today-val gain">+₹420 (+0.8%)</span></div>
+    <div class="t-rowb"><div class="t-gl-wrap"><span class="t-gl gain">+₹10.8L</span><span class="t-pct gain">(+27.9%)</span></div><div class="t-xirr">XIRR <b>21.4%</b></div></div>
+  </div>
+
+  <div class="breakdown-hdr">
+    <div class="breakdown-lbl">Breakdown</div>
+    <div class="toggle-row">
+      <button class="toggle-btn active" onclick="showBreakdown('category')">By Type</button>
+      <button class="toggle-btn"        onclick="showBreakdown('portfolio')">By Broker</button>
+    </div>
+  </div>
+
+  <div id="bd-category">
+    <div class="row-item"      onclick="openDetail('Indian Stocks','₹72.3L','+₹610 (+0.9%)','gain','+₹11.2L','(+18.3%)','gain','15.8%','₹61.1L','+₹1.3L')"><div class="t-label">Indian Stocks</div><div class="t-rowa"><div class="t-value">₹72.3L</div><span class="t-today-val gain">+₹610 (+0.9%)</span></div><div class="t-rowb"><div class="t-gl-wrap"><span class="t-gl gain">+₹11.2L</span><span class="t-pct gain">(+18.3%)</span></div><div class="t-xirr">XIRR <b>15.8%</b></div></div></div>
+    <div class="row-item"      onclick="openDetail('US Stocks','₹26.1L','+₹210 (+0.8%)','gain','+₹5.1L','(+24.3%)','gain','22.1%','₹21.0L','+₹0.5L')"><div class="t-label">US Stocks</div><div class="t-rowa"><div class="t-value">₹26.1L</div><span class="t-today-val gain">+₹210 (+0.8%)</span></div><div class="t-rowb"><div class="t-gl-wrap"><span class="t-gl gain">+₹5.1L</span><span class="t-pct gain">(+24.3%)</span></div><div class="t-xirr">XIRR <b>22.1%</b></div></div></div>
+    <div class="row-item"      onclick="openDetail('Indian MF','₹38.2L','+₹290 (+0.8%)','gain','+₹8.9L','(+30.4%)','gain','24.2%','₹29.3L','+₹1.6L')"><div class="t-label">Indian MF</div><div class="t-rowa"><div class="t-value">₹38.2L</div><span class="t-today-val gain">+₹290 (+0.8%)</span></div><div class="t-rowb"><div class="t-gl-wrap"><span class="t-gl gain">+₹8.9L</span><span class="t-pct gain">(+30.4%)</span></div><div class="t-xirr">XIRR <b>24.2%</b></div></div></div>
+    <div class="row-item loss" onclick="openDetail('US MF','₹11.4L','−₹130 (−1.1%)','loss','−₹0.5L','(−4.2%)','loss','−3.1%','₹11.9L','−₹0.8L')"><div class="t-label">US MF</div><div class="t-rowa"><div class="t-value">₹11.4L</div><span class="t-today-val loss">−₹130 (−1.1%)</span></div><div class="t-rowb"><div class="t-gl-wrap"><span class="t-gl loss">−₹0.5L</span><span class="t-pct loss">(−4.2%)</span></div><div class="t-xirr">XIRR <b style="color:#be1c1c">−3.1%</b></div></div></div>
+  </div>
+
+  <div id="bd-portfolio" style="display:none">
+    <div class="section-lbl">🇮🇳 India</div>
+    <div class="row-item"      onclick="openDetail('Zerodha','₹45.2L','+₹380 (+0.9%)','gain','+₹8.1L','(+21.9%)','gain','18.2%','₹37.1L','+₹0.9L')"><div class="t-label">Zerodha</div><div class="t-rowa"><div class="t-value">₹45.2L</div><span class="t-today-val gain">+₹380 (+0.9%)</span></div><div class="t-rowb"><div class="t-gl-wrap"><span class="t-gl gain">+₹8.1L</span><span class="t-pct gain">(+21.9%)</span></div><div class="t-xirr">XIRR <b>18.2%</b></div></div></div>
+    <div class="row-item"      onclick="openDetail('Groww','₹32.8L','+₹260 (+0.8%)','gain','+₹5.1L','(+18.3%)','gain','15.4%','₹27.7L','+₹0.6L')"><div class="t-label">Groww</div><div class="t-rowa"><div class="t-value">₹32.8L</div><span class="t-today-val gain">+₹260 (+0.8%)</span></div><div class="t-rowb"><div class="t-gl-wrap"><span class="t-gl gain">+₹5.1L</span><span class="t-pct gain">(+18.3%)</span></div><div class="t-xirr">XIRR <b>15.4%</b></div></div></div>
+    <div class="row-item"      onclick="openDetail('Angel One','₹20.4L','+₹160 (+0.8%)','gain','+₹3.1L','(+17.9%)','gain','14.8%','₹17.3L','+₹0.4L')"><div class="t-label">Angel One</div><div class="t-rowa"><div class="t-value">₹20.4L</div><span class="t-today-val gain">+₹160 (+0.8%)</span></div><div class="t-rowb"><div class="t-gl-wrap"><span class="t-gl gain">+₹3.1L</span><span class="t-pct gain">(+17.9%)</span></div><div class="t-xirr">XIRR <b>14.8%</b></div></div></div>
+    <div class="row-item"      onclick="openDetail('IndMoney','₹12.1L','+₹90 (+0.7%)','gain','+₹1.2L','(+11.0%)','gain','9.8%','₹10.9L','+₹0.2L')"><div class="t-label">IndMoney</div><div class="t-rowa"><div class="t-value">₹12.1L</div><span class="t-today-val gain">+₹90 (+0.7%)</span></div><div class="t-rowb"><div class="t-gl-wrap"><span class="t-gl gain">+₹1.2L</span><span class="t-pct gain">(+11.0%)</span></div><div class="t-xirr">XIRR <b>9.8%</b></div></div></div>
+    <div class="row-item"      onclick="openDetail('Kuvera MF','₹15.8L','+₹110 (+0.7%)','gain','+₹3.6L','(+22.6%)','gain','20.1%','₹12.2L','+₹0.8L')"><div class="t-label">Kuvera MF</div><div class="t-rowa"><div class="t-value">₹15.8L</div><span class="t-today-val gain">+₹110 (+0.7%)</span></div><div class="t-rowb"><div class="t-gl-wrap"><span class="t-gl gain">+₹3.6L</span><span class="t-pct gain">(+22.6%)</span></div><div class="t-xirr">XIRR <b>20.1%</b></div></div></div>
+    <div class="section-lbl">🇺🇸 US</div>
+    <div class="row-item"      onclick="openDetail('Vested','₹28.6L','+₹220 (+0.8%)','gain','+₹7.3L','(+34.1%)','gain','28.4%','₹21.3L','+₹0.5L')"><div class="t-label">Vested</div><div class="t-rowa"><div class="t-value">₹28.6L</div><span class="t-today-val gain">+₹220 (+0.8%)</span></div><div class="t-rowb"><div class="t-gl-wrap"><span class="t-gl gain">+₹7.3L</span><span class="t-pct gain">(+34.1%)</span></div><div class="t-xirr">XIRR <b>28.4%</b></div></div></div>
+    <div class="row-item"      onclick="openDetail('IndMoney US','₹11.9L','+₹95 (+0.8%)','gain','+₹2.3L','(+24.0%)','gain','21.7%','₹9.6L','+₹0.3L')"><div class="t-label">IndMoney US</div><div class="t-rowa"><div class="t-value">₹11.9L</div><span class="t-today-val gain">+₹95 (+0.8%)</span></div><div class="t-rowb"><div class="t-gl-wrap"><span class="t-gl gain">+₹2.3L</span><span class="t-pct gain">(+24.0%)</span></div><div class="t-xirr">XIRR <b>21.7%</b></div></div></div>
+    <div class="row-item loss" onclick="openDetail('IndMoney Mummy','₹11.4L','−₹130 (−1.1%)','loss','−₹0.5L','(−4.2%)','loss','−3.1%','₹11.9L','−₹0.8L')"><div class="t-label">IndMoney Mummy</div><div class="t-rowa"><div class="t-value">₹11.4L</div><span class="t-today-val loss">−₹130 (−1.1%)</span></div><div class="t-rowb"><div class="t-gl-wrap"><span class="t-gl loss">−₹0.5L</span><span class="t-pct loss">(−4.2%)</span></div><div class="t-xirr">XIRR <b style="color:#be1c1c">−3.1%</b></div></div></div>
+  </div>
+
+</div>
+
+<!-- ══ PAGE: DETAIL ══ -->
+<div class="page" id="page-detail">
+
+  <div class="detail-card" id="detail-card"></div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="showTab('holdings')">Holdings</button>
+    <button class="tab-btn"        onclick="showTab('summary')">Summary</button>
+  </div>
+
+  <div id="tab-holdings"><div id="holdings-list"></div></div>
+
+  <div id="tab-summary" style="display:none">
+    <div class="metric-bar">
+      <button class="metric-btn active">Portfolio Value</button>
+      <button class="metric-btn">Invested</button>
+      <button class="metric-btn">P&amp;L</button>
+      <button class="metric-btn">Return %</button>
+      <button class="metric-btn">XIRR</button>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title">Portfolio Value</div>
+      <svg viewBox="0 0 360 120" width="100%" height="120">
+        <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.15"/>
+          <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+        </linearGradient></defs>
+        <line x1="0" y1="30" x2="360" y2="30" stroke="#f1f5f9" stroke-width="1"/>
+        <line x1="0" y1="60" x2="360" y2="60" stroke="#f1f5f9" stroke-width="1"/>
+        <line x1="0" y1="90" x2="360" y2="90" stroke="#f1f5f9" stroke-width="1"/>
+        <path d="M0,100 C60,96 110,80 160,68 C200,58 230,70 270,50 C300,34 330,22 360,14 L360,120 L0,120Z" fill="url(#g)"/>
+        <path d="M0,100 C60,96 110,80 160,68 C200,58 230,70 270,50 C300,34 330,22 360,14" fill="none" stroke="#3b82f6" stroke-width="2"/>
+        <text x="2"   y="118" font-size="8" fill="#94a3b8">Aug</text>
+        <text x="148" y="118" font-size="8" fill="#94a3b8">Jan</text>
+        <text x="340" y="118" font-size="8" fill="#94a3b8">May</text>
+      </svg>
+      <div class="range-bar">
+        <button class="range-btn" onclick="setRange(this)">1m</button>
+        <button class="range-btn" onclick="setRange(this)">3m</button>
+        <button class="range-btn" onclick="setRange(this)">6m</button>
+        <button class="range-btn" onclick="setRange(this)">1y</button>
+        <button class="range-btn active" onclick="setRange(this)">All</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══ PAGE: HOLDING ══ -->
+<div class="page" id="page-holding">
+
+  <div class="detail-card" id="holding-card"></div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="showHoldingTab('transactions')">Transactions</button>
+    <button class="tab-btn"        onclick="showHoldingTab('summary')">Summary</button>
+  </div>
+
+  <div id="htab-transactions"></div>
+
+  <div id="htab-summary" style="display:none">
+    <div class="metric-bar">
+      <button class="metric-btn active" onclick="setMetric(this)">Portfolio Value</button>
+      <button class="metric-btn" onclick="setMetric(this)">Invested</button>
+      <button class="metric-btn" onclick="setMetric(this)">P&amp;L</button>
+      <button class="metric-btn" onclick="setMetric(this)">Return %</button>
+      <button class="metric-btn" onclick="setMetric(this)">XIRR</button>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title">Portfolio Value</div>
+      <svg viewBox="0 0 360 120" width="100%" height="120">
+        <defs><linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.15"/>
+          <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+        </linearGradient></defs>
+        <line x1="0" y1="30" x2="360" y2="30" stroke="#f1f5f9" stroke-width="1"/>
+        <line x1="0" y1="60" x2="360" y2="60" stroke="#f1f5f9" stroke-width="1"/>
+        <line x1="0" y1="90" x2="360" y2="90" stroke="#f1f5f9" stroke-width="1"/>
+        <path d="M0,110 C60,100 110,85 160,72 C200,62 230,68 270,48 C300,32 330,20 360,12 L360,120 L0,120Z" fill="url(#g2)"/>
+        <path d="M0,110 C60,100 110,85 160,72 C200,62 230,68 270,48 C300,32 330,20 360,12" fill="none" stroke="#3b82f6" stroke-width="2"/>
+        <text x="2"   y="118" font-size="8" fill="#94a3b8">Aug</text>
+        <text x="148" y="118" font-size="8" fill="#94a3b8">Jan</text>
+        <text x="340" y="118" font-size="8" fill="#94a3b8">May</text>
+      </svg>
+      <div class="range-bar">
+        <button class="range-btn" onclick="setRange(this)">1m</button>
+        <button class="range-btn" onclick="setRange(this)">3m</button>
+        <button class="range-btn" onclick="setRange(this)">6m</button>
+        <button class="range-btn" onclick="setRange(this)">1y</button>
+        <button class="range-btn active" onclick="setRange(this)">All</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const holdingsData = [
+  { ticker:'INFY',     name:'Infosys Ltd',           val:'₹8.2L',  today:'+₹68 (+0.8%)',  todayDir:'gain', gl:'+₹1.4L', pct:'+20.6%', xirr:'22.1%', inv:'₹6.8L',  gain:true,  qty:44,   avgCost:'₹1,545', ltp:'₹1,864', realized:'+₹0.3L',  realizedGain:true  },
+  { ticker:'HDFCBANK', name:'HDFC Bank',              val:'₹12.4L', today:'+₹99 (+0.8%)',  todayDir:'gain', gl:'+₹2.3L', pct:'+22.8%', xirr:'19.4%', inv:'₹10.1L', gain:true,  qty:76,   avgCost:'₹1,329', ltp:'₹1,632', realized:'+₹0.8L',  realizedGain:true  },
+  { ticker:'RELIANCE', name:'Reliance Industries',    val:'₹9.1L',  today:'+₹55 (+0.6%)',  todayDir:'gain', gl:'+₹0.7L', pct:'+8.3%',  xirr:'7.2%',  inv:'₹8.4L',  gain:true,  qty:63,   avgCost:'₹1,333', ltp:'₹1,444', realized:'₹0',      realizedGain:true  },
+  { ticker:'PAYTM',    name:'One97 Communications',   val:'₹0.8L',  today:'−₹12 (−1.5%)',  todayDir:'loss', gl:'−₹0.4L', pct:'−33.3%', xirr:'−28%',  inv:'₹1.2L',  gain:false, qty:150,  avgCost:'₹800',   ltp:'₹533',   realized:'−₹0.6L',  realizedGain:false },
+  { ticker:'TCS',      name:'Tata Consultancy',       val:'₹7.3L',  today:'+₹58 (+0.8%)',  todayDir:'gain', gl:'+₹1.2L', pct:'+19.7%', xirr:'17.3%', inv:'₹6.1L',  gain:true,  qty:19,   avgCost:'₹3,211', ltp:'₹3,842', realized:'+₹0.4L',  realizedGain:true  },
+  { ticker:'META',     name:'Meta Platforms',         val:'₹9.4L',  today:'+₹75 (+0.8%)',  todayDir:'gain', gl:'+₹2.2L', pct:'+30.6%', xirr:'28.4%', inv:'₹7.2L',  gain:true,  qty:4,    avgCost:'$218',   ltp:'$284',   realized:'+₹0.5L',  realizedGain:true  },
+  { ticker:'NVDA',     name:'NVIDIA Corp',            val:'₹11.2L', today:'+₹90 (+0.8%)',  todayDir:'gain', gl:'+₹3.4L', pct:'+43.6%', xirr:'38.1%', inv:'₹7.8L',  gain:true,  qty:8,    avgCost:'$116',   ltp:'$167',   realized:'+₹1.1L',  realizedGain:true  },
+  { ticker:'MIRAE',    name:'Mirae Asset Large Cap',  val:'₹14.2L', today:'+₹107 (+0.8%)', todayDir:'gain', gl:'+₹3.4L', pct:'+31.5%', xirr:'25.3%', inv:'₹10.8L', gain:true,  qty:3820, avgCost:'₹282',   ltp:'₹372',   realized:'+₹1.2L',  realizedGain:true  },
+  { ticker:'PPFAS',    name:'Parag Parikh Flexi Cap', val:'₹13.1L', today:'+₹98 (+0.7%)',  todayDir:'gain', gl:'+₹3.2L', pct:'+32.3%', xirr:'26.7%', inv:'₹9.9L',  gain:true,  qty:2410, avgCost:'₹411',   ltp:'₹544',   realized:'+₹0.9L',  realizedGain:true  },
+  { ticker:'MOTILAL',  name:'Motilal Oswal US Q100',  val:'₹6.2L',  today:'−₹68 (−1.1%)',  todayDir:'loss', gl:'−₹0.6L', pct:'−8.8%',  xirr:'−6.1%', inv:'₹6.8L',  gain:false, qty:520,  avgCost:'₹1,308', ltp:'₹1,192', realized:'−₹0.2L',  realizedGain:false },
+];
+
+const txData = {
+  INFY:     [
+    { type:'BUY',  date:'12 Jan 2025', detail:'20 sh · ₹1,610/sh', amount:'₹32,200' },
+    { type:'BUY',  date:'04 Aug 2024', detail:'24 sh · ₹1,490/sh', amount:'₹35,760' },
+    { type:'SELL', date:'18 Mar 2024', detail:'10 sh · ₹1,720/sh', amount:'₹17,200' },
+    { type:'BUY',  date:'02 Jan 2024', detail:'10 sh · ₹1,540/sh', amount:'₹15,400' },
+  ],
+  HDFCBANK: [
+    { type:'BUY',  date:'20 Feb 2025', detail:'30 sh · ₹1,420/sh', amount:'₹42,600' },
+    { type:'BUY',  date:'11 Sep 2024', detail:'46 sh · ₹1,265/sh', amount:'₹58,190' },
+  ],
+  PAYTM:    [
+    { type:'BUY',  date:'15 Nov 2023', detail:'100 sh · ₹740/sh',  amount:'₹74,000' },
+    { type:'BUY',  date:'03 Jun 2023', detail:'50 sh  · ₹880/sh',  amount:'₹44,000' },
+    { type:'SELL', date:'10 Jan 2024', detail:'50 sh  · ₹650/sh',  amount:'₹32,500' },
+    { type:'BUY',  date:'28 Dec 2022', detail:'150 sh · ₹520/sh',  amount:'₹78,000' },
+  ],
+  META:     [
+    { type:'BUY',  date:'06 Mar 2025', detail:'2 sh · $228/sh',    amount:'$456'    },
+    { type:'BUY',  date:'14 Oct 2024', detail:'2 sh · $208/sh',    amount:'$416'    },
+  ],
+  NVDA:     [
+    { type:'BUY',  date:'22 Jan 2025', detail:'4 sh · $128/sh',    amount:'$512'    },
+    { type:'SELL', date:'05 Nov 2024', detail:'2 sh · $138/sh',    amount:'$276'    },
+    { type:'BUY',  date:'18 Jul 2024', detail:'6 sh · $108/sh',    amount:'$648'    },
+  ],
+  MIRAE:    [
+    { type:'BUY',  date:'01 Apr 2025', detail:'500 u · ₹354/u',   amount:'₹1,77,000' },
+    { type:'BUY',  date:'01 Jan 2025', detail:'500 u · ₹334/u',   amount:'₹1,67,000' },
+    { type:'DIV',  date:'15 Dec 2024', detail:'Dividend',          amount:'₹1,240'    },
+    { type:'BUY',  date:'01 Oct 2024', detail:'1000 u · ₹298/u',  amount:'₹2,98,000' },
+    { type:'BUY',  date:'01 Jul 2024', detail:'820 u · ₹274/u',   amount:'₹2,24,680' },
+    { type:'BUY',  date:'01 Apr 2024', detail:'1000 u · ₹260/u',  amount:'₹2,60,000' },
+  ],
+};
+
+let pageStack = ['portfolios'];
+let currentDetailName = '';
+
+function setTopbar(title, showBack) {
+  document.getElementById('topbarTitle').textContent = title;
+  document.getElementById('backBtn').style.display = showBack ? 'inline' : 'none';
+  document.getElementById('refreshArea').style.display = showBack ? 'none' : 'flex';
+}
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function goBack() {
+  pageStack.pop();
+  const prev = pageStack[pageStack.length - 1];
+  if (prev === 'portfolios') { showPage('portfolios'); setTopbar('Portfolio Analyzer', false); }
+  else if (prev === 'detail') { showPage('detail'); setTopbar(currentDetailName, true); }
+}
+
+function showBreakdown(type) {
+  document.getElementById('bd-category').style.display  = type === 'category' ? 'block' : 'none';
+  document.getElementById('bd-portfolio').style.display = type === 'portfolio' ? 'block' : 'none';
+  document.querySelectorAll('#page-portfolios .toggle-btn').forEach((b,i) =>
+    b.classList.toggle('active', (i===0)===(type==='category')));
+}
+
+function openDetail(name, value, todayVal, todayDir, gl, pct, glDir, xirr, inv, realized) {
+  pageStack.push('detail');
+  currentDetailName = name;
+
+  const lossStyle = glDir === 'loss';
+  document.getElementById('detail-card').className = 'detail-card' + (lossStyle ? ' loss' : '');
+  document.getElementById('detail-card').innerHTML = `
+    <div class="t-label">${name}</div>
+    <div class="t-rowa" style="margin-bottom:2px">
+      <div style="font-size:22px;font-weight:700;color:#0f172a;letter-spacing:-0.02em">${value}</div>
+      <span style="font-size:10px;font-weight:600;flex-shrink:0;margin-left:6px;color:${todayDir==='gain'?'#0a7a42':'#be1c1c'}">${todayVal}</span>
+    </div>
+    <div class="t-rowb" style="margin-bottom:5px">
+      <div style="display:flex;gap:3px;align-items:baseline">
+        <span style="font-size:10px;font-weight:700;color:${lossStyle?'#be1c1c':'#0a7a42'}">${gl}</span>
+        <span style="font-size:10px;font-weight:600;color:${lossStyle?'#be1c1c':'#0a7a42'}">${pct}</span>
+      </div>
+      <span style="font-size:10px;color:#64748b">XIRR <b style="color:${lossStyle?'#be1c1c':'#334155'};font-weight:700">${xirr}</b></span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:9px;color:#94a3b8;padding-top:5px;border-top:1px solid #e2e8f0">
+      <span>Invested <b style="color:#64748b;font-weight:600">${inv}</b></span>
+      <span>Realized <b style="color:${realized.startsWith('−')?'#be1c1c':'#0a7a42'};font-weight:600">${realized}</b></span>
+    </div>`;
+
+  document.getElementById('holdings-list').innerHTML =
+    holdingsData.map(h => `
+      <div class="h-card ${h.gain?'':'loss'}" onclick="openHolding('${h.ticker}')">
+        <div class="t-label">${h.ticker} · ${h.name}</div>
+        <div class="t-rowa">
+          <div style="font-size:13px;font-weight:700;color:#0f172a;letter-spacing:-0.01em">${h.val}</div>
+          <span style="font-size:9px;font-weight:600;flex-shrink:0;margin-left:6px;color:${h.todayDir==='gain'?'#0a7a42':'#be1c1c'}">${h.today}</span>
+        </div>
+        <div class="t-rowb">
+          <div style="display:flex;gap:3px;align-items:baseline">
+            <span style="font-size:9px;font-weight:700;color:${h.gain?'#0a7a42':'#be1c1c'}">${h.gl}</span>
+            <span style="font-size:9px;font-weight:600;color:${h.gain?'#0a7a42':'#be1c1c'}">${h.pct}</span>
+          </div>
+          <span style="font-size:9px;color:#64748b">XIRR <b style="color:${h.gain?'#334155':'#be1c1c'};font-weight:700">${h.xirr}</b></span>
+        </div>
+      </div>`).join('');
+
+  showTab('holdings');
+  showPage('detail');
+  setTopbar(name, true);
+}
+
+function openHolding(ticker) {
+  const h = holdingsData.find(x => x.ticker === ticker);
+  pageStack.push('holding');
+
+  document.getElementById('holding-card').className = 'detail-card' + (h.gain ? '' : ' loss');
+  document.getElementById('holding-card').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+      <div style="font-size:8px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em">${h.ticker} · ${h.name}</div>
+      <span style="font-size:9px;color:#94a3b8">LTP <b style="color:#334155;font-weight:600">${h.ltp}</b></span>
+    </div>
+    <div class="t-rowa" style="margin-bottom:2px">
+      <div style="font-size:22px;font-weight:700;color:#0f172a;letter-spacing:-0.02em">${h.val}</div>
+      <span style="font-size:10px;font-weight:600;flex-shrink:0;margin-left:6px;color:${h.todayDir==='gain'?'#0a7a42':'#be1c1c'}">${h.today}</span>
+    </div>
+    <div class="t-rowb" style="margin-bottom:5px">
+      <div style="display:flex;gap:3px;align-items:baseline">
+        <span style="font-size:10px;font-weight:700;color:${h.gain?'#0a7a42':'#be1c1c'}">${h.gl}</span>
+        <span style="font-size:10px;font-weight:600;color:${h.gain?'#0a7a42':'#be1c1c'}">${h.pct}</span>
+      </div>
+      <span style="font-size:10px;color:#64748b">XIRR <b style="color:${h.gain?'#334155':'#be1c1c'};font-weight:700">${h.xirr}</b></span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-top:5px;border-top:1px solid #e2e8f0">
+      <div>
+        <div style="font-size:9px;color:#94a3b8">Invested <b style="color:#334155;font-weight:600">${h.inv}</b></div>
+        <div style="font-size:9px;color:#94a3b8;margin-top:1px">${h.qty} sh · ${h.avgCost}/sh</div>
+      </div>
+      <div style="font-size:9px;color:#94a3b8;text-align:right">Realized <b style="color:${h.realizedGain?'#0a7a42':'#be1c1c'};font-weight:600">${h.realized}</b></div>
+    </div>`;
+
+  const txs = txData[ticker] || [];
+  document.getElementById('htab-transactions').innerHTML = txs.length
+    ? txs.map(t => `
+        <div class="tx-row">
+          <div class="tx-left">
+            <span class="tx-badge ${t.type==='BUY'?'buy':t.type==='SELL'?'sell':'div'}">${t.type}</span>
+            <div class="tx-meta">
+              <div class="tx-date">${t.date}</div>
+              <div class="tx-detail">${t.detail}</div>
+            </div>
+          </div>
+          <div class="tx-amount">${t.amount}</div>
+        </div>`).join('')
+    : '<div style="text-align:center;padding:24px 0;font-size:12px;color:#94a3b8">No transactions</div>';
+
+  showHoldingTab('transactions');
+  showPage('holding');
+  setTopbar(h.ticker, true);
+}
+
+function showHoldingTab(tab) {
+  document.querySelectorAll('#page-holding .tab-btn').forEach((b,i) =>
+    b.classList.toggle('active', (i===0)===(tab==='transactions')));
+  document.getElementById('htab-transactions').style.display = tab==='transactions' ? 'block' : 'none';
+  document.getElementById('htab-summary').style.display      = tab==='summary'       ? 'block' : 'none';
+}
+
+function showTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) =>
+    b.classList.toggle('active', (i===0)===(tab==='holdings')));
+  document.getElementById('tab-holdings').style.display = tab==='holdings' ? 'block' : 'none';
+  document.getElementById('tab-summary').style.display  = tab==='summary'  ? 'block' : 'none';
+}
+
+function setRange(btn) {
+  btn.closest('.range-bar').querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>

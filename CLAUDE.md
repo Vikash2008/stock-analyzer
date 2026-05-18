@@ -2,8 +2,8 @@
 
 ## BOOT PROTOCOL — Execution Mode (Every Session)
 
-1. Read **only** essential context: this file (`CLAUDE.md`) + files directly related to the task being asked.
-2. Do **not** read `ARCHITECTURE.md` or `app_UI.md` upfront — only open them if the task requires it.
+1. Read **always** at session start: this file (`CLAUDE.md`), `ARCHITECTURE.md`, and `app_UI.md`.
+2. Then read files directly related to the task being asked.
 3. Do **not** perform a full repository scan unless explicitly requested.
 4. Assume all existing code is correct unless the user shows an error.
 5. Ask the user what they want to do next (one question max if ambiguous).

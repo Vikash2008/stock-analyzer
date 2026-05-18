@@ -307,3 +307,11 @@ Applied automatically by `/ship` before every deploy:
 | 2026-05-17 | Tile grid expanded from 2×2 to 3×2: INVESTED · UNREALIZED(+%) · REALIZED(+%) · TOTAL G/L(+%) · TOTAL RTN% · XIRR. Each gain cell has its own color based on its own sign. |
 | 2026-05-17 | Holdings table: replaced `G/L` + `Return %` with three combined columns — `Unrealized`, `Realized`, `Total G/L` — each formatted as `+₹X.XX L (+Y.Y%)`. |
 | 2026-05-17 | Realized % denominator = cost basis of sold lots (`sum(qty × buy_price × fx)`). Total % denominator = `disp_invested + cost_of_sold`. |
+| 2026-05-18 | Mobile redesign prototyped in `page_portfolios.html`. Tile layout finalised: Row A = value (big, left) + today gain (small, right); Row B = total G/L + % (left) + XIRR (right). No buttons on tiles — entire tile is tappable. |
+| 2026-05-18 | Breakdown section uses compact single-column row items (not 2-col tiles) so 8–10 broker/segment rows fit on one screen without scrolling. |
+| 2026-05-18 | Tap any tile/row → opens detail page with same summary card at top (includes Invested + Realized row) + two tabs: Holdings and Summary. |
+| 2026-05-18 | Holdings cards in detail page match overview tile format exactly: same 2-row data layout, today gains, total G/L+%, XIRR. |
+| 2026-05-18 | Prototype work is page-by-page in separate HTML files (`page_portfolios.html`, etc.) to keep files small and iteration fast. |
+| 2026-05-18 | Stocks and Mutual Funds tiles changed from 2-col `seg-grid` to full-width stacked `row-item` — consistent with all other overview tiles. |
+| 2026-05-18 | Added `page-holding` (third page): tap a holding card → opens with two tabs: Transactions and Summary. Same chart widget as portfolio detail Summary tab. |
+| 2026-05-18 | Holding card layout finalised: label row = ticker/name (left) + LTP (right). Footer = Invested value + `qty sh · avgCost/sh` sub-line (left), Realized profit colored green/red (right). |
