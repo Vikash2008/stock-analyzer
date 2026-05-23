@@ -62,6 +62,11 @@ st.markdown("""
     box-shadow: 0 2px 6px rgba(37,99,235,0.25) !important;
   }
 
+  /* Sort popover icon — auto width, small */
+  [data-testid="stPopover"] { width: auto !important; display: inline-flex !important; }
+  [data-testid="stPopover"] > div { width: auto !important; }
+  [data-testid="stPopover"] button { width: auto !important; min-width: unset !important; padding: 4px 10px !important; font-size: 14px !important; }
+
   /* Explore button — small, right-aligned, auto width */
   .element-container:has(.portcard) + .element-container [data-testid="stButton"] {
     display: flex !important;
@@ -140,14 +145,3 @@ else:
     st.markdown("**📈 Portfolio Analyzer**")
     portfolio_page.render(bundle)
 
-# ── Layout probe (measure on phone, then remove) ──────────────────────────────
-import streamlit.components.v1 as components
-components.html("""
-<div id="probe" style="font-size:9px;color:#94a3b8;text-align:right;padding-right:4px;font-family:monospace;"></div>
-<script>
-(function(){
-  var w = document.documentElement.clientWidth;
-  document.getElementById('probe').innerText = 'container: ' + w + 'px | screen: ' + window.screen.width + 'px';
-})();
-</script>
-""", height=18)
