@@ -1,11 +1,16 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, Cell,
+} from 'recharts'
 import { usePortfolio } from '../hooks/usePortfolio'
 import { HoldingCard } from '../components/HoldingCard'
 import { SummaryCard } from '../components/SummaryCard'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
 import { aggRealized, realizedForPorts } from '../utils/realized'
 import { filterBySegment, SKIP_PORTS, SEGMENT_LABELS, USD_PORTS } from '../utils/segments'
+import { fmt } from '../utils/fmt'
 import type { Holding } from '../api/types'
 import type { Currency } from '../App'
 
@@ -134,6 +139,47 @@ export default function HoldingsPage({ currency }: Props) {
     [filteredHoldings, realizedMap, viewMode, segment],
   )
 
+  const chartData = useMemo(() => {
+    if (!data) return null
+    const top = (arr: { name: string; value: number }[], n = 10) =>
+      [...arr].sort((a, b) => Math.abs(b.value) - Math.abs(a.value)).slice(0, n)
+
+    const symCount = new Map<string, number>()
+    for (const h of filteredHoldings) symCount.set(h.symbol, (symCount.get(h.symbol) ?? 0) + 1)
+
+    const stats = filteredHoldings.map(h => {
+      const [rg, rc] = realizedMap.get(`${h.portfolio}:${h.symbol}`) ?? [0, 0]
+      const totalGain = (h.disp_current - h.disp_invested) + rg
+      const totalCost = h.disp_invested + rc
+      const name = (symCount.get(h.symbol) ?? 0) > 1
+        ? `${h.symbol}·${h.portfolio.replace('MF_', '').slice(0, 5)}`
+        : h.symbol
+      return {
+        name,
+        value:     h.disp_current,
+        invested:  h.disp_invested,
+        pnl:       totalGain,
+        returnPct: totalCost !== 0 ? (totalGain / totalCost) * 100 : 0,
+        todayGain: h.disp_today_gain,
+      }
+    })
+
+    const ports = new Set(filteredHoldings.map(h => h.portfolio))
+    const xirrData = Object.entries(data.xirr_by_portfolio)
+      .filter(([p]) => ports.has(p))
+      .map(([p, v]) => ({ name: p.replace('MF_', ''), value: v as number }))
+      .sort((a, b) => b.value - a.value)
+
+    return {
+      value:     top(stats.map(s => ({ name: s.name, value: s.value }))),
+      invested:  top(stats.map(s => ({ name: s.name, value: s.invested }))),
+      pnl:       top(stats.map(s => ({ name: s.name, value: s.pnl }))),
+      returnPct: top(stats.map(s => ({ name: s.name, value: s.returnPct }))),
+      todayGain: top(stats.filter(s => s.todayGain !== null).map(s => ({ name: s.name, value: s.todayGain! }))),
+      xirr:      xirrData,
+    }
+  }, [filteredHoldings, realizedMap, data])
+
   if (isLoading) return <LoadingSkeleton />
   if (error || !data) return <ErrorState message={(error as Error)?.message ?? 'Unknown error'} />
   if (!filteredHoldings.length) {
@@ -231,9 +277,50 @@ export default function HoldingsPage({ currency }: Props) {
         </>
       )}
 
-      {activeTab === 'charts' && (
-        <div className="text-slate-400 text-xs text-center py-8">
-          Summary charts — Phase 4
+      {activeTab === 'charts' && chartData && (
+        <div className="space-y-5">
+          {[
+            { title: 'Value',          cData: chartData.value,     isPct: false },
+            { title: 'Invested',       cData: chartData.invested,  isPct: false },
+            { title: 'P&L',            cData: chartData.pnl,       isPct: false },
+            { title: 'Return %',       cData: chartData.returnPct, isPct: true  },
+            { title: "Today's Gain",   cData: chartData.todayGain, isPct: false },
+            { title: 'XIRR by Portfolio', cData: chartData.xirr,  isPct: true  },
+          ].map(({ title, cData, isPct }) => {
+            if (!cData.length) return null
+            const chartH = Math.max(80, cData.length * 24)
+            const tickFmt = (v: number) => {
+              if (isPct) return `${v.toFixed(0)}%`
+              if (Math.abs(v) >= 1e7) return `${(v / 1e7).toFixed(1)}Cr`
+              if (Math.abs(v) >= 1e5) return `${(v / 1e5).toFixed(1)}L`
+              if (Math.abs(v) >= 1e3) return `${(v / 1e3).toFixed(0)}K`
+              return v.toFixed(0)
+            }
+            return (
+              <div key={title}>
+                <p className="text-[9px] text-slate-400 uppercase tracking-widest mb-1">{title}</p>
+                <ResponsiveContainer width="100%" height={chartH}>
+                  <BarChart data={cData} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 8, fill: '#94a3b8' }} tickFormatter={tickFmt} />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 8, fill: '#334155' }} width={60} />
+                    <Tooltip
+                      formatter={(v: number) => [
+                        isPct ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%` : fmt(v, currency),
+                        title,
+                      ]}
+                      contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #e2e8f0' }}
+                    />
+                    <Bar dataKey="value" radius={[0, 3, 3, 0]}>
+                      {cData.map((e, i) => (
+                        <Cell key={i} fill={e.value >= 0 ? '#10b981' : '#f43f5e'} opacity={0.85} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
