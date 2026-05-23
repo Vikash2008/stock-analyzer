@@ -50,6 +50,8 @@ pip install -r backend/requirements_backend.txt
 uvicorn backend.main:app --reload --port 8000
 
 # Frontend (separate terminal, from frontend/)
+# Node.js v24 installed at C:\Program Files\nodejs — add to PATH if needed:
+# $env:PATH = "C:\Program Files\nodejs;$env:PATH"
 npm install
 npm run dev   # http://localhost:5173
 

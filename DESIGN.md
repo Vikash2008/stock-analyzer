@@ -153,6 +153,26 @@ DATE    BUY/SELL/DIV    QTY @ PRICE    VALUE
 
 ---
 
+## Charts Tab (HoldingsPage)
+
+```
+[Portfolio Value][Invested][Unrealized Gains][Realized Gains][Total Gains][Return %][XIRR Trend]
+  ← scrollable metric pills (whitespace-nowrap, overflow-x-auto)
+
++₹45.2L  +₹2.3L in period
+┌──────────────────────────────────────────┐
+│                line chart                │
+└──────────────────────────────────────────┘
+┌────────────────────────────────────────────┐
+│  1m  3m  6m  1y  2y  3y  5y  All         │  ← segmented control (bg-slate-100, active=bg-white shadow)
+└────────────────────────────────────────────┘
+```
+- X-axis: `interval = floor(N/5) - 1` → ~5 ticks regardless of range
+- Y-axis: `domain=['auto','auto']` — scales to data min/max
+- XIRR Trend: computed client-side monthly via `utils/xirr.ts` bisection
+
+---
+
 ## Known Issues (as of 2026-05-24)
 
 - XIRR per individual holding card shows "—" — `xirr_by_portfolio` is in bundle but per-symbol XIRR not yet computed
@@ -174,3 +194,6 @@ DATE    BUY/SELL/DIV    QTY @ PRICE    VALUE
 | 2026-05-24 | Added Stocks + MF tiles to PortfoliosPage | Quick segment overview with XIRR + today % |
 | 2026-05-24 | By Broker / By Type breakdown toggle | Replaces flat portfolio list; portfolio cards now include realized P&L in return % |
 | 2026-05-24 | XIRR added to bundle | Computed per portfolio + stk/mf/total using existing portfolio_xirr(); shown on hero + tiles |
+| 2026-05-24 | 7 historical line charts on HoldingsPage | Client-side via usePortfolioHistory + xirr.ts; no new backend endpoint needed |
+| 2026-05-24 | PortfoliosPage header cleanup | Removed currency toggle; IST timezone on timestamp; bigger section labels; Stocks/MF tiles match hero 3-row layout |
+| 2026-05-24 | Range selector segmented control | iOS-style bg-slate-100 pill replaces scrollable border buttons |

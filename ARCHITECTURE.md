@@ -31,11 +31,13 @@ frontend/
   src/
     api/types.ts            TypeScript interfaces matching backend JSON
     api/portfolio.ts        fetch wrapper (uses VITE_API_URL env var)
-    hooks/usePortfolio.ts   TanStack Query, 30min staleTime, useForceRefresh()
-    hooks/useHistory.ts     TanStack Query for price history, 1hr staleTime
-    utils/fmt.ts            fmtINR/fmtUSD/fmtPct/fmtGainLine
-    utils/segments.ts       classify.py TypeScript port
-    utils/realized.ts       _agg_realized() TypeScript port
+    hooks/usePortfolio.ts        TanStack Query, 30min staleTime, useForceRefresh()
+    hooks/useHistory.ts          TanStack Query for price history, 1hr staleTime
+    hooks/usePortfolioHistory.ts useQueries per-symbol history → value/invested/P&L/return/xirr series
+    utils/fmt.ts                 fmtINR/fmtUSD/fmtPct/fmtGainLine
+    utils/segments.ts            classify.py TypeScript port
+    utils/realized.ts            _agg_realized() TypeScript port
+    utils/xirr.ts                Client-side XIRR (bisection + Newton fallback)
     components/             LoadingSkeleton, SummaryCard, HoldingCard, TxRow, PriceChart
     pages/                  PortfoliosPage, HoldingsPage, TransactionsPage, SummaryPage
     App.tsx                 React Router routes
@@ -185,8 +187,7 @@ Render cold start: 60–90s after inactivity (free tier spins down).
 ## Pending
 
 - XIRR per individual holding card (shows "—") — `xirr_by_portfolio` is in bundle; need per-symbol XIRR
-- HoldingsPage Charts tab — shows placeholder — needs historical portfolio value series endpoint
-- SummaryPage historical line chart — needs `_build_value_series()` as API endpoint
+- SummaryPage historical line chart — shares same usePortfolioHistory hook; needs wiring up
 
 ---
 
