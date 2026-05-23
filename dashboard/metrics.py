@@ -347,30 +347,47 @@ def render(bundle: PortfolioBundle) -> None:
           today_gain=tg_mf, today_pct=_tg_pct(tg_mf, cur_mf) if tg_mf is not None else None,
           compact=True)
 
-    # ── Breakdown toggle ─────────────────────────────────────────────────────
-    mode = st.radio(
-        "Breakdown", ["By Type", "By Broker"],
-        horizontal=True, key="breakdown_mode",
-    )
+    # ── Breakdown toggle + sort ───────────────────────────────────────────────
+    _SORT_OPTS = ["Current Value", "Total Profit", "Total Profit %", "XIRR", "Daily Gain", "Daily Gain %"]
+
+    def _xi(s):
+        try: return float(str(s).replace("%", "").replace("+", ""))
+        except: return -999.0
+
+    def _sort_val(cur_p, inv_p, xirr_p, rg_p, rc_p, tg_p, sort_by):
+        total_gain = (cur_p - inv_p) + rg_p
+        total_pct  = (total_gain / (inv_p + rc_p) * 100) if (inv_p + rc_p) else 0.0
+        tg = tg_p if tg_p is not None else 0.0
+        prev = cur_p - tg
+        tg_pct = (tg / prev * 100) if prev else 0.0
+        return {
+            "Current Value":  -cur_p,
+            "Total Profit":   -total_gain,
+            "Total Profit %": -total_pct,
+            "XIRR":           -_xi(xirr_p),
+            "Daily Gain":     -tg,
+            "Daily Gain %":   -tg_pct,
+        }.get(sort_by, -cur_p)
+
+    c_mode, c_sort = st.columns([3, 2])
+    with c_mode:
+        mode = st.radio("Breakdown", ["By Type", "By Broker"], horizontal=True, key="breakdown_mode")
+    with c_sort:
+        sort_by = st.selectbox("⇅ Sort by", _SORT_OPTS, key="bd_sort")
 
     # ── By Type ───────────────────────────────────────────────────────────────
     if mode == "By Type":
-        _card("Indian Stocks", cur_ind_stk, inv_ind_stk, rg_ind_stk, rc_ind_stk,
-              xirr_ind_stk, "indian_stock", nav_segment="indian_stock",
-              today_gain=tg_ind_stk, today_pct=_tg_pct(tg_ind_stk, cur_ind_stk) if tg_ind_stk is not None else None,
-              compact=True)
-        _card("US Stocks",     cur_us_stk,  inv_us_stk,  rg_us_stk,  rc_us_stk,
-              xirr_us_stk,  "us_stock",     nav_segment="us_stock",
-              today_gain=tg_us_stk, today_pct=_tg_pct(tg_us_stk, cur_us_stk) if tg_us_stk is not None else None,
-              compact=True)
-        _card("Indian MF",     cur_ind_mf,  inv_ind_mf,  rg_ind_mf,  rc_ind_mf,
-              xirr_ind_mf,  "indian_mf",    nav_segment="indian_mf",
-              today_gain=tg_ind_mf, today_pct=_tg_pct(tg_ind_mf, cur_ind_mf) if tg_ind_mf is not None else None,
-              compact=True)
-        _card("US MF",         cur_us_mf,   inv_us_mf,   rg_us_mf,   rc_us_mf,
-              xirr_us_mf,   "us_mf",        nav_segment="us_mf",
-              today_gain=tg_us_mf, today_pct=_tg_pct(tg_us_mf, cur_us_mf) if tg_us_mf is not None else None,
-              compact=True)
+        type_items = [
+            (cur_ind_stk, "Indian Stocks", inv_ind_stk, xirr_ind_stk, rg_ind_stk, rc_ind_stk, tg_ind_stk, "indian_stock"),
+            (cur_us_stk,  "US Stocks",     inv_us_stk,  xirr_us_stk,  rg_us_stk,  rc_us_stk,  tg_us_stk,  "us_stock"),
+            (cur_ind_mf,  "Indian MF",     inv_ind_mf,  xirr_ind_mf,  rg_ind_mf,  rc_ind_mf,  tg_ind_mf,  "indian_mf"),
+            (cur_us_mf,   "US MF",         inv_us_mf,   xirr_us_mf,   rg_us_mf,   rc_us_mf,   tg_us_mf,   "us_mf"),
+        ]
+        type_items.sort(key=lambda x: _sort_val(x[0], x[2], x[3], x[4], x[5], x[6], sort_by))
+        for cur_t, lbl, inv_t, xirr_t, rg_t, rc_t, tg_t, seg_key in type_items:
+            _card(lbl, cur_t, inv_t, rg_t, rc_t, xirr_t, seg_key, nav_segment=seg_key,
+                  today_gain=tg_t, today_pct=_tg_pct(tg_t, cur_t) if tg_t is not None else None,
+                  compact=True)
 
     # ── By Broker ─────────────────────────────────────────────────────────────
     else:
@@ -384,22 +401,21 @@ def render(bundle: PortfolioBundle) -> None:
             cur_p = g["current_value"].sum()  * usd_inr if is_usd else g["disp_current"].sum()
             xirr_p = port_xirr.get(port, "N/A")
             rg_p, rc_p = _rg(_rport, port)
-            (us if is_usd else indian).append((cur_p, port, inv_p, xirr_p, rg_p, rc_p))
+            tg_p = by_port.get(port)
+            (us if is_usd else indian).append((cur_p, port, inv_p, xirr_p, rg_p, rc_p, tg_p))
 
-        indian.sort(key=lambda x: -x[0])
-        us.sort(key=lambda x: -x[0])
+        indian.sort(key=lambda x: _sort_val(x[0], x[2], x[3], x[4], x[5], x[6], sort_by))
+        us.sort(key=lambda x: _sort_val(x[0], x[2], x[3], x[4], x[5], x[6], sort_by))
 
         st.markdown("🇮🇳 **India**")
-        for cur_p, port, inv_p, xirr_p, rg_p, rc_p in indian:
-            tg_p = by_port.get(port)
+        for cur_p, port, inv_p, xirr_p, rg_p, rc_p, tg_p in indian:
             _card(port, cur_p, inv_p, rg_p, rc_p, xirr_p,
                   f"port_{port}", nav_portfolio=port,
                   today_gain=tg_p, today_pct=_tg_pct(tg_p, cur_p) if tg_p is not None else None,
                   compact=True)
 
         st.markdown("🇺🇸 **US**")
-        for cur_p, port, inv_p, xirr_p, rg_p, rc_p in us:
-            tg_p = by_port.get(port)
+        for cur_p, port, inv_p, xirr_p, rg_p, rc_p, tg_p in us:
             _card(port, cur_p, inv_p, rg_p, rc_p, xirr_p,
                   f"port_{port}", nav_portfolio=port,
                   today_gain=tg_p, today_pct=_tg_pct(tg_p, cur_p) if tg_p is not None else None,
