@@ -8,20 +8,20 @@
 ## Active File Map
 
 ```
-app.py                      Entry point — sidebar, bundle load, page router
+app.py                      Streamlit entry point — sidebar, bundle load, page router
 validate.py                 Terminal CLI (independent of Streamlit)
 
 src/
   engine.py                 build(currency, force_refresh) → PortfolioBundle
-  cache.py                  Disk cache (data/.cache.pkl), per-layer TTLs
+  cache.py                  Disk cache (data/.cache.pkl) — price/fx/prev_closes TTL 12h
   data_loader.py            CSV/Excel ingestion, MSP auto-detect
   portfolio.py              FIFO engine, enrich_holdings()
   price_fetcher.py          yfinance wrappers
   schema.py                 Frozen schema + validation
   xirr.py                   XIRR calculation
 
-dashboard/
-  ui_state.py               Navigation state (session_state + URL sync); do_refresh() helper
+dashboard/                  Streamlit UI layer — unchanged
+  ui_state.py               Navigation state (session_state + URL sync)
   classify.py               USD_PORTS, SKIP_PORTS, US_MF_SYMS, segment()
   metrics.py                Portfolio overview tiles, XIRR, breakdown
   charts.py                 Price line + BUY/SELL bubble chart + range selector
@@ -30,12 +30,38 @@ dashboard/
   transactions_page.py      page=transactions (Transactions + Charts tabs)
   summary_page.py           page=summary — portfolio/segment value, invested, P&L, XIRR charts
 
+backend/                    FastAPI layer — wraps src/ engine, no Streamlit dependency
+  main.py                   FastAPI app; CORS reads ALLOWED_ORIGIN env var
+  serializers.py            PortfolioBundle → JSON-safe dict (NaN/Timestamp/numpy handling)
+  routers/
+    portfolio.py            GET /api/portfolio?currency=INR&force_refresh=false
+    history.py              GET /api/history?yf_symbol=INFY.NS&start=YYYY-MM-DD
+  requirements_backend.txt  Backend-only deps (no streamlit/plotly)
+
+frontend/                   React — Vite + TypeScript + Tailwind + React Router + TanStack Query
+  src/
+    api/types.ts            TypeScript interfaces matching backend JSON
+    api/portfolio.ts        fetch wrapper (uses VITE_API_URL env var)
+    hooks/usePortfolio.ts   TanStack Query, 30min staleTime, useForceRefresh()
+    hooks/useHistory.ts     TanStack Query for price history, 1hr staleTime
+    utils/fmt.ts            fmtINR/fmtUSD/fmtPct/fmtGainLine
+    utils/segments.ts       classify.py TypeScript port
+    utils/realized.ts       _agg_realized() TypeScript port
+    components/             LoadingSkeleton, SummaryCard, HoldingCard, TxRow, PriceChart
+    pages/                  PortfoliosPage, HoldingsPage, TransactionsPage, SummaryPage
+  package.json              react 18, react-router-dom 6, @tanstack/react-query 5, recharts 2
+  vite.config.ts            /api proxy → localhost:8000 in dev
+  .env.production           VITE_API_URL (update after Render deploy)
+
 data/
   msp_v2.csv                Transaction source file (source of truth)
   .cache.pkl                Persistent cache (do not delete)
 
+Dockerfile                  Python 3.11 image (Fly.io — kept as reference)
+fly.toml                    Fly.io config — Singapore, 256mb (reference only)
+entrypoint.sh               Fly.io startup script (reference only)
 .streamlit/config.toml      Theme, headless, no usage stats
-.claude/commands/ship.md    Custom /ship slash command (mobile audit → commit → push)
+.claude/commands/ship.md    Custom /ship slash command
 ```
 
 ---
