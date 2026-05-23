@@ -2,7 +2,7 @@
 
 ## BOOT PROTOCOL — Execution Mode (Every Session)
 
-1. Read **always** at session start: this file (`CLAUDE.md`), `ARCHITECTURE.md`, `DESIGN.md`, and `~/.claude/projects/C--Users-Admin-stock-analyzer/memory/project_react_fastapi.md`.
+1. Read **always** at session start: this file (`CLAUDE.md`), `ARCHITECTURE.md`, `DESIGN.md`, `ROADMAP.md`, and `~/.claude/projects/C--Users-Admin-stock-analyzer/memory/project_react_fastapi.md`.
 2. Then read files directly related to the task being asked.
 3. Do **not** perform a full repository scan unless explicitly requested.
 4. Assume all existing code is correct unless the user shows an error.
@@ -113,6 +113,7 @@ python validate.py -r   # force price refresh
 Before closing a session where code changed, run `/save_state` or update manually:
 - `ARCHITECTURE.md` — if files added/removed or API changed
 - `DESIGN.md` — if any UI/design decisions changed
+- `ROADMAP.md` — if items completed, added, or reprioritized
 - `CLAUDE.md` — if invariants, validated numbers, or constraints changed
 
 ## Git
