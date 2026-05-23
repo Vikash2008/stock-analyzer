@@ -78,12 +78,13 @@
 ### Holding Card (HoldingsPage)
 ```
 ┌─────────────────────────────────────┐
-│ SYMBOL          portfolio tag  qty  │
-│ ₹ current value                     │
-│ invested · G/L · Return%           │
+│ SYMBOL · company name      LTP      │
+│ ₹ current value      today gain+%   │
+│ total G/L (incl. realized)  XIRR %  │
 └─────────────────────────────────────┘
 ```
 - Tappable — navigates to `/transactions/:portfolio/:symbol`
+- XIRR computed client-side per holding (BUY/SELL cashflows + terminal value); shows `→` as fallback if null
 
 ### Summary Card (top of HoldingsPage / SummaryPage)
 ```
@@ -105,31 +106,30 @@ DATE    BUY/SELL/DIV    QTY @ PRICE    VALUE
 ## Page Layouts
 
 ### PortfoliosPage (`/`)
-- Currency toggle (INR / USD) — top right; refresh (↻) button
+- Refresh (↻) button top right; IST timestamp top left
 - Hero card: Total portfolio — current value | today gain + today % | total G/L + return % | XIRR
 - Stocks tile + MF tile — side by side; each shows value, total G/L + %, today gain + %, XIRR
-- Breakdown toggle: By Broker | By Type
-  - By Broker: one card per real portfolio (SKIP_PORTS excluded); shows current value, total G/L (unrealized + realized), return %
-  - By Type: Indian Stocks / US Stocks / Indian MF / US MF cards; same fields; navigate to `/holdings/segment/:key`
+- Breakdown toggle: **By Type (default)** | By Broker
+  - By Type: Indian Stocks / US Stocks / Indian MF / US MF cards; XIRR computed client-side per type; navigate to `/holdings/segment/:key`
+  - By Broker: one card per real portfolio (SKIP_PORTS excluded); XIRR from `xirr_by_portfolio` bundle field
+  - Both views show: current value, total G/L (unrealized + realized), XIRR
 - All cards tappable; portfolio cards → `/holdings/portfolio/:name`
 
 ### HoldingsPage (`/holdings/portfolio/:name` or `/holdings/segment/:key`)
-- Back button
+- Back button (label carries origin context via nav state)
 - Summary card (portfolio or segment header)
 - Toggle: Cumulative (grouped by symbol) | Standalone (per symbol+portfolio)
-- List of HoldingCards, tappable
+- Sort control (top-right of list): Current Value | Invested | Daily Gain | Daily Gain % | Total Gain | Total Gain % | XIRR — tap again to toggle ↑/↓; default Current Value ↓
+- List of HoldingCards, tappable; each shows XIRR computed client-side
 
 ### TransactionsPage (`/transactions/:port/:sym`)
-- Back button
-- Symbol overview card (value, gain, qty, avg cost, LTP)
+- Back button (label = origin page name via nav state)
+- Symbol overview card — shows company name (or symbol fallback); current value, today gain, G/L, invested, realized
 - Tab 1 — Transactions: TxRow list, newest first
-- Tab 2 — Charts: PriceChart (Recharts line) + BUY/SELL bubbles
+- Tab 2 — Charts: 8 metric pills (Price, Portfolio Value, Invested, Unrealized Gains, Realized Gains, Total Gains, Return %, XIRR Trend)
+  - Price pill: PriceChart (price line + BUY/SELL markers) + range selector (1m–All)
+  - Other 7 pills: historical line chart scoped to this single holding via usePortfolioHistory + range selector
 
-### SummaryPage (`/summary/portfolio/:name` or `/summary/segment/:key`)
-- Back button
-- Metric selector: Portfolio Value | Invested | P&L | Return%
-- Bar chart (Recharts) — snapshot view
-- Historical line chart — Phase 4 (pending API endpoint)
 
 ---
 
@@ -175,9 +175,7 @@ DATE    BUY/SELL/DIV    QTY @ PRICE    VALUE
 
 ## Known Issues (as of 2026-05-24)
 
-- XIRR per individual holding card shows "—" — `xirr_by_portfolio` is in bundle but per-symbol XIRR not yet computed
-- HoldingsPage Charts tab shows placeholder — needs historical series endpoint
-- SummaryPage shows bar chart snapshot only — historical line chart pending
+- None critical. See ROADMAP.md Phase 5/6 for pending polish items.
 
 ---
 
@@ -197,3 +195,10 @@ DATE    BUY/SELL/DIV    QTY @ PRICE    VALUE
 | 2026-05-24 | 7 historical line charts on HoldingsPage | Client-side via usePortfolioHistory + xirr.ts; no new backend endpoint needed |
 | 2026-05-24 | PortfoliosPage header cleanup | Removed currency toggle; IST timezone on timestamp; bigger section labels; Stocks/MF tiles match hero 3-row layout |
 | 2026-05-24 | Range selector segmented control | iOS-style bg-slate-100 pill replaces scrollable border buttons |
+| 2026-05-24 | SummaryPage removed | Unreachable from UI — dead code removed |
+| 2026-05-24 | XIRR on HoldingCard | Client-side per-symbol XIRR (BUY/SELL cashflows + terminal value × 100) |
+| 2026-05-24 | XIRR on BreakCards (Overview) | Broker: from xirr_by_portfolio bundle; Type: computed client-side |
+| 2026-05-24 | By Type default on Overview | More useful than By Broker as landing view |
+| 2026-05-24 | TransactionsPage Charts tab | 8-metric pills: Price (PriceChart + range) + 7 historical series scoped to one holding |
+| 2026-05-24 | Sort control on HoldingsPage | 7 sort fields, asc/desc toggle, default Current Value ↓ |
+| 2026-05-24 | Back label via nav state | Transactions page back button reflects origin (portfolio or segment name) |

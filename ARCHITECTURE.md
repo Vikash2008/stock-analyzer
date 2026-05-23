@@ -39,7 +39,7 @@ frontend/
     utils/realized.ts            _agg_realized() TypeScript port
     utils/xirr.ts                Client-side XIRR (bisection + Newton fallback)
     components/             LoadingSkeleton, SummaryCard, HoldingCard, TxRow, PriceChart
-    pages/                  PortfoliosPage, HoldingsPage, TransactionsPage, SummaryPage
+    pages/                  PortfoliosPage, HoldingsPage, TransactionsPage
     App.tsx                 React Router routes
   public/
     manifest.json           PWA manifest (standalone display mode)
@@ -59,12 +59,10 @@ data/
 ## Navigation Flow (React Router)
 
 ```
-/                            PortfoliosPage — hero + per-portfolio cards, currency toggle
-/holdings/portfolio/:name    HoldingsPage — holdings for a specific portfolio
+/                            PortfoliosPage — hero + per-portfolio cards, By Type (default) / By Broker toggle
+/holdings/portfolio/:name    HoldingsPage — holdings list + Charts tab + sort control
 /holdings/segment/:key       HoldingsPage — holdings for a segment (Stocks/MF/US)
-/transactions/:port/:sym     TransactionsPage — tx list + PriceChart
-/summary/portfolio/:name     SummaryPage — metrics grid + chart
-/summary/segment/:key        SummaryPage — aggregated segment view
+/transactions/:port/:sym     TransactionsPage — tx list + 8-metric Charts tab (Price + 7 historical)
 ```
 
 ---
@@ -186,8 +184,7 @@ Render cold start: 60–90s after inactivity (free tier spins down).
 
 ## Pending
 
-- XIRR per individual holding card (shows "—") — `xirr_by_portfolio` is in bundle; need per-symbol XIRR
-- SummaryPage historical line chart — shares same usePortfolioHistory hook; needs wiring up
+- Nothing critical; see ROADMAP.md for Phase 5/6 backlog
 
 ---
 
@@ -201,9 +198,8 @@ Render cold start: 60–90s after inactivity (free tier spins down).
 | `src/portfolio.py` | `_run_fifo()` | FIFO logic, realized_pnl |
 | `src/cache.py` | `Cache` | Change cache TTLs |
 | `frontend/src/pages/PortfoliosPage.tsx` | `PortfoliosPage` | Overview / hero card |
-| `frontend/src/pages/HoldingsPage.tsx` | `HoldingsPage` | Holdings list |
-| `frontend/src/pages/TransactionsPage.tsx` | `TransactionsPage` | Tx list + chart |
-| `frontend/src/pages/SummaryPage.tsx` | `SummaryPage` | Metrics + chart |
+| `frontend/src/pages/HoldingsPage.tsx` | `HoldingsPage` | Holdings list + sort + XIRR |
+| `frontend/src/pages/TransactionsPage.tsx` | `TransactionsPage` | Tx list + 8-metric charts |
 | `frontend/src/utils/segments.ts` | `getSegmentType()` | Segment classification |
 | `frontend/src/utils/fmt.ts` | `fmtINR/fmtUSD` | Number formatting |
 
