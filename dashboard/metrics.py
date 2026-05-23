@@ -7,6 +7,32 @@ from dashboard.classify import segment, SKIP_PORTS, USD_PORTS
 from dashboard import ui_state
 
 
+_SORT_OPTS = ["Current Value", "Total Profit", "Total Profit %", "XIRR", "Daily Gain", "Daily Gain %"]
+
+def _xi(s):
+    try: return float(str(s).replace("%", "").replace("+", ""))
+    except: return -999.0
+
+def _sort_val(cur_p, inv_p, xirr_p, rg_p, rc_p, tg_p, sort_by):
+    total_gain = (cur_p - inv_p) + rg_p
+    total_pct  = (total_gain / (inv_p + rc_p) * 100) if (inv_p + rc_p) else 0.0
+    tg = tg_p if tg_p is not None else 0.0
+    prev = cur_p - tg
+    tg_pct = (tg / prev * 100) if prev else 0.0
+    return {
+        "Current Value":  -cur_p,
+        "Total Profit":   -total_gain,
+        "Total Profit %": -total_pct,
+        "XIRR":           -_xi(xirr_p),
+        "Daily Gain":     -tg,
+        "Daily Gain %":   -tg_pct,
+    }.get(sort_by, -cur_p)
+
+@st.dialog("Sort by")
+def _sort_dialog():
+    st.radio("", _SORT_OPTS, key="bd_sort", label_visibility="collapsed")
+
+
 def _fmt(v: float) -> str:
     if abs(v) >= 1e7: return f"₹{v/1e7:.2f} Cr"
     if abs(v) >= 1e5: return f"₹{v/1e5:.2f} L"
@@ -348,39 +374,65 @@ def render(bundle: PortfolioBundle) -> None:
           compact=True)
 
     # ── Breakdown toggle + sort ───────────────────────────────────────────────
-    _SORT_OPTS = ["Current Value", "Total Profit", "Total Profit %", "XIRR", "Daily Gain", "Daily Gain %"]
-
-    def _xi(s):
-        try: return float(str(s).replace("%", "").replace("+", ""))
-        except: return -999.0
-
-    def _sort_val(cur_p, inv_p, xirr_p, rg_p, rc_p, tg_p, sort_by):
-        total_gain = (cur_p - inv_p) + rg_p
-        total_pct  = (total_gain / (inv_p + rc_p) * 100) if (inv_p + rc_p) else 0.0
-        tg = tg_p if tg_p is not None else 0.0
-        prev = cur_p - tg
-        tg_pct = (tg / prev * 100) if prev else 0.0
-        return {
-            "Current Value":  -cur_p,
-            "Total Profit":   -total_gain,
-            "Total Profit %": -total_pct,
-            "XIRR":           -_xi(xirr_p),
-            "Daily Gain":     -tg,
-            "Daily Gain %":   -tg_pct,
-        }.get(sort_by, -cur_p)
-
-    @st.dialog("Sort by")
-    def _sort_dialog():
-        st.radio("", _SORT_OPTS, key="bd_sort", label_visibility="collapsed")
-
     sort_by = st.session_state.get("bd_sort", _SORT_OPTS[0])
-    c_bd, c_sort = st.columns([4, 1], gap="small", vertical_alignment="top")
-    with c_bd:
-        mode = st.radio("Breakdown", ["By Type", "By Broker"], horizontal=True,
-                        key="breakdown_mode", label_visibility="collapsed")
-    with c_sort:
-        if st.button("⇅", key="open_sort"):
-            _sort_dialog()
+    mode    = st.session_state.get("breakdown_mode", "By Type")
+
+    # Hidden control buttons — JS moves them off-screen
+    if st.button("__bd_type__",   key="_btn_bd_type"):
+        st.session_state["breakdown_mode"] = "By Type";   st.rerun()
+    if st.button("__bd_broker__", key="_btn_bd_broker"):
+        st.session_state["breakdown_mode"] = "By Broker"; st.rerun()
+    if st.button("__sort_open__", key="_btn_sort_open"):
+        st.session_state["_show_sort"] = True;            st.rerun()
+    if st.session_state.get("_show_sort"):
+        st.session_state["_show_sort"] = False
+        _sort_dialog()
+
+    # Visual row — pure HTML, zero Streamlit layout
+    _tc = "#0f172a" if mode == "By Type"   else "#94a3b8"
+    _tw = "700"     if mode == "By Type"   else "400"
+    _bc = "#0f172a" if mode == "By Broker" else "#94a3b8"
+    _bw = "700"     if mode == "By Broker" else "400"
+    st.html(f"""
+<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0 6px;">
+  <div style="display:flex;gap:20px;align-items:center;">
+    <span onclick="__bdClick('__bd_type__')"
+      style="cursor:pointer;font-size:13px;font-weight:{_tw};color:{_tc};">By Type</span>
+    <span onclick="__bdClick('__bd_broker__')"
+      style="cursor:pointer;font-size:13px;font-weight:{_bw};color:{_bc};">By Broker</span>
+  </div>
+  <span onclick="__bdClick('__sort_open__')"
+    style="cursor:pointer;font-size:14px;color:#64748b;padding:2px 8px;
+           border:1px solid #e2e8f0;border-radius:6px;background:#fff;user-select:none;">⇅</span>
+</div>
+<script>
+(function(){{
+  if(window.__bdObs){{window.__bdObs.disconnect();}}
+  function __hide(label){{
+    var btns=document.querySelectorAll('button');
+    for(var i=0;i<btns.length;i++){{
+      if(btns[i].innerText.trim()===label){{
+        var w=btns[i].closest('[data-testid="stButton"]')||btns[i].parentElement;
+        w.style.cssText='position:absolute!important;left:-9999px!important;height:1px!important;overflow:hidden!important;';
+        break;
+      }}
+    }}
+  }}
+  window.__bdClick=function(label){{
+    var btns=document.querySelectorAll('button');
+    for(var i=0;i<btns.length;i++){{
+      if(btns[i].innerText.trim()===label){{btns[i].click();return;}}
+    }}
+  }};
+  function __hideAll(){{__hide('__bd_type__');__hide('__bd_broker__');__hide('__sort_open__');}}
+  setTimeout(__hideAll,0);
+  setTimeout(__hideAll,150);
+  window.__bdObs=new MutationObserver(__hideAll);
+  window.__bdObs.observe(document.body,{{childList:true,subtree:true}});
+}})();
+</script>
+""")
+
 
     # ── By Type ───────────────────────────────────────────────────────────────
     if mode == "By Type":
