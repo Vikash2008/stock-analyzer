@@ -374,7 +374,7 @@ def render(bundle: PortfolioBundle) -> None:
         st.radio("", _SORT_OPTS, key="bd_sort", label_visibility="collapsed")
 
     sort_by = st.session_state.get("bd_sort", _SORT_OPTS[0])
-    c_bd, c_sort = st.columns([4, 1], gap="small", vertical_alignment="bottom")
+    c_bd, c_sort = st.columns([4, 1], gap="small", vertical_alignment="top")
     with c_bd:
         mode = st.radio("Breakdown", ["By Type", "By Broker"], horizontal=True,
                         key="breakdown_mode", label_visibility="collapsed")
