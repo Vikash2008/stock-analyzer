@@ -31,11 +31,11 @@ from typing import Any, Optional
 _FILE = Path("data/.cache.pkl")
 
 _TTL: dict[str, Optional[float]] = {
-    "fifo":        None,       # never expires — mtime-gated instead
-    "prices":      1800.0,     # 30 minutes
-    "prev_closes": 1800.0,     # 30 minutes — fetched alongside prices
-    "info":        86400 * 7,  # 7 days
-    "fx":          1800.0,     # 30 minutes
+    "fifo":        None,        # never expires — mtime-gated instead
+    "prices":      43200.0,     # 12 hours — refresh only on explicit pull-to-refresh
+    "prev_closes": 43200.0,     # 12 hours — fetched alongside prices
+    "info":        86400 * 7,   # 7 days
+    "fx":          43200.0,     # 12 hours
 }
 
 # Module-level singleton: loaded from disk once per process lifetime.

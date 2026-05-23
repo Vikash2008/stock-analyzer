@@ -1,0 +1,16 @@
+**/__pycache__
+**/*.pyc
+**/*.pyo
+.git
+.gitignore
+.claude
+node_modules
+frontend
+*.md
+.streamlit
+app.py
+validate.py
+prompts
+tile_options.html
+page_portfolios.html
+data/.cache.pkl

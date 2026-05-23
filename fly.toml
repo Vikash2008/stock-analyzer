@@ -1,0 +1,25 @@
+# Fly.io configuration for the FastAPI backend.
+# Replace YOUR-APP-NAME with the name you chose during: flyctl launch
+app = "YOUR-APP-NAME"
+primary_region = "sin"   # Singapore — closest low-latency region to India
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port       = 8080
+  force_https         = true
+  auto_stop_machines  = true   # spins down when idle (free tier)
+  auto_start_machines = true   # wakes on first request (~30s)
+  min_machines_running = 0
+
+[[vm]]
+  memory   = "256mb"
+  cpu_kind = "shared"
+  cpus     = 1
+
+# Persistent volume — keeps data/.cache.pkl alive across restarts.
+# Without this, every cold start would re-fetch all prices from yfinance.
+[[mounts]]
+  source      = "stock_data"   # volume name — created via: flyctl volumes create stock_data
+  destination = "/app/data"

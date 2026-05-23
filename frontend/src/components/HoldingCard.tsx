@@ -1,0 +1,77 @@
+// Individual holding tile — mirrors _h_card() in holdings_page.py.
+// Entire card is tappable (onClick). No separate button needed.
+
+import { fmt, fmtGainLine, fmtPct } from '../utils/fmt'
+import type { Currency } from '../App'
+
+interface HoldingCardProps {
+  ticker:    string
+  subLabel:  string          // company name or portfolio name
+  current:   number
+  invested:  number
+  realGain:  number
+  realCost:  number
+  todayGain: number | null
+  todayPct:  number | null
+  ltp:       number | null
+  currency:  Currency
+  onClick:   () => void
+}
+
+export function HoldingCard({
+  ticker, subLabel, current, invested, realGain, realCost,
+  todayGain, todayPct, ltp, currency, onClick,
+}: HoldingCardProps) {
+  const totalGain = (current - invested) + realGain
+  const totalCost = invested + realCost
+  const totalPct  = totalCost !== 0 ? (totalGain / totalCost) * 100 : 0
+  const gain      = totalGain >= 0
+
+  const borderColor = gain ? '#10b981' : '#f43f5e'
+  const bgColor     = gain ? '#f0fdf8' : '#fff5f5'
+  const textColor   = gain ? '#0a7a42' : '#be1c1c'
+
+  const tgColor = todayGain !== null
+    ? (todayGain >= 0 ? '#0a7a42' : '#be1c1c')
+    : '#94a3b8'
+
+  return (
+    <div
+      className="rounded-[10px] border px-3 py-2.5 cursor-pointer active:opacity-75 transition-opacity select-none"
+      style={{ background: bgColor, borderColor: '#e2e8f0', borderLeftWidth: 4, borderLeftColor: borderColor }}
+      onClick={onClick}
+    >
+      {/* Label row: ticker · company | LTP */}
+      <div className="flex justify-between items-center mb-1">
+        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate max-w-[70%]">
+          {ticker}{subLabel ? ` · ${subLabel}` : ''}
+        </span>
+        {ltp !== null && (
+          <span className="text-[9px] text-slate-400 shrink-0">
+            LTP <span className="text-slate-600 font-semibold">{ltp.toFixed(2)}</span>
+          </span>
+        )}
+      </div>
+
+      {/* Value | Today gain */}
+      <div className="flex items-baseline justify-between mb-0.5">
+        <span className="text-[16px] font-bold text-slate-900 tracking-tight">
+          {fmt(current, currency)}
+        </span>
+        <span className="text-[10px]" style={{ color: tgColor }}>
+          {todayGain !== null
+            ? `${todayGain >= 0 ? '+' : '−'}${fmt(Math.abs(todayGain), currency)}${todayPct !== null ? ` (${fmtPct(todayPct)})` : ''}`
+            : 'N/A'}
+        </span>
+      </div>
+
+      {/* Total G/L | arrow */}
+      <div className="flex items-baseline justify-between">
+        <span className="text-[10px] font-bold" style={{ color: textColor }}>
+          {fmtGainLine(totalGain, totalPct, currency)}
+        </span>
+        <span className="text-[11px] text-slate-400">→</span>
+      </div>
+    </div>
+  )
+}
