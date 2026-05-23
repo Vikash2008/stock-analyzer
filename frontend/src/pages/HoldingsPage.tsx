@@ -13,6 +13,7 @@ import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
 import { aggRealized, realizedForPorts } from '../utils/realized'
 import { filterBySegment, SKIP_PORTS, SEGMENT_LABELS, USD_PORTS } from '../utils/segments'
 import { fmt, fmtGainLine } from '../utils/fmt'
+import { computeXIRR } from '../utils/xirr'
 import type { Holding } from '../api/types'
 import type { Currency } from '../App'
 
@@ -46,6 +47,33 @@ const PCT_METRICS = new Set<ChartMetric>(['Return %', 'XIRR Trend'])
 const ZERO_LINE_METRICS = new Set<ChartMetric>([
   'Unrealized Gains', 'Realized Gains', 'Total Gains', 'Return %', 'XIRR Trend',
 ])
+
+type SortField = 'current' | 'invested' | 'todayGain' | 'todayPct' | 'totalGain' | 'totalPct' | 'xirr'
+const SORT_OPTIONS: { field: SortField; label: string }[] = [
+  { field: 'current',   label: 'Current Value' },
+  { field: 'invested',  label: 'Invested' },
+  { field: 'todayGain', label: 'Daily Gain' },
+  { field: 'todayPct',  label: 'Daily Gain %' },
+  { field: 'totalGain', label: 'Total Gain' },
+  { field: 'totalPct',  label: 'Total Gain %' },
+  { field: 'xirr',      label: 'XIRR' },
+]
+
+function getSortValue(r: CardRow, field: SortField, xirrMap: Map<string, number | null>): number {
+  switch (field) {
+    case 'current':   return r.current
+    case 'invested':  return r.invested
+    case 'todayGain': return r.todayGain ?? -Infinity
+    case 'todayPct':  return r.todayPct  ?? -Infinity
+    case 'totalGain': return (r.current - r.invested) + r.realGain
+    case 'totalPct': {
+      const tg = (r.current - r.invested) + r.realGain
+      const tc = r.invested + r.realCost
+      return tc !== 0 ? tg / tc * 100 : 0
+    }
+    case 'xirr': return xirrMap.get(r.key) ?? -Infinity
+  }
+}
 
 interface CardRow {
   key:       string
@@ -134,6 +162,9 @@ export default function HoldingsPage({ currency }: Props) {
   const [activeTab,   setActiveTab]   = useState<'holdings' | 'charts'>('holdings')
   const [chartMetric, setChartMetric] = useState<ChartMetric>('Portfolio Value')
   const [chartRange,  setChartRange]  = useState<ChartRange>('1y')
+  const [sortField,   setSortField]   = useState<SortField>('current')
+  const [sortDir,     setSortDir]     = useState<'desc' | 'asc'>('desc')
+  const [sortOpen,    setSortOpen]    = useState(false)
 
   const realizedMap = useMemo(
     () => (data ? aggRealized(data.realized, data.usd_inr) : new Map()),
@@ -182,6 +213,48 @@ export default function HoldingsPage({ currency }: Props) {
     () => (data?.realized ?? []).filter(r => filtPorts.has(r.portfolio)),
     [data, filtPorts],
   )
+
+  const xirrMap = useMemo(() => {
+    if (!data) return new Map<string, number | null>()
+    const today = new Date()
+    const map   = new Map<string, number | null>()
+    const isCumulative = !!segment && viewMode === 'cumulative'
+
+    for (const row of rows) {
+      const txns = data.transactions.filter(t =>
+        isCumulative
+          ? t.symbol === row.navSym && filtPorts.has(t.portfolio)
+          : t.symbol === row.navSym && t.portfolio === row.navPort,
+      )
+
+      const cfs: { date: Date; amount: number }[] = []
+      for (const tx of txns) {
+        if (tx.type === 'DIVIDEND') continue
+        const isUsd = USD_PORTS.has(tx.portfolio)
+        const fx    = isUsd
+          ? (currency === 'INR' ? data.usd_inr : 1)
+          : (currency === 'USD' ? 1 / data.usd_inr : 1)
+        const amt = tx.quantity * tx.price * fx
+        const chg = (tx.charges ?? 0) * fx
+        if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
+        if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
+      }
+      if (row.current > 0) cfs.push({ date: today, amount: row.current })
+
+      const r = computeXIRR(cfs)
+      map.set(row.key, r !== null ? r * 100 : null)
+    }
+    return map
+  }, [rows, data, currency, filtPorts, segment, viewMode])
+
+  const sortedRows = useMemo(() => [...rows].sort((a, b) => {
+    const va = getSortValue(a, sortField, xirrMap)
+    const vb = getSortValue(b, sortField, xirrMap)
+    if (va === -Infinity && vb === -Infinity) return 0
+    if (va === -Infinity) return 1
+    if (vb === -Infinity) return -1
+    return sortDir === 'desc' ? vb - va : va - vb
+  }), [rows, sortField, sortDir, xirrMap])
 
   const { series: portSeries, isLoading: histLoading } = usePortfolioHistory(
     filteredHoldings,
@@ -296,10 +369,45 @@ export default function HoldingsPage({ currency }: Props) {
             </div>
           )}
 
-          <p className="text-[9px] text-slate-400 mb-2">{rows.length} holdings</p>
+          {/* Count + sort */}
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[9px] text-slate-400">{rows.length} holdings</p>
+            <div className="relative">
+              <button
+                onClick={() => setSortOpen(o => !o)}
+                className="flex items-center gap-0.5 text-[9px] text-slate-400 py-1 px-1"
+              >
+                <span>{SORT_OPTIONS.find(o => o.field === sortField)?.label}</span>
+                <span>{sortDir === 'desc' ? ' ↓' : ' ↑'}</span>
+              </button>
+              {sortOpen && (
+                <>
+                  <div className="fixed inset-0 z-[9]" onClick={() => setSortOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 min-w-[140px] py-1">
+                    {SORT_OPTIONS.map(opt => (
+                      <button
+                        key={opt.field}
+                        onClick={() => {
+                          if (sortField === opt.field) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+                          else { setSortField(opt.field); setSortDir('desc') }
+                          setSortOpen(false)
+                        }}
+                        className={`w-full text-left text-[10px] px-3 py-1.5 flex justify-between items-center ${
+                          sortField === opt.field ? 'text-[#2563eb] font-medium' : 'text-slate-600'
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        {sortField === opt.field && <span className="ml-2">{sortDir === 'desc' ? '↓' : '↑'}</span>}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
 
           <div className="space-y-2">
-            {rows.map(r => (
+            {sortedRows.map(r => (
               <HoldingCard
                 key={r.key}
                 ticker={r.ticker}
@@ -311,8 +419,9 @@ export default function HoldingsPage({ currency }: Props) {
                 todayGain={r.todayGain}
                 todayPct={r.todayPct}
                 ltp={r.ltp}
+                xirr={xirrMap.get(r.key) ?? null}
                 currency={isUsd ? 'USD' : currency}
-                onClick={() => navigate(`/transactions/${encodeURIComponent(r.navPort)}/${encodeURIComponent(r.navSym)}`)}
+                onClick={() => navigate(`/transactions/${encodeURIComponent(r.navPort)}/${encodeURIComponent(r.navSym)}`, { state: { from: label } })}
               />
             ))}
           </div>
@@ -391,15 +500,17 @@ export default function HoldingsPage({ currency }: Props) {
                   <XAxis
                     dataKey="t"
                     tick={{ fontSize: 8, fill: '#94a3b8' }}
-                    interval="preserveStartEnd"
+                    interval={Math.max(0, Math.floor(rechartsData.length / 5) - 1)}
                     tickLine={false}
+                    axisLine={false}
                   />
                   <YAxis
                     tick={{ fontSize: 8, fill: '#94a3b8' }}
                     tickFormatter={yTickFmt}
-                    width={42}
+                    width={48}
                     tickLine={false}
                     axisLine={false}
+                    domain={['auto', 'auto']}
                   />
                   <Tooltip
                     formatter={(v: number) => [
@@ -425,19 +536,16 @@ export default function HoldingsPage({ currency }: Props) {
                 </LineChart>
               </ResponsiveContainer>
 
-              {/* Range selector */}
-              <div
-                className="flex gap-1.5 overflow-x-auto pt-2"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
-              >
+              {/* Range selector — segmented control */}
+              <div className="flex bg-slate-100 rounded-lg p-0.5 mt-3">
                 {RANGES.map(r => (
                   <button
                     key={r}
                     onClick={() => setChartRange(r)}
-                    className={`text-[10px] px-2.5 py-0.5 rounded-full border transition-colors ${
+                    className={`flex-1 text-[10px] py-1 rounded-md font-medium transition-all ${
                       chartRange === r
-                        ? 'bg-[#2563eb] text-white border-[#2563eb]'
-                        : 'bg-white text-slate-500 border-slate-200'
+                        ? 'bg-white text-[#2563eb] shadow-sm'
+                        : 'text-slate-400'
                     }`}
                   >
                     {r}

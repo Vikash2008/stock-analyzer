@@ -1,6 +1,12 @@
-import { useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import React, { useMemo, useState } from 'react'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, ReferenceLine,
+} from 'recharts'
 import { usePortfolio } from '../hooks/usePortfolio'
+import { usePortfolioHistory, sliceSeries } from '../hooks/usePortfolioHistory'
+import type { DatedSeries, PortfolioSeries } from '../hooks/usePortfolioHistory'
 import { TxRow } from '../components/TxRow'
 import { PriceChart } from '../components/PriceChart'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
@@ -9,13 +15,46 @@ import { SKIP_PORTS, USD_PORTS } from '../utils/segments'
 import { fmt, fmtGainLine, fmtPct } from '../utils/fmt'
 import type { Currency } from '../App'
 
+const METRICS = [
+  'Price',
+  'Portfolio Value',
+  'Invested',
+  'Unrealized Gains',
+  'Realized Gains',
+  'Total Gains',
+  'Return %',
+  'XIRR Trend',
+] as const
+type ChartMetric = typeof METRICS[number]
+
+const RANGES = ['1m', '3m', '6m', '1y', '2y', '3y', '5y', 'All'] as const
+type ChartRange = typeof RANGES[number]
+
+const METRIC_SERIES_KEY: Record<Exclude<ChartMetric, 'Price'>, keyof PortfolioSeries> = {
+  'Portfolio Value':  'value',
+  'Invested':         'invested',
+  'Unrealized Gains': 'unrealized',
+  'Realized Gains':   'realized',
+  'Total Gains':      'total',
+  'Return %':         'returnPct',
+  'XIRR Trend':       'xirrTrend',
+}
+
+const PCT_METRICS     = new Set<ChartMetric>(['Return %', 'XIRR Trend'])
+const ZERO_LINE_METRICS = new Set<ChartMetric>([
+  'Unrealized Gains', 'Realized Gains', 'Total Gains', 'Return %', 'XIRR Trend',
+])
+
 interface Props { currency: Currency }
 
 export default function TransactionsPage({ currency }: Props) {
-  const navigate = useNavigate()
+  const navigate  = useNavigate()
+  const location  = useLocation()
   const { portfolio = '', symbol = '' } = useParams<{ portfolio: string; symbol: string }>()
   const { data, isLoading, error } = usePortfolio(currency)
-  const [activeTab, setActiveTab] = useState<'transactions' | 'charts'>('transactions')
+  const [activeTab,   setActiveTab]   = useState<'transactions' | 'charts'>('transactions')
+  const [chartMetric, setChartMetric] = useState<ChartMetric>('Price')
+  const [chartRange,  setChartRange]  = useState<ChartRange>('1y')
 
   const decoded = {
     portfolio: decodeURIComponent(portfolio),
@@ -47,6 +86,39 @@ export default function TransactionsPage({ currency }: Props) {
       .sort((a, b) => b.date.localeCompare(a.date))  // newest first
   }, [data, decoded.portfolio, decoded.symbol])
 
+  const holdingArr = useMemo(() => (holding ? [holding] : []), [holding])
+
+  const symRealized = useMemo(() => {
+    if (!data) return []
+    return data.realized.filter(
+      r => r.portfolio === decoded.portfolio && r.symbol === decoded.symbol,
+    )
+  }, [data, decoded.portfolio, decoded.symbol])
+
+  const { series: portSeries, isLoading: histLoading } = usePortfolioHistory(
+    holdingArr,
+    symTxns,
+    symRealized,
+    data?.usd_inr ?? 95.5,
+    currency,
+    activeTab === 'charts' && chartMetric !== 'Price' && !!data,
+  )
+
+  const metricSeries = useMemo((): DatedSeries | null => {
+    if (!portSeries || chartMetric === 'Price') return null
+    const key = METRIC_SERIES_KEY[chartMetric as Exclude<ChartMetric, 'Price'>]
+    const raw = portSeries[key] as DatedSeries
+    return sliceSeries(raw, chartRange)
+  }, [portSeries, chartMetric, chartRange])
+
+  const rechartsData = useMemo(
+    () => metricSeries?.dates.map((d, i) => ({
+      t: d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
+      v: metricSeries.values[i],
+    })) ?? [],
+    [metricSeries],
+  )
+
   if (isLoading) return <LoadingSkeleton />
   if (error || !data) return <ErrorState message={(error as Error)?.message ?? 'Unknown error'} />
 
@@ -54,7 +126,8 @@ export default function TransactionsPage({ currency }: Props) {
   const dispCur = currency
   const [realGain] = realizedMap.get(`${decoded.portfolio}:${decoded.symbol}`) ?? [0]
   const realColor  = realGain >= 0 ? '#0a7a42' : '#be1c1c'
-  const backLabel  = `← ${decoded.portfolio} Holdings`
+  const fromLabel  = (location.state as { from?: string } | null)?.from ?? decoded.portfolio
+  const backLabel  = `← ${fromLabel} Holdings`
 
   // Symbol overview card values
   const cur     = holding ? holding.disp_current  : 0
@@ -76,6 +149,22 @@ export default function TransactionsPage({ currency }: Props) {
   const co    = holding?.company ?? ''
   const yf    = holding?.yf_symbol ?? decoded.symbol
 
+  const isPct       = PCT_METRICS.has(chartMetric)
+  const chartLast   = metricSeries?.values[metricSeries.values.length - 1] ?? null
+  const chartFirst  = metricSeries?.values[0] ?? null
+  const chartChange = chartLast !== null && chartFirst !== null ? chartLast - chartFirst : null
+  const lineColor   = (chartLast ?? 0) >= 0 ? '#10b981' : '#f43f5e'
+  const lastColor   = (chartLast ?? 0) >= 0 ? '#0a7a42' : '#be1c1c'
+
+  const yTickFmt = (v: number) => {
+    if (isPct) return `${v.toFixed(0)}%`
+    const abs = Math.abs(v)
+    if (abs >= 1e7) return `${(v / 1e7).toFixed(1)}Cr`
+    if (abs >= 1e5) return `${(v / 1e5).toFixed(1)}L`
+    if (abs >= 1e3) return `${(v / 1e3).toFixed(0)}K`
+    return v.toFixed(0)
+  }
+
   return (
     <div className="max-w-xl mx-auto px-4 py-4">
       {/* Back */}
@@ -91,7 +180,7 @@ export default function TransactionsPage({ currency }: Props) {
         {/* Label row */}
         <div className="flex justify-between items-center mb-1">
           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate max-w-[75%]">
-            {decoded.portfolio} · {decoded.symbol}{co ? ` · ${co}` : ''}
+            {co || decoded.symbol}
           </span>
           <span className="text-[9px] text-slate-400 shrink-0">
             LTP <span className="text-slate-600 font-semibold">{ltp}</span>
@@ -174,12 +263,146 @@ export default function TransactionsPage({ currency }: Props) {
       )}
 
       {activeTab === 'charts' && (
-        <PriceChart
-          transactions={symTxns}
-          yf_symbol={yf}
-          currency={dispCur}
-          usdInr={data.usd_inr}
-        />
+        <div>
+          {/* Metric selector */}
+          <div
+            className="flex gap-1.5 overflow-x-auto pb-2 mb-3"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+          >
+            {METRICS.map(m => (
+              <button
+                key={m}
+                onClick={() => setChartMetric(m)}
+                className={`text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-colors ${
+                  chartMetric === m
+                    ? 'bg-[#2563eb] text-white border-[#2563eb]'
+                    : 'bg-white text-slate-500 border-slate-200'
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+
+          {/* Price chart */}
+          {chartMetric === 'Price' && (
+            <PriceChart
+              transactions={symTxns}
+              yf_symbol={yf}
+              currency={dispCur}
+              usdInr={data.usd_inr}
+            />
+          )}
+
+          {/* Historical series charts */}
+          {chartMetric !== 'Price' && (
+            <>
+              {histLoading && (
+                <div className="text-center py-10 text-slate-400 text-xs">
+                  Loading price history…
+                </div>
+              )}
+
+              {!histLoading && portSeries && !metricSeries && (
+                <div className="text-center py-10 text-slate-400 text-xs">
+                  No data for this period.
+                </div>
+              )}
+
+              {!histLoading && !portSeries && (
+                <div className="text-center py-10 text-slate-400 text-xs">
+                  No price history available.
+                </div>
+              )}
+
+              {!histLoading && metricSeries && rechartsData.length > 0 && (
+                <>
+                  {/* Stat line */}
+                  <div className="flex items-baseline gap-2 mb-2">
+                    <span className="text-[15px] font-bold" style={{ color: lastColor }}>
+                      {chartLast !== null
+                        ? isPct
+                          ? `${chartLast >= 0 ? '+' : ''}${chartLast.toFixed(2)}%`
+                          : fmt(chartLast, currency)
+                        : '—'
+                      }
+                    </span>
+                    {chartChange !== null && !isPct && (
+                      <span className="text-[10px]" style={{ color: chartChange >= 0 ? '#0a7a42' : '#be1c1c' }}>
+                        {fmtGainLine(chartChange, null, currency)} in period
+                      </span>
+                    )}
+                    {chartChange !== null && isPct && (
+                      <span className="text-[10px] text-slate-400">
+                        {chartChange >= 0 ? '+' : ''}{chartChange.toFixed(2)}pp in period
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Line chart */}
+                  <ResponsiveContainer width="100%" height={220}>
+                    <LineChart data={rechartsData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis
+                        dataKey="t"
+                        tick={{ fontSize: 8, fill: '#94a3b8' }}
+                        interval={Math.max(0, Math.floor(rechartsData.length / 5) - 1)}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 8, fill: '#94a3b8' }}
+                        tickFormatter={yTickFmt}
+                        width={48}
+                        tickLine={false}
+                        axisLine={false}
+                        domain={['auto', 'auto']}
+                      />
+                      <Tooltip
+                        formatter={(v: number) => [
+                          isPct
+                            ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`
+                            : fmt(v, currency),
+                          chartMetric,
+                        ]}
+                        contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #e2e8f0' }}
+                        labelStyle={{ fontSize: 9, color: '#94a3b8' }}
+                      />
+                      {ZERO_LINE_METRICS.has(chartMetric) && (
+                        <ReferenceLine y={0} stroke="#cbd5e1" strokeDasharray="3 3" strokeWidth={1} />
+                      )}
+                      <Line
+                        type="monotone"
+                        dataKey="v"
+                        stroke={lineColor}
+                        strokeWidth={1.5}
+                        dot={false}
+                        activeDot={{ r: 3, strokeWidth: 0 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+
+                  {/* Range selector */}
+                  <div className="flex bg-slate-100 rounded-lg p-0.5 mt-3">
+                    {RANGES.map(r => (
+                      <button
+                        key={r}
+                        onClick={() => setChartRange(r)}
+                        className={`flex-1 text-[10px] py-1 rounded-md font-medium transition-all ${
+                          chartRange === r
+                            ? 'bg-white text-[#2563eb] shadow-sm'
+                            : 'text-slate-400'
+                        }`}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </div>
       )}
     </div>
   )

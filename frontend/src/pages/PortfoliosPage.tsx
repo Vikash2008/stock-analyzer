@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { usePortfolio, useForceRefresh } from '../hooks/usePortfolio'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
 import { fmt, fmtGainLine, fmtPct } from '../utils/fmt'
-import { SKIP_PORTS, getSegmentType, filterBySegment } from '../utils/segments'
+import { SKIP_PORTS, getSegmentType, filterBySegment, USD_PORTS } from '../utils/segments'
 import { aggRealized, realizedForPorts } from '../utils/realized'
+import { computeXIRR } from '../utils/xirr'
 import type { RealizedMap } from '../utils/realized'
 import type { Currency } from '../App'
 import type { Holding } from '../api/types'
@@ -73,7 +74,7 @@ function typeCards(holdings: Holding[], rmap: RealizedMap): CardStats[] {
 
 function isPos(v: number) { return v >= 0 }
 
-function BreakCard({ card, currency, onClick }: { card: CardStats; currency: Currency; onClick: () => void }) {
+function BreakCard({ card, currency, xirr, onClick }: { card: CardStats; currency: Currency; xirr: number | null; onClick: () => void }) {
   const totalGain = (card.current - card.invested) + card.realGain
   const totalCost = card.invested + card.realCost
   const pct = totalCost !== 0 ? (totalGain / totalCost) * 100 : 0
@@ -101,7 +102,10 @@ function BreakCard({ card, currency, onClick }: { card: CardStats; currency: Cur
         <span className="text-[11px]" style={{ color: pos ? '#0a7a42' : '#be1c1c' }}>
           {fmtGainLine(totalGain, pct, currency)}
         </span>
-        <span className="text-[9px] text-slate-400">{fmt(card.invested, currency)} invested</span>
+        {xirr !== null
+          ? <span className="text-[9px] font-semibold" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
+          : <span className="text-[9px] text-slate-400">{fmt(card.invested, currency)} inv</span>
+        }
       </div>
     </div>
   )
@@ -111,7 +115,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const navigate     = useNavigate()
   const { data, isLoading, error } = usePortfolio(currency)
   const forceRefresh = useForceRefresh(currency)
-  const [mode, setMode] = useState<BreakdownMode>('broker')
+  const [mode, setMode] = useState<BreakdownMode>('type')
 
   const rmap = useMemo(() => data ? aggRealized(data.realized, data.usd_inr) : new Map(), [data])
 
@@ -172,6 +176,43 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     () => mode === 'broker' ? portfolioCards(active, rmap) : typeCards(active, rmap),
     [active, rmap, mode],
   )
+
+  // XIRR per card — broker uses bundle values, type is computed client-side
+  const cardXirrMap = useMemo(() => {
+    if (!data) return new Map<string, number | null>()
+    const map = new Map<string, number | null>()
+    const today = new Date()
+
+    if (mode === 'broker') {
+      for (const card of cards) {
+        const v = data.xirr_by_portfolio[card.key]
+        map.set(card.key, v !== undefined ? v : null)
+      }
+    } else {
+      for (const card of cards) {
+        const hs = active.filter(h => getSegmentType(h.portfolio, h.yf_symbol) === card.key)
+        const holdingKeys = new Set(hs.map(h => `${h.portfolio}:${h.symbol}`))
+        const txns = data.transactions.filter(t => holdingKeys.has(`${t.portfolio}:${t.symbol}`))
+        const cfs: { date: Date; amount: number }[] = []
+        for (const tx of txns) {
+          if (tx.type === 'DIVIDEND') continue
+          const isUsd = USD_PORTS.has(tx.portfolio)
+          const fx = isUsd
+            ? (currency === 'INR' ? data.usd_inr : 1)
+            : (currency === 'USD' ? 1 / data.usd_inr : 1)
+          const amt = tx.quantity * tx.price * fx
+          const chg = (tx.charges ?? 0) * fx
+          if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
+          if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
+        }
+        const totalCurrent = hs.reduce((s, h) => s + h.disp_current, 0)
+        if (totalCurrent > 0) cfs.push({ date: today, amount: totalCurrent })
+        const r = computeXIRR(cfs)
+        map.set(card.key, r !== null ? r * 100 : null)
+      }
+    }
+    return map
+  }, [cards, data, mode, active, currency])
 
   if (isLoading) return <LoadingSkeleton />
   if (error || !data) return <ErrorState message={(error as Error)?.message ?? 'Unknown error'} />
@@ -278,7 +319,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       <div className="flex items-center justify-between px-0.5">
         <p className="text-[9px] text-slate-400 uppercase tracking-widest">Breakdown</p>
         <div className="flex gap-1">
-          {(['broker', 'type'] as BreakdownMode[]).map(m => (
+          {(['type', 'broker'] as BreakdownMode[]).map(m => (
             <button
               key={m}
               onClick={() => setMode(m)}
@@ -296,7 +337,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
       {/* Breakdown cards */}
       {cards.map(card => (
-        <BreakCard key={card.key} card={card} currency={currency} onClick={() => navigate(card.navPath)} />
+        <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} />
       ))}
 
       {/* Data freshness */}

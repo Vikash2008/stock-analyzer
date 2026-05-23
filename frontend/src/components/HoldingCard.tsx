@@ -14,13 +14,14 @@ interface HoldingCardProps {
   todayGain: number | null
   todayPct:  number | null
   ltp:       number | null
+  xirr:      number | null
   currency:  Currency
   onClick:   () => void
 }
 
 export function HoldingCard({
   ticker, subLabel, current, invested, realGain, realCost,
-  todayGain, todayPct, ltp, currency, onClick,
+  todayGain, todayPct, ltp, xirr, currency, onClick,
 }: HoldingCardProps) {
   const totalGain = (current - invested) + realGain
   const totalCost = invested + realCost
@@ -65,12 +66,15 @@ export function HoldingCard({
         </span>
       </div>
 
-      {/* Total G/L | arrow */}
+      {/* Total G/L | XIRR */}
       <div className="flex items-baseline justify-between">
         <span className="text-[10px] font-bold" style={{ color: textColor }}>
           {fmtGainLine(totalGain, totalPct, currency)}
         </span>
-        <span className="text-[11px] text-slate-400">→</span>
+        {xirr !== null
+          ? <span className="text-[9px]" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
+          : <span className="text-[11px] text-slate-400">→</span>
+        }
       </div>
     </div>
   )

@@ -1,7 +1,7 @@
 // Price history line + BUY/SELL bubble markers.
 // Mirrors charts.py using Recharts ComposedChart.
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
@@ -23,6 +23,13 @@ interface ChartPoint {
   price:  number
   buy?:   number
   sell?:  number
+}
+
+const RANGES = ['1m', '3m', '6m', '1y', '2y', '3y', '5y', 'All'] as const
+type ChartRange = typeof RANGES[number]
+
+const RANGE_DAYS: Record<string, number> = {
+  '1m': 30, '3m': 90, '6m': 182, '1y': 365, '2y': 730, '3y': 1095, '5y': 1825,
 }
 
 // Find first transaction date, used as the history start
@@ -90,13 +97,20 @@ function SellDot(props: any) {
 }
 
 export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceChartProps) {
+  const [range, setRange] = useState<ChartRange>('All')
   const start   = useMemo(() => firstTxDate(transactions), [transactions])
   const { data: history, isLoading } = useHistory(yf_symbol, start)
 
-  const chartData = useMemo(() => {
+  const allChartData = useMemo(() => {
     if (!history?.dates.length) return []
     return buildChartData(history.dates, history.prices, transactions)
   }, [history, transactions])
+
+  const chartData = useMemo(() => {
+    if (!allChartData.length || range === 'All') return allChartData
+    const cutoff = new Date(Date.now() - RANGE_DAYS[range] * 86_400_000).toISOString().slice(0, 10)
+    return allChartData.filter(p => p.date >= cutoff)
+  }, [allChartData, range])
 
   const yFmt = (v: number) => {
     if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}K`
@@ -121,7 +135,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceC
 
   return (
     <div className="mt-2">
-      <ResponsiveContainer width="100%" height={280}>
+      <ResponsiveContainer width="100%" height={240}>
         <LineChart data={chartData} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis
@@ -181,6 +195,23 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceC
           />
         </LineChart>
       </ResponsiveContainer>
+
+      {/* Range selector */}
+      <div className="flex bg-slate-100 rounded-lg p-0.5 mt-3">
+        {RANGES.map(r => (
+          <button
+            key={r}
+            onClick={() => setRange(r)}
+            className={`flex-1 text-[10px] py-1 rounded-md font-medium transition-all ${
+              range === r
+                ? 'bg-white text-[#2563eb] shadow-sm'
+                : 'text-slate-400'
+            }`}
+          >
+            {r}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
