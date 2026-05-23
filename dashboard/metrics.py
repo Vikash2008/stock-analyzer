@@ -370,9 +370,14 @@ def render(bundle: PortfolioBundle) -> None:
         }.get(sort_by, -cur_p)
 
     sort_by = st.session_state.get("bd_sort", _SORT_OPTS[0])
-    c_mode, c_sort = st.columns([3, 1])
+    st.markdown("""<style>
+div[data-testid="stPopover"]>div>button{font-size:11px!important;padding:2px 8px!important;min-height:0!important;width:auto!important;}
+div[data-testid="stPopover"]{width:auto!important;}
+</style>""", unsafe_allow_html=True)
+    c_mode, c_sort = st.columns([4, 1], gap="small")
     with c_mode:
-        mode = st.radio("Breakdown", ["By Type", "By Broker"], horizontal=True, key="breakdown_mode")
+        mode = st.radio("Breakdown", ["By Type", "By Broker"], horizontal=True,
+                        key="breakdown_mode", label_visibility="collapsed")
     with c_sort:
         with st.popover("⇅ Sort"):
             sort_by = st.radio("Sort by", _SORT_OPTS, key="bd_sort", label_visibility="collapsed")
