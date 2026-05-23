@@ -21,8 +21,9 @@ import pandas as pd
 
 from src.cache import Cache
 
-_DATA_FILE = Path("data/msp_v2.csv")
-_USD_PORTS = {"Vested", "IndMoney US", "IndMoney Mummy"}
+_DATA_FILE  = Path("data/msp_v2.csv")
+_USD_PORTS  = {"Vested", "IndMoney US", "IndMoney Mummy"}
+_SKIP_PORTS = {"Equity", "MF_Portfolio"}   # aggregate duplicates — excluded from totals
 
 
 # ── Data bundle ───────────────────────────────────────────────────────────────
@@ -146,9 +147,11 @@ def build(
         if pd.notna(r.get("today_gain")) else None, axis=1
     )
 
-    # ── Summary ───────────────────────────────────────────────────────────────
-    total_invested = holdings["disp_invested"].sum()
-    total_current  = holdings["disp_current"].sum()
+    # ── Summary (exclude aggregate-duplicate portfolios) ─────────────────────
+    _totals = holdings[~holdings["portfolio"].isin(_SKIP_PORTS)] \
+              if "portfolio" in holdings.columns else holdings
+    total_invested = _totals["disp_invested"].sum()
+    total_current  = _totals["disp_current"].sum()
     total_gain     = total_current - total_invested
     return_pct     = (total_gain / total_invested * 100) if total_invested else 0.0
 
