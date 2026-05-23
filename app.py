@@ -62,10 +62,16 @@ st.markdown("""
     box-shadow: 0 2px 6px rgba(37,99,235,0.25) !important;
   }
 
-  /* Sort popover icon — auto width, small */
-  [data-testid="stPopover"] { width: auto !important; display: inline-flex !important; }
-  [data-testid="stPopover"] > div { width: auto !important; }
-  [data-testid="stPopover"] button { width: auto !important; min-width: unset !important; padding: 4px 10px !important; font-size: 14px !important; }
+  /* Sort popover — pulled up onto the same line as the breakdown radio */
+  [data-testid="element-container"]:has([data-testid="stPopover"]) {
+    margin-top: -38px !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+  }
+  [data-testid="stPopover"] button {
+    width: auto !important; min-width: unset !important;
+    padding: 2px 8px !important; font-size: 13px !important;
+  }
 
   /* Explore button — small, right-aligned, auto width */
   .element-container:has(.portcard) + .element-container [data-testid="stButton"] {
