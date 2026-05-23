@@ -102,6 +102,14 @@ msp_v2.csv
 | usd_inr | float | Live FX rate (fallback ~95.5) |
 | as_of | string | ISO timestamp of price fetch |
 | cache_status | string | Human-readable cache summary |
+| total_invested | float | Sum of disp_invested, SKIP_PORTS excluded |
+| total_current | float | Sum of disp_current, SKIP_PORTS excluded |
+| total_gain | float | total_current − total_invested |
+| return_pct | float | total_gain / total_invested × 100 |
+| xirr_total | float\|null | Annualised XIRR % across all non-SKIP portfolios |
+| xirr_stk | float\|null | XIRR % for non-MF_ portfolios (stocks + US) |
+| xirr_mf | float\|null | XIRR % for MF_ portfolios |
+| xirr_by_portfolio | object | portfolio → XIRR % (non-SKIP only) |
 
 ---
 
@@ -174,12 +182,11 @@ Render cold start: 60–90s after inactivity (free tier spins down).
 
 ---
 
-## Pending (Phase 4)
+## Pending
 
-- XIRR per holding card (shows "—" now) — needs `/api/xirr` endpoint or bundle enrichment
+- XIRR per individual holding card (shows "—") — `xirr_by_portfolio` is in bundle; need per-symbol XIRR
 - HoldingsPage Charts tab — shows placeholder — needs historical portfolio value series endpoint
 - SummaryPage historical line chart — needs `_build_value_series()` as API endpoint
-- Number accuracy fixes (P&L, realized values)
 
 ---
 
@@ -188,7 +195,7 @@ Render cold start: 60–90s after inactivity (free tier spins down).
 | File | Function | Edit here when… |
 |------|----------|-----------------|
 | `backend/routers/portfolio.py` | `get_portfolio()` | Change API response shape |
-| `backend/serializers.py` | `bundle_to_dict()` | Change JSON serialisation |
+| `backend/serializers.py` | `serialize_bundle()` | Change JSON serialisation |
 | `src/engine.py` | `build()` | Add new bundle fields |
 | `src/portfolio.py` | `_run_fifo()` | FIFO logic, realized_pnl |
 | `src/cache.py` | `Cache` | Change cache TTLs |

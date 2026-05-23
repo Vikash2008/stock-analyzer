@@ -5,12 +5,13 @@
 
 ---
 
-## Phase 4 — Data Accuracy & Charts (Next Up)
+## Phase 4 — Data Accuracy & Charts
 
 | # | Item | What's needed | Status |
 |---|------|---------------|--------|
-| 1 | Fix P&L and realized values showing wrong numbers | Audit `serializers.py` + `frontend/utils/realized.ts` against Python source | pending |
-| 2 | XIRR per holding card (shows "—") | Add `/api/xirr` endpoint or enrich bundle in `engine.py` | pending |
+| 1 | Fix P&L and realized values showing wrong numbers | SKIP_PORTS excluded from totals; realized included in portfolio/segment cards | done |
+| 2 | XIRR at portfolio + segment level | Bundle now carries xirr_total, xirr_stk, xirr_mf, xirr_by_portfolio | done |
+| 2b | XIRR per individual holding card (shows "—") | Need per-symbol XIRR computation | pending |
 | 3 | HoldingsPage — Charts tab (shows placeholder) | Add `/api/history/portfolio` endpoint for historical portfolio value series | pending |
 | 4 | SummaryPage — historical line chart (shows bar snapshot only) | Port `_build_value_series()` + `_build_invested_series()` as API endpoints | pending |
 
@@ -30,7 +31,7 @@
 
 | # | Item | What's needed | Status |
 |---|------|---------------|--------|
-| 8 | Segment view (Stocks / MF / US) on PortfoliosPage | Use `getSegmentType()` from `segments.ts` — aggregate client-side | pending |
+| 8 | Segment view (Stocks / MF / US) on PortfoliosPage | Stocks + MF tiles added; By Broker / By Type toggle added | done |
 | 9 | Search / filter on HoldingsPage | Client-side filter on holdings array — no API change | pending |
 | 10 | Dividend history view | `realized` array already in bundle — filter by `type === "DIVIDEND"` | pending |
 
@@ -46,3 +47,7 @@
 | Render deployment (backend) | 2026-05-24 |
 | PWA manifest — standalone home screen install | 2026-05-24 |
 | Drop Streamlit — React+FastAPI only | 2026-05-24 |
+| Fix P&L double-count (SKIP_PORTS in engine totals + PortfoliosPage) | 2026-05-24 |
+| Stocks + MF tiles with today % and XIRR on PortfoliosPage | 2026-05-24 |
+| By Broker / By Type breakdown toggle on PortfoliosPage | 2026-05-24 |
+| XIRR per portfolio + segment in bundle (xirr_total/stk/mf/by_portfolio) | 2026-05-24 |
