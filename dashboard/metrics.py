@@ -369,13 +369,19 @@ def render(bundle: PortfolioBundle) -> None:
             "Daily Gain %":   -tg_pct,
         }.get(sort_by, -cur_p)
 
+    _SORT_SHORT = ["Val", "Profit", "P%", "XIRR", "Day", "Day%"]
     sort_by = st.session_state.get("bd_sort", _SORT_OPTS[0])
-    c_mode, c_sort = st.columns([3, 2], gap="small")
-    with c_mode:
+
+    c_bd, c_sort = st.columns([3, 2], gap="small")
+    with c_bd:
         mode = st.radio("Breakdown", ["By Type", "By Broker"], horizontal=True,
                         key="breakdown_mode", label_visibility="collapsed")
     with c_sort:
-        sort_by = st.selectbox("⇅", _SORT_OPTS, key="bd_sort", label_visibility="collapsed")
+        sel_short = st.radio("Sort", _SORT_SHORT, horizontal=True,
+                             key="bd_sort_short", label_visibility="collapsed",
+                             index=_SORT_OPTS.index(sort_by) if sort_by in _SORT_OPTS else 0)
+        sort_by = _SORT_OPTS[_SORT_SHORT.index(sel_short)]
+        st.session_state["bd_sort"] = sort_by
 
     # ── By Type ───────────────────────────────────────────────────────────────
     if mode == "By Type":

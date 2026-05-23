@@ -139,3 +139,15 @@ elif page == "summary":
 else:
     st.markdown("**📈 Portfolio Analyzer**")
     portfolio_page.render(bundle)
+
+# ── Layout probe (measure on phone, then remove) ──────────────────────────────
+import streamlit.components.v1 as components
+components.html("""
+<div id="probe" style="font-size:9px;color:#94a3b8;text-align:right;padding-right:4px;font-family:monospace;"></div>
+<script>
+(function(){
+  var w = document.documentElement.clientWidth;
+  document.getElementById('probe').innerText = 'container: ' + w + 'px | screen: ' + window.screen.width + 'px';
+})();
+</script>
+""", height=18)

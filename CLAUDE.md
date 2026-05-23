@@ -2,7 +2,7 @@
 
 ## BOOT PROTOCOL — Execution Mode (Every Session)
 
-1. Read **always** at session start: this file (`CLAUDE.md`), `ARCHITECTURE.md`, `app_UI.md`, and `~/.claude/projects/C--Users-Admin-stock-analyzer/memory/project_mobile_streamlit.md`.
+1. Read **always** at session start: this file (`CLAUDE.md`), `ARCHITECTURE.md`, `app_UI.md`, `layout_mobile.md`, and `~/.claude/projects/C--Users-Admin-stock-analyzer/memory/project_mobile_streamlit.md`.
 2. Then read files directly related to the task being asked.
 3. Do **not** perform a full repository scan unless explicitly requested.
 4. Assume all existing code is correct unless the user shows an error.
@@ -15,6 +15,8 @@
 - **Do not over-assess.** If the task is a UI change, edit only the reported lines. Do not audit adjacent code or refactor surrounding logic.
 - **No unsolicited cleanup.** Do not fix things that weren't broken, rename variables, or improve code that wasn't touched by the task.
 - **Speed over thoroughness.** Optimize for fast response and minimal token usage.
+- **No edge cases.** Do not evaluate or handle edge cases unless the user explicitly reports one.
+- **Cache aggressively.** Re-use any file already read in the session — do not re-read it.
 - **One question max if ambiguous.** Ask one specific question. Do not ask for confirmation on obvious steps.
 - **Ship after every change.** After any code edit (UI or backend), immediately run `/ship` — no confirmation needed. Local dashboard is obsolete; the user only verifies on mobile via Streamlit Cloud.
 - **Output rule.** Direct implementation or fix. No long explanations. No alternative approaches.
@@ -73,6 +75,14 @@ python validate.py -r          # force price refresh
 - Equity invested: ₹1,33,22,568
 
 ---
+
+## Mobile Layout Rule (Every UI Change)
+
+Before placing any new widget, check `layout_mobile.md`:
+- Look up the column width at the ratio you plan to use
+- Confirm the widget fits (min widths in the reference)
+- Both widgets in a same-line column MUST have `label_visibility="collapsed"`
+- Never guess — calculate from the table
 
 ## Constraints
 
