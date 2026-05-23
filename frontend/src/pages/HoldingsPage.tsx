@@ -1,20 +1,51 @@
-import { useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Cell,
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 import { usePortfolio } from '../hooks/usePortfolio'
+import { usePortfolioHistory, sliceSeries } from '../hooks/usePortfolioHistory'
+import type { DatedSeries, PortfolioSeries } from '../hooks/usePortfolioHistory'
 import { HoldingCard } from '../components/HoldingCard'
 import { SummaryCard } from '../components/SummaryCard'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
 import { aggRealized, realizedForPorts } from '../utils/realized'
 import { filterBySegment, SKIP_PORTS, SEGMENT_LABELS, USD_PORTS } from '../utils/segments'
-import { fmt } from '../utils/fmt'
+import { fmt, fmtGainLine } from '../utils/fmt'
 import type { Holding } from '../api/types'
 import type { Currency } from '../App'
 
 interface Props { currency: Currency }
+
+const METRICS = [
+  'Portfolio Value',
+  'Invested',
+  'Unrealized Gains',
+  'Realized Gains',
+  'Total Gains',
+  'Return %',
+  'XIRR Trend',
+] as const
+type ChartMetric = typeof METRICS[number]
+
+const RANGES = ['1m', '3m', '6m', '1y', '2y', '3y', '5y', 'All'] as const
+type ChartRange = typeof RANGES[number]
+
+const METRIC_SERIES_KEY: Record<ChartMetric, keyof PortfolioSeries> = {
+  'Portfolio Value':  'value',
+  'Invested':         'invested',
+  'Unrealized Gains': 'unrealized',
+  'Realized Gains':   'realized',
+  'Total Gains':      'total',
+  'Return %':         'returnPct',
+  'XIRR Trend':       'xirrTrend',
+}
+
+const PCT_METRICS = new Set<ChartMetric>(['Return %', 'XIRR Trend'])
+const ZERO_LINE_METRICS = new Set<ChartMetric>([
+  'Unrealized Gains', 'Realized Gains', 'Total Gains', 'Return %', 'XIRR Trend',
+])
 
 interface CardRow {
   key:       string
@@ -38,7 +69,6 @@ function buildRows(
   hasSegment: boolean,
 ): CardRow[] {
   if (!hasSegment || mode === 'standalone') {
-    // One card per (portfolio, symbol) row
     return holdings
       .map(h => {
         const [rg, rc] = realizedMap.get(`${h.portfolio}:${h.symbol}`) ?? [0, 0]
@@ -59,7 +89,6 @@ function buildRows(
       .sort((a, b) => b.current - a.current)
   }
 
-  // Cumulative: group by symbol, aggregate across portfolios
   const map = new Map<string, CardRow>()
   for (const h of holdings) {
     const [rg, rc] = realizedMap.get(`${h.portfolio}:${h.symbol}`) ?? [0, 0]
@@ -89,7 +118,6 @@ function buildRows(
     }
   }
 
-  // Recompute todayPct for cumulative rows
   return [...map.values()]
     .map(r => {
       const prior = r.current - (r.todayGain ?? 0)
@@ -102,8 +130,10 @@ export default function HoldingsPage({ currency }: Props) {
   const navigate = useNavigate()
   const { portfolio, segment } = useParams<{ portfolio?: string; segment?: string }>()
   const { data, isLoading, error } = usePortfolio(currency)
-  const [viewMode, setViewMode] = useState<'cumulative' | 'standalone'>('cumulative')
-  const [activeTab, setActiveTab] = useState<'holdings' | 'charts'>('holdings')
+  const [viewMode,    setViewMode]    = useState<'cumulative' | 'standalone'>('cumulative')
+  const [activeTab,   setActiveTab]   = useState<'holdings' | 'charts'>('holdings')
+  const [chartMetric, setChartMetric] = useState<ChartMetric>('Portfolio Value')
+  const [chartRange,  setChartRange]  = useState<ChartRange>('1y')
 
   const realizedMap = useMemo(
     () => (data ? aggRealized(data.realized, data.usd_inr) : new Map()),
@@ -139,46 +169,43 @@ export default function HoldingsPage({ currency }: Props) {
     [filteredHoldings, realizedMap, viewMode, segment],
   )
 
-  const chartData = useMemo(() => {
-    if (!data) return null
-    const top = (arr: { name: string; value: number }[], n = 10) =>
-      [...arr].sort((a, b) => Math.abs(b.value) - Math.abs(a.value)).slice(0, n)
+  // Chart data hooks — always called, gated by enabled flag
+  const filtPorts = useMemo(
+    () => new Set(filteredHoldings.map(h => h.portfolio)),
+    [filteredHoldings],
+  )
+  const filtTxns = useMemo(
+    () => (data?.transactions ?? []).filter(t => filtPorts.has(t.portfolio)),
+    [data, filtPorts],
+  )
+  const filtRealized = useMemo(
+    () => (data?.realized ?? []).filter(r => filtPorts.has(r.portfolio)),
+    [data, filtPorts],
+  )
 
-    const symCount = new Map<string, number>()
-    for (const h of filteredHoldings) symCount.set(h.symbol, (symCount.get(h.symbol) ?? 0) + 1)
+  const { series: portSeries, isLoading: histLoading } = usePortfolioHistory(
+    filteredHoldings,
+    filtTxns,
+    filtRealized,
+    data?.usd_inr ?? 95.5,
+    currency,
+    activeTab === 'charts' && !!data,
+  )
 
-    const stats = filteredHoldings.map(h => {
-      const [rg, rc] = realizedMap.get(`${h.portfolio}:${h.symbol}`) ?? [0, 0]
-      const totalGain = (h.disp_current - h.disp_invested) + rg
-      const totalCost = h.disp_invested + rc
-      const name = (symCount.get(h.symbol) ?? 0) > 1
-        ? `${h.symbol}·${h.portfolio.replace('MF_', '').slice(0, 5)}`
-        : h.symbol
-      return {
-        name,
-        value:     h.disp_current,
-        invested:  h.disp_invested,
-        pnl:       totalGain,
-        returnPct: totalCost !== 0 ? (totalGain / totalCost) * 100 : 0,
-        todayGain: h.disp_today_gain,
-      }
-    })
+  const metricSeries = useMemo((): DatedSeries | null => {
+    if (!portSeries) return null
+    const key = METRIC_SERIES_KEY[chartMetric]
+    const raw = portSeries[key] as DatedSeries
+    return sliceSeries(raw, chartRange)
+  }, [portSeries, chartMetric, chartRange])
 
-    const ports = new Set(filteredHoldings.map(h => h.portfolio))
-    const xirrData = Object.entries(data.xirr_by_portfolio)
-      .filter(([p]) => ports.has(p))
-      .map(([p, v]) => ({ name: p.replace('MF_', ''), value: v as number }))
-      .sort((a, b) => b.value - a.value)
-
-    return {
-      value:     top(stats.map(s => ({ name: s.name, value: s.value }))),
-      invested:  top(stats.map(s => ({ name: s.name, value: s.invested }))),
-      pnl:       top(stats.map(s => ({ name: s.name, value: s.pnl }))),
-      returnPct: top(stats.map(s => ({ name: s.name, value: s.returnPct }))),
-      todayGain: top(stats.filter(s => s.todayGain !== null).map(s => ({ name: s.name, value: s.todayGain! }))),
-      xirr:      xirrData,
-    }
-  }, [filteredHoldings, realizedMap, data])
+  const rechartsData = useMemo(
+    () => metricSeries?.dates.map((d, i) => ({
+      t: d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
+      v: metricSeries.values[i],
+    })) ?? [],
+    [metricSeries],
+  )
 
   if (isLoading) return <LoadingSkeleton />
   if (error || !data) return <ErrorState message={(error as Error)?.message ?? 'Unknown error'} />
@@ -193,9 +220,24 @@ export default function HoldingsPage({ currency }: Props) {
     )
   }
 
-  const isUsd  = portfolio ? USD_PORTS.has(portfolio) : false
-  const label  = portfolio ?? SEGMENT_LABELS[segment ?? ''] ?? 'Holdings'
-  const backLabel = segment ? '← Overview' : '← All Portfolios'
+  const isUsd      = portfolio ? USD_PORTS.has(portfolio) : false
+  const label      = portfolio ?? SEGMENT_LABELS[segment ?? ''] ?? 'Holdings'
+  const backLabel  = segment ? '← Overview' : '← All Portfolios'
+  const isPct      = PCT_METRICS.has(chartMetric)
+  const chartLast  = metricSeries?.values[metricSeries.values.length - 1] ?? null
+  const chartFirst = metricSeries?.values[0] ?? null
+  const chartChange = chartLast !== null && chartFirst !== null ? chartLast - chartFirst : null
+  const lineColor  = (chartLast ?? 0) >= 0 ? '#10b981' : '#f43f5e'
+  const lastColor  = (chartLast ?? 0) >= 0 ? '#0a7a42' : '#be1c1c'
+
+  const yTickFmt = (v: number) => {
+    if (isPct) return `${v.toFixed(0)}%`
+    const abs = Math.abs(v)
+    if (abs >= 1e7) return `${(v / 1e7).toFixed(1)}Cr`
+    if (abs >= 1e5) return `${(v / 1e5).toFixed(1)}L`
+    if (abs >= 1e3) return `${(v / 1e3).toFixed(0)}K`
+    return v.toFixed(0)
+  }
 
   return (
     <div className="max-w-xl mx-auto px-4 py-4">
@@ -233,9 +275,9 @@ export default function HoldingsPage({ currency }: Props) {
         ))}
       </div>
 
+      {/* ── Holdings tab ── */}
       {activeTab === 'holdings' && (
         <>
-          {/* Cumulative / Standalone toggle — segment view only */}
           {segment && (
             <div className="flex gap-2 mb-3">
               {(['cumulative', 'standalone'] as const).map(m => (
@@ -277,50 +319,133 @@ export default function HoldingsPage({ currency }: Props) {
         </>
       )}
 
-      {activeTab === 'charts' && chartData && (
-        <div className="space-y-5">
-          {[
-            { title: 'Value',          cData: chartData.value,     isPct: false },
-            { title: 'Invested',       cData: chartData.invested,  isPct: false },
-            { title: 'P&L',            cData: chartData.pnl,       isPct: false },
-            { title: 'Return %',       cData: chartData.returnPct, isPct: true  },
-            { title: "Today's Gain",   cData: chartData.todayGain, isPct: false },
-            { title: 'XIRR by Portfolio', cData: chartData.xirr,  isPct: true  },
-          ].map(({ title, cData, isPct }) => {
-            if (!cData.length) return null
-            const chartH = Math.max(80, cData.length * 24)
-            const tickFmt = (v: number) => {
-              if (isPct) return `${v.toFixed(0)}%`
-              if (Math.abs(v) >= 1e7) return `${(v / 1e7).toFixed(1)}Cr`
-              if (Math.abs(v) >= 1e5) return `${(v / 1e5).toFixed(1)}L`
-              if (Math.abs(v) >= 1e3) return `${(v / 1e3).toFixed(0)}K`
-              return v.toFixed(0)
-            }
-            return (
-              <div key={title}>
-                <p className="text-[9px] text-slate-400 uppercase tracking-widest mb-1">{title}</p>
-                <ResponsiveContainer width="100%" height={chartH}>
-                  <BarChart data={cData} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 8, fill: '#94a3b8' }} tickFormatter={tickFmt} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 8, fill: '#334155' }} width={60} />
-                    <Tooltip
-                      formatter={(v: number) => [
-                        isPct ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%` : fmt(v, currency),
-                        title,
-                      ]}
-                      contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #e2e8f0' }}
-                    />
-                    <Bar dataKey="value" radius={[0, 3, 3, 0]}>
-                      {cData.map((e, i) => (
-                        <Cell key={i} fill={e.value >= 0 ? '#10b981' : '#f43f5e'} opacity={0.85} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+      {/* ── Charts tab ── */}
+      {activeTab === 'charts' && (
+        <div>
+          {/* Metric selector */}
+          <div
+            className="flex gap-1.5 overflow-x-auto pb-2 mb-3"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+          >
+            {METRICS.map(m => (
+              <button
+                key={m}
+                onClick={() => setChartMetric(m)}
+                className={`text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-colors ${
+                  chartMetric === m
+                    ? 'bg-[#2563eb] text-white border-[#2563eb]'
+                    : 'bg-white text-slate-500 border-slate-200'
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+
+          {histLoading && (
+            <div className="text-center py-10 text-slate-400 text-xs">
+              Loading price history…
+            </div>
+          )}
+
+          {!histLoading && portSeries && !metricSeries && (
+            <div className="text-center py-10 text-slate-400 text-xs">
+              No data for this period.
+            </div>
+          )}
+
+          {!histLoading && !portSeries && (
+            <div className="text-center py-10 text-slate-400 text-xs">
+              No price history available.
+            </div>
+          )}
+
+          {!histLoading && metricSeries && rechartsData.length > 0 && (
+            <>
+              {/* Stat line */}
+              <div className="flex items-baseline gap-2 mb-2">
+                <span className="text-[15px] font-bold" style={{ color: lastColor }}>
+                  {chartLast !== null
+                    ? isPct
+                      ? `${chartLast >= 0 ? '+' : ''}${chartLast.toFixed(2)}%`
+                      : fmt(chartLast, currency)
+                    : '—'
+                  }
+                </span>
+                {chartChange !== null && !isPct && (
+                  <span className="text-[10px]" style={{ color: chartChange >= 0 ? '#0a7a42' : '#be1c1c' }}>
+                    {fmtGainLine(chartChange, null, currency)} in period
+                  </span>
+                )}
+                {chartChange !== null && isPct && (
+                  <span className="text-[10px] text-slate-400">
+                    {chartChange >= 0 ? '+' : ''}{chartChange.toFixed(2)}pp in period
+                  </span>
+                )}
               </div>
-            )
-          })}
+
+              {/* Line chart */}
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={rechartsData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis
+                    dataKey="t"
+                    tick={{ fontSize: 8, fill: '#94a3b8' }}
+                    interval="preserveStartEnd"
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 8, fill: '#94a3b8' }}
+                    tickFormatter={yTickFmt}
+                    width={42}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Tooltip
+                    formatter={(v: number) => [
+                      isPct
+                        ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`
+                        : fmt(v, currency),
+                      chartMetric,
+                    ]}
+                    contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #e2e8f0' }}
+                    labelStyle={{ fontSize: 9, color: '#94a3b8' }}
+                  />
+                  {ZERO_LINE_METRICS.has(chartMetric) && (
+                    <ReferenceLine y={0} stroke="#cbd5e1" strokeDasharray="3 3" strokeWidth={1} />
+                  )}
+                  <Line
+                    type="monotone"
+                    dataKey="v"
+                    stroke={lineColor}
+                    strokeWidth={1.5}
+                    dot={false}
+                    activeDot={{ r: 3, strokeWidth: 0 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+
+              {/* Range selector */}
+              <div
+                className="flex gap-1.5 overflow-x-auto pt-2"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+              >
+                {RANGES.map(r => (
+                  <button
+                    key={r}
+                    onClick={() => setChartRange(r)}
+                    className={`text-[10px] px-2.5 py-0.5 rounded-full border transition-colors ${
+                      chartRange === r
+                        ? 'bg-[#2563eb] text-white border-[#2563eb]'
+                        : 'bg-white text-slate-500 border-slate-200'
+                    }`}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
