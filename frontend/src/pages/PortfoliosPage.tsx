@@ -184,30 +184,15 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       {/* Header row */}
       <div className="flex items-center justify-between">
         <span className="text-[10px] text-slate-400 uppercase tracking-widest">
-          as of {new Date(data.as_of).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+          as of {new Date(data.as_of).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })} IST
         </span>
-        <div className="flex items-center gap-2">
-          {(['INR', 'USD'] as Currency[]).map(c => (
-            <button
-              key={c}
-              onClick={() => onCurrencyChange(c)}
-              className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
-                currency === c
-                  ? 'bg-[#2563eb] text-white border-[#2563eb]'
-                  : 'bg-white text-slate-500 border-slate-200'
-              }`}
-            >
-              {c}
-            </button>
-          ))}
-          <button
-            onClick={() => forceRefresh()}
-            className="text-[11px] text-slate-400 hover:text-slate-600 px-1"
-            title="Force refresh prices"
-          >
-            ↻
-          </button>
-        </div>
+        <button
+          onClick={() => forceRefresh()}
+          className="text-[11px] text-slate-400 hover:text-slate-600 px-1"
+          title="Force refresh prices"
+        >
+          ↻
+        </button>
       </div>
 
       {/* Hero card — Total Portfolio */}
@@ -221,7 +206,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         }}
         onClick={() => navigate('/holdings/segment/total')}
       >
-        <p className="text-[9px] text-slate-400 uppercase tracking-widest mb-1">Total Portfolio</p>
+        <p className="text-[12px] font-semibold text-slate-600 mb-1">Total Portfolio</p>
         <div className="flex items-baseline justify-between">
           <span className="text-[22px] font-bold text-slate-900">{fmt(hero.cur, currency)}</span>
           <span className="text-[11px]" style={{ color: hero.todayGain >= 0 ? '#0a7a42' : '#be1c1c' }}>
@@ -265,26 +250,25 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               }}
               onClick={() => navigate(`/holdings/segment/${seg}`)}
             >
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-[9px] text-slate-400 uppercase tracking-widest">{label}</p>
+              <p className="text-[11px] font-semibold text-slate-600 mb-1">{label}</p>
+              <div className="flex items-baseline justify-between">
+                <span className="text-[15px] font-bold text-slate-900">{fmt(stats.cur, currency)}</span>
+                <span className="text-[10px]" style={{ color: tgC }}>
+                  {stats.todayGain !== 0
+                    ? `${stats.todayGain >= 0 ? '+' : ''}${fmt(stats.todayGain, currency)}${stats.todayPct !== null ? ` (${fmtPct(stats.todayPct)})` : ''}`
+                    : ''
+                  }
+                </span>
+              </div>
+              <div className="flex items-center justify-between mt-0.5">
+                <span className="text-[10px]" style={{ color: tc }}>
+                  {fmtGainLine(stats.gain, stats.pct, currency)}
+                </span>
                 {xirr !== null && xirr !== undefined
                   ? <span className="text-[9px] font-semibold" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
                   : <span className="text-[9px] text-slate-400">XIRR —</span>
                 }
               </div>
-              <span className="text-[13px] font-bold text-slate-900">{fmt(stats.cur, currency)}</span>
-              <div className="mt-0.5">
-                <span className="text-[9px]" style={{ color: tc }}>
-                  {fmtGainLine(stats.gain, stats.pct, currency)}
-                </span>
-              </div>
-              {stats.todayGain !== 0 && (
-                <div className="mt-0.5">
-                  <span className="text-[9px]" style={{ color: tgC }}>
-                    today {stats.todayGain >= 0 ? '+' : ''}{fmt(stats.todayGain, currency)}{stats.todayPct !== null ? ` (${fmtPct(stats.todayPct)})` : ''}
-                  </span>
-                </div>
-              )}
             </div>
           )
         })}
