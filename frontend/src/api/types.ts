@@ -65,6 +65,10 @@ export interface PortfolioData {
   all_portfolios:      string[]
   selected_portfolios: string[]
   cache_status:        string
+  xirr_total:          number | null
+  xirr_stk:            number | null
+  xirr_mf:             number | null
+  xirr_by_portfolio:   Record<string, number>
   holdings:            Holding[]
   transactions:        Transaction[]
   realized:            Realized[]

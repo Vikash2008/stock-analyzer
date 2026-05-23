@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePortfolio, useForceRefresh } from '../hooks/usePortfolio'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
-import { fmt, fmtGainLine } from '../utils/fmt'
+import { fmt, fmtGainLine, fmtPct } from '../utils/fmt'
 import { SKIP_PORTS, getSegmentType, filterBySegment } from '../utils/segments'
 import { aggRealized, realizedForPorts } from '../utils/realized'
 import type { RealizedMap } from '../utils/realized'
@@ -133,7 +133,13 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     }
     const totalGain = (cur - inv) + rg
     const totalCost = inv + rc
-    return { cur, inv, totalGain, returnPct: totalCost !== 0 ? totalGain / totalCost * 100 : 0, todayGain }
+    const prior = cur - todayGain
+    return {
+      cur, inv, totalGain,
+      returnPct:  totalCost !== 0 ? totalGain / totalCost * 100 : 0,
+      todayGain,
+      todayPct:   todayGain !== 0 && prior !== 0 ? (todayGain / prior) * 100 : null,
+    }
   }, [active, rmap])
 
   // Stocks tile
@@ -141,10 +147,12 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     const hs  = filterBySegment(active, 'stk')
     const cur = hs.reduce((s, h) => s + h.disp_current,  0)
     const inv = hs.reduce((s, h) => s + h.disp_invested, 0)
+    const tg  = hs.reduce((s, h) => h.disp_today_gain !== null ? s + h.disp_today_gain : s, 0)
     const [rg, rc] = realizedForPorts(rmap, new Set(hs.map(h => h.portfolio)))
     const gain = (cur - inv) + rg
     const cost = inv + rc
-    return { cur, inv, gain, pct: cost !== 0 ? gain / cost * 100 : 0 }
+    const prior = cur - tg
+    return { cur, inv, gain, pct: cost !== 0 ? gain / cost * 100 : 0, todayGain: tg, todayPct: tg !== 0 && prior !== 0 ? (tg / prior) * 100 : null }
   }, [active, rmap])
 
   // MF tile
@@ -152,10 +160,12 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     const hs  = filterBySegment(active, 'mf')
     const cur = hs.reduce((s, h) => s + h.disp_current,  0)
     const inv = hs.reduce((s, h) => s + h.disp_invested, 0)
+    const tg  = hs.reduce((s, h) => h.disp_today_gain !== null ? s + h.disp_today_gain : s, 0)
     const [rg, rc] = realizedForPorts(rmap, new Set(hs.map(h => h.portfolio)))
     const gain = (cur - inv) + rg
     const cost = inv + rc
-    return { cur, inv, gain, pct: cost !== 0 ? gain / cost * 100 : 0 }
+    const prior = cur - tg
+    return { cur, inv, gain, pct: cost !== 0 ? gain / cost * 100 : 0, todayGain: tg, todayPct: tg !== 0 && prior !== 0 ? (tg / prior) * 100 : null }
   }, [active, rmap])
 
   const cards = useMemo(
@@ -214,9 +224,9 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         <p className="text-[9px] text-slate-400 uppercase tracking-widest mb-1">Total Portfolio</p>
         <div className="flex items-baseline justify-between">
           <span className="text-[22px] font-bold text-slate-900">{fmt(hero.cur, currency)}</span>
-          <span className="text-[12px]" style={{ color: hero.todayGain >= 0 ? '#0a7a42' : '#be1c1c' }}>
+          <span className="text-[11px]" style={{ color: hero.todayGain >= 0 ? '#0a7a42' : '#be1c1c' }}>
             {hero.todayGain !== 0
-              ? `${hero.todayGain >= 0 ? '+' : ''}${fmt(hero.todayGain, currency)}`
+              ? `${hero.todayGain >= 0 ? '+' : ''}${fmt(hero.todayGain, currency)}${hero.todayPct !== null ? ` (${fmtPct(hero.todayPct)})` : ''}`
               : 'N/A'
             }
           </span>
@@ -225,17 +235,24 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           <span className="text-[11px] font-medium" style={{ color: heroPos ? '#0a7a42' : '#be1c1c' }}>
             {fmtGainLine(hero.totalGain, hero.returnPct, currency)}
           </span>
-          <span className="text-[9px] text-slate-400">Invested {fmt(hero.inv, currency)}</span>
+          {data.xirr_total !== null
+            ? <span className="text-[9px] font-semibold" style={{ color: (data.xirr_total ?? 0) >= 0 ? '#0a7a42' : '#be1c1c' }}>
+                XIRR {fmtPct(data.xirr_total!)}
+              </span>
+            : <span className="text-[9px] text-slate-400">XIRR —</span>
+          }
         </div>
       </div>
 
       {/* Stocks + MF summary tiles */}
       <div className="flex gap-2">
         {[
-          { label: 'Stocks',       stats: stk, seg: 'stk' },
-          { label: 'Mutual Funds', stats: mf,  seg: 'mf'  },
-        ].map(({ label, stats, seg }) => {
+          { label: 'Stocks',       stats: stk, seg: 'stk', xirr: data.xirr_stk },
+          { label: 'Mutual Funds', stats: mf,  seg: 'mf',  xirr: data.xirr_mf  },
+        ].map(({ label, stats, seg, xirr }) => {
           const pos = isPos(stats.gain)
+          const tc  = pos ? '#0a7a42' : '#be1c1c'
+          const tgC = stats.todayGain !== null ? (stats.todayGain >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8'
           return (
             <div
               key={seg}
@@ -248,13 +265,26 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               }}
               onClick={() => navigate(`/holdings/segment/${seg}`)}
             >
-              <p className="text-[9px] text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[9px] text-slate-400 uppercase tracking-widest">{label}</p>
+                {xirr !== null && xirr !== undefined
+                  ? <span className="text-[9px] font-semibold" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
+                  : <span className="text-[9px] text-slate-400">XIRR —</span>
+                }
+              </div>
               <span className="text-[13px] font-bold text-slate-900">{fmt(stats.cur, currency)}</span>
               <div className="mt-0.5">
-                <span className="text-[9px]" style={{ color: pos ? '#0a7a42' : '#be1c1c' }}>
+                <span className="text-[9px]" style={{ color: tc }}>
                   {fmtGainLine(stats.gain, stats.pct, currency)}
                 </span>
               </div>
+              {stats.todayGain !== 0 && (
+                <div className="mt-0.5">
+                  <span className="text-[9px]" style={{ color: tgC }}>
+                    today {stats.todayGain >= 0 ? '+' : ''}{fmt(stats.todayGain, currency)}{stats.todayPct !== null ? ` (${fmtPct(stats.todayPct)})` : ''}
+                  </span>
+                </div>
+              )}
             </div>
           )
         })}

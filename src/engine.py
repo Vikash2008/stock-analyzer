@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import pandas as pd
 
@@ -42,6 +42,11 @@ class PortfolioBundle:
     total_current: float
     total_gain: float
     return_pct: float
+
+    xirr_total:          Optional[float]      # annualised %, e.g. 18.5 (not 0.185)
+    xirr_stk:            Optional[float]
+    xirr_mf:             Optional[float]
+    xirr_by_portfolio:   Dict[str, float]
 
     as_of: pd.Timestamp
     all_portfolios: List[str]
@@ -155,6 +160,35 @@ def build(
     total_gain     = total_current - total_invested
     return_pct     = (total_gain / total_invested * 100) if total_invested else 0.0
 
+    # ── XIRR (uses existing portfolio_xirr from src/xirr.py) ─────────────────
+    from src.xirr import portfolio_xirr as _px
+
+    def _xirr(tx, hd):
+        try:
+            if tx.empty or hd.empty:
+                return None
+            v = _px(tx, hd, prices, usd_inr, currency)
+            return round(v * 100, 2) if v is not None else None
+        except Exception:
+            return None
+
+    _active = {p for p in selected_portfolios if p not in _SKIP_PORTS}
+    _stk    = {p for p in _active if not p.startswith("MF_")}
+    _mf     = {p for p in _active if p.startswith("MF_")}
+
+    _ptx = transactions if "portfolio" in transactions.columns else pd.DataFrame()
+    _phd = holdings    if "portfolio" in holdings.columns    else pd.DataFrame()
+
+    xirr_total = _xirr(_ptx[_ptx["portfolio"].isin(_active)], _phd[_phd["portfolio"].isin(_active)])
+    xirr_stk   = _xirr(_ptx[_ptx["portfolio"].isin(_stk)],   _phd[_phd["portfolio"].isin(_stk)])
+    xirr_mf    = _xirr(_ptx[_ptx["portfolio"].isin(_mf)],    _phd[_phd["portfolio"].isin(_mf)])
+
+    xirr_by_portfolio: Dict[str, float] = {}
+    for _p in _active:
+        _v = _xirr(_ptx[_ptx["portfolio"] == _p], _phd[_phd["portfolio"] == _p])
+        if _v is not None:
+            xirr_by_portfolio[_p] = _v
+
     return PortfolioBundle(
         selected_portfolios=selected_portfolios,
         currency=currency,
@@ -166,6 +200,10 @@ def build(
         total_current=total_current,
         total_gain=total_gain,
         return_pct=return_pct,
+        xirr_total=xirr_total,
+        xirr_stk=xirr_stk,
+        xirr_mf=xirr_mf,
+        xirr_by_portfolio=xirr_by_portfolio,
         as_of=pd.Timestamp.now(),
         all_portfolios=all_portfolios,
         cache_status=cache.status(),
