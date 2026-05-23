@@ -9,9 +9,11 @@
 
 | Property                        | Value      |
 |---------------------------------|------------|
-| Screen width (`window.screen.width`) | _TBD_  |
-| Container width (iframe clientWidth) | _TBD_  |
-| Effective content width (after padding) | _TBD_ |
+| Device                          | Google Pixel 10 |
+| Physical resolution             | 1080 × 2424px |
+| Device pixel ratio (DPR)        | ~2.625     |
+| CSS viewport width              | **411px**  |
+| Effective content width (after 12px padding each side) | **387px** |
 
 ---
 
