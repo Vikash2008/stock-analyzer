@@ -279,7 +279,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           return (
             <div
               key={seg}
-              className="flex-1 rounded-[10px] p-2.5 border cursor-pointer active:opacity-80 transition-opacity"
+              className="flex-1 min-w-0 rounded-[10px] p-2.5 border cursor-pointer active:opacity-80 transition-opacity"
               style={{
                 background:      pos ? '#f0fdf8' : '#fff5f5',
                 borderColor:     '#e2e8f0',
@@ -290,14 +290,14 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
             >
               <p className="text-[11px] font-semibold text-slate-600 mb-1">{label}</p>
               <div className="flex items-baseline justify-between mb-0.5">
-                <span className="text-[15px] font-bold text-slate-900">{fmt(stats.cur, currency)}</span>
+                <span className="text-[15px] font-bold text-slate-900 min-w-0 truncate">{fmtCompact(stats.cur, currency)}</span>
                 {xirr !== null && xirr !== undefined
                   ? <span className="text-[9px] font-semibold shrink-0" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
                   : <span className="text-[9px] text-slate-400 shrink-0">XIRR —</span>
                 }
               </div>
               <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1">
+                <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
                   <span className="text-[9px] text-slate-400">Today</span>
                   <span className="text-[10px]" style={{ color: tgC }}>
                     {stats.todayGain !== 0 ? fmtCompactGainLine(stats.todayGain, stats.todayPct, currency) : '—'}
