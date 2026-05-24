@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -54,9 +55,11 @@ export default function TransactionsPage({ currency }: Props) {
   const location  = useLocation()
   const { portfolio = '', symbol = '' } = useParams<{ portfolio: string; symbol: string }>()
   const { data, isLoading, error } = usePortfolio(currency)
+  const qc = useQueryClient()
   const [activeTab,   setActiveTab]   = useState<'transactions' | 'charts' | 'analysis'>('transactions')
   const [chartMetric, setChartMetric] = useState<ChartMetric>('Price')
   const [chartRange,  setChartRange]  = useState<ChartRange>('1y')
+  const [syncing,     setSyncing]     = useState(false)
 
   const decoded = {
     portfolio: decodeURIComponent(portfolio),
@@ -332,7 +335,7 @@ export default function TransactionsPage({ currency }: Props) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-3 mb-3 border-b border-slate-200">
+      <div className="flex items-center gap-3 mb-3 border-b border-slate-200">
         {(['transactions', 'charts', 'analysis'] as const).map(tab => (
           <button
             key={tab}
@@ -346,6 +349,19 @@ export default function TransactionsPage({ currency }: Props) {
             {tab}
           </button>
         ))}
+        {activeTab === 'charts' && (
+          <button
+            className="ml-auto pb-1.5 text-slate-400 active:text-[#2563eb]"
+            onClick={() => {
+              if (syncing) return
+              setSyncing(true)
+              qc.removeQueries({ queryKey: ['history', yf] })
+              setTimeout(() => setSyncing(false), 1200)
+            }}
+          >
+            <span className={`text-[14px] inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
+          </button>
+        )}
       </div>
 
       {activeTab === 'transactions' && (

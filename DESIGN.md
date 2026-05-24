@@ -157,6 +157,7 @@ DATE    BUY/SELL/DIV    QTY @ PRICE    VALUE
 - Install: Chrome → three-dot menu → "Add to Home screen"
 - **Service worker** (`vite-plugin-pwa`, Workbox): precaches all JS/CSS/HTML/SVG/PNG/ICO on first load; subsequent opens serve from cache instantly — no white screen
 - `registerType: 'autoUpdate'` — new deploy auto-updates SW in background
+- `controllerchange` listener in `App.tsx` — when new SW activates, page reloads automatically so users always see the latest JS bundle without manual refresh
 
 ---
 
@@ -302,3 +303,4 @@ Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone
 | 2026-05-24 | Persistent chart cache via TanStack Query persister (localStorage, 7-day) | Scoped to ['history'] queries only; chart data survives app restarts; force refresh clears it |
 | 2026-05-24 | SummaryCard XIRR layout — row 3 XIRR left / Total right | Matches HoldingCard 3-row layout for visual consistency across all cards |
 | 2026-05-24 | TransactionsPage top card: XIRR unstyled, Today/Total labels, fmtCompactGainLine | Font consistency with HoldingsPage; no rogue bold styles |
+| 2026-05-24 | PWA auto-reload on SW update (controllerchange listener in App.tsx) | autoUpdate activates new SW silently but doesn't reload page; listener forces reload so Vercel deploys are immediately visible |

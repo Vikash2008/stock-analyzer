@@ -33,6 +33,7 @@
 
 | Item | Completed |
 |------|-----------|
+| PWA auto-reload on SW update — controllerchange listener in App.tsx; Vercel deploys immediately visible without manual refresh | 2026-05-24 |
 | PWA service worker (vite-plugin-pwa, Workbox autoUpdate) — no white screen on app reopen | 2026-05-24 |
 | Persistent chart cache to localStorage via TanStack Query persister (7-day, ['history'] only) | 2026-05-24 |
 | SummaryCard XIRR layout fix — XIRR left / Total right on row 3, matches HoldingCard | 2026-05-24 |
