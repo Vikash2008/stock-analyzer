@@ -54,17 +54,19 @@
 └─────────────────────────────────────┘
 ```
 
-### Stocks / MF Tile (PortfoliosPage, side by side)
+### Stocks / MF Tile (PortfoliosPage, full-width stacked)
 ```
-┌──────────────────────┐
-│ STOCKS               │  ← 11px label
-│ ₹45.2L   XIRR 18.5% │  ← 15px value / 9px XIRR
-│ Today +X  Total +X   │  ← 9px+10px today / total gain
-└──────────────────────┘
+┌─────────────────────────────────────┐
+│ STOCKS                               │  ← 9px bold uppercase label (matches BreakCard)
+│ ₹ CURRENT VALUE        Today +₹X    │  ← 15px value / 10px today gain
+│ XIRR 18.5%             Total +₹X    │  ← 9px XIRR / 10px total gain
+└─────────────────────────────────────┘
 ```
-- Left border 3px green/red; background tinted
-- XIRR sits right of value (not label row) — consistent with all other cards
-- Today/Total on bottom row with `shrink-0 whitespace-nowrap` to prevent wrapping
+- Full-width stacked (not side-by-side) — same width as Hero and BreakCards
+- Left border 4px green/red; background tinted
+- Label: `text-[9px] font-bold text-slate-700 uppercase tracking-widest` — identical to BreakCard
+- Value: `text-[15px]` — identical to BreakCard
+- Today on row 2 right, XIRR + Total on row 3 — consistent 3-row layout across all cards
 
 ### Breakdown Card (PortfoliosPage)
 ```
@@ -229,3 +231,4 @@ All cards (Hero, Stocks/MF tiles, BreakCards, HoldingCard, SummaryCard) show:
 | 2026-05-24 | Stocks/MF tiles layout restructured | 3 rows: label / value+XIRR / Today+Total — prevents overflow in half-width tiles |
 | 2026-05-24 | Timestamp + refresh moved to page bottom | Cleaner hero-first view; timestamp sits at footer of PortfoliosPage |
 | 2026-05-24 | Phase 5/6 removed from roadmap | Items dropped; no further backlog tracked |
+| 2026-05-24 | Stocks/MF tiles changed to full-width stacked | Prevents mobile overflow; matches BreakCard style (9px label, 15px value, same 3-row layout) |
