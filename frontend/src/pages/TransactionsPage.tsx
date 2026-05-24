@@ -14,7 +14,7 @@ import { AnalysisTab } from '../components/AnalysisTab'
 import { aggRealized } from '../utils/realized'
 import { SKIP_PORTS, USD_PORTS } from '../utils/segments'
 import { computeXIRR } from '../utils/xirr'
-import { fmt, fmtGainLine, fmtPct } from '../utils/fmt'
+import { fmt, fmtCompactGainLine, fmtGainLine, fmtPct } from '../utils/fmt'
 import type { Currency } from '../App'
 
 const METRICS = [
@@ -290,21 +290,25 @@ export default function TransactionsPage({ currency }: Props) {
           <span className="text-[20px] font-bold text-slate-900 tracking-tight">
             {holding ? fmt(cur, dispCur) : '—'}
           </span>
-          <span className="text-[10px]" style={{ color: tgC }}>
-            {tg !== null
-              ? `${tg >= 0 ? '+' : '−'}${fmt(Math.abs(tg), dispCur)}${tp !== null ? ` (${fmtPct(tp)})` : ''}`
-              : 'N/A'}
+          <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
+            <span className="text-[9px] text-slate-400">Today</span>
+            <span className="text-[10px]" style={{ color: tgC }}>
+              {tg !== null ? fmtCompactGainLine(tg, tp, dispCur) : '—'}
+            </span>
           </span>
         </div>
 
         {/* XIRR | Total G/L */}
         <div className="flex items-baseline justify-between mb-2">
           {holdingXirr !== null
-            ? <span className="text-[9px] font-semibold" style={{ color: holdingXirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(holdingXirr)}</span>
+            ? <span className="text-[9px]" style={{ color: holdingXirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(holdingXirr)}</span>
             : <span className="text-[9px] text-slate-400">XIRR —</span>
           }
-          <span className="text-[10px] font-bold" style={{ color: tc }}>
-            {fmtGainLine(gain + realGain, inv + realCost !== 0 ? (gain + realGain) / (inv + realCost) * 100 : 0, dispCur)}
+          <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
+            <span className="text-[9px] text-slate-400">Total</span>
+            <span className="text-[10px]" style={{ color: tc }}>
+              {fmtCompactGainLine(gain + realGain, inv + realCost !== 0 ? (gain + realGain) / (inv + realCost) * 100 : 0, dispCur)}
+            </span>
           </span>
         </div>
 

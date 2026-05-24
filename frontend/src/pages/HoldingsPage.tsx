@@ -272,6 +272,14 @@ export default function HoldingsPage({ currency }: Props) {
     return sortDir === 'desc' ? vb - va : va - vb
   }), [rows, sortField, sortDir, xirrMap])
 
+  const summaryXirr = useMemo(() => {
+    if (!data) return null
+    if (portfolio) return data.xirr_by_portfolio[portfolio] ?? null
+    if (segment === 'stk' || segment === 'indian_stock' || segment === 'us_stock') return data.xirr_stk
+    if (segment === 'mf'  || segment === 'indian_mf'   || segment === 'us_mf')    return data.xirr_mf
+    return data.xirr_total
+  }, [data, portfolio, segment])
+
   const { series: portSeries, isLoading: histLoading, loadedCount, totalCount } = usePortfolioHistory(
     filteredHoldings,
     filtTxns,
@@ -343,6 +351,7 @@ export default function HoldingsPage({ currency }: Props) {
         realCost={summaryStats.realCost}
         todayGain={summaryStats.tg || null}
         todayPct={summaryStats.todayPct}
+        xirr={summaryXirr}
         currency={currency}
       />
 

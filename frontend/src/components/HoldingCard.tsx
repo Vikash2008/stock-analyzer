@@ -45,7 +45,7 @@ export function HoldingCard({
       {/* Label row: ticker · company | LTP */}
       <div className="flex justify-between items-center mb-1">
         <span className="text-[9px] font-bold text-slate-700 uppercase tracking-wider truncate max-w-[70%]">
-          {subLabel ? `${ticker} · ${subLabel}` : ticker}
+          {subLabel || ticker.replace(/\.(NS|BO)$/i, '')}
         </span>
         {ltp !== null && (
           <span className="text-[9px] text-slate-400 shrink-0">

@@ -12,13 +12,14 @@ interface SummaryCardProps {
   realCost:    number
   todayGain:   number | null
   todayPct:    number | null
+  xirr?:       number | null
   currency:    Currency
   footer?:     React.ReactNode  // optional custom footer (used on TransactionsPage)
 }
 
 export function SummaryCard({
   label, current, invested, realGain, realCost,
-  todayGain, todayPct, currency, footer,
+  todayGain, todayPct, xirr, currency, footer,
 }: SummaryCardProps) {
   const totalGain = (current - invested) + realGain
   const totalCost = invested + realCost
@@ -55,16 +56,17 @@ export function SummaryCard({
         </span>
       </div>
 
-      {/* Total G/L */}
+      {/* XIRR | Total G/L */}
       <div className="flex items-baseline justify-between mb-2">
-        <span className="flex items-center gap-1">
+        {xirr != null
+          ? <span className="text-[9px]" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
+          : <span className="text-[9px] text-slate-400">XIRR —</span>
+        }
+        <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
           <span className="text-[9px] text-slate-400">Total</span>
           <span className="text-[10px]" style={{ color: textColor }}>
             {fmtCompactGainLine(totalGain, totalPct, currency)}
           </span>
-        </span>
-        <span className="text-[9px] text-slate-400">
-          Invested <span className="text-slate-600 font-semibold">{fmt(invested, currency)}</span>
         </span>
       </div>
 
