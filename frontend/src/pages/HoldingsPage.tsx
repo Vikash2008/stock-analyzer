@@ -268,7 +268,7 @@ export default function HoldingsPage({ currency }: Props) {
     return sortDir === 'desc' ? vb - va : va - vb
   }), [rows, sortField, sortDir, xirrMap])
 
-  const { series: portSeries, isLoading: histLoading } = usePortfolioHistory(
+  const { series: portSeries, isLoading: histLoading, loadedCount, totalCount } = usePortfolioHistory(
     filteredHoldings,
     filtTxns,
     filtRealized,
@@ -463,8 +463,16 @@ export default function HoldingsPage({ currency }: Props) {
           </div>
 
           {histLoading && (
-            <div className="text-center py-10 text-slate-400 text-xs">
-              Loading price history…
+            <div className="py-10 px-2">
+              <p className="text-center text-[11px] text-slate-400 mb-3">
+                Loading price history… {loadedCount} / {totalCount} symbols ({totalCount > 0 ? Math.round(loadedCount / totalCount * 100) : 0}%)
+              </p>
+              <div className="w-full bg-slate-100 rounded-full h-1.5">
+                <div
+                  className="bg-[#2563eb] h-1.5 rounded-full transition-all duration-300"
+                  style={{ width: `${totalCount > 0 ? (loadedCount / totalCount) * 100 : 0}%` }}
+                />
+              </div>
             </div>
           )}
 

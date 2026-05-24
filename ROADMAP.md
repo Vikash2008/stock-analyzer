@@ -17,6 +17,18 @@
 
 ---
 
+## Backlog — Cold Start UX
+
+| # | Item | Notes | Status |
+|---|------|-------|--------|
+| 1 | Keep-alive ping (GitHub Actions cron) | Add `.github/workflows/keepalive.yml` — pings backend every 14 min so Render free tier never sleeps. Risk: against Render ToS spirit; GitHub private repo = 500 min/month free (est. ~150–200 min/month used). Cron jitter may cause occasional miss. | pending |
+| 2 | Progressive loading messages (frontend) | Track elapsed time since fetch start. After 8s show "Backend waking up…", after 30s show "Still starting up (~60s on first load)". Safety net for cold starts that slip through. Only touches `PortfoliosPage.tsx` / `LoadingSkeleton.tsx`. | pending |
+| 3 | Combine both (recommended) | GitHub Actions keep-alive prevents most cold starts; progressive UI handles the rare miss gracefully. Zero cost, no backend changes. | pending |
+
+> Note: Render free tier spin-down (15 min idle) is not configurable. Paid Starter plan ($7/month) gives always-on. For now, keep-alive + UI messaging is the free solution.
+
+---
+
 ## Done
 
 | Item | Completed |

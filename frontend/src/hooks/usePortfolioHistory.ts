@@ -224,5 +224,5 @@ export function usePortfolioHistory(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, isLoading, loadedCount, holdings, transactions, realized, usdInr, currency, symbols])
 
-  return { series, isLoading }
+  return { series, isLoading, loadedCount, totalCount: symbols.length }
 }

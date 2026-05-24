@@ -384,8 +384,14 @@ export default function TransactionsPage({ currency }: Props) {
           {chartMetric !== 'Price' && (
             <>
               {histLoading && (
-                <div className="text-center py-10 text-slate-400 text-xs">
-                  Loading price history…
+                <div className="py-10 px-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[11px] text-slate-400">Step 1 / 2 — Fetching price history…</p>
+                    <p className="text-[11px] text-slate-400">50%</p>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-1.5">
+                    <div className="bg-[#2563eb] h-1.5 rounded-full" style={{ width: '50%' }} />
+                  </div>
                 </div>
               )}
 
