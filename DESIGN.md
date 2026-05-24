@@ -91,14 +91,19 @@
 - XIRR computed client-side per holding (BUY/SELL cashflows + terminal value); shows `→` as fallback if null
 - Today/Total gain spans have `shrink-0 whitespace-nowrap` — never wrap to next line
 
-### Summary Card (top of HoldingsPage / SummaryPage)
+### Summary Card (top of HoldingsPage / TransactionsPage)
 ```
 ┌─────────────────────────────────────┐
-│ LABEL                               │
-│ ₹ CURRENT VALUE                     │
-│ G/L  Return%                        │
+│ LABEL (9px bold uppercase)           │
+│ ₹ CURRENT VALUE (20px)  Today +₹X  │
+│ XIRR %              Total +₹X       │
+│ ─────────────────────────────────── │
+│ Invested ₹X          Realized +₹X  │
 └─────────────────────────────────────┘
 ```
+- Row 2: current value (left, 20px bold) + Today gain (right, 10px fmtCompactGainLine)
+- Row 3: XIRR (left, 9px, colored) + Total G/L (right, 10px fmtCompactGainLine) — matches HoldingCard row 3 layout
+- Footer: Invested + Realized (border-top divider); replaceable via `footer` prop (TransactionsPage uses custom footer)
 
 ### Transaction Row (TransactionsPage)
 ```
@@ -150,6 +155,8 @@ DATE    BUY/SELL/DIV    QTY @ PRICE    VALUE
 - `display: "standalone"` — opens without browser chrome
 - `theme_color: "#0f172a"` — status bar matches app background
 - Install: Chrome → three-dot menu → "Add to Home screen"
+- **Service worker** (`vite-plugin-pwa`, Workbox): precaches all JS/CSS/HTML/SVG/PNG/ICO on first load; subsequent opens serve from cache instantly — no white screen
+- `registerType: 'autoUpdate'` — new deploy auto-updates SW in background
 
 ---
 
@@ -228,6 +235,7 @@ Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone
 - `useHistory` + `usePortfolioHistory` internal queries: `staleTime: Infinity`, `gcTime: Infinity`
 - Data cached for entire session — no auto-refetch on tab switch or page navigation
 - Force refresh (`useForceRefresh`) calls `qc.removeQueries({ queryKey: ['history'] })` before fetching fresh portfolio data — all chart cache cleared, re-fetched lazily on next Charts tab visit
+- **Persistent localStorage cache**: `PersistQueryClientProvider` + `createSyncStoragePersister` in `App.tsx`; scoped to `['history']` queries only (via `dehydrateOptions.shouldDehydrateQuery`); 7-day `maxAge`; restores across app restarts so charts load instantly from prior sessions
 
 ---
 
@@ -290,3 +298,7 @@ Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone
 | 2026-05-24 | Chart loading Step 1/2 on TransactionsPage | Single-symbol fetch → no real %; Step 1/2 label at 50% is honest; Step 2 (useMemo) is synchronous so never shown |
 | 2026-05-24 | useForceRefresh: removed invalidateQueries | Prevented white screen during refresh by keeping stale data visible |
 | 2026-05-24 | Bottom bar sync: right-aligned ↻ + timestamp as one tappable unit | Cleaner than split layout; icon spins until data updates |
+| 2026-05-24 | PWA service worker via vite-plugin-pwa | Precaches app shell on first load; instant open, no white screen on reopen; autoUpdate SW on new deploy |
+| 2026-05-24 | Persistent chart cache via TanStack Query persister (localStorage, 7-day) | Scoped to ['history'] queries only; chart data survives app restarts; force refresh clears it |
+| 2026-05-24 | SummaryCard XIRR layout — row 3 XIRR left / Total right | Matches HoldingCard 3-row layout for visual consistency across all cards |
+| 2026-05-24 | TransactionsPage top card: XIRR unstyled, Today/Total labels, fmtCompactGainLine | Font consistency with HoldingsPage; no rogue bold styles |

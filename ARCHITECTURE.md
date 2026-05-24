@@ -31,9 +31,9 @@ frontend/
   src/
     api/types.ts            TypeScript interfaces matching backend JSON
     api/portfolio.ts        fetch wrapper (uses VITE_API_URL env var)
-    hooks/usePortfolio.ts        TanStack Query, 30min staleTime, useForceRefresh()
-    hooks/useHistory.ts          TanStack Query for price history, 1hr staleTime
-    hooks/usePortfolioHistory.ts useQueries per-symbol history → value/invested/P&L/return/xirr series
+    hooks/usePortfolio.ts        TanStack Query, 30min staleTime, useForceRefresh() (clears ['history'] cache)
+    hooks/useHistory.ts          TanStack Query for price history, staleTime+gcTime=Infinity
+    hooks/usePortfolioHistory.ts useQueries per-symbol history → value/invested/P&L/return/xirr series; exposes loadedCount+totalCount
     utils/fmt.ts                 fmtINR/fmtUSD/fmtPct/fmtGainLine
     utils/segments.ts            classify.py TypeScript port
     utils/realized.ts            _agg_realized() TypeScript port
@@ -44,8 +44,8 @@ frontend/
   public/
     manifest.json           PWA manifest (standalone display mode)
     icon.svg                App icon — dark bg + green chart line
-  package.json              react 18, react-router-dom 6, @tanstack/react-query 5, recharts 2
-  vite.config.ts            /api proxy → localhost:8000 in dev
+  package.json              react 18, react-router-dom 6, @tanstack/react-query 5, recharts 2, @tanstack/react-query-persist-client, @tanstack/query-sync-storage-persister, vite-plugin-pwa
+  vite.config.ts            /api proxy → localhost:8000 in dev; VitePWA plugin (autoUpdate, Workbox precache)
   .env.production           VITE_API_URL=https://stock-analyzer-2nqw.onrender.com
   index.html                PWA meta tags + manifest link
 
@@ -157,6 +157,12 @@ msp_v2.csv
 |------|-----|
 | portfolio bundle | 60s |
 | price history | 1hr |
+
+### Browser localStorage (TanStack Query persister)
+
+| What | TTL | Scope |
+|------|-----|-------|
+| price history queries (`['history', ...]`) | 7 days | scoped via `shouldDehydrateQuery` — portfolio data excluded |
 
 ---
 

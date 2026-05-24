@@ -33,6 +33,10 @@
 
 | Item | Completed |
 |------|-----------|
+| PWA service worker (vite-plugin-pwa, Workbox autoUpdate) — no white screen on app reopen | 2026-05-24 |
+| Persistent chart cache to localStorage via TanStack Query persister (7-day, ['history'] only) | 2026-05-24 |
+| SummaryCard XIRR layout fix — XIRR left / Total right on row 3, matches HoldingCard | 2026-05-24 |
+| TransactionsPage top card font fix — XIRR unstyled, Today/Total labels, fmtCompactGainLine | 2026-05-24 |
 | Chart history cache: staleTime+gcTime=Infinity, force refresh clears cache | 2026-05-24 |
 | Multi-portfolio txn fix: segment view passes portfolios[] in nav state; TransactionsPage aggregates across all | 2026-05-24 |
 | HoldingCard shows TICKER · Name instead of name only | 2026-05-24 |

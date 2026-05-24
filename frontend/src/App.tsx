@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
@@ -25,6 +25,14 @@ export type Currency = 'INR' | 'USD'
 
 export default function App() {
   const [currency, setCurrency] = useState<Currency>('INR')
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload()
+      })
+    }
+  }, [])
 
   return (
     <PersistQueryClientProvider
