@@ -193,9 +193,20 @@ All cards (Hero, Stocks/MF tiles, BreakCards, HoldingCard, SummaryCard) show:
 
 ---
 
+## Pull-to-Refresh UX (PortfoliosPage)
+
+- Native browser pull-to-refresh blocked via `overscroll-behavior-y: none` on both `html` and `body`
+- Custom swipe-down gesture (64px threshold) triggers data-only refresh via `useForceRefresh`
+- Pull indicator: "↓ Pull to refresh" → "↑ Release to refresh" → "↻ Refreshing…" (sky-400)
+- `useForceRefresh` no longer calls `invalidateQueries` — stale data stays visible during refresh
+- Local `refreshing` state controls spin; stops only when backend responds and `data.as_of` updates
+- Bottom bar: right-aligned ↻ + timestamp as single tappable unit (`py-3` for 44px touch target)
+
+---
+
 ## Known Issues (as of 2026-05-24)
 
-- None. Phase 5/6 backlog removed.
+- None.
 
 ---
 
@@ -232,3 +243,6 @@ All cards (Hero, Stocks/MF tiles, BreakCards, HoldingCard, SummaryCard) show:
 | 2026-05-24 | Timestamp + refresh moved to page bottom | Cleaner hero-first view; timestamp sits at footer of PortfoliosPage |
 | 2026-05-24 | Phase 5/6 removed from roadmap | Items dropped; no further backlog tracked |
 | 2026-05-24 | Stocks/MF tiles changed to full-width stacked | Prevents mobile overflow; matches BreakCard style (9px label, 15px value, same 3-row layout) |
+| 2026-05-24 | Pull-to-refresh: blocked native, added custom swipe gesture | Native reload caused full React restart + white screen; custom gesture does data-only refresh |
+| 2026-05-24 | useForceRefresh: removed invalidateQueries | Prevented white screen during refresh by keeping stale data visible |
+| 2026-05-24 | Bottom bar sync: right-aligned ↻ + timestamp as one tappable unit | Cleaner than split layout; icon spins until data updates |

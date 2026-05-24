@@ -21,6 +21,7 @@
 
 | Item | Completed |
 |------|-----------|
+| Pull-to-refresh UX — custom swipe gesture, no white screen, animated sync button, blocked native reload | 2026-05-24 |
 | Analysis tab on TransactionsPage — notes with add/edit/delete, IST timestamp, localStorage | 2026-05-24 |
 | Today/Total gain labels on all cards (overview + holdings); compact number format (₹23.4K) | 2026-05-24 |
 | FastAPI backend — `/api/portfolio` + `/api/history` | 2026-05-23 |
