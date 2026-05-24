@@ -175,7 +175,7 @@ def enrich_holdings(
         lambda s: (ticker_info.get(s) or {}).get("sector", "Unknown")
     )
     df["company"] = df["yf_symbol"].map(
-        lambda s: (ticker_info.get(s) or {}).get("name", s)
+        lambda s: (ticker_info.get(s) or {}).get("name") or None
     )
 
     pc = prev_closes or {}
