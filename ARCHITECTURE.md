@@ -38,7 +38,7 @@ frontend/
     utils/segments.ts            classify.py TypeScript port
     utils/realized.ts            _agg_realized() TypeScript port
     utils/xirr.ts                Client-side XIRR (bisection + Newton fallback)
-    components/             LoadingSkeleton, SummaryCard, HoldingCard, TxRow, PriceChart
+    components/             LoadingSkeleton, SummaryCard, HoldingCard, TxRow, PriceChart, AnalysisTab
     pages/                  PortfoliosPage, HoldingsPage, TransactionsPage
     App.tsx                 React Router routes
   public/

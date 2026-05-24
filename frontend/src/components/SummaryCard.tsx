@@ -44,10 +44,10 @@ export function SummaryCard({
 
       {/* Value + today gain */}
       <div className="flex items-baseline justify-between mb-1">
-        <span className="text-[20px] font-bold text-slate-900 tracking-tight">
+        <span className="text-[20px] font-bold text-slate-900 tracking-tight min-w-0">
           {fmt(current, currency)}
         </span>
-        <span className="flex items-center gap-1">
+        <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
           <span className="text-[9px] text-slate-400">Today</span>
           <span className="text-[10px]" style={{ color: tgColor }}>
             {todayGain !== null ? fmtCompactGainLine(todayGain, todayPct, currency) : '—'}

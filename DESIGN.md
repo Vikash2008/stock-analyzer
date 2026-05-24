@@ -129,6 +129,11 @@ DATE    BUY/SELL/DIV    QTY @ PRICE    VALUE
 - Tab 2 — Charts: 8 metric pills (Price, Portfolio Value, Invested, Unrealized Gains, Realized Gains, Total Gains, Return %, XIRR Trend)
   - Price pill: PriceChart (price line + BUY/SELL markers) + range selector (1m–All)
   - Other 7 pills: historical line chart scoped to this single holding via usePortfolioHistory + range selector
+- Tab 3 — Analysis: Notes section
+  - Add note textarea + full-width "Add Note" button → saves with IST timestamp, newest first
+  - Each note: timestamp (slate-400, 9px) + text (slate-700, 12px) + Edit / Delete actions
+  - Edit: inline textarea with Save / Cancel buttons
+  - Persisted to localStorage keyed by `notes:${portfolio}:${symbol}`
 
 
 ---
@@ -173,6 +178,16 @@ DATE    BUY/SELL/DIV    QTY @ PRICE    VALUE
 
 ---
 
+## Card Gain Display Convention
+
+All cards (Hero, Stocks/MF tiles, BreakCards, HoldingCard, SummaryCard) show:
+- `Today` label (`text-[9px] text-slate-400`) + daily gain value (`text-[10px]` colored)
+- `Total` label (`text-[9px] text-slate-400`) + total gain value (`text-[10px]` colored)
+- Gain values use `fmtCompactGainLine` — compact format: ₹23.4K, ₹1.2L, ₹2.3Cr (no full number below 1K)
+- Hero card gain values are `text-[10px]` matching all other cards
+
+---
+
 ## Known Issues (as of 2026-05-24)
 
 - None critical. See ROADMAP.md Phase 5/6 for pending polish items.
@@ -202,3 +217,6 @@ DATE    BUY/SELL/DIV    QTY @ PRICE    VALUE
 | 2026-05-24 | TransactionsPage Charts tab | 8-metric pills: Price (PriceChart + range) + 7 historical series scoped to one holding |
 | 2026-05-24 | Sort control on HoldingsPage | 7 sort fields, asc/desc toggle, default Current Value ↓ |
 | 2026-05-24 | Back label via nav state | Transactions page back button reflects origin (portfolio or segment name) |
+| 2026-05-24 | Analysis tab with Notes | localStorage per portfolio:symbol; add/edit/delete; IST timestamp on each note |
+| 2026-05-24 | Today/Total labels on all cards | Subtle 9px slate-400 label before each gain value; consistent across all card types |
+| 2026-05-24 | Compact number format for gains | fmtCompact/fmtCompactGainLine: ₹23.4K instead of ₹23,432; avoids long numbers in tight layouts |

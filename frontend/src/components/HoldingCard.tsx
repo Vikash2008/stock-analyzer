@@ -56,10 +56,10 @@ export function HoldingCard({
 
       {/* Value | Today gain */}
       <div className="flex items-baseline justify-between mb-0.5">
-        <span className="text-[16px] font-bold text-slate-900 tracking-tight">
+        <span className="text-[16px] font-bold text-slate-900 tracking-tight min-w-0">
           {fmt(current, currency)}
         </span>
-        <span className="flex items-center gap-1">
+        <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
           <span className="text-[9px] text-slate-400">Today</span>
           <span className="text-[10px]" style={{ color: tgColor }}>
             {todayGain !== null ? fmtCompactGainLine(todayGain, todayPct, currency) : '—'}
@@ -73,7 +73,7 @@ export function HoldingCard({
           ? <span className="text-[9px]" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
           : <span className="text-[11px] text-slate-400">→</span>
         }
-        <span className="flex items-center gap-1">
+        <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
           <span className="text-[9px] text-slate-400">Total</span>
           <span className="text-[10px]" style={{ color: textColor }}>
             {fmtCompactGainLine(totalGain, totalPct, currency)}
