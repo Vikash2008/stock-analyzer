@@ -15,7 +15,7 @@ src/
   cache.py                  Disk cache (data/.cache.pkl) — prices/fx/prev_closes TTL 30min, info 7d
   data_loader.py            CSV ingestion, MSP auto-detect
   portfolio.py              FIFO engine, enrich_holdings()
-  price_fetcher.py          yfinance wrappers
+  price_fetcher.py          yfinance wrappers; loads names from data/names.json first (Render-safe fallback)
   schema.py                 Frozen schema + validation
   xirr.py                   XIRR calculation
 
@@ -52,6 +52,7 @@ frontend/
 data/
   msp_v2.csv                Transaction source file (source of truth)
   .cache.pkl                Persistent price/FIFO cache (do not delete)
+  names.json                Static company name lookup (committed to git — used by Render where yfinance info calls fail)
 ```
 
 ---

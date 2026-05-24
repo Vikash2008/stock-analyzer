@@ -33,6 +33,10 @@
 
 | Item | Completed |
 |------|-----------|
+| PWA skipWaiting + clientsClaim — new SW activates immediately on mobile; deploys reflect without closing app | 2026-05-24 |
+| Static data/names.json — company names committed to git; Render always shows correct names regardless of yfinance availability | 2026-05-24 |
+| serializers.py inf fix — all scalar fields + xirr_by_portfolio sanitized; no more 500 on inf values | 2026-05-24 |
+| Sync icon (↻) on TransactionsPage Charts tab — clears history cache for current symbol and re-fetches | 2026-05-24 |
 | PWA auto-reload on SW update — controllerchange listener in App.tsx; Vercel deploys immediately visible without manual refresh | 2026-05-24 |
 | PWA service worker (vite-plugin-pwa, Workbox autoUpdate) — no white screen on app reopen | 2026-05-24 |
 | Persistent chart cache to localStorage via TanStack Query persister (7-day, ['history'] only) | 2026-05-24 |

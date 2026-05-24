@@ -105,6 +105,11 @@
 - Row 3: XIRR (left, 9px, colored) + Total G/L (right, 10px fmtCompactGainLine) — matches HoldingCard row 3 layout
 - Footer: Invested + Realized (border-top divider); replaceable via `footer` prop (TransactionsPage uses custom footer)
 
+### Charts Tab Header (TransactionsPage)
+- Metric pills row has a ↻ sync icon flush right (`ml-auto`)
+- Only visible when Charts tab is active
+- Tapping clears `['history', yf_symbol]` from TanStack Query cache and re-fetches; icon spins for ~1.2s via `animate-spin`
+
 ### Transaction Row (TransactionsPage)
 ```
 DATE    BUY/SELL/DIV    QTY @ PRICE    VALUE
@@ -157,6 +162,7 @@ DATE    BUY/SELL/DIV    QTY @ PRICE    VALUE
 - Install: Chrome → three-dot menu → "Add to Home screen"
 - **Service worker** (`vite-plugin-pwa`, Workbox): precaches all JS/CSS/HTML/SVG/PNG/ICO on first load; subsequent opens serve from cache instantly — no white screen
 - `registerType: 'autoUpdate'` — new deploy auto-updates SW in background
+- `skipWaiting: true` + `clientsClaim: true` in Workbox config — new SW activates immediately without waiting for tabs to close
 - `controllerchange` listener in `App.tsx` — when new SW activates, page reloads automatically so users always see the latest JS bundle without manual refresh
 
 ---
@@ -259,6 +265,12 @@ Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone
 
 - None.
 
+## Local Dev Notes
+
+- Node v24 at `C:\Program Files\nodejs` — run `$env:PATH = "C:\Program Files\nodejs;$env:PATH"` if npm not found
+- PowerShell execution policy blocks npm.ps1 — run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` first (session-only, safe)
+- If backend 500s with `inf` JSON error: delete `data\.cache.pkl` and restart uvicorn
+
 ---
 
 ## Design Decisions Log
@@ -304,3 +316,7 @@ Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone
 | 2026-05-24 | SummaryCard XIRR layout — row 3 XIRR left / Total right | Matches HoldingCard 3-row layout for visual consistency across all cards |
 | 2026-05-24 | TransactionsPage top card: XIRR unstyled, Today/Total labels, fmtCompactGainLine | Font consistency with HoldingsPage; no rogue bold styles |
 | 2026-05-24 | PWA auto-reload on SW update (controllerchange listener in App.tsx) | autoUpdate activates new SW silently but doesn't reload page; listener forces reload so Vercel deploys are immediately visible |
+| 2026-05-24 | skipWaiting + clientsClaim in Workbox config | Without these, new SW waits for all tabs to close before activating — on mobile PWA this never happens; now activates immediately on every deploy |
+| 2026-05-24 | Sync icon (↻) on Charts tab header in TransactionsPage | Clears per-symbol history cache and re-fetches; spins 1.2s; only visible when Charts tab active |
+| 2026-05-24 | Static data/names.json for company names on Render | Render free tier has ephemeral disk — yfinance info calls fail after each deploy; names.json committed to git ensures names always load correctly |
+| 2026-05-24 | serializers.py sanitizes inf values | _clean() now handles math.isinf() alongside math.isnan(); all scalar fields and xirr_by_portfolio also wrapped in _clean() |
