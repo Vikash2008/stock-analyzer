@@ -57,20 +57,21 @@
 ### Stocks / MF Tile (PortfoliosPage, side by side)
 ```
 ┌──────────────────────┐
-│ STOCKS     XIRR 18.5%│  ← 9px label + 9px XIRR
-│ ₹45.2 L              │  ← 13px value
-│ +₹5.3L (+13.3%)      │  ← 9px total gain
-│ today +₹23K (+0.5%)  │  ← 9px today gain+pct
+│ STOCKS               │  ← 11px label
+│ ₹45.2L   XIRR 18.5% │  ← 15px value / 9px XIRR
+│ Today +X  Total +X   │  ← 9px+10px today / total gain
 └──────────────────────┘
 ```
 - Left border 3px green/red; background tinted
+- XIRR sits right of value (not label row) — consistent with all other cards
+- Today/Total on bottom row with `shrink-0 whitespace-nowrap` to prevent wrapping
 
 ### Breakdown Card (PortfoliosPage)
 ```
 ┌─────────────────────────────────────┐
-│ PORTFOLIO NAME            today gain│  ← 9px label / 10px today
-│ ₹ CURRENT VALUE                     │  ← 15px value
-│ G/L (total incl. realized)  invested│  ← 11px gain / 9px invested
+│ PORTFOLIO NAME (bold, slate-700)     │  ← 9px bold label
+│ ₹ CURRENT VALUE        Today +₹X    │  ← 15px value / 10px today
+│ XIRR 18.5%             Total +₹X    │  ← 9px XIRR / 10px total
 └─────────────────────────────────────┘
 ```
 - Tappable — By Broker → `/holdings/portfolio/:name`; By Type → `/holdings/segment/:key`
@@ -78,13 +79,15 @@
 ### Holding Card (HoldingsPage)
 ```
 ┌─────────────────────────────────────┐
-│ SYMBOL · company name      LTP      │
+│ COMPANY NAME (bold, slate-700)  LTP │
 │ ₹ current value      today gain+%   │
-│ total G/L (incl. realized)  XIRR %  │
+│ XIRR %        total G/L (incl. real)│
 └─────────────────────────────────────┘
 ```
 - Tappable — navigates to `/transactions/:portfolio/:symbol`
+- Shows company name only (no symbol prefix); falls back to symbol if no company name
 - XIRR computed client-side per holding (BUY/SELL cashflows + terminal value); shows `→` as fallback if null
+- Today/Total gain spans have `shrink-0 whitespace-nowrap` — never wrap to next line
 
 ### Summary Card (top of HoldingsPage / SummaryPage)
 ```
@@ -106,7 +109,7 @@ DATE    BUY/SELL/DIV    QTY @ PRICE    VALUE
 ## Page Layouts
 
 ### PortfoliosPage (`/`)
-- Refresh (↻) button top right; IST timestamp top left
+- IST timestamp (left) + Refresh (↻) button (right) at **bottom** of page
 - Hero card: Total portfolio — current value | today gain + today % | total G/L + return % | XIRR
 - Stocks tile + MF tile — side by side; each shows value, total G/L + %, today gain + %, XIRR
 - Breakdown toggle: **By Type (default)** | By Broker
@@ -190,7 +193,7 @@ All cards (Hero, Stocks/MF tiles, BreakCards, HoldingCard, SummaryCard) show:
 
 ## Known Issues (as of 2026-05-24)
 
-- None critical. See ROADMAP.md Phase 5/6 for pending polish items.
+- None. Phase 5/6 backlog removed.
 
 ---
 
@@ -220,3 +223,9 @@ All cards (Hero, Stocks/MF tiles, BreakCards, HoldingCard, SummaryCard) show:
 | 2026-05-24 | Analysis tab with Notes | localStorage per portfolio:symbol; add/edit/delete; IST timestamp on each note |
 | 2026-05-24 | Today/Total labels on all cards | Subtle 9px slate-400 label before each gain value; consistent across all card types |
 | 2026-05-24 | Compact number format for gains | fmtCompact/fmtCompactGainLine: ₹23.4K instead of ₹23,432; avoids long numbers in tight layouts |
+| 2026-05-24 | shrink-0 whitespace-nowrap on gain spans | Prevents Today/Total gain labels from wrapping to next line on narrow cards |
+| 2026-05-24 | Company name only on HoldingCard | Show subLabel (company) instead of SYMBOL · company; falls back to symbol if no name |
+| 2026-05-24 | Bold slate-700 name labels on all cards | Name/label row: font-bold text-slate-700 (was text-slate-400) for visual prominence |
+| 2026-05-24 | Stocks/MF tiles layout restructured | 3 rows: label / value+XIRR / Today+Total — prevents overflow in half-width tiles |
+| 2026-05-24 | Timestamp + refresh moved to page bottom | Cleaner hero-first view; timestamp sits at footer of PortfoliosPage |
+| 2026-05-24 | Phase 5/6 removed from roadmap | Items dropped; no further backlog tracked |
