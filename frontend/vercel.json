@@ -1,6 +1,6 @@
 {
-  "buildCommand": "echo 'using pre-built dist'",
-  "installCommand": "echo 'no install needed'",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
   "outputDirectory": "dist",
   "framework": null
 }
