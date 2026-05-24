@@ -256,7 +256,7 @@ export default function TransactionsPage({ currency }: Props) {
       >
         {/* Label row */}
         <div className="flex justify-between items-center mb-1">
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate max-w-[75%]">
+          <span className="text-[9px] font-bold text-slate-700 uppercase tracking-wider truncate max-w-[75%]">
             {co || decoded.symbol}
           </span>
           <span className="text-[9px] text-slate-400 shrink-0">
