@@ -1,7 +1,7 @@
 // Top-of-page summary card — shown on HoldingsPage and TransactionsPage.
 // Mirrors _summary_card() in holdings_page.py.
 
-import { fmt, fmtGainLine, fmtPct } from '../utils/fmt'
+import { fmt, fmtCompactGainLine, fmtPct } from '../utils/fmt'
 import type { Currency } from '../App'
 
 interface SummaryCardProps {
@@ -47,17 +47,21 @@ export function SummaryCard({
         <span className="text-[20px] font-bold text-slate-900 tracking-tight">
           {fmt(current, currency)}
         </span>
-        <span className="text-[10px]" style={{ color: tgColor }}>
-          {todayGain !== null
-            ? `${todayGain >= 0 ? '+' : '−'}${fmt(Math.abs(todayGain), currency)}${todayPct !== null ? ` (${fmtPct(todayPct)})` : ''}`
-            : 'N/A'}
+        <span className="flex items-center gap-1">
+          <span className="text-[9px] text-slate-400">Today</span>
+          <span className="text-[10px]" style={{ color: tgColor }}>
+            {todayGain !== null ? fmtCompactGainLine(todayGain, todayPct, currency) : '—'}
+          </span>
         </span>
       </div>
 
       {/* Total G/L */}
       <div className="flex items-baseline justify-between mb-2">
-        <span className="text-[10px] font-bold" style={{ color: textColor }}>
-          {fmtGainLine(totalGain, totalPct, currency)}
+        <span className="flex items-center gap-1">
+          <span className="text-[9px] text-slate-400">Total</span>
+          <span className="text-[10px]" style={{ color: textColor }}>
+            {fmtCompactGainLine(totalGain, totalPct, currency)}
+          </span>
         </span>
         <span className="text-[9px] text-slate-400">
           Invested <span className="text-slate-600 font-semibold">{fmt(invested, currency)}</span>
@@ -76,7 +80,7 @@ export function SummaryCard({
           <span className="text-[9px] text-slate-400">
             Realized{' '}
             <span className="font-semibold" style={{ color: realColor }}>
-              {fmtGainLine(realGain, null, currency)}
+              {fmtCompactGainLine(realGain, null, currency)}
             </span>
           </span>
         </div>

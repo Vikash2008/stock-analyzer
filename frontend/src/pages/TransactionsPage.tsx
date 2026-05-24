@@ -10,6 +10,7 @@ import type { DatedSeries, PortfolioSeries } from '../hooks/usePortfolioHistory'
 import { TxRow } from '../components/TxRow'
 import { PriceChart } from '../components/PriceChart'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
+import { AnalysisTab } from '../components/AnalysisTab'
 import { aggRealized } from '../utils/realized'
 import { SKIP_PORTS, USD_PORTS } from '../utils/segments'
 import { computeXIRR } from '../utils/xirr'
@@ -53,7 +54,7 @@ export default function TransactionsPage({ currency }: Props) {
   const location  = useLocation()
   const { portfolio = '', symbol = '' } = useParams<{ portfolio: string; symbol: string }>()
   const { data, isLoading, error } = usePortfolio(currency)
-  const [activeTab,   setActiveTab]   = useState<'transactions' | 'charts'>('transactions')
+  const [activeTab,   setActiveTab]   = useState<'transactions' | 'charts' | 'analysis'>('transactions')
   const [chartMetric, setChartMetric] = useState<ChartMetric>('Price')
   const [chartRange,  setChartRange]  = useState<ChartRange>('1y')
 
@@ -307,7 +308,7 @@ export default function TransactionsPage({ currency }: Props) {
 
       {/* Tabs */}
       <div className="flex gap-3 mb-3 border-b border-slate-200">
-        {(['transactions', 'charts'] as const).map(tab => (
+        {(['transactions', 'charts', 'analysis'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -341,6 +342,10 @@ export default function TransactionsPage({ currency }: Props) {
             </>
           )}
         </>
+      )}
+
+      {activeTab === 'analysis' && (
+        <AnalysisTab portfolio={decoded.portfolio} symbol={decoded.symbol} />
       )}
 
       {activeTab === 'charts' && (

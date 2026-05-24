@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePortfolio, useForceRefresh } from '../hooks/usePortfolio'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
-import { fmt, fmtGainLine, fmtPct } from '../utils/fmt'
+import { fmt, fmtCompact, fmtCompactGainLine, fmtPct } from '../utils/fmt'
 import { SKIP_PORTS, getSegmentType, filterBySegment, USD_PORTS } from '../utils/segments'
 import { aggRealized, realizedForPorts } from '../utils/realized'
 import { computeXIRR } from '../utils/xirr'
@@ -96,17 +96,23 @@ function BreakCard({ card, currency, xirr, onClick }: { card: CardStats; currenc
       <p className="text-[9px] text-slate-400 uppercase tracking-widest mb-1">{card.label}</p>
       <div className="flex items-baseline justify-between">
         <span className="text-[15px] font-bold text-slate-900">{fmt(card.current, currency)}</span>
-        <span className="text-[10px]" style={{ color: card.todayGain !== null ? (card.todayGain >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8' }}>
-          {card.todayGain !== null ? `${card.todayGain >= 0 ? '+' : ''}${fmt(card.todayGain, currency)}${todayPct !== null ? ` (${fmtPct(todayPct)})` : ''}` : 'N/A'}
+        <span className="flex items-center gap-1">
+          <span className="text-[9px] text-slate-400">Today</span>
+          <span className="text-[10px]" style={{ color: card.todayGain !== null ? (card.todayGain >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8' }}>
+            {card.todayGain !== null ? fmtCompactGainLine(card.todayGain, todayPct, currency) : '—'}
+          </span>
         </span>
       </div>
       <div className="flex items-center justify-between mt-0.5">
         {xirr !== null
           ? <span className="text-[9px] font-semibold" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
-          : <span className="text-[9px] text-slate-400">{fmt(card.invested, currency)} inv</span>
+          : <span className="text-[9px] text-slate-400">{fmtCompact(card.invested, currency)} inv</span>
         }
-        <span className="text-[11px]" style={{ color: pos ? '#0a7a42' : '#be1c1c' }}>
-          {fmtGainLine(totalGain, pct, currency)}
+        <span className="flex items-center gap-1">
+          <span className="text-[9px] text-slate-400">Total</span>
+          <span className="text-[10px]" style={{ color: pos ? '#0a7a42' : '#be1c1c' }}>
+            {fmtCompactGainLine(totalGain, pct, currency)}
+          </span>
         </span>
       </div>
     </div>
@@ -252,11 +258,11 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         <p className="text-[12px] font-semibold text-slate-600 mb-1">Total Portfolio</p>
         <div className="flex items-baseline justify-between">
           <span className="text-[22px] font-bold text-slate-900">{fmt(hero.cur, currency)}</span>
-          <span className="text-[11px]" style={{ color: hero.todayGain >= 0 ? '#0a7a42' : '#be1c1c' }}>
-            {hero.todayGain !== 0
-              ? `${hero.todayGain >= 0 ? '+' : ''}${fmt(hero.todayGain, currency)}${hero.todayPct !== null ? ` (${fmtPct(hero.todayPct)})` : ''}`
-              : 'N/A'
-            }
+          <span className="flex items-center gap-1">
+            <span className="text-[9px] text-slate-400">Today</span>
+            <span className="text-[10px]" style={{ color: hero.todayGain >= 0 ? '#0a7a42' : '#be1c1c' }}>
+              {hero.todayGain !== 0 ? fmtCompactGainLine(hero.todayGain, hero.todayPct, currency) : '—'}
+            </span>
           </span>
         </div>
         <div className="flex items-center justify-between mt-0.5">
@@ -266,8 +272,11 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               </span>
             : <span className="text-[9px] text-slate-400">XIRR —</span>
           }
-          <span className="text-[11px] font-medium" style={{ color: heroPos ? '#0a7a42' : '#be1c1c' }}>
-            {fmtGainLine(hero.totalGain, hero.returnPct, currency)}
+          <span className="flex items-center gap-1">
+            <span className="text-[9px] text-slate-400">Total</span>
+            <span className="text-[10px]" style={{ color: heroPos ? '#0a7a42' : '#be1c1c' }}>
+              {fmtCompactGainLine(hero.totalGain, hero.returnPct, currency)}
+            </span>
           </span>
         </div>
       </div>
@@ -296,11 +305,11 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               <p className="text-[11px] font-semibold text-slate-600 mb-1">{label}</p>
               <div className="flex items-baseline justify-between">
                 <span className="text-[15px] font-bold text-slate-900">{fmt(stats.cur, currency)}</span>
-                <span className="text-[10px]" style={{ color: tgC }}>
-                  {stats.todayGain !== 0
-                    ? `${stats.todayGain >= 0 ? '+' : ''}${fmt(stats.todayGain, currency)}${stats.todayPct !== null ? ` (${fmtPct(stats.todayPct)})` : ''}`
-                    : ''
-                  }
+                <span className="flex items-center gap-1">
+                  <span className="text-[9px] text-slate-400">Today</span>
+                  <span className="text-[10px]" style={{ color: tgC }}>
+                    {stats.todayGain !== 0 ? fmtCompactGainLine(stats.todayGain, stats.todayPct, currency) : '—'}
+                  </span>
                 </span>
               </div>
               <div className="flex items-center justify-between mt-0.5">
@@ -308,8 +317,11 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                   ? <span className="text-[9px] font-semibold" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
                   : <span className="text-[9px] text-slate-400">XIRR —</span>
                 }
-                <span className="text-[10px]" style={{ color: tc }}>
-                  {fmtGainLine(stats.gain, stats.pct, currency)}
+                <span className="flex items-center gap-1">
+                  <span className="text-[9px] text-slate-400">Total</span>
+                  <span className="text-[10px]" style={{ color: tc }}>
+                    {fmtCompactGainLine(stats.gain, stats.pct, currency)}
+                  </span>
                 </span>
               </div>
             </div>

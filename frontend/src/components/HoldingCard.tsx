@@ -1,7 +1,7 @@
 // Individual holding tile — mirrors _h_card() in holdings_page.py.
 // Entire card is tappable (onClick). No separate button needed.
 
-import { fmt, fmtGainLine, fmtPct } from '../utils/fmt'
+import { fmt, fmtCompactGainLine, fmtPct } from '../utils/fmt'
 import type { Currency } from '../App'
 
 interface HoldingCardProps {
@@ -59,10 +59,11 @@ export function HoldingCard({
         <span className="text-[16px] font-bold text-slate-900 tracking-tight">
           {fmt(current, currency)}
         </span>
-        <span className="text-[10px]" style={{ color: tgColor }}>
-          {todayGain !== null
-            ? `${todayGain >= 0 ? '+' : '−'}${fmt(Math.abs(todayGain), currency)}${todayPct !== null ? ` (${fmtPct(todayPct)})` : ''}`
-            : 'N/A'}
+        <span className="flex items-center gap-1">
+          <span className="text-[9px] text-slate-400">Today</span>
+          <span className="text-[10px]" style={{ color: tgColor }}>
+            {todayGain !== null ? fmtCompactGainLine(todayGain, todayPct, currency) : '—'}
+          </span>
         </span>
       </div>
 
@@ -72,8 +73,11 @@ export function HoldingCard({
           ? <span className="text-[9px]" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
           : <span className="text-[11px] text-slate-400">→</span>
         }
-        <span className="text-[10px] font-bold" style={{ color: textColor }}>
-          {fmtGainLine(totalGain, totalPct, currency)}
+        <span className="flex items-center gap-1">
+          <span className="text-[9px] text-slate-400">Total</span>
+          <span className="text-[10px]" style={{ color: textColor }}>
+            {fmtCompactGainLine(totalGain, totalPct, currency)}
+          </span>
         </span>
       </div>
     </div>
