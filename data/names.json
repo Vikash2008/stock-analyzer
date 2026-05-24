@@ -1,0 +1,412 @@
+{
+  "0P0000XVFY.BO": {
+    "sector": "Unknown",
+    "industry": "Unknown",
+    "name": "Nippon India Small Cap Dir Gr"
+  },
+  "0P0000XW2T.BO": {
+    "sector": "Unknown",
+    "industry": "Unknown",
+    "name": "DSP ELSS Tax Saver Dir Gr"
+  },
+  "0P0001784G.BO": {
+    "sector": "Unknown",
+    "industry": "Unknown",
+    "name": "Tata Digital India Dir Gr"
+  },
+  "0P0000XVAA.BO": {
+    "sector": "Unknown",
+    "industry": "Unknown",
+    "name": "HDFC Small Cap Dir Gr"
+  },
+  "0P00017844.BO": {
+    "sector": "Unknown",
+    "industry": "Unknown",
+    "name": "Mirae Asset ELSS Tax Saver Dir Gr"
+  },
+  "0P00011MAX.BO": {
+    "sector": "Unknown",
+    "industry": "Unknown",
+    "name": "Axis Small Cap Fund Dir Gr"
+  },
+  "0P0000XVXV.BO": {
+    "sector": "Unknown",
+    "industry": "Unknown",
+    "name": "Aditya BSL Digital India Dir Gr"
+  },
+  "0P0000XVJR.BO": {
+    "sector": "Unknown",
+    "industry": "Unknown",
+    "name": "SBI Contra Dir Gr"
+  },
+  "0P0000YWL1.BO": {
+    "sector": "Unknown",
+    "industry": "Unknown",
+    "name": "Parag Parikh Long Term Equity Direct Growth"
+  },
+  "0P0001EUZZ.BO": {
+    "sector": "Unknown",
+    "industry": "Unknown",
+    "name": "Tata Small Cap Fund Dir Gr"
+  },
+  "0P0001F5O4.BO": {
+    "sector": "Unknown",
+    "industry": "Unknown",
+    "name": "Bank of India Small Cap Dir Gr"
+  },
+  "0P0001JMZB.BO": {
+    "sector": "Unknown",
+    "industry": "Unknown",
+    "name": "Motilal Oswal S&P 500 Index Dir Gr"
+  },
+  "0P0001NCLP.BO": {
+    "sector": "Unknown",
+    "industry": "Unknown",
+    "name": "ICICI Pru NASDAQ 100 Index Dir Gr"
+  },
+  "0P0000XW24.BO": {
+    "sector": "Unknown",
+    "industry": "Unknown",
+    "name": "DSP Small Cap Dir Gr"
+  },
+  "AXISBANK.NS": {
+    "sector": "Financial Services",
+    "industry": "Banks - Regional",
+    "name": "Axis Bank Limited"
+  },
+  "ETERNAL.NS": {
+    "sector": "Consumer Cyclical",
+    "industry": "Internet Retail",
+    "name": "Eternal Limited"
+  },
+  "ICICIBANK.NS": {
+    "sector": "Financial Services",
+    "industry": "Banks - Regional",
+    "name": "ICICI Bank Limited"
+  },
+  "HDFCLIFE.NS": {
+    "sector": "Financial Services",
+    "industry": "Insurance - Life",
+    "name": "HDFC Life Insurance Company Limited"
+  },
+  "BAJFINANCE.NS": {
+    "sector": "Financial Services",
+    "industry": "Credit Services",
+    "name": "Bajaj Finance Limited"
+  },
+  "MON100.NS": {
+    "sector": "Unknown",
+    "industry": "Unknown",
+    "name": "Motilal Oswal NASDAQ 100 ETF"
+  },
+  "IDFCFIRSTB.NS": {
+    "sector": "Financial Services",
+    "industry": "Banks - Regional",
+    "name": "IDFC First Bank Limited"
+  },
+  "ITBEES.NS": {
+    "sector": "Unknown",
+    "industry": "Unknown",
+    "name": "Nippon India ETF Nifty IT"
+  },
+  "HDFCAMC.NS": {
+    "sector": "Financial Services",
+    "industry": "Asset Management",
+    "name": "HDFC Asset Management Company Limited"
+  },
+  "ANGELONE.NS": {
+    "sector": "Financial Services",
+    "industry": "Capital Markets",
+    "name": "Angel One Limited"
+  },
+  "AAVAS.NS": {
+    "sector": "Financial Services",
+    "industry": "Mortgage Finance",
+    "name": "Aavas Financiers Limited"
+  },
+  "CDSL.NS": {
+    "sector": "Financial Services",
+    "industry": "Capital Markets",
+    "name": "Central Depository Services (India) Limited"
+  },
+  "LALPATHLAB.NS": {
+    "sector": "Healthcare",
+    "industry": "Diagnostics & Research",
+    "name": "Dr. Lal PathLabs Limited"
+  },
+  "SBILIFE.NS": {
+    "sector": "Financial Services",
+    "industry": "Insurance - Life",
+    "name": "SBI Life Insurance Company Limited"
+  },
+  "SBICARD.NS": {
+    "sector": "Financial Services",
+    "industry": "Credit Services",
+    "name": "SBI Cards and Payment Services Limited"
+  },
+  "INDIGOPNTS.NS": {
+    "sector": "Basic Materials",
+    "industry": "Specialty Chemicals",
+    "name": "Indigo Paints Limited"
+  },
+  "APTUS.NS": {
+    "sector": "Financial Services",
+    "industry": "Mortgage Finance",
+    "name": "Aptus Value Housing Finance India Limited"
+  },
+  "AFFLE.NS": {
+    "sector": "Communication Services",
+    "industry": "Advertising Agencies",
+    "name": "Affle 3i Limited"
+  },
+  "CAMS.NS": {
+    "sector": "Technology",
+    "industry": "Information Technology Services",
+    "name": "Computer Age Management Services Limited"
+  },
+  "NAM-INDIA.NS": {
+    "sector": "Financial Services",
+    "industry": "Asset Management",
+    "name": "Nippon Life India Asset Management Limited"
+  },
+  "NH.NS": {
+    "sector": "Healthcare",
+    "industry": "Medical Care Facilities",
+    "name": "Narayana Hrudayalaya Limited"
+  },
+  "MAXHEALTH.NS": {
+    "sector": "Healthcare",
+    "industry": "Medical Care Facilities",
+    "name": "Max Healthcare Institute Limited"
+  },
+  "SBIN.NS": {
+    "sector": "Financial Services",
+    "industry": "Banks - Regional",
+    "name": "State Bank of India"
+  },
+  "PIIND.NS": {
+    "sector": "Basic Materials",
+    "industry": "Agricultural Inputs",
+    "name": "PI Industries Limited"
+  },
+  "JIOFIN.NS": {
+    "sector": "Financial Services",
+    "industry": "Asset Management",
+    "name": "Jio Financial Services Limited"
+  },
+  "MEDANTA.NS": {
+    "sector": "Healthcare",
+    "industry": "Medical Care Facilities",
+    "name": "Global Health Limited"
+  },
+  "HEALTHY.NS": {
+    "sector": "Unknown",
+    "industry": "Unknown",
+    "name": "Aditya Birla Sun Life Nifty Healthcare ETF"
+  },
+  "APOLLOHOSP.NS": {
+    "sector": "Healthcare",
+    "industry": "Medical Care Facilities",
+    "name": "Apollo Hospitals Enterprise Limited"
+  },
+  "FORTIS.NS": {
+    "sector": "Healthcare",
+    "industry": "Medical Care Facilities",
+    "name": "Fortis Healthcare Limited"
+  },
+  "META": {
+    "sector": "Communication Services",
+    "industry": "Internet Content & Information",
+    "name": "Meta Platforms, Inc."
+  },
+  "AMZN": {
+    "sector": "Consumer Cyclical",
+    "industry": "Internet Retail",
+    "name": "Amazon.com, Inc."
+  },
+  "AAPL": {
+    "sector": "Technology",
+    "industry": "Consumer Electronics",
+    "name": "Apple Inc."
+  },
+  "MSFT": {
+    "sector": "Technology",
+    "industry": "Software - Infrastructure",
+    "name": "Microsoft Corporation"
+  },
+  "GOOGL": {
+    "sector": "Communication Services",
+    "industry": "Internet Content & Information",
+    "name": "Alphabet Inc."
+  },
+  "TSLA": {
+    "sector": "Consumer Cyclical",
+    "industry": "Auto Manufacturers",
+    "name": "Tesla, Inc."
+  },
+  "MAFANG.NS": {
+    "sector": "Unknown",
+    "industry": "Unknown",
+    "name": "Mirae Asset NYSE FANG+ETF"
+  },
+  "ADBE": {
+    "sector": "Technology",
+    "industry": "Software - Application",
+    "name": "Adobe Inc."
+  },
+  "PATH": {
+    "sector": "Technology",
+    "industry": "Software - Infrastructure",
+    "name": "UiPath, Inc."
+  },
+  "NVDA": {
+    "sector": "Technology",
+    "industry": "Semiconductors",
+    "name": "NVIDIA Corporation"
+  },
+  "SMCI": {
+    "sector": "Technology",
+    "industry": "Computer Hardware",
+    "name": "Super Micro Computer, Inc."
+  },
+  "COIN": {
+    "sector": "Financial Services",
+    "industry": "Financial Data & Stock Exchanges",
+    "name": "Coinbase Global, Inc."
+  },
+  "MAHABANK.NS": {
+    "sector": "Financial Services",
+    "industry": "Banks - Regional",
+    "name": "Bank of Maharashtra"
+  },
+  "FEDERALBNK.NS": {
+    "sector": "Financial Services",
+    "industry": "Banks - Regional",
+    "name": "The Federal Bank Limited"
+  },
+  "NUVAMA.NS": {
+    "sector": "Financial Services",
+    "industry": "Asset Management",
+    "name": "Nuvama Wealth Management Limited"
+  },
+  "PLTR": {
+    "sector": "Technology",
+    "industry": "Software - Infrastructure",
+    "name": "Palantir Technologies Inc."
+  },
+  "SUPRIYA.NS": {
+    "sector": "Healthcare",
+    "industry": "Biotechnology",
+    "name": "Supriya Lifescience Limited"
+  },
+  "RATEGAIN.NS": {
+    "sector": "Technology",
+    "industry": "Software - Application",
+    "name": "RateGain Travel Technologies Limited"
+  },
+  "YATHARTH.NS": {
+    "sector": "Healthcare",
+    "industry": "Medical Care Facilities",
+    "name": "Yatharth Hospital & Trauma Care Services Limited"
+  },
+  "JYOTIRES.BO": {
+    "sector": "Basic Materials",
+    "industry": "Specialty Chemicals",
+    "name": "Jyoti Resins and Adhesives Limited"
+  },
+  "ARMANFIN.NS": {
+    "sector": "Financial Services",
+    "industry": "Credit Services",
+    "name": "Arman Financial Services Limited"
+  },
+  "SWIGGY.NS": {
+    "sector": "Consumer Cyclical",
+    "industry": "Internet Retail",
+    "name": "SWIGGY LIMITED"
+  },
+  "SMH": {
+    "sector": "Unknown",
+    "industry": "Unknown",
+    "name": "VanEck Semiconductor ETF"
+  },
+  "WEALTH.NS": {
+    "sector": "Financial Services",
+    "industry": "Capital Markets",
+    "name": "Wealth First Portfolio Managers Limited"
+  },
+  "DSSL.NS": {
+    "sector": "Technology",
+    "industry": "Information Technology Services",
+    "name": "Dynacons Systems & Solutions Limited"
+  },
+  "TSM": {
+    "sector": "Technology",
+    "industry": "Semiconductors",
+    "name": "Taiwan Semiconductor Manufacturing Company Limited"
+  },
+  "CRWD": {
+    "sector": "Technology",
+    "industry": "Software - Infrastructure",
+    "name": "CrowdStrike Holdings, Inc."
+  },
+  "PANW": {
+    "sector": "Technology",
+    "industry": "Software - Infrastructure",
+    "name": "Palo Alto Networks, Inc."
+  },
+  "NFLX": {
+    "sector": "Communication Services",
+    "industry": "Entertainment",
+    "name": "Netflix, Inc."
+  },
+  "BSE.NS": {
+    "sector": "Financial Services",
+    "industry": "Financial Data & Stock Exchanges",
+    "name": "BSE Limited"
+  },
+  "NETWEB.NS": {
+    "sector": "Technology",
+    "industry": "Computer Hardware",
+    "name": "Netweb Technologies India Limited"
+  },
+  "AVGO": {
+    "sector": "Technology",
+    "industry": "Semiconductors",
+    "name": "Broadcom Inc."
+  },
+  "DASH": {
+    "sector": "Consumer Cyclical",
+    "industry": "Internet Retail",
+    "name": "DoorDash, Inc."
+  },
+  "ASML": {
+    "sector": "Technology",
+    "industry": "Semiconductor Equipment & Materials",
+    "name": "ASML Holding N.V."
+  },
+  "MELI": {
+    "sector": "Consumer Cyclical",
+    "industry": "Internet Retail",
+    "name": "MercadoLibre, Inc."
+  },
+  "IREN": {
+    "sector": "Financial Services",
+    "industry": "Capital Markets",
+    "name": "IREN Limited"
+  },
+  "IONQ": {
+    "sector": "Technology",
+    "industry": "Computer Hardware",
+    "name": "IonQ, Inc."
+  },
+  "NBIS": {
+    "sector": "Communication Services",
+    "industry": "Internet Content & Information",
+    "name": "Nebius Group N.V."
+  },
+  "NOW": {
+    "sector": "Technology",
+    "industry": "Software - Application",
+    "name": "ServiceNow, Inc."
+  }
+}

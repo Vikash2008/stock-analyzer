@@ -1,7 +1,17 @@
+import json
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 import yfinance as yf
+
+_NAMES_FILE = Path("data/names.json")
+_static_names: Dict[str, dict] = {}
+if _NAMES_FILE.exists():
+    try:
+        _static_names = json.loads(_NAMES_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        pass
 
 
 def get_prices_and_prev_close(
@@ -56,7 +66,14 @@ def get_tickers_info(symbols: List[str]) -> Dict[str, dict]:
     Uses fast_info for speed; falls back to full .info on failure.
     """
     result: Dict[str, dict] = {}
+    missing = []
     for sym in symbols:
+        if sym in _static_names:
+            result[sym] = _static_names[sym]
+        else:
+            missing.append(sym)
+
+    for sym in missing:
         try:
             t = yf.Ticker(sym)
             fi = t.fast_info
@@ -64,7 +81,6 @@ def get_tickers_info(symbols: List[str]) -> Dict[str, dict]:
                 getattr(fi, "display_name", None)
                 or getattr(fi, "short_name", None)
             )
-            # fast_info doesn't carry sector — fall back to .info for that
             info = t.info
             result[sym] = {
                 "sector":   info.get("sector")   or "Unknown",
