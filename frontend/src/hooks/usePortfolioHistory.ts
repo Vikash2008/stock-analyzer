@@ -64,7 +64,8 @@ export function usePortfolioHistory(
       queryKey:  ['history', sym, startDate],
       queryFn:   () => fetchSymHistory(sym, startDate),
       enabled,
-      staleTime: 3_600_000,
+      staleTime: Infinity,  // never auto-refetch; cleared only on force refresh
+      gcTime:    Infinity,  // keep in memory for entire session
       retry:     0,
     })),
   })

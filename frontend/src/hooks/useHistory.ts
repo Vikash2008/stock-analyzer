@@ -20,7 +20,8 @@ export function useHistory(yf_symbol: string | null, start: string | null) {
     queryKey:  ['history', yf_symbol, start],
     queryFn:   () => fetchHistory(yf_symbol!, start!),
     enabled:   !!yf_symbol && !!start,
-    staleTime: 60 * 60 * 1000,  // 1 hour — price history rarely changes mid-session
+    staleTime: Infinity,  // never auto-refetch; cleared only on force refresh
+    gcTime:    Infinity,  // keep in memory for entire session
     retry: 1,
   })
 }
