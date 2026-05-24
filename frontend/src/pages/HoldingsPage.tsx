@@ -76,18 +76,19 @@ function getSortValue(r: CardRow, field: SortField, xirrMap: Map<string, number 
 }
 
 interface CardRow {
-  key:       string
-  ticker:    string
-  subLabel:  string
-  current:   number
-  invested:  number
-  realGain:  number
-  realCost:  number
-  todayGain: number | null
-  todayPct:  number | null
-  ltp:       number | null
-  navPort:   string
-  navSym:    string
+  key:        string
+  ticker:     string
+  subLabel:   string
+  current:    number
+  invested:   number
+  realGain:   number
+  realCost:   number
+  todayGain:  number | null
+  todayPct:   number | null
+  ltp:        number | null
+  navPort:    string
+  navSym:     string
+  portfolios: string[]
 }
 
 function buildRows(
@@ -101,17 +102,18 @@ function buildRows(
       .map(h => {
         const [rg, rc] = realizedMap.get(`${h.portfolio}:${h.symbol}`) ?? [0, 0]
         return {
-          key:      `${h.portfolio}:${h.symbol}`,
-          ticker:   h.symbol,
-          subLabel: mode === 'standalone' ? h.portfolio : (h.company ?? ''),
-          current:  h.disp_current,
-          invested: h.disp_invested,
+          key:        `${h.portfolio}:${h.symbol}`,
+          ticker:     h.symbol,
+          subLabel:   mode === 'standalone' ? h.portfolio : (h.company ?? ''),
+          current:    h.disp_current,
+          invested:   h.disp_invested,
           realGain: rg, realCost: rc,
-          todayGain: h.disp_today_gain,
-          todayPct:  h.today_pct,
-          ltp:      h.current_price,
-          navPort:  h.portfolio,
-          navSym:   h.symbol,
+          todayGain:  h.disp_today_gain,
+          todayPct:   h.today_pct,
+          ltp:        h.current_price,
+          navPort:    h.portfolio,
+          navSym:     h.symbol,
+          portfolios: [h.portfolio],
         }
       })
       .sort((a, b) => b.current - a.current)
@@ -123,17 +125,18 @@ function buildRows(
     const existing = map.get(h.symbol)
     if (!existing) {
       map.set(h.symbol, {
-        key:      h.symbol,
-        ticker:   h.symbol,
-        subLabel: h.company ?? '',
-        current:  h.disp_current,
-        invested: h.disp_invested,
+        key:        h.symbol,
+        ticker:     h.symbol,
+        subLabel:   h.company ?? '',
+        current:    h.disp_current,
+        invested:   h.disp_invested,
         realGain: rg, realCost: rc,
-        todayGain: h.disp_today_gain,
-        todayPct:  null,
-        ltp:      h.current_price,
-        navPort:  h.portfolio,
-        navSym:   h.symbol,
+        todayGain:  h.disp_today_gain,
+        todayPct:   null,
+        ltp:        h.current_price,
+        navPort:    h.portfolio,
+        navSym:     h.symbol,
+        portfolios: [h.portfolio],
       })
     } else {
       existing.current   += h.disp_current
@@ -143,6 +146,7 @@ function buildRows(
       if (h.disp_today_gain !== null) {
         existing.todayGain = (existing.todayGain ?? 0) + h.disp_today_gain
       }
+      if (!existing.portfolios.includes(h.portfolio)) existing.portfolios.push(h.portfolio)
     }
   }
 
@@ -432,7 +436,7 @@ export default function HoldingsPage({ currency }: Props) {
                 ltp={r.ltp}
                 xirr={xirrMap.get(r.key) ?? null}
                 currency={currency}
-                onClick={() => navigate(`/transactions/${encodeURIComponent(r.navPort)}/${encodeURIComponent(r.navSym)}`, { state: { from: label } })}
+                onClick={() => navigate(`/transactions/${encodeURIComponent(r.navPort)}/${encodeURIComponent(r.navSym)}`, { state: { from: label, portfolios: r.portfolios } })}
               />
             ))}
           </div>

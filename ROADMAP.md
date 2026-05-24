@@ -33,6 +33,8 @@
 
 | Item | Completed |
 |------|-----------|
+| Chart loading progress — HoldingsPage: real % bar (X/Y symbols); TransactionsPage: Step 1/2 bar | 2026-05-24 |
+| Cold Start UX backlog documented — keep-alive ping + progressive UI options captured in ROADMAP | 2026-05-24 |
 | Pull-to-refresh UX — custom swipe gesture, no white screen, animated sync button, blocked native reload | 2026-05-24 |
 | Analysis tab on TransactionsPage — notes with add/edit/delete, IST timestamp, localStorage | 2026-05-24 |
 | Today/Total gain labels on all cards (overview + holdings); compact number format (₹23.4K) | 2026-05-24 |

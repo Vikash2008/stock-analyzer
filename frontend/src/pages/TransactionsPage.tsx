@@ -63,56 +63,65 @@ export default function TransactionsPage({ currency }: Props) {
     symbol:    decodeURIComponent(symbol),
   }
 
+  // portfolios passed via nav state when navigating from a segment (cumulative) view;
+  // falls back to the single portfolio in the URL for direct/broker navigation
+  const portfolioFilter: string[] = useMemo(() => {
+    const s = (location.state as { from?: string; portfolios?: string[] } | null)?.portfolios
+    return s?.length ? s : [decoded.portfolio]
+  }, [location.state, decoded.portfolio])
+
   const realizedMap = useMemo(
     () => (data ? aggRealized(data.realized, data.usd_inr) : new Map()),
     [data],
   )
 
-  const holding = useMemo(() => {
-    if (!data) return null
-    const rows = data.holdings.filter(
-      h => h.portfolio === decoded.portfolio && h.symbol === decoded.symbol,
+  const holdingList = useMemo(() => {
+    if (!data) return []
+    return data.holdings.filter(
+      h => portfolioFilter.includes(h.portfolio) && h.symbol === decoded.symbol,
     )
-    return rows[0] ?? null
-  }, [data, decoded.portfolio, decoded.symbol])
+  }, [data, portfolioFilter, decoded.symbol])
+
+  const holding = holdingList[0] ?? null  // reference holding for ltp, company, yf_symbol, avg_cost
 
   const symTxns = useMemo(() => {
     if (!data) return []
     return data.transactions
       .filter(t =>
-        t.symbol    === decoded.symbol &&
-        t.portfolio === decoded.portfolio &&
+        t.symbol === decoded.symbol &&
+        portfolioFilter.includes(t.portfolio) &&
         (t.type === 'BUY' || t.type === 'SELL') &&
         !SKIP_PORTS.has(t.portfolio),
       )
       .sort((a, b) => b.date.localeCompare(a.date))  // newest first
-  }, [data, decoded.portfolio, decoded.symbol])
+  }, [data, decoded.symbol, portfolioFilter])
 
-  const holdingArr = useMemo(() => (holding ? [holding] : []), [holding])
+  const holdingArr = useMemo(() => holdingList, [holdingList])
 
   const symRealized = useMemo(() => {
     if (!data) return []
     return data.realized.filter(
-      r => r.portfolio === decoded.portfolio && r.symbol === decoded.symbol,
+      r => portfolioFilter.includes(r.portfolio) && r.symbol === decoded.symbol,
     )
-  }, [data, decoded.portfolio, decoded.symbol])
+  }, [data, portfolioFilter, decoded.symbol])
 
   const holdingXirr = useMemo(() => {
-    if (!symTxns.length || !holding || !data) return null
+    if (!symTxns.length || !holdingList.length || !data) return null
     const today = new Date()
-    const isUsd = USD_PORTS.has(decoded.portfolio)
-    const fx = isUsd ? (currency === 'INR' ? data.usd_inr : 1) : (currency === 'USD' ? 1 / data.usd_inr : 1)
+    const aggCurrent = holdingList.reduce((s, h) => s + h.disp_current, 0)
     const cfs: { date: Date; amount: number }[] = []
     for (const tx of symTxns) {
+      const isUsd = USD_PORTS.has(tx.portfolio)
+      const fx = isUsd ? (currency === 'INR' ? data.usd_inr : 1) : (currency === 'USD' ? 1 / data.usd_inr : 1)
       const amt = tx.quantity * tx.price * fx
       const chg = (tx.charges ?? 0) * fx
       if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
       if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
     }
-    if (holding.disp_current > 0) cfs.push({ date: today, amount: holding.disp_current })
+    if (aggCurrent > 0) cfs.push({ date: today, amount: aggCurrent })
     const r = computeXIRR(cfs)
     return r !== null ? r * 100 : null
-  }, [symTxns, holding, data, decoded.portfolio, currency])
+  }, [symTxns, holdingList, data, currency])
 
   const txGains = useMemo(() => {
     if (!data) return []
@@ -199,16 +208,22 @@ export default function TransactionsPage({ currency }: Props) {
   if (isLoading) return <LoadingSkeleton />
   if (error || !data) return <ErrorState message={(error as Error)?.message ?? 'Unknown error'} />
 
-  const isUsd   = USD_PORTS.has(decoded.portfolio)
   const dispCur = currency
-  const [realGain, realCost] = realizedMap.get(`${decoded.portfolio}:${decoded.symbol}`) ?? [0, 0]
-  const realColor  = realGain >= 0 ? '#0a7a42' : '#be1c1c'
-  const fromLabel  = (location.state as { from?: string } | null)?.from ?? decoded.portfolio
-  const backLabel  = `← ${fromLabel} Holdings`
+  // Aggregate realized across all portfolios in view
+  const [realGain, realCost] = portfolioFilter.reduce<[number, number]>(
+    ([g, c], p) => {
+      const [rg, rc] = realizedMap.get(`${p}:${decoded.symbol}`) ?? [0, 0]
+      return [g + rg, c + rc]
+    },
+    [0, 0],
+  )
+  const realColor = realGain >= 0 ? '#0a7a42' : '#be1c1c'
+  const fromLabel = (location.state as { from?: string } | null)?.from ?? decoded.portfolio
+  const backLabel = `← ${fromLabel} Holdings`
 
-  // Symbol overview card values
-  const cur     = holding ? holding.disp_current  : 0
-  const inv     = holding ? holding.disp_invested : 0
+  // Symbol overview card values — aggregated across all portfolios in view
+  const cur     = holdingList.reduce((s, h) => s + h.disp_current, 0)
+  const inv     = holdingList.reduce((s, h) => s + h.disp_invested, 0)
   const gain    = cur - inv
   const pct     = inv !== 0 ? (gain / inv) * 100 : 0
   const gainPos = gain >= 0
@@ -216,13 +231,19 @@ export default function TransactionsPage({ currency }: Props) {
   const bg      = gainPos ? '#f0fdf8' : '#fff5f5'
   const tc      = gainPos ? '#0a7a42' : '#be1c1c'
 
-  const tg    = holding?.disp_today_gain ?? null
-  const tp    = holding?.today_pct ?? null
+  const tgRaw = holdingList.some(h => h.disp_today_gain !== null)
+    ? holdingList.reduce((s, h) => s + (h.disp_today_gain ?? 0), 0)
+    : null
+  const tg    = tgRaw
+  const prior = cur - (tgRaw ?? 0)
+  const tp    = tgRaw !== null && prior !== 0 ? (tgRaw / prior) * 100 : null
   const tgC   = tg !== null ? (tg >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8'
 
+  const aggQty    = holdingList.reduce((s, h) => s + h.quantity, 0)
+  const aggAvgCost = aggQty > 0 ? holdingList.reduce((s, h) => s + h.avg_cost * h.quantity, 0) / aggQty : 0
   const ltp   = holding?.current_price?.toFixed(2) ?? '—'
-  const qty   = holding ? holding.quantity.toFixed(3) : '—'
-  const avg   = holding ? holding.avg_cost.toFixed(2) : '—'
+  const qty   = holdingList.length ? aggQty.toFixed(3) : '—'
+  const avg   = holdingList.length ? aggAvgCost.toFixed(2) : '—'
   const co    = holding?.company ?? ''
   const yf    = holding?.yf_symbol ?? decoded.symbol
 

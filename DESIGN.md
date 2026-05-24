@@ -204,6 +204,21 @@ All cards (Hero, Stocks/MF tiles, BreakCards, HoldingCard, SummaryCard) show:
 
 ---
 
+## Chart Loading Progress UX
+
+### HoldingsPage — Charts tab
+- While `usePortfolioHistory` fetches (N symbols in parallel), shows:
+  - `"Loading price history… X / Y symbols (Z%)"` — real count from resolved queries
+  - Blue progress bar filling from 0% → 100% as symbols resolve (`transition-all duration-300`)
+- `usePortfolioHistory` now returns `loadedCount` + `totalCount` alongside `series` + `isLoading`
+
+### TransactionsPage — Charts tab (non-Price metrics)
+- Single-symbol fetch → can't do real % (totalCount = 1)
+- Shows `"Step 1 / 2 — Fetching price history… 50%"` with a half-filled bar while loading
+- Step 2 (useMemo series computation) is synchronous → chart renders immediately after step 1
+
+---
+
 ## Known Issues (as of 2026-05-24)
 
 - None.
@@ -244,5 +259,7 @@ All cards (Hero, Stocks/MF tiles, BreakCards, HoldingCard, SummaryCard) show:
 | 2026-05-24 | Phase 5/6 removed from roadmap | Items dropped; no further backlog tracked |
 | 2026-05-24 | Stocks/MF tiles changed to full-width stacked | Prevents mobile overflow; matches BreakCard style (9px label, 15px value, same 3-row layout) |
 | 2026-05-24 | Pull-to-refresh: blocked native, added custom swipe gesture | Native reload caused full React restart + white screen; custom gesture does data-only refresh |
+| 2026-05-24 | Chart loading progress on HoldingsPage | usePortfolioHistory fires N parallel queries; expose loadedCount+totalCount to show real X/Y % bar |
+| 2026-05-24 | Chart loading Step 1/2 on TransactionsPage | Single-symbol fetch → no real %; Step 1/2 label at 50% is honest; Step 2 (useMemo) is synchronous so never shown |
 | 2026-05-24 | useForceRefresh: removed invalidateQueries | Prevented white screen during refresh by keeping stale data visible |
 | 2026-05-24 | Bottom bar sync: right-aligned ↻ + timestamp as one tappable unit | Cleaner than split layout; icon spins until data updates |
