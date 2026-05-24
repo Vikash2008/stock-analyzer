@@ -33,6 +33,9 @@
 
 | Item | Completed |
 |------|-----------|
+| Chart history cache: staleTime+gcTime=Infinity, force refresh clears cache | 2026-05-24 |
+| Multi-portfolio txn fix: segment view passes portfolios[] in nav state; TransactionsPage aggregates across all | 2026-05-24 |
+| HoldingCard shows TICKER · Name instead of name only | 2026-05-24 |
 | Chart loading progress — HoldingsPage: real % bar (X/Y symbols); TransactionsPage: Step 1/2 bar | 2026-05-24 |
 | Cold Start UX backlog documented — keep-alive ping + progressive UI options captured in ROADMAP | 2026-05-24 |
 | Pull-to-refresh UX — custom swipe gesture, no white screen, animated sync button, blocked native reload | 2026-05-24 |

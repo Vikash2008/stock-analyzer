@@ -204,6 +204,33 @@ All cards (Hero, Stocks/MF tiles, BreakCards, HoldingCard, SummaryCard) show:
 
 ---
 
+## Multi-Portfolio Segment Navigation
+
+When navigating from a segment view (e.g. US Stocks) to a symbol held across multiple portfolios (e.g. Google in Vested + IndMoney US + IndMoney Mummy):
+- `buildRows` (HoldingsPage cumulative mode) collects all portfolios for each symbol into `portfolios: string[]` on `CardRow`
+- Nav click passes `portfolios` in `location.state`
+- `TransactionsPage` reads `portfolioFilter` from state (falls back to `[decoded.portfolio]` for direct/broker navigation)
+- `symTxns`, `symRealized`, `holdingList` all filter by `portfolioFilter`
+- Overview card aggregates `cur`, `inv`, `tg`, `qty`, `avg` across all portfolios in view
+- `holdingXirr` uses per-tx portfolio for fx rate + aggregated terminal value
+- MON100/MAFANG (US ETFs in Indian portfolios): single portfolio → `portfolios: ['Zerodha']` → no change in behaviour
+
+---
+
+## HoldingCard Label
+
+Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone mode). Falls back to `TICKER` only if no subLabel.
+
+---
+
+## Chart History Cache
+
+- `useHistory` + `usePortfolioHistory` internal queries: `staleTime: Infinity`, `gcTime: Infinity`
+- Data cached for entire session — no auto-refetch on tab switch or page navigation
+- Force refresh (`useForceRefresh`) calls `qc.removeQueries({ queryKey: ['history'] })` before fetching fresh portfolio data — all chart cache cleared, re-fetched lazily on next Charts tab visit
+
+---
+
 ## Chart Loading Progress UX
 
 ### HoldingsPage — Charts tab
