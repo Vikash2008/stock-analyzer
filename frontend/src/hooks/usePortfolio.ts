@@ -13,12 +13,9 @@ export function usePortfolio(currency: 'INR' | 'USD' = 'INR') {
   })
 }
 
-// Call this to force a live price refresh (pull-to-refresh equivalent)
 export function useForceRefresh(currency: 'INR' | 'USD') {
   const qc = useQueryClient()
   return () => {
-    // Invalidate so the next render re-fetches with force_refresh=true
-    qc.invalidateQueries({ queryKey: ['portfolio', currency] })
     return fetchPortfolio(currency, true).then(data =>
       qc.setQueryData(['portfolio', currency], data)
     )

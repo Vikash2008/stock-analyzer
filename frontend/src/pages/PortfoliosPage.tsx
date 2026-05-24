@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePortfolio, useForceRefresh } from '../hooks/usePortfolio'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
@@ -122,8 +122,17 @@ function BreakCard({ card, currency, xirr, onClick }: { card: CardStats; currenc
 export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const navigate     = useNavigate()
   const { data, isLoading, error } = usePortfolio(currency)
-  const forceRefresh = useForceRefresh(currency)
-  const [mode, setMode] = useState<BreakdownMode>('type')
+  const forceRefresh  = useForceRefresh(currency)
+  const [mode, setMode]       = useState<BreakdownMode>('type')
+  const [pullY, setPullY]     = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
+  const touchStartY           = useRef(0)
+  const PULL_THRESHOLD        = 64
+
+  const handleRefresh = () => {
+    setRefreshing(true)
+    forceRefresh().finally(() => setRefreshing(false))
+  }
 
   const rmap = useMemo(() => data ? aggRealized(data.realized, data.usd_inr) : new Map(), [data])
 
@@ -222,13 +231,38 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     return map
   }, [cards, data, mode, active, currency])
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY
+  }
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (window.scrollY !== 0 || refreshing) return
+    const dy = e.touches[0].clientY - touchStartY.current
+    if (dy > 0) setPullY(Math.min(dy, PULL_THRESHOLD + 20))
+  }
+  const handleTouchEnd = () => {
+    if (pullY >= PULL_THRESHOLD) handleRefresh()
+    setPullY(0)
+  }
+
   if (isLoading) return <LoadingSkeleton />
   if (error || !data) return <ErrorState message={(error as Error)?.message ?? 'Unknown error'} />
 
   const heroPos = isPos(hero.totalGain)
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-4 space-y-3">
+    <div
+      className="max-w-xl mx-auto px-4 py-4 space-y-3"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {(pullY > 0 || refreshing) && (
+        <div className="flex items-center justify-center text-[12px]" style={{ height: pullY > 0 ? Math.min(pullY * 0.6, 40) : 24 }}>
+          <span className={refreshing || pullY >= PULL_THRESHOLD ? 'text-sky-400' : 'text-slate-400'}>
+            {refreshing ? '↻ Refreshing…' : pullY >= PULL_THRESHOLD ? '↑ Release to refresh' : '↓ Pull to refresh'}
+          </span>
+        </div>
+      )}
 
       {/* Hero card — Total Portfolio */}
       <div
@@ -341,16 +375,16 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       ))}
 
       {/* Timestamp + refresh */}
-      <div className="flex items-center justify-between pb-2">
-        <span className="text-[10px] text-slate-400 uppercase tracking-widest">
-          as of {new Date(data.as_of).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })} IST
-        </span>
+      <div className="flex justify-end pb-2">
         <button
-          onClick={() => forceRefresh()}
-          className="text-[11px] text-slate-400 hover:text-slate-600 px-1"
-          title="Force refresh prices"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className={`flex items-center gap-1.5 py-3 transition-colors ${refreshing ? 'text-sky-400' : 'text-slate-400 active:text-sky-400'}`}
         >
-          ↻
+          <span className={`text-[15px] leading-none ${refreshing ? 'animate-spin' : ''}`}>↻</span>
+          <span className="text-[9px] uppercase tracking-widest">
+            {new Date(data.as_of).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })} IST
+          </span>
         </button>
       </div>
     </div>
