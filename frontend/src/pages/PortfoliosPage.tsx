@@ -230,20 +230,6 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   return (
     <div className="max-w-xl mx-auto px-4 py-4 space-y-3">
 
-      {/* Header row */}
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] text-slate-400 uppercase tracking-widest">
-          as of {new Date(data.as_of).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })} IST
-        </span>
-        <button
-          onClick={() => forceRefresh()}
-          className="text-[11px] text-slate-400 hover:text-slate-600 px-1"
-          title="Force refresh prices"
-        >
-          ↻
-        </button>
-      </div>
-
       {/* Hero card — Total Portfolio */}
       <div
         className="rounded-[10px] p-3 border cursor-pointer active:opacity-80 transition-opacity"
@@ -302,14 +288,14 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               }}
               onClick={() => navigate(`/holdings/segment/${seg}`)}
             >
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-[11px] font-semibold text-slate-600">{label}</p>
+              <p className="text-[11px] font-semibold text-slate-600 mb-1">{label}</p>
+              <div className="flex items-baseline justify-between mb-0.5">
+                <span className="text-[15px] font-bold text-slate-900">{fmt(stats.cur, currency)}</span>
                 {xirr !== null && xirr !== undefined
                   ? <span className="text-[9px] font-semibold shrink-0" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
                   : <span className="text-[9px] text-slate-400 shrink-0">XIRR —</span>
                 }
               </div>
-              <p className="text-[15px] font-bold text-slate-900 mb-0.5">{fmt(stats.cur, currency)}</p>
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1">
                   <span className="text-[9px] text-slate-400">Today</span>
@@ -354,10 +340,19 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} />
       ))}
 
-      {/* Data freshness */}
-      <p className="text-[9px] text-slate-300 text-center pb-2">
-        {data.cache_status.split('\n').find(l => l.includes('prices'))?.trim()}
-      </p>
+      {/* Timestamp + refresh */}
+      <div className="flex items-center justify-between pb-2">
+        <span className="text-[10px] text-slate-400 uppercase tracking-widest">
+          as of {new Date(data.as_of).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })} IST
+        </span>
+        <button
+          onClick={() => forceRefresh()}
+          className="text-[11px] text-slate-400 hover:text-slate-600 px-1"
+          title="Force refresh prices"
+        >
+          ↻
+        </button>
+      </div>
     </div>
   )
 }
