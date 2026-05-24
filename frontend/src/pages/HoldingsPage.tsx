@@ -187,13 +187,25 @@ export default function HoldingsPage({ currency }: Props) {
       .reduce((s, h) => s + (h.disp_today_gain ?? 0), 0)
     const prior = cur - tg
     const ports = new Set(filteredHoldings.map(h => h.portfolio))
-    const [rg, rc] = realizedForPorts(realizedMap, ports)
+    // For segment views, non-USD portfolios may hold US ETFs alongside Indian stocks.
+    // Use portfolio-level aggregation only for pure USD portfolios; symbol-level for the rest
+    // to avoid pulling in unrelated realized gains from mixed portfolios.
+    const purePorts = segment ? new Set([...ports].filter(p => USD_PORTS.has(p))) : ports
+    const [rg, rc] = realizedForPorts(realizedMap, purePorts)
+    let realGain = rg, realCost = rc
+    if (segment) {
+      for (const h of filteredHoldings) {
+        if (USD_PORTS.has(h.portfolio)) continue
+        const [g, c] = realizedMap.get(`${h.portfolio}:${h.symbol}`) ?? [0, 0]
+        realGain += g; realCost += c
+      }
+    }
     return {
       cur, inv, tg,
       todayPct: prior !== 0 ? (tg / prior) * 100 : null,
-      realGain: rg, realCost: rc,
+      realGain, realCost,
     }
-  }, [filteredHoldings, realizedMap])
+  }, [filteredHoldings, realizedMap, segment])
 
   const rows = useMemo(
     () => buildRows(filteredHoldings, realizedMap, viewMode, !!segment),
@@ -293,7 +305,6 @@ export default function HoldingsPage({ currency }: Props) {
     )
   }
 
-  const isUsd      = portfolio ? USD_PORTS.has(portfolio) : false
   const label      = portfolio ?? SEGMENT_LABELS[segment ?? ''] ?? 'Holdings'
   const backLabel  = segment ? '← Overview' : '← All Portfolios'
   const isPct      = PCT_METRICS.has(chartMetric)
@@ -420,7 +431,7 @@ export default function HoldingsPage({ currency }: Props) {
                 todayPct={r.todayPct}
                 ltp={r.ltp}
                 xirr={xirrMap.get(r.key) ?? null}
-                currency={isUsd ? 'USD' : currency}
+                currency={currency}
                 onClick={() => navigate(`/transactions/${encodeURIComponent(r.navPort)}/${encodeURIComponent(r.navSym)}`, { state: { from: label } })}
               />
             ))}

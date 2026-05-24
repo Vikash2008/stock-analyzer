@@ -79,6 +79,8 @@ function BreakCard({ card, currency, xirr, onClick }: { card: CardStats; currenc
   const totalCost = card.invested + card.realCost
   const pct = totalCost !== 0 ? (totalGain / totalCost) * 100 : 0
   const pos = isPos(totalGain)
+  const todayPrior = card.current - (card.todayGain ?? 0)
+  const todayPct = card.todayGain !== null && todayPrior !== 0 ? (card.todayGain / todayPrior) * 100 : null
 
   return (
     <div
@@ -95,17 +97,17 @@ function BreakCard({ card, currency, xirr, onClick }: { card: CardStats; currenc
       <div className="flex items-baseline justify-between">
         <span className="text-[15px] font-bold text-slate-900">{fmt(card.current, currency)}</span>
         <span className="text-[10px]" style={{ color: card.todayGain !== null ? (card.todayGain >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8' }}>
-          {card.todayGain !== null ? `${card.todayGain >= 0 ? '+' : ''}${fmt(card.todayGain, currency)}` : 'N/A'}
+          {card.todayGain !== null ? `${card.todayGain >= 0 ? '+' : ''}${fmt(card.todayGain, currency)}${todayPct !== null ? ` (${fmtPct(todayPct)})` : ''}` : 'N/A'}
         </span>
       </div>
       <div className="flex items-center justify-between mt-0.5">
-        <span className="text-[11px]" style={{ color: pos ? '#0a7a42' : '#be1c1c' }}>
-          {fmtGainLine(totalGain, pct, currency)}
-        </span>
         {xirr !== null
           ? <span className="text-[9px] font-semibold" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
           : <span className="text-[9px] text-slate-400">{fmt(card.invested, currency)} inv</span>
         }
+        <span className="text-[11px]" style={{ color: pos ? '#0a7a42' : '#be1c1c' }}>
+          {fmtGainLine(totalGain, pct, currency)}
+        </span>
       </div>
     </div>
   )
@@ -258,15 +260,15 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           </span>
         </div>
         <div className="flex items-center justify-between mt-0.5">
-          <span className="text-[11px] font-medium" style={{ color: heroPos ? '#0a7a42' : '#be1c1c' }}>
-            {fmtGainLine(hero.totalGain, hero.returnPct, currency)}
-          </span>
           {data.xirr_total !== null
             ? <span className="text-[9px] font-semibold" style={{ color: (data.xirr_total ?? 0) >= 0 ? '#0a7a42' : '#be1c1c' }}>
                 XIRR {fmtPct(data.xirr_total!)}
               </span>
             : <span className="text-[9px] text-slate-400">XIRR —</span>
           }
+          <span className="text-[11px] font-medium" style={{ color: heroPos ? '#0a7a42' : '#be1c1c' }}>
+            {fmtGainLine(hero.totalGain, hero.returnPct, currency)}
+          </span>
         </div>
       </div>
 
@@ -302,13 +304,13 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 </span>
               </div>
               <div className="flex items-center justify-between mt-0.5">
-                <span className="text-[10px]" style={{ color: tc }}>
-                  {fmtGainLine(stats.gain, stats.pct, currency)}
-                </span>
                 {xirr !== null && xirr !== undefined
                   ? <span className="text-[9px] font-semibold" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
                   : <span className="text-[9px] text-slate-400">XIRR —</span>
                 }
+                <span className="text-[10px]" style={{ color: tc }}>
+                  {fmtGainLine(stats.gain, stats.pct, currency)}
+                </span>
               </div>
             </div>
           )

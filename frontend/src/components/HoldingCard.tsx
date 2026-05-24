@@ -66,15 +66,15 @@ export function HoldingCard({
         </span>
       </div>
 
-      {/* Total G/L | XIRR */}
+      {/* XIRR | Total G/L */}
       <div className="flex items-baseline justify-between">
-        <span className="text-[10px] font-bold" style={{ color: textColor }}>
-          {fmtGainLine(totalGain, totalPct, currency)}
-        </span>
         {xirr !== null
           ? <span className="text-[9px]" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
           : <span className="text-[11px] text-slate-400">→</span>
         }
+        <span className="text-[10px] font-bold" style={{ color: textColor }}>
+          {fmtGainLine(totalGain, totalPct, currency)}
+        </span>
       </div>
     </div>
   )

@@ -133,8 +133,25 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceC
     )
   }
 
+  const firstPrice = chartData[0]?.price ?? null
+  const lastPrice  = chartData[chartData.length - 1]?.price ?? null
+  const pctChange  = firstPrice && lastPrice ? (lastPrice - firstPrice) / firstPrice * 100 : null
+  const priceColor = pctChange !== null ? (pctChange >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8'
+
   return (
     <div className="mt-2">
+      {lastPrice !== null && (
+        <div className="flex items-baseline gap-2 mb-2">
+          <span className="text-[15px] font-bold" style={{ color: priceColor }}>
+            {fmt(lastPrice, currency)}
+          </span>
+          {pctChange !== null && (
+            <span className="text-[10px]" style={{ color: priceColor }}>
+              {pctChange >= 0 ? '+' : ''}{pctChange.toFixed(2)}% in period
+            </span>
+          )}
+        </div>
+      )}
       <ResponsiveContainer width="100%" height={240}>
         <LineChart data={chartData} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -148,6 +165,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceC
             tick={{ fontSize: 8, fill: '#94a3b8' }}
             tickFormatter={yFmt}
             width={42}
+            domain={['auto', 'auto']}
           />
           <Tooltip content={<CustomTooltip currency={currency} usdInr={usdInr} />} />
 

@@ -12,6 +12,7 @@ import { PriceChart } from '../components/PriceChart'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
 import { aggRealized } from '../utils/realized'
 import { SKIP_PORTS, USD_PORTS } from '../utils/segments'
+import { computeXIRR } from '../utils/xirr'
 import { fmt, fmtGainLine, fmtPct } from '../utils/fmt'
 import type { Currency } from '../App'
 
@@ -95,6 +96,71 @@ export default function TransactionsPage({ currency }: Props) {
     )
   }, [data, decoded.portfolio, decoded.symbol])
 
+  const holdingXirr = useMemo(() => {
+    if (!symTxns.length || !holding || !data) return null
+    const today = new Date()
+    const isUsd = USD_PORTS.has(decoded.portfolio)
+    const fx = isUsd ? (currency === 'INR' ? data.usd_inr : 1) : (currency === 'USD' ? 1 / data.usd_inr : 1)
+    const cfs: { date: Date; amount: number }[] = []
+    for (const tx of symTxns) {
+      const amt = tx.quantity * tx.price * fx
+      const chg = (tx.charges ?? 0) * fx
+      if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
+      if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
+    }
+    if (holding.disp_current > 0) cfs.push({ date: today, amount: holding.disp_current })
+    const r = computeXIRR(cfs)
+    return r !== null ? r * 100 : null
+  }, [symTxns, holding, data, decoded.portfolio, currency])
+
+  const txGains = useMemo(() => {
+    if (!data) return []
+    const isUsdPort = USD_PORTS.has(decoded.portfolio)
+    const fx = isUsdPort ? data.usd_inr : 1
+
+    // Aggregate realized entries by sell_date (for SELL tx rows) and buy_date (for BUY tx rows)
+    const sellMap = new Map<string, { gain: number; cost: number }>()
+    const buyMap  = new Map<string, { qtyRealized: number; realGain: number; realCost: number }>()
+
+    for (const r of symRealized) {
+      if (r.type !== 'SELL') continue
+      const pnl  = r.realized_pnl * fx
+      const cost = r.quantity * r.buy_price * fx
+      const sk = r.sell_date.slice(0, 10)
+      const se = sellMap.get(sk) ?? { gain: 0, cost: 0 }
+      sellMap.set(sk, { gain: se.gain + pnl, cost: se.cost + cost })
+      if (!r.buy_date) continue
+      const bk = r.buy_date.slice(0, 10)
+      const be = buyMap.get(bk) ?? { qtyRealized: 0, realGain: 0, realCost: 0 }
+      buyMap.set(bk, { qtyRealized: be.qtyRealized + r.quantity, realGain: be.realGain + pnl, realCost: be.realCost + cost })
+    }
+
+    return symTxns.map(tx => {
+      if (tx.type === 'SELL') {
+        const s = sellMap.get(tx.date.slice(0, 10))
+        if (!s) return null
+        return { status: 'realized' as const, gain: s.gain, pct: s.cost !== 0 ? (s.gain / s.cost) * 100 : 0 }
+      }
+
+      // BUY — held / sold / partial
+      if (!holding) return null
+      const b            = buyMap.get(tx.date.slice(0, 10)) ?? { qtyRealized: 0, realGain: 0, realCost: 0 }
+      const qtyRemaining = tx.quantity - b.qtyRealized
+      const unrealGain   = (holding.current_price - tx.price) * Math.max(0, qtyRemaining) * fx
+      const unrealPct    = tx.price !== 0 ? ((holding.current_price - tx.price) / tx.price) * 100 : 0
+
+      if (b.qtyRealized <= 1e-9)
+        return { status: 'held' as const, gain: unrealGain, pct: unrealPct }
+      if (qtyRemaining <= 1e-9)
+        return { status: 'sold' as const, gain: b.realGain, pct: b.realCost !== 0 ? (b.realGain / b.realCost) * 100 : 0 }
+      return {
+        status:    'partial' as const,
+        realGain:  b.realGain,  realPct:  b.realCost !== 0 ? (b.realGain / b.realCost) * 100 : 0, realQty:  b.qtyRealized,
+        unrealGain, unrealPct, unrealQty: qtyRemaining,
+      }
+    })
+  }, [symTxns, symRealized, holding, data, decoded.portfolio])
+
   const { series: portSeries, isLoading: histLoading } = usePortfolioHistory(
     holdingArr,
     symTxns,
@@ -111,6 +177,16 @@ export default function TransactionsPage({ currency }: Props) {
     return sliceSeries(raw, chartRange)
   }, [portSeries, chartMetric, chartRange])
 
+  const yDomain = useMemo((): [number, number] | ['auto', 'auto'] => {
+    if (!metricSeries || !metricSeries.values.length) return ['auto', 'auto']
+    const vals = metricSeries.values.filter(v => isFinite(v))
+    if (!vals.length) return ['auto', 'auto']
+    const min = Math.min(...vals)
+    const max = Math.max(...vals)
+    const pad = Math.abs(max - min) * 0.08 || Math.abs(max || min) * 0.05 || 1
+    return [min - pad, max + pad]
+  }, [metricSeries])
+
   const rechartsData = useMemo(
     () => metricSeries?.dates.map((d, i) => ({
       t: d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
@@ -124,7 +200,7 @@ export default function TransactionsPage({ currency }: Props) {
 
   const isUsd   = USD_PORTS.has(decoded.portfolio)
   const dispCur = currency
-  const [realGain] = realizedMap.get(`${decoded.portfolio}:${decoded.symbol}`) ?? [0]
+  const [realGain, realCost] = realizedMap.get(`${decoded.portfolio}:${decoded.symbol}`) ?? [0, 0]
   const realColor  = realGain >= 0 ? '#0a7a42' : '#be1c1c'
   const fromLabel  = (location.state as { from?: string } | null)?.from ?? decoded.portfolio
   const backLabel  = `← ${fromLabel} Holdings`
@@ -199,10 +275,14 @@ export default function TransactionsPage({ currency }: Props) {
           </span>
         </div>
 
-        {/* G/L */}
-        <div className="mb-2">
+        {/* XIRR | Total G/L */}
+        <div className="flex items-baseline justify-between mb-2">
+          {holdingXirr !== null
+            ? <span className="text-[9px] font-semibold" style={{ color: holdingXirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(holdingXirr)}</span>
+            : <span className="text-[9px] text-slate-400">XIRR —</span>
+          }
           <span className="text-[10px] font-bold" style={{ color: tc }}>
-            {fmtGainLine(gain, pct, dispCur)}
+            {fmtGainLine(gain + realGain, inv + realCost !== 0 ? (gain + realGain) / (inv + realCost) * 100 : 0, dispCur)}
           </span>
         </div>
 
@@ -255,6 +335,7 @@ export default function TransactionsPage({ currency }: Props) {
                   tx={t}
                   currency={dispCur}
                   usdInr={data.usd_inr}
+                  gain={txGains[i] ?? null}
                 />
               ))}
             </>
@@ -356,7 +437,7 @@ export default function TransactionsPage({ currency }: Props) {
                         width={48}
                         tickLine={false}
                         axisLine={false}
-                        domain={['auto', 'auto']}
+                        domain={yDomain}
                       />
                       <Tooltip
                         formatter={(v: number) => [

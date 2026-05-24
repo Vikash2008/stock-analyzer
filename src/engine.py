@@ -204,7 +204,7 @@ def build(
         xirr_stk=xirr_stk,
         xirr_mf=xirr_mf,
         xirr_by_portfolio=xirr_by_portfolio,
-        as_of=pd.Timestamp.now(),
+        as_of=pd.Timestamp.now('UTC'),
         all_portfolios=all_portfolios,
         cache_status=cache.status(),
     )
