@@ -69,10 +69,10 @@ def get_tickers_info(symbols: List[str]) -> Dict[str, dict]:
             result[sym] = {
                 "sector":   info.get("sector")   or "Unknown",
                 "industry": info.get("industry") or "Unknown",
-                "name":     info.get("longName") or info.get("shortName") or name or sym,
+                "name":     info.get("longName") or info.get("shortName") or name or None,
             }
         except Exception:
-            result[sym] = {"sector": "Unknown", "industry": "Unknown", "name": sym}
+            result[sym] = {"sector": "Unknown", "industry": "Unknown", "name": None}
     return result
 
 
