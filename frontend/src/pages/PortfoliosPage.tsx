@@ -288,9 +288,9 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               }}
               onClick={() => navigate(`/holdings/segment/${seg}`)}
             >
-              <p className="text-[12px] font-semibold text-slate-600 mb-1">{label}</p>
+              <p className="text-[9px] font-bold text-slate-700 uppercase tracking-widest mb-1">{label}</p>
               <div className="flex items-baseline justify-between">
-                <span className="text-[22px] font-bold text-slate-900 min-w-0">{fmt(stats.cur, currency)}</span>
+                <span className="text-[15px] font-bold text-slate-900 min-w-0">{fmt(stats.cur, currency)}</span>
                 <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
                   <span className="text-[9px] text-slate-400">Today</span>
                   <span className="text-[10px]" style={{ color: tgC }}>
