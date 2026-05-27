@@ -183,6 +183,7 @@ export default function HoldingsPage({ currency }: Props) {
   const [expandedMktCapBuckets, setExpandedMktCapBuckets] = useState<Set<string>>(new Set())
   const [sectorSectionOpen,   setSectorSectionOpen]   = useState(true)
   const [mktCapSectionOpen,   setMktCapSectionOpen]   = useState(true)
+  const [benchSectorSectionOpen, setBenchSectorSectionOpen] = useState(true)
   const qc = useQueryClient()
 
   useEffect(() => {
@@ -1125,102 +1126,132 @@ export default function HoldingsPage({ currency }: Props) {
                 </div>
               )}
 
-              {!benchLoading && !benchHasError && benchSectors.length > 0 && (
-                <div>
-                  {/* Overall card */}
-                  <div className="bg-slate-50 rounded-lg px-3 py-2 mb-3 border border-slate-100">
-                    <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Overall</p>
-                    <div className="grid grid-cols-3 gap-1">
-                      <div>
-                        <p className="text-[7px] text-slate-400">Your XIRR</p>
-                        <p className="text-[13px] font-bold text-slate-800 whitespace-nowrap">
-                          {benchActualXirr !== null ? `${benchActualXirr >= 0 ? '+' : ''}${benchActualXirr.toFixed(1)}%` : '—'}
-                        </p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-[7px] text-slate-400">Benchmark</p>
-                        <p className="text-[13px] font-bold text-slate-500 whitespace-nowrap">
-                          {benchBenchXirr !== null ? `${benchBenchXirr >= 0 ? '+' : ''}${benchBenchXirr.toFixed(1)}%` : '—'}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[7px] text-slate-400">Alpha</p>
-                        <p className={`text-[13px] font-bold whitespace-nowrap ${benchAlpha !== null ? benchAlpha >= 0 ? 'text-green-500' : 'text-red-400' : 'text-slate-400'}`}>
-                          {benchAlpha !== null ? `${benchAlpha >= 0 ? '+' : ''}${benchAlpha.toFixed(1)}%` : '—'}
-                        </p>
+              {!benchLoading && !benchHasError && benchSectors.length > 0 && (() => {
+                const symToYf = new Map(filteredHoldings.map(h => [h.symbol, h.yf_symbol]))
+                const fmtX = (v: number | null) => v !== null ? `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` : '—'
+                const maxAlpha = Math.max(...benchSectors.map(s => Math.abs(s.alpha ?? 0)), 1)
+                return (
+                  <div>
+                    {/* Overall card — light green */}
+                    <div className="bg-green-50 rounded-lg px-3 py-2 mb-3 border border-green-100">
+                      <p className="text-[7px] font-bold text-green-600 uppercase tracking-widest mb-1.5">Overall</p>
+                      <div className="grid grid-cols-3 gap-1">
+                        <div>
+                          <p className="text-[7px] text-slate-400">Your XIRR</p>
+                          <p className={`text-[13px] font-bold whitespace-nowrap ${benchActualXirr !== null ? benchActualXirr >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'}`}>
+                            {benchActualXirr !== null ? `${benchActualXirr >= 0 ? '+' : ''}${benchActualXirr.toFixed(1)}%` : '—'}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[7px] text-slate-400">Benchmark</p>
+                          <p className="text-[13px] font-bold text-slate-500 whitespace-nowrap">
+                            {benchBenchXirr !== null ? `${benchBenchXirr >= 0 ? '+' : ''}${benchBenchXirr.toFixed(1)}%` : '—'}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[7px] text-slate-400">Alpha</p>
+                          <p className={`text-[13px] font-bold whitespace-nowrap ${benchAlpha !== null ? benchAlpha >= 0 ? 'text-green-500' : 'text-red-400' : 'text-slate-400'}`}>
+                            {benchAlpha !== null ? `${benchAlpha >= 0 ? '+' : ''}${benchAlpha.toFixed(1)}%` : '—'}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {(() => {
-                    const symToYf = new Map(filteredHoldings.map(h => [h.symbol, h.yf_symbol]))
-                    const fmtX = (v: number | null) => v !== null ? `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` : '—'
-                    const maxXirr = Math.max(...benchSectors.map(s => Math.abs(s.actualXirr ?? 0)), 1)
-                    return (
-                      <div>
-                        {benchSectors.map(s => {
-                          const isOpen = expandedSectors.has(s.sector)
-                          const sectorRows = rows.filter(r =>
-                            getSectorForHolding(symToYf.get(r.navSym) ?? r.navSym) === s.sector
-                          )
-                          const barPct = Math.max(0, s.actualXirr ?? 0) / maxXirr * 100
-                          const xirrColor = s.actualXirr !== null ? s.actualXirr >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'
-                          return (
-                            <div key={s.sector} className="border border-slate-100 rounded-lg mb-1">
-                              <button
-                                className="w-full px-2 py-1.5 text-left active:opacity-60"
-                                onClick={() => setExpandedSectors(prev => {
-                                  const next = new Set(prev)
-                                  next.has(s.sector) ? next.delete(s.sector) : next.add(s.sector)
-                                  return next
-                                })}
-                              >
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-[10px] font-medium text-slate-700 flex-1 truncate">{s.sector}</span>
-                                  <span className="text-[7px] text-slate-400 whitespace-nowrap">{sectorRows.length} · {BENCHMARK_LABEL[s.benchSymbol] ?? s.benchSymbol}</span>
-                                  <span className="text-[7px] text-slate-400 whitespace-nowrap">vs {fmtX(s.benchXirr)}</span>
-                                  <span className={`text-[10px] font-semibold whitespace-nowrap w-[40px] text-right ${xirrColor}`}>{fmtX(s.actualXirr)}</span>
-                                  <span className="text-[8px] text-slate-300 w-[8px] text-right">{isOpen ? '▲' : '▼'}</span>
-                                </div>
-                                <div className="h-1.5 rounded-full overflow-hidden bg-slate-100">
-                                  <div className="h-full rounded-full" style={{ width: `${barPct}%`, backgroundColor: SECTOR_COLOR[s.sector] }} />
-                                </div>
-                              </button>
-                              {isOpen && sectorRows.length > 0 && (
-                                <div className="px-2 pb-1.5 space-y-1 border-t border-slate-100">
-                                  {sectorRows.map(r => {
-                                    const hXirr   = xirrMap.get(r.key) ?? null
-                                    const yfSym   = symToYf.get(r.navSym) ?? r.navSym
-                                    const hBenchX = holdingBenchXirr.get(yfSym) ?? null
-                                    const hBarPct = Math.max(0, hXirr ?? 0) / maxXirr * 100
-                                    const hColor  = hXirr !== null ? hXirr >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'
-                                    return (
-                                      <div key={r.key}>
-                                        <div className="flex items-center gap-2 mb-0.5">
-                                          <div className="flex-1 min-w-0">
-                                            <span className="text-[10px] text-slate-600 truncate block">{r.subLabel || r.ticker}</span>
-                                            <span className="text-[7px] text-slate-400">{r.ticker}</span>
-                                          </div>
-                                          <span className="text-[7px] text-slate-400 whitespace-nowrap">vs {fmtX(hBenchX)}</span>
-                                          <span className={`text-[10px] font-semibold whitespace-nowrap w-[40px] text-right ${hColor}`}>{fmtX(hXirr)}</span>
-                                          <span className="w-[8px]" />
+                    {/* By Sector — bordered collapsible section */}
+                    <div className="border border-slate-200 rounded-xl">
+                      <button
+                        className="flex items-center gap-1 w-full text-left text-[8px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5"
+                        onClick={() => setBenchSectorSectionOpen(o => !o)}
+                      >
+                        By Sector <span className="text-[7px] text-slate-300 ml-0.5">{benchSectorSectionOpen ? '▲' : '▼'}</span>
+                      </button>
+
+                      {benchSectorSectionOpen && (
+                        <div className="flex items-center gap-1.5 px-2 pb-1">
+                          <span className="text-[7px] font-semibold text-slate-500 flex-1">Sector</span>
+                          <span className="text-[7px] font-semibold text-slate-500 w-[38px] text-right">XIRR</span>
+                          <span className="text-[7px] font-semibold text-slate-500 w-[86px] text-right">Index (XIRR)</span>
+                          <span className="text-[7px] font-semibold text-slate-500 w-[36px] text-right">Alpha</span>
+                          <span className="w-[8px]" />
+                        </div>
+                      )}
+
+                      {benchSectorSectionOpen && benchSectors.map(s => {
+                        const isOpen = expandedSectors.has(s.sector)
+                        const sectorRows = rows.filter(r =>
+                          getSectorForHolding(symToYf.get(r.navSym) ?? r.navSym) === s.sector
+                        )
+                        const xirrColor  = s.actualXirr !== null ? s.actualXirr >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'
+                        const alphaColor = s.alpha !== null ? s.alpha >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'
+                        return (
+                          <div key={s.sector} className="border border-slate-100 rounded-lg mb-1">
+                            <button
+                              className="w-full px-2 py-1.5 text-left active:opacity-60"
+                              onClick={() => setExpandedSectors(prev => {
+                                const next = new Set(prev)
+                                next.has(s.sector) ? next.delete(s.sector) : next.add(s.sector)
+                                return next
+                              })}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-medium text-slate-700 flex-1 truncate">{s.sector}</span>
+                                <span className={`text-[10px] font-semibold whitespace-nowrap w-[38px] text-right ${xirrColor}`}>{fmtX(s.actualXirr)}</span>
+                                <span className="text-[8px] text-slate-400 w-[86px] text-right overflow-hidden text-ellipsis">{BENCHMARK_LABEL[s.benchSymbol] ?? s.benchSymbol} ({fmtX(s.benchXirr)})</span>
+                                <span className={`text-[10px] font-semibold whitespace-nowrap w-[36px] text-right ${alphaColor}`}>{fmtX(s.alpha)}</span>
+                                <span className="text-[8px] text-slate-300 w-[8px] text-right">{isOpen ? '▲' : '▼'}</span>
+                              </div>
+                              <div className="relative h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1.5">
+                                {s.alpha !== null && s.alpha > 0 && (
+                                  <div className="absolute top-0 bottom-0 bg-green-400 rounded-r-sm" style={{ left: '50%', width: `${Math.min(Math.abs(s.alpha) / maxAlpha * 50, 50)}%` }} />
+                                )}
+                                {s.alpha !== null && s.alpha < 0 && (
+                                  <div className="absolute top-0 bottom-0 bg-red-400 rounded-l-sm" style={{ right: '50%', width: `${Math.min(Math.abs(s.alpha) / maxAlpha * 50, 50)}%` }} />
+                                )}
+                                <div className="absolute top-0 bottom-0 left-1/2 w-px bg-slate-300" />
+                              </div>
+                            </button>
+                            {isOpen && sectorRows.length > 0 && (
+                              <div className="px-2 pb-1.5 space-y-1 border-t border-slate-100">
+                                {sectorRows.map(r => {
+                                  const hXirr   = xirrMap.get(r.key) ?? null
+                                  const yfSym   = symToYf.get(r.navSym) ?? r.navSym
+                                  const hBenchX = holdingBenchXirr.get(yfSym) ?? null
+                                  const hAlpha  = hXirr !== null && hBenchX !== null ? hXirr - hBenchX : null
+                                  const hColor  = hXirr !== null ? hXirr >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'
+                                  const hAlphaColor = hAlpha !== null ? hAlpha >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'
+                                  return (
+                                    <div key={r.key} className="bg-slate-50 rounded-lg px-2 py-1.5">
+                                      <div className="flex items-center gap-1.5">
+                                        <div className="flex-1 min-w-0">
+                                          <span className="text-[10px] text-slate-600 truncate block">{r.subLabel || r.ticker}</span>
+                                          <span className="text-[7px] text-slate-400">{r.ticker}</span>
                                         </div>
-                                        <div className="h-1 rounded-full overflow-hidden bg-slate-100">
-                                          <div className="h-full rounded-full" style={{ width: `${hBarPct}%`, backgroundColor: SECTOR_COLOR[s.sector] + 'AA' }} />
-                                        </div>
+                                        <span className={`text-[9px] font-semibold whitespace-nowrap w-[38px] text-right ${hColor}`}>{fmtX(hXirr)}</span>
+                                        <span className="text-[8px] text-slate-400 w-[86px] text-right overflow-hidden text-ellipsis">{BENCHMARK_LABEL[s.benchSymbol] ?? s.benchSymbol} ({fmtX(hBenchX)})</span>
+                                        <span className={`text-[9px] font-semibold whitespace-nowrap w-[36px] text-right ${hAlphaColor}`}>{fmtX(hAlpha)}</span>
+                                        <span className="w-[8px]" />
                                       </div>
-                                    )
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )
-                  })()}
-                </div>
-              )}
+                                      <div className="relative h-1 bg-slate-100 rounded-full overflow-hidden mt-1">
+                                        {hAlpha !== null && hAlpha > 0 && (
+                                          <div className="absolute top-0 bottom-0 bg-green-400 rounded-r-sm" style={{ left: '50%', width: `${Math.min(Math.abs(hAlpha) / maxAlpha * 50, 50)}%` }} />
+                                        )}
+                                        {hAlpha !== null && hAlpha < 0 && (
+                                          <div className="absolute top-0 bottom-0 bg-red-400 rounded-l-sm" style={{ right: '50%', width: `${Math.min(Math.abs(hAlpha) / maxAlpha * 50, 50)}%` }} />
+                                        )}
+                                        <div className="absolute top-0 bottom-0 left-1/2 w-px bg-slate-300" />
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           )}
         </div>
