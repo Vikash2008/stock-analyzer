@@ -8,6 +8,10 @@
 ## Active File Map
 
 ```
+.github/
+  workflows/
+    keepalive.yml           GitHub Actions cron (*/14 * * * *) — pings /health to prevent Render cold start
+
 validate.py                 Terminal CLI (independent of backend)
 
 src/
@@ -90,6 +94,7 @@ msp_v2.csv
 |--------|------|--------|-------|
 | GET | `/api/portfolio` | `currency=INR\|USD`, `force_refresh=false` | Full bundle; 60s in-memory cache on top of disk cache |
 | GET | `/api/history` | `yf_symbol`, `start=YYYY-MM-DD` | Price history; 1hr in-memory cache |
+| GET | `/health` | — | Returns `{"status":"ok"}`; used by keep-alive cron |
 
 ---
 
@@ -186,6 +191,7 @@ msp_v2.csv
 | Backend | Render free tier | push to `master` |
 
 Render cold start: 60–90s after inactivity (free tier spins down).
+Keep-alive: GitHub Actions cron pings `/health` every 14 min to reduce cold starts (occasional jitter may miss the window).
 
 ---
 

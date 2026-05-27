@@ -133,9 +133,13 @@ DATE    BUY/SELL/DIV    QTY @ PRICE    VALUE
 ### HoldingsPage (`/holdings/portfolio/:name` or `/holdings/segment/:key`)
 - Back button (label carries origin context via nav state)
 - Summary card (portfolio or segment header)
-- Toggle: Cumulative (grouped by symbol) | Standalone (per symbol+portfolio)
+- One control row (always visible): iOS-style segmented sliders on the same line
+  - Left: **Grouped / Each** slider (segment views only) — Grouped = one row per symbol aggregated; Each = one row per portfolio:symbol; both show company name as subLabel
+  - Right: **Open / Closed / All** slider — Open = currently held; Closed = fully exited (derived from `data.realized`); All = both
+- Count line updates: `N open`, `M closed`, or `N open · M closed`
 - Sort control (top-right of list): Current Value | Invested | Daily Gain | Daily Gain % | Total Gain | Total Gain % | XIRR — tap again to toggle ↑/↓; default Current Value ↓
 - List of HoldingCards, tappable; each shows XIRR computed client-side
+- Closed holdings (no open position): current=0, Total G/L = realized P&L, XIRR from BUY+SELL cashflows only (no terminal value)
 
 ### TransactionsPage (`/transactions/:port/:sym`)
 - Back button (label = origin page name via nav state)
@@ -164,6 +168,7 @@ DATE    BUY/SELL/DIV    QTY @ PRICE    VALUE
 - `registerType: 'autoUpdate'` — new deploy auto-updates SW in background
 - `skipWaiting: true` + `clientsClaim: true` in Workbox config — new SW activates immediately without waiting for tabs to close
 - `controllerchange` listener in `App.tsx` — when new SW activates, page reloads automatically so users always see the latest JS bundle without manual refresh
+- `visibilitychange` listener in `App.tsx` — calls `registration.update()` every time the PWA comes to foreground; ensures mobile PWA checks for new SW on resume (not just on navigation)
 
 ---
 
@@ -261,7 +266,7 @@ Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone
 
 ---
 
-## Known Issues (as of 2026-05-24)
+## Known Issues (as of 2026-05-27)
 
 - None.
 
@@ -318,5 +323,11 @@ Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone
 | 2026-05-24 | PWA auto-reload on SW update (controllerchange listener in App.tsx) | autoUpdate activates new SW silently but doesn't reload page; listener forces reload so Vercel deploys are immediately visible |
 | 2026-05-24 | skipWaiting + clientsClaim in Workbox config | Without these, new SW waits for all tabs to close before activating — on mobile PWA this never happens; now activates immediately on every deploy |
 | 2026-05-24 | Sync icon (↻) on Charts tab header in TransactionsPage | Clears per-symbol history cache and re-fetches; spins 1.2s; only visible when Charts tab active |
+| 2026-05-27 | visibilitychange SW update check in App.tsx | Mobile PWA resumes from background without triggering navigation; explicit reg.update() on visibilitychange ensures latest code loads on every foreground |
+| 2026-05-27 | Keep-alive ping via GitHub Actions | Cron every 14 min hits /health to prevent Render free tier cold start; jitter may occasionally miss 15-min window |
+| 2026-05-27 | Realized P&L bug fix for segment views | summaryStats now iterates data.realized directly (with segment classification via getSegmentType) instead of filteredHoldings symbol-by-symbol — fully-exited positions were previously excluded |
+| 2026-05-27 | Open/Closed/All toggle on HoldingsPage | Closed positions derived from data.realized (symbols with realized entries but no open holding); shown as HoldingCards with current=0 and XIRR from BUY+SELL cashflows only |
+| 2026-05-27 | Grouped/Each + Open/Closed/All on one line as sliders | iOS-style segmented controls (translateX sliding indicator); text-[8px], very compact; replaces separate pill buttons on separate lines |
+| 2026-05-27 | Each mode: company name as subLabel | Was showing portfolio (broker) name in standalone mode; now always shows company name |
 | 2026-05-24 | Static data/names.json for company names on Render | Render free tier has ephemeral disk — yfinance info calls fail after each deploy; names.json committed to git ensures names always load correctly |
 | 2026-05-24 | serializers.py sanitizes inf values | _clean() now handles math.isinf() alongside math.isnan(); all scalar fields and xirr_by_portfolio also wrapped in _clean() |

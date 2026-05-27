@@ -36,3 +36,7 @@ app.add_middleware(
 
 app.include_router(portfolio_router)
 app.include_router(history_router)
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}

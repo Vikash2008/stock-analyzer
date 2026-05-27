@@ -21,7 +21,7 @@
 
 | # | Item | Notes | Status |
 |---|------|-------|--------|
-| 1 | Keep-alive ping (GitHub Actions cron) | Add `.github/workflows/keepalive.yml` — pings backend every 14 min so Render free tier never sleeps. Risk: against Render ToS spirit; GitHub private repo = 500 min/month free (est. ~150–200 min/month used). Cron jitter may cause occasional miss. | pending |
+| 1 | Keep-alive ping (GitHub Actions cron) | Add `.github/workflows/keepalive.yml` — pings backend every 14 min so Render free tier never sleeps. Risk: against Render ToS spirit; GitHub private repo = 500 min/month free (est. ~150–200 min/month used). Cron jitter may cause occasional miss. | done |
 | 2 | Progressive loading messages (frontend) | Track elapsed time since fetch start. After 8s show "Backend waking up…", after 30s show "Still starting up (~60s on first load)". Safety net for cold starts that slip through. Only touches `PortfoliosPage.tsx` / `LoadingSkeleton.tsx`. | pending |
 | 3 | Combine both (recommended) | GitHub Actions keep-alive prevents most cold starts; progressive UI handles the rare miss gracefully. Zero cost, no backend changes. | pending |
 
@@ -33,6 +33,10 @@
 
 | Item | Completed |
 |------|-----------|
+| Keep-alive ping — GitHub Actions cron every 14 min pings /health; /health endpoint added to backend | 2026-05-27 |
+| Realized P&L bug fix — segment summary card now counts fully-exited positions (iterates data.realized directly) | 2026-05-27 |
+| Open/Closed/All toggle on HoldingsPage — all views (By Broker, By Type, Stocks, MF, Total) | 2026-05-27 |
+| Grouped/Each + Open/Closed/All as iOS slider controls on one line; Each mode shows company name | 2026-05-27 |
 | PWA skipWaiting + clientsClaim — new SW activates immediately on mobile; deploys reflect without closing app | 2026-05-24 |
 | Static data/names.json — company names committed to git; Render always shows correct names regardless of yfinance availability | 2026-05-24 |
 | serializers.py inf fix — all scalar fields + xirr_by_portfolio sanitized; no more 500 on inf values | 2026-05-24 |

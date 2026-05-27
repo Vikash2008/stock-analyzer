@@ -11,7 +11,7 @@ import { HoldingCard } from '../components/HoldingCard'
 import { SummaryCard } from '../components/SummaryCard'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
 import { aggRealized, realizedForPorts } from '../utils/realized'
-import { filterBySegment, SKIP_PORTS, SEGMENT_LABELS, USD_PORTS } from '../utils/segments'
+import { filterBySegment, getSegmentType, SKIP_PORTS, SEGMENT_LABELS, USD_PORTS } from '../utils/segments'
 import { fmt, fmtGainLine } from '../utils/fmt'
 import { computeXIRR } from '../utils/xirr'
 import type { Holding } from '../api/types'
@@ -104,7 +104,7 @@ function buildRows(
         return {
           key:        `${h.portfolio}:${h.symbol}`,
           ticker:     h.symbol,
-          subLabel:   mode === 'standalone' ? h.portfolio : (h.company ?? ''),
+          subLabel:   h.company ?? '',
           current:    h.disp_current,
           invested:   h.disp_invested,
           realGain: rg, realCost: rc,
@@ -163,6 +163,7 @@ export default function HoldingsPage({ currency }: Props) {
   const { portfolio, segment } = useParams<{ portfolio?: string; segment?: string }>()
   const { data, isLoading, error } = usePortfolio(currency)
   const [viewMode,    setViewMode]    = useState<'cumulative' | 'standalone'>('cumulative')
+  const [holdingFilter, setHoldingFilter] = useState<'open' | 'closed' | 'all'>('open')
   const [activeTab,   setActiveTab]   = useState<'holdings' | 'charts'>('holdings')
   const [chartMetric, setChartMetric] = useState<ChartMetric>('Portfolio Value')
   const [chartRange,  setChartRange]  = useState<ChartRange>('1y')
@@ -191,30 +192,92 @@ export default function HoldingsPage({ currency }: Props) {
       .reduce((s, h) => s + (h.disp_today_gain ?? 0), 0)
     const prior = cur - tg
     const ports = new Set(filteredHoldings.map(h => h.portfolio))
-    // For segment views, non-USD portfolios may hold US ETFs alongside Indian stocks.
-    // Use portfolio-level aggregation only for pure USD portfolios; symbol-level for the rest
-    // to avoid pulling in unrelated realized gains from mixed portfolios.
-    const purePorts = segment ? new Set([...ports].filter(p => USD_PORTS.has(p))) : ports
-    const [rg, rc] = realizedForPorts(realizedMap, purePorts)
-    let realGain = rg, realCost = rc
-    if (segment) {
-      for (const h of filteredHoldings) {
-        if (USD_PORTS.has(h.portfolio)) continue
-        const [g, c] = realizedMap.get(`${h.portfolio}:${h.symbol}`) ?? [0, 0]
-        realGain += g; realCost += c
+
+    let realGain = 0, realCost = 0
+
+    if (segment && data) {
+      // Build symbol → yf_symbol from transactions (realized records lack yf_symbol).
+      // This ensures fully-exited positions (not in filteredHoldings) are included.
+      const symToYf = new Map<string, string>()
+      for (const tx of data.transactions) symToYf.set(tx.symbol, tx.yf_symbol)
+
+      const segFilter = new Set(
+        segment === 'stk' ? ['indian_stock', 'us_stock'] :
+        segment === 'mf'  ? ['indian_mf',   'us_mf']    :
+        [segment],
+      )
+
+      for (const r of data.realized) {
+        if (SKIP_PORTS.has(r.portfolio)) continue
+        const yf = symToYf.get(r.symbol) ?? r.symbol
+        if (!segFilter.has(getSegmentType(r.portfolio, yf))) continue
+        const fx = r.currency === 'USD' ? data.usd_inr : 1.0
+        realGain += r.realized_pnl * fx
+        realCost += r.quantity * r.buy_price * fx
       }
+    } else {
+      const [rg, rc] = realizedForPorts(realizedMap, ports)
+      realGain = rg; realCost = rc
     }
+
     return {
       cur, inv, tg,
       todayPct: prior !== 0 ? (tg / prior) * 100 : null,
       realGain, realCost,
     }
-  }, [filteredHoldings, realizedMap, segment])
+  }, [filteredHoldings, realizedMap, segment, data])
 
   const rows = useMemo(
     () => buildRows(filteredHoldings, realizedMap, viewMode, !!segment),
     [filteredHoldings, realizedMap, viewMode, segment],
   )
+
+  const closedRows = useMemo((): CardRow[] => {
+    if (!data) return []
+    const openSymbols = new Set(filteredHoldings.map(h => h.symbol))
+    const nameMap = new Map<string, string>()
+    for (const tx of data.transactions) { if (tx.name) nameMap.set(tx.symbol, tx.name) }
+
+    // For segment views, build segment filter to classify realized records
+    const symToYf = new Map<string, string>()
+    for (const tx of data.transactions) symToYf.set(tx.symbol, tx.yf_symbol)
+    const segFilter = segment ? new Set(
+      segment === 'stk'   ? ['indian_stock', 'us_stock']              :
+      segment === 'mf'    ? ['indian_mf',    'us_mf']                 :
+      segment === 'total' ? ['indian_stock', 'us_stock', 'indian_mf', 'us_mf'] :
+      [segment],
+    ) : null
+
+    const symMap = new Map<string, { rg: number; rc: number; firstPort: string }>()
+    for (const r of data.realized) {
+      if (SKIP_PORTS.has(r.portfolio)) continue
+      if (portfolio && r.portfolio !== portfolio) continue
+      if (segFilter) {
+        const yf = symToYf.get(r.symbol) ?? r.symbol
+        if (!segFilter.has(getSegmentType(r.portfolio, yf))) continue
+      }
+      const fx = r.currency === 'USD' ? data.usd_inr : 1.0
+      const e  = symMap.get(r.symbol) ?? { rg: 0, rc: 0, firstPort: r.portfolio }
+      symMap.set(r.symbol, {
+        rg: e.rg + r.realized_pnl * fx,
+        rc: e.rc + (r.type === 'SELL' ? r.quantity * r.buy_price * fx : 0),
+        firstPort: e.firstPort,
+      })
+    }
+    return [...symMap.entries()]
+      .filter(([sym]) => !openSymbols.has(sym))
+      .map(([sym, { rg, rc, firstPort }]) => ({
+        key: `closed:${sym}`,
+        ticker: sym,
+        subLabel: nameMap.get(sym) ?? '',
+        current: 0, invested: 0,
+        realGain: rg, realCost: rc,
+        todayGain: null, todayPct: null, ltp: null,
+        navPort: firstPort, navSym: sym,
+        portfolios: [firstPort],
+      }))
+      .sort((a, b) => b.realGain - a.realGain)
+  }, [data, portfolio, segment, filteredHoldings])
 
   // Chart data hooks — always called, gated by enabled flag
   const filtPorts = useMemo(
@@ -236,7 +299,7 @@ export default function HoldingsPage({ currency }: Props) {
     const map   = new Map<string, number | null>()
     const isCumulative = !!segment && viewMode === 'cumulative'
 
-    for (const row of rows) {
+    for (const row of [...rows, ...(holdingFilter !== 'open' ? closedRows : [])]) {
       const txns = data.transactions.filter(t =>
         isCumulative
           ? t.symbol === row.navSym && filtPorts.has(t.portfolio)
@@ -261,16 +324,21 @@ export default function HoldingsPage({ currency }: Props) {
       map.set(row.key, r !== null ? r * 100 : null)
     }
     return map
-  }, [rows, data, currency, filtPorts, segment, viewMode])
+  }, [rows, closedRows, holdingFilter, data, currency, filtPorts, segment, viewMode])
 
-  const sortedRows = useMemo(() => [...rows].sort((a, b) => {
-    const va = getSortValue(a, sortField, xirrMap)
-    const vb = getSortValue(b, sortField, xirrMap)
-    if (va === -Infinity && vb === -Infinity) return 0
-    if (va === -Infinity) return 1
-    if (vb === -Infinity) return -1
-    return sortDir === 'desc' ? vb - va : va - vb
-  }), [rows, sortField, sortDir, xirrMap])
+  const sortedRows = useMemo(() => {
+    const open = [...rows].sort((a, b) => {
+      const va = getSortValue(a, sortField, xirrMap)
+      const vb = getSortValue(b, sortField, xirrMap)
+      if (va === -Infinity && vb === -Infinity) return 0
+      if (va === -Infinity) return 1
+      if (vb === -Infinity) return -1
+      return sortDir === 'desc' ? vb - va : va - vb
+    })
+    if (holdingFilter === 'closed') return closedRows
+    if (holdingFilter === 'all')    return [...open, ...closedRows]
+    return open
+  }, [rows, closedRows, holdingFilter, sortField, sortDir, xirrMap])
 
   const summaryXirr = useMemo(() => {
     if (!data) return null
@@ -375,27 +443,49 @@ export default function HoldingsPage({ currency }: Props) {
       {/* ── Holdings tab ── */}
       {activeTab === 'holdings' && (
         <>
-          {segment && (
-            <div className="flex gap-2 mb-3">
-              {(['cumulative', 'standalone'] as const).map(m => (
+          <div className="flex items-center justify-between mb-2.5">
+            {/* Grouped / Each slider — segment views only */}
+            {segment ? (
+              <div className="relative flex bg-slate-100 rounded-full p-[2px]">
+                <div
+                  className="absolute top-[2px] bottom-[2px] w-1/2 rounded-full bg-white shadow-sm transition-transform duration-150"
+                  style={{ transform: `translateX(${viewMode === 'standalone' ? '100%' : '0%'})` }}
+                />
+                {(['cumulative', 'standalone'] as const).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setViewMode(m)}
+                    className={`relative z-10 text-[9px] px-2.5 py-[3px] transition-colors ${viewMode === m ? 'text-slate-700 font-semibold' : 'text-slate-400'}`}
+                  >
+                    {m === 'cumulative' ? 'Grouped' : 'Each'}
+                  </button>
+                ))}
+              </div>
+            ) : <div />}
+
+            {/* Open / Closed / All slider */}
+            <div className="relative flex bg-slate-100 rounded-full p-[2px]">
+              <div
+                className="absolute top-[2px] bottom-[2px] w-1/3 rounded-full bg-white shadow-sm transition-transform duration-150"
+                style={{ transform: `translateX(${holdingFilter === 'open' ? '0%' : holdingFilter === 'closed' ? '100%' : '200%'})` }}
+              />
+              {(['open', 'closed', 'all'] as const).map(v => (
                 <button
-                  key={m}
-                  onClick={() => setViewMode(m)}
-                  className={`text-[10px] px-3 py-0.5 rounded-full border transition-colors capitalize ${
-                    viewMode === m
-                      ? 'bg-[#2563eb] text-white border-[#2563eb]'
-                      : 'bg-white text-slate-500 border-slate-200'
-                  }`}
+                  key={v}
+                  onClick={() => setHoldingFilter(v)}
+                  className={`relative z-10 text-[9px] px-2.5 py-[3px] capitalize transition-colors ${holdingFilter === v ? 'text-slate-700 font-semibold' : 'text-slate-400'}`}
                 >
-                  {m}
+                  {v}
                 </button>
               ))}
             </div>
-          )}
+          </div>
 
           {/* Count + sort */}
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[9px] text-slate-400">{rows.length} holdings</p>
+            <p className="text-[9px] text-slate-400">
+              {holdingFilter === 'closed' ? `${closedRows.length} closed` : holdingFilter === 'all' ? `${rows.length} open · ${closedRows.length} closed` : `${rows.length} open`}
+            </p>
             <div className="relative">
               <button
                 onClick={() => setSortOpen(o => !o)}
