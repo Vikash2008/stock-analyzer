@@ -5,6 +5,7 @@ import {
   Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 import { usePortfolio } from '../hooks/usePortfolio'
+import { useQueryClient } from '@tanstack/react-query'
 import { usePortfolioHistory, sliceSeries } from '../hooks/usePortfolioHistory'
 import type { DatedSeries, PortfolioSeries } from '../hooks/usePortfolioHistory'
 import { HoldingCard } from '../components/HoldingCard'
@@ -164,7 +165,7 @@ export default function HoldingsPage({ currency }: Props) {
   const { portfolio, segment } = useParams<{ portfolio?: string; segment?: string }>()
   const { data, isLoading, error } = usePortfolio(currency)
   const [viewMode,    setViewMode]    = useState<'cumulative' | 'standalone'>('cumulative')
-  const [holdingFilter, setHoldingFilter] = useState<'open' | 'closed' | 'all'>('open')
+  const [holdingFilter, setHoldingFilter] = useState<'open' | 'closed' | 'all'>('all')
   const [activeTab,   setActiveTab]   = useState<'holdings' | 'charts'>('holdings')
   const [chartMetric, setChartMetric] = useState<ChartMetric>('Portfolio Value')
   const [chartRange,  setChartRange]  = useState<ChartRange>('1y')
@@ -172,7 +173,9 @@ export default function HoldingsPage({ currency }: Props) {
   const [sortDir,     setSortDir]     = useState<'desc' | 'asc'>('desc')
   const [sortOpen,    setSortOpen]    = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [showClosed,   setShowClosed]   = useState(true)
+  const [showClosed,   setShowClosed]   = useState(false)
+  const [syncing,      setSyncing]      = useState(false)
+  const qc = useQueryClient()
 
   useEffect(() => {
     const key = `holdingsScroll:${location.pathname}`
@@ -420,7 +423,7 @@ export default function HoldingsPage({ currency }: Props) {
     filtRealized,
     data?.usd_inr ?? 95.5,
     currency,
-    activeTab === 'charts' && !!data,
+    !!data,
   )
 
   const metricSeries = useMemo((): DatedSeries | null => {
@@ -574,6 +577,19 @@ export default function HoldingsPage({ currency }: Props) {
             {tab}
           </button>
         ))}
+        {activeTab === 'charts' && (
+          <button
+            className="ml-auto pb-1.5 text-slate-400 active:text-[#2563eb]"
+            onClick={() => {
+              if (syncing) return
+              setSyncing(true)
+              qc.invalidateQueries({ queryKey: ['history'] })
+              setTimeout(() => setSyncing(false), 1200)
+            }}
+          >
+            <span className={`text-[14px] inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
+          </button>
+        )}
       </div>
 
       {/* ── Holdings tab ── */}
@@ -666,33 +682,19 @@ export default function HoldingsPage({ currency }: Props) {
             ))}
           </div>
 
-          {histLoading && (
-            <div className="py-10 px-2">
-              <p className="text-center text-[11px] text-slate-400 mb-3">
-                Loading price history… {loadedCount} / {totalCount} symbols ({totalCount > 0 ? Math.round(loadedCount / totalCount * 100) : 0}%)
-              </p>
-              <div className="w-full bg-slate-100 rounded-full h-1.5">
-                <div
-                  className="bg-[#2563eb] h-1.5 rounded-full transition-all duration-300"
-                  style={{ width: `${totalCount > 0 ? (loadedCount / totalCount) * 100 : 0}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {!histLoading && portSeries && !metricSeries && (
+          {portSeries && !metricSeries && (
             <div className="text-center py-10 text-slate-400 text-xs">
               No data for this period.
             </div>
           )}
 
-          {!histLoading && !portSeries && (
+          {!portSeries && !histLoading && (
             <div className="text-center py-10 text-slate-400 text-xs">
               No price history available.
             </div>
           )}
 
-          {!histLoading && metricSeries && rechartsData.length > 0 && (
+          {metricSeries && rechartsData.length > 0 && (
             <>
               {/* Stat line */}
               <div className="flex items-baseline gap-2 mb-2">

@@ -193,7 +193,7 @@ export default function TransactionsPage({ currency }: Props) {
     symRealized,
     data?.usd_inr ?? 95.5,
     currency,
-    activeTab === 'charts' && chartMetric !== 'Price' && !!data,
+    chartMetric !== 'Price' && !!data,
   )
 
   const metricSeries = useMemo((): DatedSeries | null => {
@@ -368,7 +368,7 @@ export default function TransactionsPage({ currency }: Props) {
             onClick={() => {
               if (syncing) return
               setSyncing(true)
-              qc.removeQueries({ queryKey: ['history', yf] })
+              qc.invalidateQueries({ queryKey: ['history', yf] })
               setTimeout(() => setSyncing(false), 1200)
             }}
           >
@@ -437,31 +437,19 @@ export default function TransactionsPage({ currency }: Props) {
           {/* Historical series charts */}
           {chartMetric !== 'Price' && (
             <>
-              {histLoading && (
-                <div className="py-10 px-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-[11px] text-slate-400">Step 1 / 2 — Fetching price history…</p>
-                    <p className="text-[11px] text-slate-400">50%</p>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-1.5">
-                    <div className="bg-[#2563eb] h-1.5 rounded-full" style={{ width: '50%' }} />
-                  </div>
-                </div>
-              )}
-
-              {!histLoading && portSeries && !metricSeries && (
+              {portSeries && !metricSeries && (
                 <div className="text-center py-10 text-slate-400 text-xs">
                   No data for this period.
                 </div>
               )}
 
-              {!histLoading && !portSeries && (
+              {!portSeries && !histLoading && (
                 <div className="text-center py-10 text-slate-400 text-xs">
                   No price history available.
                 </div>
               )}
 
-              {!histLoading && metricSeries && rechartsData.length > 0 && (
+              {metricSeries && rechartsData.length > 0 && (
                 <>
                   {/* Stat line */}
                   <div className="flex items-baseline gap-2 mb-2">

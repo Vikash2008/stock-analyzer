@@ -16,7 +16,6 @@ export function usePortfolio(currency: 'INR' | 'USD' = 'INR') {
 export function useForceRefresh(currency: 'INR' | 'USD') {
   const qc = useQueryClient()
   return () => {
-    qc.removeQueries({ queryKey: ['history'] })  // clear all chart cache; re-fetched lazily on next Charts visit
     return fetchPortfolio(currency, true).then(data =>
       qc.setQueryData(['portfolio', currency], data)
     )
