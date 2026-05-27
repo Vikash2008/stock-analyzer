@@ -168,7 +168,8 @@ msp_v2.csv
 
 | What | TTL | Scope |
 |------|-----|-------|
-| price history queries (`['history', ...]`) | 7 days | scoped via `shouldDehydrateQuery` — portfolio data excluded |
+| price history queries (`['history', ...]`) | 7 days | scoped via `shouldDehydrateQuery` |
+| portfolio bundle (`['portfolio', currency]`) | 7 days | persisted alongside history; restores on reopen, background-refetches if stale |
 
 ---
 

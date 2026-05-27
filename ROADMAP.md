@@ -33,6 +33,7 @@
 
 | Item | Completed |
 |------|-----------|
+| Portfolio bundle persisted to localStorage — instant reopen after swipe-up, stale-while-revalidate | 2026-05-27 |
 | All charts default range = 1y | 2026-05-27 |
 | PortfoliosPage: Stocks/MF tiles side-by-side; By Type + By Broker grouped sections with section labels; BreakCard compact prop | 2026-05-27 |
 | XIRR By Type fixed to include closed positions (iterates all transactions via yfMap) | 2026-05-27 |

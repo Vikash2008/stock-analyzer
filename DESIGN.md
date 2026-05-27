@@ -366,6 +366,7 @@ Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone
 | 2026-05-27 | TransactionsPage ↻ changed to invalidateQueries | Was removeQueries (blanked chart); now keeps old data visible while silently re-fetching |
 | 2026-05-27 | PriceChart X-axis range-aware tickFormatter | Long ranges (2y/3y/5y/All): "Oct '23"; short ranges (1m/3m/6m/1y): "12 Oct"; 1d: "HH:MM" |
 | 2026-05-27 | PriceChart 1d intraday range | Fetches 5-min bars via /api/history?period=1d; X-axis shows time; cached 5 min on backend; BUY/SELL markers not shown for intraday |
+| 2026-05-27 | Portfolio bundle persisted to localStorage | shouldDehydrateQuery now includes 'portfolio' alongside 'history'; instant reopen after swipe-up — shows stale data immediately, background-refetches silently |
 | 2026-05-27 | All charts default range = 1y | PriceChart was 'All'; now '1y' matching HoldingsPage + TransactionsPage |
 | 2026-05-27 | Stocks/MF tiles side-by-side | Changed from full-width stacked (space-y-2) to grid grid-cols-2 gap-2; fonts reduced: value 15px→13px, labels 9px→8px, gains 10px→9px |
 | 2026-05-27 | BreakCard compact prop | compact=true uses 13px value / 8px labels / 9px gains / gap-0.5 — used in all 2-col grid layouts |
