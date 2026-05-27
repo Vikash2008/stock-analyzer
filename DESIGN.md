@@ -331,3 +331,12 @@ Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone
 | 2026-05-27 | Each mode: company name as subLabel | Was showing portfolio (broker) name in standalone mode; now always shows company name |
 | 2026-05-24 | Static data/names.json for company names on Render | Render free tier has ephemeral disk — yfinance info calls fail after each deploy; names.json committed to git ensures names always load correctly |
 | 2026-05-24 | serializers.py sanitizes inf values | _clean() now handles math.isinf() alongside math.isnan(); all scalar fields and xirr_by_portfolio also wrapped in _clean() |
+| 2026-05-27 | Settings gear icon on HoldingsPage | Replaces plain header; opens popover with Open/Closed/All slider, Show Closed toggle (All mode only), Grouped/Standalone slider (segment only) |
+| 2026-05-27 | Filter-aware summary card | displayStats + filteredSummaryXirr useMemos update XIRR + realized P&L when Open/Closed/All filter changes; Open realized = All − Closed to ensure Open + Closed = All exactly |
+| 2026-05-27 | Show Closed toggle (All mode, display only) | Appends closed rows to sorted open list; no impact on summary stats |
+| 2026-05-27 | Sort fix for closed rows | Extracted sortFn applied equally to both open and closed row arrays; closed rows were previously unsorted |
+| 2026-05-27 | Scroll save/restore via sessionStorage | HoldingsPage saves window.scrollY on holding card click; restores on back; TransactionsPage always opens at top |
+| 2026-05-27 | "Analysis" tab renamed "Notes" on TransactionsPage | Tab type changed from 'analysis' to 'notes'; display label unchanged |
+| 2026-05-27 | TxRow redesign with GainGrid | Left: date + qty·price/sh = invested amount; Right: current value (invested) + 3-col CSS Grid (qty/dir | label | gain+pct); minWidth:210 ensures 1fr col aligns across all cards |
+| 2026-05-27 | FIFO same-date BUY lot fix | dateQtyAttributed Map distributes qtyRealized sequentially across same-date BUY lots in FIFO order; fixes Axis Bank double-realized bug |
+| 2026-05-27 | UI-only fix rule in CLAUDE.md + memory | Trigger: "UI fix" / "UI only" / "quick UI fix" → edit reported file directly, max 2 tool calls, no analysis |

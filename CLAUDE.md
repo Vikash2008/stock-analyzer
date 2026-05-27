@@ -20,6 +20,7 @@
 - **One question max if ambiguous.** Ask one specific question. Do not ask for confirmation on obvious steps.
 - **Ship after every change.** After any code edit, immediately run `/ship` — no confirmation needed. User verifies on Pixel 10 via Vercel URL.
 - **Output rule.** Direct implementation or fix. No long explanations. No alternative approaches.
+- **UI-only fix rule.** When the user says "UI fix", "UI only", or "quick UI fix": edit the reported file directly, no re-reads, no analysis, max 2 tool calls total. Do not debate CSS approaches, do not read adjacent files, do not explain tradeoffs. Just make the change.
 
 ---
 

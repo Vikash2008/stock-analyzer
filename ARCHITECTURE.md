@@ -222,5 +222,5 @@ Keep-alive: GitHub Actions cron pings `/health` every 14 min to reduce cold star
 
 | Slash command | File | Does |
 |---------------|------|------|
-| `/save_state` | prompts/save_state.md | Update DESIGN.md → ARCHITECTURE.md → CLAUDE.md |
+| `/save_state` | .claude/commands/save_state.md | Update doc files + memory files → git commit (no push) |
 | `/ship` | .claude/commands/ship.md | git commit → git push → Vercel + Render auto-deploy |

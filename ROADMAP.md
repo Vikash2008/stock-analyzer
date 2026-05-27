@@ -37,6 +37,13 @@
 | Realized P&L bug fix — segment summary card now counts fully-exited positions (iterates data.realized directly) | 2026-05-27 |
 | Open/Closed/All toggle on HoldingsPage — all views (By Broker, By Type, Stocks, MF, Total) | 2026-05-27 |
 | Grouped/Each + Open/Closed/All as iOS slider controls on one line; Each mode shows company name | 2026-05-27 |
+| Settings gear icon on HoldingsPage — popover with Open/Closed/All, Show Closed toggle, Grouped/Standalone | 2026-05-27 |
+| Filter-aware summary card — XIRR + realized P&L update for Open/Closed/All; Open+Closed=All exact | 2026-05-27 |
+| Sort fix for closed rows — sortFn extracted and applied to both open and closed row arrays | 2026-05-27 |
+| Scroll save/restore — sessionStorage keyed by pathname; HoldingsPage restores on back; TransactionsPage always tops | 2026-05-27 |
+| "Analysis" tab renamed "Notes" on TransactionsPage | 2026-05-27 |
+| TxRow redesign — left: date + qty·price = invested; right: current value (invested) + 3-col GainGrid | 2026-05-27 |
+| FIFO same-date BUY lot fix (dateQtyAttributed Map) — Axis Bank double-realized bug fixed | 2026-05-27 |
 | PWA skipWaiting + clientsClaim — new SW activates immediately on mobile; deploys reflect without closing app | 2026-05-24 |
 | Static data/names.json — company names committed to git; Render always shows correct names regardless of yfinance availability | 2026-05-24 |
 | serializers.py inf fix — all scalar fields + xirr_by_portfolio sanitized; no more 500 on inf values | 2026-05-24 |
