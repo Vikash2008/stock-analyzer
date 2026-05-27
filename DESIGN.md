@@ -358,3 +358,9 @@ Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone
 | 2026-05-27 | XIRR fix — closed positions in segment view | closedRows now tracks all portfolios per symbol; xirrMap + filteredSummaryXirr use row.portfolios for closed rows instead of filtPorts (open-only) |
 | 2026-05-27 | XIRR fix — "All" filter mode | filteredSummaryXirr computes client-side for all 3 modes; was returning data.xirr_stk for "All" which mixed Indian + US stocks |
 | 2026-05-27 | TxRow redesign — 2-row × 3-col layout | Badge pill outside grid; R1: date/unreal/curValue; R2: invested/real/totalGain; green/red card tint; date format 6 Dec'25 |
+| 2026-05-27 | HoldingsPage default filter = All, showClosed = false | Landing state shows all positions in summary but hides closed rows in the list by default |
+| 2026-05-27 | Charts pre-fetch on page load (no tab gate) | enabled=!!data instead of activeTab==='charts'&&!!data; data ready before user taps Charts tab |
+| 2026-05-27 | No loading bar for charts | Removed histLoading progress block from HoldingsPage and TransactionsPage; chart appears silently when ready |
+| 2026-05-27 | History cache preserved on force refresh | Removed qc.removeQueries(['history']) from useForceRefresh; chart data survives pull-to-refresh |
+| 2026-05-27 | ↻ sync icon added to HoldingsPage Charts tab | Mirrors TransactionsPage behaviour; invalidates all ['history'] queries in background; old chart stays visible |
+| 2026-05-27 | TransactionsPage ↻ changed to invalidateQueries | Was removeQueries (blanked chart); now keeps old data visible while silently re-fetching |

@@ -33,6 +33,8 @@
 
 | Item | Completed |
 |------|-----------|
+| Charts pre-fetch on page load; no loading bar; history cache preserved on force refresh; ↻ sync on HoldingsPage Charts tab | 2026-05-27 |
+| HoldingsPage default filter = All with closed rows hidden (showClosed=false) | 2026-05-27 |
 | XIRR fix — closed US stocks in segment view (closedRows tracks all portfolios; xirrMap/filteredSummaryXirr use row.portfolios) | 2026-05-27 |
 | XIRR fix — "All" filter mode computes client-side; was returning xirr_stk which mixed Indian+US stocks | 2026-05-27 |
 | TxRow redesign — 2-row × 3-col; badge pill; date/unreal/curValue + invested/real/totalGain; green/red card tint | 2026-05-27 |
