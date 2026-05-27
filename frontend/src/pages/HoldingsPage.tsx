@@ -14,7 +14,7 @@ import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
 import { aggRealized, realizedForPorts } from '../utils/realized'
 import { filterBySegment, getSegmentType, SKIP_PORTS, SEGMENT_LABELS, USD_PORTS } from '../utils/segments'
 import { fmt, fmtGainLine, fmtCompact } from '../utils/fmt'
-import { getSectorForHolding, SECTOR_COLOR, BENCHMARK_LABEL, type SectorKey } from '../utils/sectors'
+import { getSectorForHolding, SECTOR_COLOR, BENCHMARK_LABEL, type SectorKey, getMarketCapForHolding, MARKET_CAP_COLOR, type MarketCapKey } from '../utils/sectors'
 import { useBenchmarkXirr } from '../hooks/useBenchmarkXirr'
 import { computeXIRR } from '../utils/xirr'
 import type { Holding } from '../api/types'
@@ -178,7 +178,11 @@ export default function HoldingsPage({ currency }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [showClosed,   setShowClosed]   = useState(false)
   const [syncing,      setSyncing]      = useState(false)
-  const [expandedSectors, setExpandedSectors] = useState<Set<string>>(new Set())
+  const [expandedSectors,     setExpandedSectors]     = useState<Set<string>>(new Set())
+  const [expandedAllocSectors, setExpandedAllocSectors] = useState<Set<string>>(new Set())
+  const [expandedMktCapBuckets, setExpandedMktCapBuckets] = useState<Set<string>>(new Set())
+  const [sectorSectionOpen,   setSectorSectionOpen]   = useState(true)
+  const [mktCapSectionOpen,   setMktCapSectionOpen]   = useState(true)
   const qc = useQueryClient()
 
   useEffect(() => {
@@ -211,6 +215,19 @@ export default function HoldingsPage({ currency }: Props) {
       const sector = getSectorForHolding(h.yf_symbol)
       const e = map.get(sector) ?? { value: 0, count: 0 }
       map.set(sector, { value: e.value + h.disp_current, count: e.count + 1 })
+    }
+    const total = [...map.values()].reduce((s, v) => s + v.value, 0)
+    return [...map.entries()]
+      .map(([name, { value, count }]) => ({ name, value, count, pct: total > 0 ? value / total * 100 : 0 }))
+      .sort((a, b) => b.value - a.value)
+  }, [filteredHoldings])
+
+  const mktCapData = useMemo(() => {
+    const map = new Map<MarketCapKey, { value: number; count: number }>()
+    for (const h of filteredHoldings) {
+      const bucket = getMarketCapForHolding(h.yf_symbol)
+      const e = map.get(bucket) ?? { value: 0, count: 0 }
+      map.set(bucket, { value: e.value + h.disp_current, count: e.count + 1 })
     }
     const total = [...map.values()].reduce((s, v) => s + v.value, 0)
     return [...map.entries()]
@@ -265,6 +282,39 @@ export default function HoldingsPage({ currency }: Props) {
     () => buildRows(filteredHoldings, realizedMap, viewMode, !!segment),
     [filteredHoldings, realizedMap, viewMode, segment],
   )
+
+  // Allocation tab always uses one-per-symbol grouping regardless of viewMode
+  const allocGroupedRows = useMemo(
+    () => buildRows(filteredHoldings, realizedMap, 'cumulative', true),
+    [filteredHoldings, realizedMap],
+  )
+
+  const allocXirrMap = useMemo(() => {
+    if (!data) return new Map<string, number | null>()
+    const today = new Date()
+    const map = new Map<string, number | null>()
+    for (const row of allocGroupedRows) {
+      const txns = data.transactions.filter(t =>
+        t.symbol === row.navSym && row.portfolios.includes(t.portfolio),
+      )
+      const cfs: { date: Date; amount: number }[] = []
+      for (const tx of txns) {
+        if (tx.type === 'DIVIDEND') continue
+        const isUsd = USD_PORTS.has(tx.portfolio)
+        const fx = isUsd
+          ? (currency === 'INR' ? data.usd_inr : 1)
+          : (currency === 'USD' ? 1 / data.usd_inr : 1)
+        const amt = tx.quantity * tx.price * fx
+        const chg = (tx.charges ?? 0) * fx
+        if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
+        if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
+      }
+      if (row.current > 0) cfs.push({ date: today, amount: row.current })
+      const r = computeXIRR(cfs)
+      map.set(row.key, r !== null ? r * 100 : null)
+    }
+    return map
+  }, [allocGroupedRows, data, currency])
 
   const closedRows = useMemo((): CardRow[] => {
     if (!data) return []
@@ -607,20 +657,23 @@ export default function HoldingsPage({ currency }: Props) {
       />
 
       {/* Tabs */}
-      <div className="flex gap-3 mb-3 border-b border-slate-200">
-        {(['holdings', 'charts', 'analysis'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`text-[11px] pb-1.5 capitalize font-medium transition-colors ${
-              activeTab === tab
-                ? 'text-[#2563eb] border-b-2 border-[#2563eb]'
-                : 'text-slate-400'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
+      <div className="flex gap-2 mb-3">
+        {(['holdings', 'charts', 'analysis'] as const).map(tab => {
+          const colors = {
+            holdings: activeTab === tab ? 'bg-blue-50 text-blue-600' : 'text-slate-400',
+            charts:   activeTab === tab ? 'bg-emerald-50 text-emerald-600' : 'text-slate-400',
+            analysis: activeTab === tab ? 'bg-violet-50 text-violet-600' : 'text-slate-400',
+          }
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`text-[11px] px-3 py-1 rounded-full capitalize font-medium transition-colors ${colors[tab]}`}
+            >
+              {tab}
+            </button>
+          )
+        })}
         {activeTab === 'charts' && (
           <button
             className="ml-auto pb-1.5 text-slate-400 active:text-[#2563eb]"
@@ -839,63 +892,222 @@ export default function HoldingsPage({ currency }: Props) {
       {activeTab === 'analysis' && (
         <div>
           {/* Sub-tab bar */}
-          <div className="flex gap-3 mb-4 border-b border-slate-100">
-            {(['allocation', 'benchmarking'] as const).map(st => (
-              <button
-                key={st}
-                onClick={() => setAnalysisSubTab(st)}
-                className={`text-[11px] pb-1.5 font-medium transition-colors whitespace-nowrap ${
-                  analysisSubTab === st
-                    ? 'text-[#2563eb] border-b-2 border-[#2563eb]'
-                    : 'text-slate-400'
-                }`}
-              >
-                {st === 'allocation' ? 'Allocation' : 'Benchmarking'}
-              </button>
-            ))}
+          <div className="flex gap-2 mb-4">
+            {(['allocation', 'benchmarking'] as const).map(st => {
+              const colors = {
+                allocation:   analysisSubTab === st ? 'bg-amber-50 text-amber-600' : 'text-slate-400',
+                benchmarking: analysisSubTab === st ? 'bg-sky-50 text-sky-600' : 'text-slate-400',
+              }
+              return (
+                <button
+                  key={st}
+                  onClick={() => setAnalysisSubTab(st)}
+                  className={`text-[11px] px-3 py-1 rounded-full font-medium transition-colors whitespace-nowrap ${colors[st]}`}
+                >
+                  {st === 'allocation' ? 'Allocation' : 'Benchmarking'}
+                </button>
+              )
+            })}
           </div>
 
           {analysisSubTab === 'allocation' && (
             <div>
-              {/* Stacked allocation bar */}
-              <div className="flex h-3 rounded-full overflow-hidden mb-5">
-                {sectorData.map(s => (
-                  <div
-                    key={s.name}
-                    style={{ width: `${s.pct}%`, backgroundColor: SECTOR_COLOR[s.name] }}
-                  />
-                ))}
-              </div>
+              {(() => {
+                const symToYf = new Map(filteredHoldings.map(h => [h.symbol, h.yf_symbol]))
+                const totalValue = sectorData.reduce((sum, s) => sum + s.value, 0)
+                const fmtTodayGain = (v: number) =>
+                  `${v >= 0 ? '+' : '-'}${fmtCompact(Math.abs(v), currency)}`
+                return (
+                  <div>
+                    <div className="border border-slate-200 rounded-xl mb-3">
+                    <button className="flex items-center gap-1 w-full text-left text-[8px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5" onClick={() => setSectorSectionOpen(o => !o)}>
+                      By Sector <span className="text-[7px] text-slate-300 ml-0.5">{sectorSectionOpen ? '▲' : '▼'}</span>
+                    </button>
+                    {sectorSectionOpen && <div className="flex items-center gap-1.5 px-2 pb-1">
+                      <span className="text-[7px] font-semibold text-slate-500 flex-1">Sector</span>
+                      <span className="text-[7px] font-semibold text-slate-500 w-[52px]">Allocation</span>
+                      <span className="text-[7px] font-semibold text-slate-500 w-[48px]">Value</span>
+                      <span className="text-[7px] font-semibold text-slate-500 w-[40px]">XIRR</span>
+                      <span className="text-[7px] font-semibold text-slate-500 w-[80px]">Today</span>
+                      <span className="w-[8px]" />
+                    </div>}
+                    {sectorSectionOpen && sectorData.map(s => {
+                      const isOpen = expandedAllocSectors.has(s.name)
+                      const sectorAllocRows = allocGroupedRows
+                        .filter(r => getSectorForHolding(symToYf.get(r.navSym) ?? r.navSym) === s.name)
+                        .sort((a, b) => b.current - a.current)
 
-              {/* Sector rows */}
-              <div>
-                {sectorData.map(s => (
-                  <div key={s.name} className="flex items-center gap-2 py-1.5">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: SECTOR_COLOR[s.name] }}
-                    />
-                    <span className="text-[11px] font-medium text-slate-700 shrink-0" style={{ minWidth: 76 }}>
-                      {s.name}
-                    </span>
-                    <span className="text-[9px] text-slate-400 shrink-0" style={{ minWidth: 20 }}>
-                      {s.count}
-                    </span>
-                    <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{ width: `${s.pct}%`, backgroundColor: SECTOR_COLOR[s.name] }}
-                      />
+                      // Sector XIRR — weighted average by current value
+                      let sXirrNum = 0, sXirrDen = 0
+                      for (const r of sectorAllocRows) {
+                        const x = allocXirrMap.get(r.key) ?? null
+                        if (x !== null && r.current > 0) { sXirrNum += x * r.current; sXirrDen += r.current }
+                      }
+                      const sXirr = sXirrDen > 0 ? sXirrNum / sXirrDen : null
+
+                      // Sector today gain
+                      const hasTodayData = sectorAllocRows.some(r => r.todayGain !== null)
+                      const sTodayGain = hasTodayData
+                        ? sectorAllocRows.reduce((sum, r) => sum + (r.todayGain ?? 0), 0)
+                        : null
+                      const sPriorValue = sTodayGain !== null ? s.value - sTodayGain : null
+                      const sTodayPct = sTodayGain !== null && sPriorValue ? sTodayGain / sPriorValue * 100 : null
+
+                      const sXirrColor = sXirr !== null ? (sXirr >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
+                      const sTodayColor = sTodayPct !== null ? (sTodayPct >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
+
+                      return (
+                        <div key={s.name} className="border border-slate-100 rounded-lg mb-1">
+                          <button
+                            className="w-full px-2 py-1.5 text-left active:opacity-60"
+                            onClick={() => setExpandedAllocSectors(prev => {
+                              const next = new Set(prev)
+                              next.has(s.name) ? next.delete(s.name) : next.add(s.name)
+                              return next
+                            })}
+                          >
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span className="flex-1 min-w-0 flex items-center gap-1">
+                                <span className="text-[10px] font-medium text-slate-700 truncate">{s.name}</span>
+                                <span className="text-[8px] text-slate-400 whitespace-nowrap shrink-0">({sectorAllocRows.length} holdings)</span>
+                              </span>
+                              <span className="text-[9px] text-slate-500 whitespace-nowrap w-[52px]">{s.pct.toFixed(1)}%</span>
+                              <span className="text-[9px] font-medium text-slate-700 whitespace-nowrap w-[48px]">{fmtCompact(s.value, currency)}</span>
+                              <span className={`text-[9px] font-medium whitespace-nowrap w-[40px] ${sXirrColor}`}>{sXirr !== null ? `${sXirr >= 0 ? '+' : ''}${sXirr.toFixed(1)}%` : '—'}</span>
+                              <span className={`text-[8px] font-medium whitespace-nowrap w-[80px] ${sTodayColor}`}>
+                                {sTodayGain !== null ? `${fmtTodayGain(sTodayGain)}${sTodayPct !== null ? ` (${sTodayPct >= 0 ? '+' : ''}${sTodayPct.toFixed(1)}%)` : ''}` : '—'}
+                              </span>
+                              <span className="text-[8px] text-slate-300 w-[8px]">{isOpen ? '▲' : '▼'}</span>
+                            </div>
+                            <div className="h-1.5 rounded-full overflow-hidden bg-slate-100">
+                              <div className="h-full rounded-full" style={{ width: `${s.pct}%`, backgroundColor: SECTOR_COLOR[s.name] }} />
+                            </div>
+                          </button>
+                          {isOpen && sectorAllocRows.length > 0 && (
+                            <div className="border-t border-slate-100">
+                              <div className="py-2 space-y-1.5">
+                                {sectorAllocRows.map(r => {
+                                  const hPct = totalValue > 0 ? r.current / totalValue * 100 : 0
+                                  const hXirr = allocXirrMap.get(r.key) ?? null
+                                  const xirrColor = hXirr !== null ? (hXirr >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
+                                  const todayColor = r.todayPct !== null ? (r.todayPct >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
+                                  return (
+                                    <div key={r.key} className="flex items-center gap-1.5 bg-slate-50 rounded-lg px-2 py-1.5">
+                                      <div className="flex-1 min-w-0">
+                                        <span className="text-[10px] text-slate-600 truncate block">{r.subLabel || r.ticker}</span>
+                                      </div>
+                                      <span className="text-[9px] text-slate-500 w-[52px] whitespace-nowrap">{hPct.toFixed(1)}%</span>
+                                      <span className="text-[9px] font-medium text-slate-700 w-[48px] whitespace-nowrap">{fmtCompact(r.current, currency)}</span>
+                                      <span className={`text-[9px] font-medium w-[40px] whitespace-nowrap ${xirrColor}`}>{hXirr !== null ? `${hXirr >= 0 ? '+' : ''}${hXirr.toFixed(1)}%` : '—'}</span>
+                                      <span className={`text-[8px] font-medium whitespace-nowrap w-[80px] ${todayColor}`}>
+                                        {r.todayGain !== null ? `${fmtTodayGain(r.todayGain)}${r.todayPct !== null ? ` (${r.todayPct >= 0 ? '+' : ''}${r.todayPct.toFixed(1)}%)` : ''}` : '—'}
+                                      </span>
+                                      <span className="w-[8px]" />
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                     </div>
-                    <span className="text-[10px] text-slate-500 shrink-0 text-right" style={{ minWidth: 38 }}>
-                      {s.pct.toFixed(1)}%
-                    </span>
-                    <span className="text-[11px] font-semibold text-slate-700 shrink-0 text-right" style={{ minWidth: 56 }}>
-                      {fmtCompact(s.value, currency)}
-                    </span>
+                    <div className="border border-slate-200 rounded-xl">
+                    <button className="flex items-center gap-1 w-full text-left text-[8px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5" onClick={() => setMktCapSectionOpen(o => !o)}>
+                      By Market Cap <span className="text-[7px] text-slate-300 ml-0.5">{mktCapSectionOpen ? '▲' : '▼'}</span>
+                    </button>
+                    {mktCapSectionOpen && <div className="flex items-center gap-1.5 px-2 pb-1">
+                      <span className="text-[7px] font-semibold text-slate-500 flex-1">Bucket</span>
+                      <span className="text-[7px] font-semibold text-slate-500 w-[52px]">Allocation</span>
+                      <span className="text-[7px] font-semibold text-slate-500 w-[48px]">Value</span>
+                      <span className="text-[7px] font-semibold text-slate-500 w-[40px]">XIRR</span>
+                      <span className="text-[7px] font-semibold text-slate-500 w-[80px]">Today</span>
+                      <span className="w-[8px]" />
+                    </div>}
+                    {mktCapSectionOpen && mktCapData.map(b => {
+                      const isOpen = expandedMktCapBuckets.has(b.name)
+                      const bucketAllocRows = allocGroupedRows
+                        .filter(r => getMarketCapForHolding(symToYf.get(r.navSym) ?? r.navSym) === b.name)
+                        .sort((x, y) => y.current - x.current)
+
+                      let sXirrNum = 0, sXirrDen = 0
+                      for (const r of bucketAllocRows) {
+                        const x = allocXirrMap.get(r.key) ?? null
+                        if (x !== null && r.current > 0) { sXirrNum += x * r.current; sXirrDen += r.current }
+                      }
+                      const sXirr = sXirrDen > 0 ? sXirrNum / sXirrDen : null
+
+                      const hasTodayData = bucketAllocRows.some(r => r.todayGain !== null)
+                      const sTodayGain = hasTodayData
+                        ? bucketAllocRows.reduce((sum, r) => sum + (r.todayGain ?? 0), 0)
+                        : null
+                      const sPriorValue = sTodayGain !== null ? b.value - sTodayGain : null
+                      const sTodayPct = sTodayGain !== null && sPriorValue ? sTodayGain / sPriorValue * 100 : null
+
+                      const sXirrColor = sXirr !== null ? (sXirr >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
+                      const sTodayColor = sTodayPct !== null ? (sTodayPct >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
+
+                      return (
+                        <div key={b.name} className="border border-slate-100 rounded-lg mb-1">
+                          <button
+                            className="w-full px-2 py-1.5 text-left active:opacity-60"
+                            onClick={() => setExpandedMktCapBuckets(prev => {
+                              const next = new Set(prev)
+                              next.has(b.name) ? next.delete(b.name) : next.add(b.name)
+                              return next
+                            })}
+                          >
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span className="flex-1 min-w-0 flex items-center gap-1">
+                                <span className="text-[10px] font-medium text-slate-700 truncate">{b.name}</span>
+                                <span className="text-[8px] text-slate-400 whitespace-nowrap shrink-0">({bucketAllocRows.length} holdings)</span>
+                              </span>
+                              <span className="text-[9px] text-slate-500 whitespace-nowrap w-[52px]">{b.pct.toFixed(1)}%</span>
+                              <span className="text-[9px] font-medium text-slate-700 whitespace-nowrap w-[48px]">{fmtCompact(b.value, currency)}</span>
+                              <span className={`text-[9px] font-medium whitespace-nowrap w-[40px] ${sXirrColor}`}>{sXirr !== null ? `${sXirr >= 0 ? '+' : ''}${sXirr.toFixed(1)}%` : '—'}</span>
+                              <span className={`text-[8px] font-medium whitespace-nowrap w-[80px] ${sTodayColor}`}>
+                                {sTodayGain !== null ? `${fmtTodayGain(sTodayGain)}${sTodayPct !== null ? ` (${sTodayPct >= 0 ? '+' : ''}${sTodayPct.toFixed(1)}%)` : ''}` : '—'}
+                              </span>
+                              <span className="text-[8px] text-slate-300 w-[8px]">{isOpen ? '▲' : '▼'}</span>
+                            </div>
+                            <div className="h-1.5 rounded-full overflow-hidden bg-slate-100">
+                              <div className="h-full rounded-full" style={{ width: `${b.pct}%`, backgroundColor: MARKET_CAP_COLOR[b.name] }} />
+                            </div>
+                          </button>
+                          {isOpen && bucketAllocRows.length > 0 && (
+                            <div className="border-t border-slate-100">
+                              <div className="py-2 space-y-1.5">
+                                {bucketAllocRows.map(r => {
+                                  const hPct = totalValue > 0 ? r.current / totalValue * 100 : 0
+                                  const hXirr = allocXirrMap.get(r.key) ?? null
+                                  const xirrColor = hXirr !== null ? (hXirr >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
+                                  const todayColor = r.todayPct !== null ? (r.todayPct >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
+                                  return (
+                                    <div key={r.key} className="flex items-center gap-1.5 bg-slate-50 rounded-lg px-2 py-1.5">
+                                      <div className="flex-1 min-w-0">
+                                        <span className="text-[10px] text-slate-600 truncate block">{r.subLabel || r.ticker}</span>
+                                      </div>
+                                      <span className="text-[9px] text-slate-500 w-[52px] whitespace-nowrap">{hPct.toFixed(1)}%</span>
+                                      <span className="text-[9px] font-medium text-slate-700 w-[48px] whitespace-nowrap">{fmtCompact(r.current, currency)}</span>
+                                      <span className={`text-[9px] font-medium w-[40px] whitespace-nowrap ${xirrColor}`}>{hXirr !== null ? `${hXirr >= 0 ? '+' : ''}${hXirr.toFixed(1)}%` : '—'}</span>
+                                      <span className={`text-[8px] font-medium whitespace-nowrap w-[80px] ${todayColor}`}>
+                                        {r.todayGain !== null ? `${fmtTodayGain(r.todayGain)}${r.todayPct !== null ? ` (${r.todayPct >= 0 ? '+' : ''}${r.todayPct.toFixed(1)}%)` : ''}` : '—'}
+                                      </span>
+                                      <span className="w-[8px]" />
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                    </div>
                   </div>
-                ))}
-              </div>
+                )
+              })()}
             </div>
           )}
 
@@ -916,109 +1128,86 @@ export default function HoldingsPage({ currency }: Props) {
               {!benchLoading && !benchHasError && benchSectors.length > 0 && (
                 <div>
                   {/* Overall card */}
-                  <div className="bg-slate-50 rounded-xl p-3 mb-4 border border-slate-100">
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                      Overall (composite benchmark)
-                    </p>
-                    <div className="flex items-end justify-between">
+                  <div className="bg-slate-50 rounded-lg px-3 py-2 mb-3 border border-slate-100">
+                    <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Overall</p>
+                    <div className="grid grid-cols-3 gap-1">
                       <div>
-                        <p className="text-[8px] text-slate-400 mb-0.5">Your XIRR</p>
-                        <p className="text-[18px] font-bold text-slate-800">
+                        <p className="text-[7px] text-slate-400">Your XIRR</p>
+                        <p className="text-[13px] font-bold text-slate-800 whitespace-nowrap">
                           {benchActualXirr !== null ? `${benchActualXirr >= 0 ? '+' : ''}${benchActualXirr.toFixed(1)}%` : '—'}
                         </p>
                       </div>
                       <div className="text-center">
-                        <p className="text-[8px] text-slate-400 mb-0.5">Alpha</p>
-                        <p className={`text-[15px] font-bold ${benchAlpha !== null ? benchAlpha >= 0 ? 'text-green-500' : 'text-red-400' : 'text-slate-400'}`}>
-                          {benchAlpha !== null ? `${benchAlpha >= 0 ? '+' : ''}${benchAlpha.toFixed(1)}%` : '—'}
-                          {benchAlpha !== null && <span className="ml-0.5 text-[12px]">{benchAlpha >= 0 ? '↑' : '↓'}</span>}
+                        <p className="text-[7px] text-slate-400">Benchmark</p>
+                        <p className="text-[13px] font-bold text-slate-500 whitespace-nowrap">
+                          {benchBenchXirr !== null ? `${benchBenchXirr >= 0 ? '+' : ''}${benchBenchXirr.toFixed(1)}%` : '—'}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-[8px] text-slate-400 mb-0.5">Benchmark</p>
-                        <p className="text-[18px] font-bold text-slate-500">
-                          {benchBenchXirr !== null ? `${benchBenchXirr >= 0 ? '+' : ''}${benchBenchXirr.toFixed(1)}%` : '—'}
+                        <p className="text-[7px] text-slate-400">Alpha</p>
+                        <p className={`text-[13px] font-bold whitespace-nowrap ${benchAlpha !== null ? benchAlpha >= 0 ? 'text-green-500' : 'text-red-400' : 'text-slate-400'}`}>
+                          {benchAlpha !== null ? `${benchAlpha >= 0 ? '+' : ''}${benchAlpha.toFixed(1)}%` : '—'}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Sector rows — collapsible */}
-                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                    By Sector
-                  </p>
                   {(() => {
                     const symToYf = new Map(filteredHoldings.map(h => [h.symbol, h.yf_symbol]))
                     const fmtX = (v: number | null) => v !== null ? `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` : '—'
+                    const maxXirr = Math.max(...benchSectors.map(s => Math.abs(s.actualXirr ?? 0)), 1)
                     return (
-                      <div className="space-y-0">
+                      <div>
                         {benchSectors.map(s => {
                           const isOpen = expandedSectors.has(s.sector)
                           const sectorRows = rows.filter(r =>
                             getSectorForHolding(symToYf.get(r.navSym) ?? r.navSym) === s.sector
                           )
+                          const barPct = Math.max(0, s.actualXirr ?? 0) / maxXirr * 100
+                          const xirrColor = s.actualXirr !== null ? s.actualXirr >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'
                           return (
-                            <div key={s.sector}>
-                              {/* Sector header row */}
+                            <div key={s.sector} className="border border-slate-100 rounded-lg mb-1">
                               <button
-                                className="w-full flex items-center gap-1.5 py-2 border-b border-slate-100 active:bg-slate-50"
+                                className="w-full px-2 py-1.5 text-left active:opacity-60"
                                 onClick={() => setExpandedSectors(prev => {
                                   const next = new Set(prev)
                                   next.has(s.sector) ? next.delete(s.sector) : next.add(s.sector)
                                   return next
                                 })}
                               >
-                                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: SECTOR_COLOR[s.sector] }} />
-                                <span className="text-[11px] font-medium text-slate-700 shrink-0" style={{ minWidth: 74 }}>{s.sector}</span>
-                                <span className="text-[9px] text-slate-400 shrink-0" style={{ minWidth: 16 }}>{sectorRows.length}</span>
-                                <div className="flex-1 flex items-center justify-end gap-2">
-                                  <span className="text-[11px] font-semibold text-slate-700">{fmtX(s.actualXirr)}</span>
-                                  <span className="text-[9px] text-slate-300">vs</span>
-                                  <span className="text-[10px] text-slate-400">
-                                    {BENCHMARK_LABEL[s.benchSymbol] ?? s.benchSymbol}
-                                    {s.benchXirr !== null ? ` ${fmtX(s.benchXirr)}` : ' —'}
-                                  </span>
-                                  <span
-                                    className={`text-[11px] font-semibold shrink-0 ${s.alpha !== null ? s.alpha >= 0 ? 'text-green-500' : 'text-red-400' : 'text-slate-300'}`}
-                                    style={{ minWidth: 40, textAlign: 'right' }}
-                                  >
-                                    {fmtX(s.alpha)}
-                                  </span>
-                                  <span className="text-[9px] text-slate-300 shrink-0">{isOpen ? '▲' : '▼'}</span>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-[10px] font-medium text-slate-700 flex-1 truncate">{s.sector}</span>
+                                  <span className="text-[7px] text-slate-400 whitespace-nowrap">{sectorRows.length} · {BENCHMARK_LABEL[s.benchSymbol] ?? s.benchSymbol}</span>
+                                  <span className="text-[7px] text-slate-400 whitespace-nowrap">vs {fmtX(s.benchXirr)}</span>
+                                  <span className={`text-[10px] font-semibold whitespace-nowrap w-[40px] text-right ${xirrColor}`}>{fmtX(s.actualXirr)}</span>
+                                  <span className="text-[8px] text-slate-300 w-[8px] text-right">{isOpen ? '▲' : '▼'}</span>
+                                </div>
+                                <div className="h-1.5 rounded-full overflow-hidden bg-slate-100">
+                                  <div className="h-full rounded-full" style={{ width: `${barPct}%`, backgroundColor: SECTOR_COLOR[s.sector] }} />
                                 </div>
                               </button>
-
-                              {/* Expanded: individual stocks */}
                               {isOpen && sectorRows.length > 0 && (
-                                <div className="bg-slate-50 rounded-b-lg mb-1">
-                                  {/* Sub-header */}
-                                  <div className="flex items-center gap-1 px-3 py-1 border-b border-slate-100">
-                                    <span className="text-[8px] text-slate-400 uppercase tracking-widest flex-1">Stock</span>
-                                    <span className="text-[8px] text-slate-400 uppercase tracking-widest" style={{ minWidth: 38, textAlign: 'right' }}>XIRR</span>
-                                    <span className="text-[8px] text-slate-400 uppercase tracking-widest" style={{ minWidth: 38, textAlign: 'right' }}>Index</span>
-                                    <span className="text-[8px] text-slate-400 uppercase tracking-widest" style={{ minWidth: 38, textAlign: 'right' }}>Alpha</span>
-                                  </div>
+                                <div className="px-2 pb-1.5 space-y-1 border-t border-slate-100">
                                   {sectorRows.map(r => {
-                                    const hXirr     = xirrMap.get(r.key) ?? null
-                                    const yfSym     = symToYf.get(r.navSym) ?? r.navSym
-                                    const hBenchX   = holdingBenchXirr.get(yfSym) ?? null
-                                    const hAlpha    = hXirr !== null && hBenchX !== null ? hXirr - hBenchX : null
+                                    const hXirr   = xirrMap.get(r.key) ?? null
+                                    const yfSym   = symToYf.get(r.navSym) ?? r.navSym
+                                    const hBenchX = holdingBenchXirr.get(yfSym) ?? null
+                                    const hBarPct = Math.max(0, hXirr ?? 0) / maxXirr * 100
+                                    const hColor  = hXirr !== null ? hXirr >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'
                                     return (
-                                      <div key={r.key} className="flex items-center gap-1 px-3 py-1.5 border-b border-slate-100 last:border-0">
-                                        <div className="flex-1 min-w-0">
-                                          <p className="text-[11px] font-medium text-slate-700 truncate">{r.subLabel || r.ticker}</p>
-                                          <p className="text-[9px] text-slate-400">{r.ticker}</p>
+                                      <div key={r.key}>
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                          <div className="flex-1 min-w-0">
+                                            <span className="text-[10px] text-slate-600 truncate block">{r.subLabel || r.ticker}</span>
+                                            <span className="text-[7px] text-slate-400">{r.ticker}</span>
+                                          </div>
+                                          <span className="text-[7px] text-slate-400 whitespace-nowrap">vs {fmtX(hBenchX)}</span>
+                                          <span className={`text-[10px] font-semibold whitespace-nowrap w-[40px] text-right ${hColor}`}>{fmtX(hXirr)}</span>
+                                          <span className="w-[8px]" />
                                         </div>
-                                        <span className="text-[11px] font-semibold text-slate-700 shrink-0" style={{ minWidth: 38, textAlign: 'right' }}>
-                                          {fmtX(hXirr)}
-                                        </span>
-                                        <span className="text-[11px] font-semibold text-slate-400 shrink-0" style={{ minWidth: 38, textAlign: 'right' }}>
-                                          {fmtX(hBenchX)}
-                                        </span>
-                                        <span className={`text-[11px] font-semibold shrink-0 ${hAlpha !== null ? hAlpha >= 0 ? 'text-green-500' : 'text-red-400' : 'text-slate-300'}`}
-                                          style={{ minWidth: 38, textAlign: 'right' }}>
-                                          {fmtX(hAlpha)}
-                                        </span>
+                                        <div className="h-1 rounded-full overflow-hidden bg-slate-100">
+                                          <div className="h-full rounded-full" style={{ width: `${hBarPct}%`, backgroundColor: SECTOR_COLOR[s.sector] + 'AA' }} />
+                                        </div>
                                       </div>
                                     )
                                   })}

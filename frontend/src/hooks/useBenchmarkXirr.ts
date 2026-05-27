@@ -8,6 +8,9 @@ import type { Currency } from '../App'
 
 const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
 
+// Benchmark indices quoted in USD — need conversion to INR when displaying in INR
+const USD_BENCH_SYMS = new Set(['^NDX', '^GSPC', '^DJI', '^RUT'])
+
 async function fetchBenchHistory(yf_symbol: string, start: string): Promise<{ dates: string[]; prices: number[] }> {
   const params = new URLSearchParams({ yf_symbol, start })
   const res = await fetch(`${BASE}/history?${params}`)
@@ -141,9 +144,11 @@ export function useBenchmarkXirr(
 
       const txDay        = tx.date.slice(0, 10)
       const rawBenchP    = hist ? priceOnOrBefore(hist.dates, hist.prices, txDay) : null
-      // Convert US bench prices (USD) to display currency
+      // Convert bench price to display currency based on the benchmark's own currency
+      // (not the portfolio's currency — MON100 is INR but its benchmark ^NDX is USD)
+      const benchIsUsd   = USD_BENCH_SYMS.has(bSym)
       const benchP       = rawBenchP !== null
-        ? (isUsd && currency === 'INR' ? rawBenchP * usdInr : rawBenchP)
+        ? (benchIsUsd && currency === 'INR' ? rawBenchP * usdInr : rawBenchP)
         : null
 
       if (tx.type === 'BUY') {
@@ -209,8 +214,9 @@ export function useBenchmarkXirr(
       if (!meta) continue
       const hist = histMap.get(meta.benchSym)
       if (!hist || hist.prices.length === 0) continue
-      const rawCur = hist.prices[hist.prices.length - 1]
-      const cur    = meta.isUsd && currency === 'INR' ? rawCur * usdInr : rawCur
+      const rawCur     = hist.prices[hist.prices.length - 1]
+      const benchIsUsd = USD_BENCH_SYMS.has(meta.benchSym)
+      const cur        = benchIsUsd && currency === 'INR' ? rawCur * usdInr : rawCur
       const tv     = units * cur
       sectorBench.get(meta.sector)!.push({ date: today, amount: tv })
       overallBench.push({ date: today, amount: tv })

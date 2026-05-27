@@ -142,3 +142,94 @@ export const BENCHMARK_LABEL: Record<string, string> = {
 export function getSectorForHolding(yf_symbol: string): SectorKey {
   return SYMBOL_SECTOR[yf_symbol] ?? 'Other'
 }
+
+// ── Market Cap ─────────────────────────────────────────────────────────────────
+
+export type MarketCapKey = 'Large Cap' | 'Mid Cap' | 'Small Cap' | 'US Stocks'
+
+export const MARKET_CAP_COLOR: Record<MarketCapKey, string> = {
+  'Large Cap':  '#3b82f6',
+  'Mid Cap':    '#8b5cf6',
+  'Small Cap':  '#f97316',
+  'US Stocks':  '#38bdf8',
+}
+
+const SYMBOL_MARKET_CAP: Record<string, MarketCapKey> = {
+  // ── Large Cap ─────────────────────────────────────────────
+  'ICICIBANK.NS':  'Large Cap',
+  'AXISBANK.NS':   'Large Cap',
+  'SBIN.NS':       'Large Cap',
+  'BAJFINANCE.NS': 'Large Cap',
+  'HDFCLIFE.NS':   'Large Cap',
+  'SBILIFE.NS':    'Large Cap',
+  'HDFCAMC.NS':    'Large Cap',
+  'APOLLOHOSP.NS': 'Large Cap',
+  'ETERNAL.NS':    'Large Cap',
+  'JIOFIN.NS':     'Large Cap',
+  'MAXHEALTH.NS':  'Large Cap',
+  'FORTIS.NS':     'Large Cap',
+  'HEALTHY.NS':    'Large Cap',
+  'ITBEES.NS':     'Large Cap',
+  '0P0001784G.BO': 'Large Cap',  // Tata Digital India Dir Gr
+  '0P0000XVXV.BO': 'Large Cap',  // Aditya BSL Digital India Dir Gr
+  '0P0000XW2T.BO': 'Large Cap',  // DSP ELSS Tax Saver Dir Gr
+  '0P00017844.BO': 'Large Cap',  // Mirae Asset ELSS Tax Saver Dir Gr
+  '0P0000YWL1.BO': 'Large Cap',  // Parag Parikh Long Term Equity Dir Gr
+
+  // ── Mid Cap ────────────────────────────────────────────────
+  'IDFCFIRSTB.NS': 'Mid Cap',
+  'MAHABANK.NS':   'Mid Cap',
+  'FEDERALBNK.NS': 'Mid Cap',
+  'SBICARD.NS':    'Mid Cap',
+  'ANGELONE.NS':   'Mid Cap',
+  'CDSL.NS':       'Mid Cap',
+  'NAM-INDIA.NS':  'Mid Cap',
+  'NUVAMA.NS':     'Mid Cap',
+  'BSE.NS':        'Mid Cap',
+  'CAMS.NS':       'Mid Cap',
+  'AAVAS.NS':      'Mid Cap',
+  'APTUS.NS':      'Mid Cap',
+  'LALPATHLAB.NS': 'Mid Cap',
+  'NH.NS':         'Mid Cap',
+  'MEDANTA.NS':    'Mid Cap',
+  'AFFLE.NS':      'Mid Cap',
+  'SWIGGY.NS':     'Mid Cap',
+  'INDIGOPNTS.NS': 'Mid Cap',
+  'PIIND.NS':      'Mid Cap',
+
+  // ── Small Cap ─────────────────────────────────────────────
+  'ARMANFIN.NS':   'Small Cap',
+  'SUPRIYA.NS':    'Small Cap',
+  'YATHARTH.NS':   'Small Cap',
+  'DSSL.NS':       'Small Cap',
+  'NETWEB.NS':     'Small Cap',
+  'RATEGAIN.NS':   'Small Cap',
+  'JYOTIRES.BO':   'Small Cap',
+  'WEALTH.NS':     'Small Cap',
+  '0P0000XVFY.BO': 'Small Cap',  // Nippon India Small Cap Dir Gr
+  '0P0000XVAA.BO': 'Small Cap',  // HDFC Small Cap Dir Gr
+  '0P00011MAX.BO': 'Small Cap',  // Axis Small Cap Fund Dir Gr
+  '0P0000XVJR.BO': 'Small Cap',  // SBI Contra Dir Gr
+  '0P0001EUZZ.BO': 'Small Cap',  // Tata Small Cap Fund Dir Gr
+  '0P0001F5O4.BO': 'Small Cap',  // Bank of India Small Cap Dir Gr
+  '0P0000XW24.BO': 'Small Cap',  // DSP Small Cap Dir Gr
+
+  // ── US Stocks (direct + India-listed US-tracking) ─────────
+  'META': 'US Stocks', 'AMZN': 'US Stocks', 'AAPL': 'US Stocks',
+  'MSFT': 'US Stocks', 'GOOGL':'US Stocks', 'TSLA': 'US Stocks',
+  'ADBE': 'US Stocks', 'PATH': 'US Stocks', 'NVDA': 'US Stocks',
+  'SMCI': 'US Stocks', 'COIN': 'US Stocks', 'PLTR': 'US Stocks',
+  'SMH':  'US Stocks', 'TSM':  'US Stocks', 'CRWD': 'US Stocks',
+  'PANW': 'US Stocks', 'NFLX': 'US Stocks', 'AVGO': 'US Stocks',
+  'DASH': 'US Stocks', 'ASML': 'US Stocks', 'MELI': 'US Stocks',
+  'IREN': 'US Stocks', 'IONQ': 'US Stocks', 'NBIS': 'US Stocks',
+  'NOW':  'US Stocks',
+  'MON100.NS':     'US Stocks',  // Motilal Oswal NASDAQ 100 ETF
+  'MAFANG.NS':     'US Stocks',  // Mirae Asset NYSE FANG+ ETF
+  '0P0001JMZB.BO': 'US Stocks',  // Motilal Oswal S&P 500 Index Dir Gr
+  '0P0001NCLP.BO': 'US Stocks',  // ICICI Pru NASDAQ 100 Index Dir Gr
+}
+
+export function getMarketCapForHolding(yf_symbol: string): MarketCapKey {
+  return SYMBOL_MARKET_CAP[yf_symbol] ?? 'Mid Cap'
+}
