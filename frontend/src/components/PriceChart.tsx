@@ -25,11 +25,11 @@ interface ChartPoint {
   sell?:  number
 }
 
-const RANGES = ['1d', '1m', '3m', '6m', '1y', '2y', '3y', '5y', 'All'] as const
+const RANGES = ['1d', '5d', '1m', '3m', '6m', '1y', '2y', '3y', '5y', 'All'] as const
 type ChartRange = typeof RANGES[number]
 
 const RANGE_DAYS: Record<string, number> = {
-  '1m': 30, '3m': 90, '6m': 182, '1y': 365, '2y': 730, '3y': 1095, '5y': 1825,
+  '5d': 7, '1m': 30, '3m': 90, '6m': 182, '1y': 365, '2y': 730, '3y': 1095, '5y': 1825,
 }
 
 // Find first transaction date, used as the history start
@@ -144,7 +144,12 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceC
 
   const firstPrice = chartData[0]?.price ?? null
   const lastPrice  = chartData[chartData.length - 1]?.price ?? null
-  const pctChange  = firstPrice && lastPrice ? (lastPrice - firstPrice) / firstPrice * 100 : null
+  // For 1d: use prev_close from intraday response as baseline (captures gap-up/down from yesterday)
+  // For other ranges: compare first vs last bar in the slice
+  const prevClose  = intradayHistory?.prev_close ?? null
+  const pctChange  = range === '1d' && lastPrice && prevClose
+    ? (lastPrice - prevClose) / prevClose * 100
+    : (firstPrice && lastPrice ? (lastPrice - firstPrice) / firstPrice * 100 : null)
   const priceColor = pctChange !== null ? (pctChange >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8'
 
   return (
@@ -168,14 +173,18 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceC
             dataKey="date"
             tick={{ fontSize: 8, fill: '#94a3b8' }}
             tickFormatter={d => {
-              if (range === '1d') return d  // already "HH:MM"
+              if (range === '1d') return d  // already "HH:MM" IST
               const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+              const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
               const [yr, mo, day] = d.split('-')
-              if (['1m', '3m', '6m', '1y'].includes(range))
-                return `${parseInt(day, 10)} ${MONTHS[parseInt(mo, 10) - 1]}`
-              return `${MONTHS[parseInt(mo, 10) - 1]} '${yr.slice(2)}`
+              const moIdx  = parseInt(mo, 10) - 1
+              const dayNum = parseInt(day, 10)
+              if (range === '5d') return DAYS[new Date(parseInt(yr), moIdx, dayNum).getDay()]
+              if (range === '1m' || range === '3m' || range === '6m') return `${dayNum} ${MONTHS[moIdx]}`
+              if (range === '1y') return MONTHS[moIdx]
+              return `${MONTHS[moIdx]} '${yr.slice(2)}`  // 2y, 3y, 5y, All
             }}
-            minTickGap={40}
+            minTickGap={['1y','2y','3y','5y','All'].includes(range) ? 50 : 40}
           />
           <YAxis
             tick={{ fontSize: 8, fill: '#94a3b8' }}

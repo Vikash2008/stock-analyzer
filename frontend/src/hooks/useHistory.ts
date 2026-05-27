@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 
 interface HistoryData {
-  dates:  string[]
-  prices: number[]
-  error?: string
+  dates:      string[]
+  prices:     number[]
+  prev_close?: number | null
+  error?:     string
 }
 
 const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'

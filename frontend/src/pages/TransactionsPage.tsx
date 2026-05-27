@@ -215,7 +215,7 @@ export default function TransactionsPage({ currency }: Props) {
 
   const rechartsData = useMemo(
     () => metricSeries?.dates.map((d, i) => ({
-      t: d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
+      t: d.toISOString().slice(0, 10),
       v: metricSeries.values[i],
     })) ?? [],
     [metricSeries],
@@ -481,6 +481,15 @@ export default function TransactionsPage({ currency }: Props) {
                         dataKey="t"
                         tick={{ fontSize: 8, fill: '#94a3b8' }}
                         interval={Math.max(0, Math.floor(rechartsData.length / 5) - 1)}
+                        tickFormatter={(d: string) => {
+                          const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+                          const [yr, mo, day] = d.split('-')
+                          const moIdx = parseInt(mo, 10) - 1
+                          const dayNum = parseInt(day, 10)
+                          if (chartRange === '1m' || chartRange === '3m' || chartRange === '6m') return `${dayNum} ${MONTHS[moIdx]}`
+                          if (chartRange === '1y') return MONTHS[moIdx]
+                          return `${MONTHS[moIdx]} '${yr.slice(2)}`
+                        }}
                         tickLine={false}
                         axisLine={false}
                       />

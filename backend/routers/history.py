@@ -51,9 +51,29 @@ def _fetch_intraday(yf_symbol: str) -> dict:
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = [c[0] for c in df.columns]
         closes = df["Close"].dropna()
+        idx = closes.index
+        if idx.tz is not None:
+            idx = idx.tz_convert('Asia/Kolkata')
+        else:
+            idx = idx.tz_localize('UTC').tz_convert('Asia/Kolkata')
+
+        # Fetch prev_close from recent daily data (second-to-last completed day)
+        prev_close = None
+        try:
+            daily = yf.download(yf_symbol, period="5d", interval="1d", progress=False, auto_adjust=True)
+            if not daily.empty:
+                if isinstance(daily.columns, pd.MultiIndex):
+                    daily.columns = [c[0] for c in daily.columns]
+                daily_closes = daily["Close"].dropna()
+                if len(daily_closes) >= 2:
+                    prev_close = round(float(daily_closes.iloc[-2]), 4)
+        except Exception:
+            pass
+
         return {
-            "dates":  closes.index.strftime("%H:%M").tolist(),
-            "prices": [round(float(p), 4) for p in closes.tolist()],
+            "dates":     idx.strftime("%H:%M").tolist(),
+            "prices":    [round(float(p), 4) for p in closes.tolist()],
+            "prev_close": prev_close,
         }
     except Exception as exc:
         return {"dates": [], "prices": [], "error": str(exc)}
