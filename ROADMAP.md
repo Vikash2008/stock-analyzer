@@ -33,6 +33,7 @@
 
 | Item | Completed |
 |------|-----------|
+| PriceChart 1d intraday range (5-min bars, HH:MM X-axis); range-aware X-axis format ("12 Oct" for short, "Oct '23" for long) | 2026-05-27 |
 | Charts pre-fetch on page load; no loading bar; history cache preserved on force refresh; ↻ sync on HoldingsPage Charts tab | 2026-05-27 |
 | HoldingsPage default filter = All with closed rows hidden (showClosed=false) | 2026-05-27 |
 | XIRR fix — closed US stocks in segment view (closedRows tracks all portfolios; xirrMap/filteredSummaryXirr use row.portfolios) | 2026-05-27 |

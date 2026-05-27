@@ -93,7 +93,7 @@ msp_v2.csv
 | Method | Path | Params | Notes |
 |--------|------|--------|-------|
 | GET | `/api/portfolio` | `currency=INR\|USD`, `force_refresh=false` | Full bundle; 60s in-memory cache on top of disk cache |
-| GET | `/api/history` | `yf_symbol`, `start=YYYY-MM-DD` | Price history; 1hr in-memory cache |
+| GET | `/api/history` | `yf_symbol`, `start=YYYY-MM-DD` OR `period=1d` | Daily price history (1hr cache) or intraday 5-min bars (5min cache) |
 | GET | `/health` | — | Returns `{"status":"ok"}`; used by keep-alive cron |
 
 ---

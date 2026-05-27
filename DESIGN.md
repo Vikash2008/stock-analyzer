@@ -364,3 +364,5 @@ Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone
 | 2026-05-27 | History cache preserved on force refresh | Removed qc.removeQueries(['history']) from useForceRefresh; chart data survives pull-to-refresh |
 | 2026-05-27 | ↻ sync icon added to HoldingsPage Charts tab | Mirrors TransactionsPage behaviour; invalidates all ['history'] queries in background; old chart stays visible |
 | 2026-05-27 | TransactionsPage ↻ changed to invalidateQueries | Was removeQueries (blanked chart); now keeps old data visible while silently re-fetching |
+| 2026-05-27 | PriceChart X-axis range-aware tickFormatter | Long ranges (2y/3y/5y/All): "Oct '23"; short ranges (1m/3m/6m/1y): "12 Oct"; 1d: "HH:MM" |
+| 2026-05-27 | PriceChart 1d intraday range | Fetches 5-min bars via /api/history?period=1d; X-axis shows time; cached 5 min on backend; BUY/SELL markers not shown for intraday |
