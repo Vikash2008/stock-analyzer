@@ -97,7 +97,7 @@ function SellDot(props: any) {
 }
 
 export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceChartProps) {
-  const [range, setRange] = useState<ChartRange>('All')
+  const [range, setRange] = useState<ChartRange>('1y')
   const start = useMemo(() => firstTxDate(transactions), [transactions])
   const { data: history, isLoading: dailyLoading }      = useHistory(yf_symbol, start)
   const { data: intradayHistory, isLoading: intLoading } = useHistory(yf_symbol, null, '1d')

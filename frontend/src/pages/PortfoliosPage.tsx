@@ -222,13 +222,16 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         map.set(card.key, v !== undefined ? v : null)
       }
     } else {
+      // Build port:symbol → yf_symbol from all holdings (open positions)
+      const yfMap = new Map<string, string>()
+      for (const h of data.holdings) yfMap.set(`${h.portfolio}:${h.symbol}`, h.yf_symbol)
+
       for (const card of cards) {
-        const hs = active.filter(h => getSegmentType(h.portfolio, h.yf_symbol) === card.key)
-        const holdingKeys = new Set(hs.map(h => `${h.portfolio}:${h.symbol}`))
-        const txns = data.transactions.filter(t => holdingKeys.has(`${t.portfolio}:${t.symbol}`))
         const cfs: { date: Date; amount: number }[] = []
-        for (const tx of txns) {
+        for (const tx of data.transactions) {
           if (tx.type === 'DIVIDEND') continue
+          const yf  = yfMap.get(`${tx.portfolio}:${tx.symbol}`) ?? tx.symbol
+          if (getSegmentType(tx.portfolio, yf) !== card.key) continue
           const isUsd = USD_PORTS.has(tx.portfolio)
           const fx = isUsd
             ? (currency === 'INR' ? data.usd_inr : 1)
@@ -238,6 +241,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
           if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
         }
+        // Terminal value: open positions only
+        const hs = active.filter(h => getSegmentType(h.portfolio, h.yf_symbol) === card.key)
         const totalCurrent = hs.reduce((s, h) => s + h.disp_current, 0)
         if (totalCurrent > 0) cfs.push({ date: today, amount: totalCurrent })
         const r = computeXIRR(cfs)
