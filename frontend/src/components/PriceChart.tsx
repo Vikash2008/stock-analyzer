@@ -158,7 +158,12 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceC
           <XAxis
             dataKey="date"
             tick={{ fontSize: 8, fill: '#94a3b8' }}
-            tickFormatter={d => d.slice(5)}      // "MM-DD"
+            tickFormatter={d => {
+              if (['1m', '3m', '6m', '1y'].includes(range)) return d.slice(5) // "MM-DD"
+              const [yr, mo] = d.split('-')
+              const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+              return `${months[parseInt(mo, 10) - 1]} '${yr.slice(2)}`
+            }}
             minTickGap={40}
           />
           <YAxis
