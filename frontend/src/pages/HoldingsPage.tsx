@@ -13,7 +13,9 @@ import { SummaryCard } from '../components/SummaryCard'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
 import { aggRealized, realizedForPorts } from '../utils/realized'
 import { filterBySegment, getSegmentType, SKIP_PORTS, SEGMENT_LABELS, USD_PORTS } from '../utils/segments'
-import { fmt, fmtGainLine } from '../utils/fmt'
+import { fmt, fmtGainLine, fmtCompact } from '../utils/fmt'
+import { getSectorForHolding, SECTOR_COLOR, BENCHMARK_LABEL, type SectorKey } from '../utils/sectors'
+import { useBenchmarkXirr } from '../hooks/useBenchmarkXirr'
 import { computeXIRR } from '../utils/xirr'
 import type { Holding } from '../api/types'
 import type { Currency } from '../App'
@@ -166,7 +168,8 @@ export default function HoldingsPage({ currency }: Props) {
   const { data, isLoading, error } = usePortfolio(currency)
   const [viewMode,    setViewMode]    = useState<'cumulative' | 'standalone'>('cumulative')
   const [holdingFilter, setHoldingFilter] = useState<'open' | 'closed' | 'all'>('all')
-  const [activeTab,   setActiveTab]   = useState<'holdings' | 'charts'>('holdings')
+  const [activeTab,   setActiveTab]   = useState<'holdings' | 'charts' | 'analysis'>('holdings')
+  const [analysisSubTab, setAnalysisSubTab] = useState<'allocation' | 'benchmarking'>('allocation')
   const [chartMetric, setChartMetric] = useState<ChartMetric>('Portfolio Value')
   const [chartRange,  setChartRange]  = useState<ChartRange>('1y')
   const [sortField,   setSortField]   = useState<SortField>('current')
@@ -175,6 +178,7 @@ export default function HoldingsPage({ currency }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [showClosed,   setShowClosed]   = useState(false)
   const [syncing,      setSyncing]      = useState(false)
+  const [expandedSectors, setExpandedSectors] = useState<Set<string>>(new Set())
   const qc = useQueryClient()
 
   useEffect(() => {
@@ -200,6 +204,19 @@ export default function HoldingsPage({ currency }: Props) {
     else if (segment) h = filterBySegment(h, segment)
     return h
   }, [data, portfolio, segment])
+
+  const sectorData = useMemo(() => {
+    const map = new Map<SectorKey, { value: number; count: number }>()
+    for (const h of filteredHoldings) {
+      const sector = getSectorForHolding(h.yf_symbol)
+      const e = map.get(sector) ?? { value: 0, count: 0 }
+      map.set(sector, { value: e.value + h.disp_current, count: e.count + 1 })
+    }
+    const total = [...map.values()].reduce((s, v) => s + v.value, 0)
+    return [...map.entries()]
+      .map(([name, { value, count }]) => ({ name, value, count, pct: total > 0 ? value / total * 100 : 0 }))
+      .sort((a, b) => b.value - a.value)
+  }, [filteredHoldings])
 
   const summaryStats = useMemo(() => {
     const cur  = filteredHoldings.reduce((s, h) => s + h.disp_current,  0)
@@ -298,6 +315,16 @@ export default function HoldingsPage({ currency }: Props) {
       .sort((a, b) => b.realGain - a.realGain)
   }, [data, portfolio, segment, filteredHoldings])
 
+  const closedYfSymbolsArr = useMemo(() => {
+    if (!data) return []
+    const symToYf = new Map<string, string>()
+    for (const tx of data.transactions) symToYf.set(tx.symbol, tx.yf_symbol)
+    const openYfs = new Set(filteredHoldings.map(h => h.yf_symbol))
+    return closedRows
+      .map(r => symToYf.get(r.navSym) ?? r.navSym)
+      .filter(yf => !openYfs.has(yf))
+  }, [closedRows, data, filteredHoldings])
+
   const displayStats = useMemo(() => {
     const closedRealGain = closedRows.reduce((s, r) => s + r.realGain, 0)
     const closedRealCost = closedRows.reduce((s, r) => s + r.realCost, 0)
@@ -323,6 +350,23 @@ export default function HoldingsPage({ currency }: Props) {
   const filtRealized = useMemo(
     () => (data?.realized ?? []).filter(r => filtPorts.has(r.portfolio)),
     [data, filtPorts],
+  )
+
+  const {
+    sectors:           benchSectors,
+    overallActualXirr: benchActualXirr,
+    overallBenchXirr:  benchBenchXirr,
+    overallAlpha:      benchAlpha,
+    holdingBenchXirr:  holdingBenchXirr,
+    isLoading:         benchLoading,
+    hasError:          benchHasError,
+  } = useBenchmarkXirr(
+    filteredHoldings,
+    closedYfSymbolsArr,
+    filtTxns,
+    data?.usd_inr ?? 95.5,
+    currency,
+    activeTab === 'analysis' && !!data,
   )
 
   const xirrMap = useMemo(() => {
@@ -564,7 +608,7 @@ export default function HoldingsPage({ currency }: Props) {
 
       {/* Tabs */}
       <div className="flex gap-3 mb-3 border-b border-slate-200">
-        {(['holdings', 'charts'] as const).map(tab => (
+        {(['holdings', 'charts', 'analysis'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -787,6 +831,208 @@ export default function HoldingsPage({ currency }: Props) {
                 ))}
               </div>
             </>
+          )}
+        </div>
+      )}
+
+      {/* ── Analysis tab ── */}
+      {activeTab === 'analysis' && (
+        <div>
+          {/* Sub-tab bar */}
+          <div className="flex gap-3 mb-4 border-b border-slate-100">
+            {(['allocation', 'benchmarking'] as const).map(st => (
+              <button
+                key={st}
+                onClick={() => setAnalysisSubTab(st)}
+                className={`text-[11px] pb-1.5 font-medium transition-colors whitespace-nowrap ${
+                  analysisSubTab === st
+                    ? 'text-[#2563eb] border-b-2 border-[#2563eb]'
+                    : 'text-slate-400'
+                }`}
+              >
+                {st === 'allocation' ? 'Allocation' : 'Benchmarking'}
+              </button>
+            ))}
+          </div>
+
+          {analysisSubTab === 'allocation' && (
+            <div>
+              {/* Stacked allocation bar */}
+              <div className="flex h-3 rounded-full overflow-hidden mb-5">
+                {sectorData.map(s => (
+                  <div
+                    key={s.name}
+                    style={{ width: `${s.pct}%`, backgroundColor: SECTOR_COLOR[s.name] }}
+                  />
+                ))}
+              </div>
+
+              {/* Sector rows */}
+              <div>
+                {sectorData.map(s => (
+                  <div key={s.name} className="flex items-center gap-2 py-1.5">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: SECTOR_COLOR[s.name] }}
+                    />
+                    <span className="text-[11px] font-medium text-slate-700 shrink-0" style={{ minWidth: 76 }}>
+                      {s.name}
+                    </span>
+                    <span className="text-[9px] text-slate-400 shrink-0" style={{ minWidth: 20 }}>
+                      {s.count}
+                    </span>
+                    <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${s.pct}%`, backgroundColor: SECTOR_COLOR[s.name] }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-slate-500 shrink-0 text-right" style={{ minWidth: 38 }}>
+                      {s.pct.toFixed(1)}%
+                    </span>
+                    <span className="text-[11px] font-semibold text-slate-700 shrink-0 text-right" style={{ minWidth: 56 }}>
+                      {fmtCompact(s.value, currency)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {analysisSubTab === 'benchmarking' && (
+            <div>
+              {benchLoading && (
+                <div className="py-10 text-center text-[11px] text-slate-400">
+                  Loading benchmark data…
+                </div>
+              )}
+
+              {!benchLoading && benchHasError && (
+                <div className="py-6 text-center text-[11px] text-red-400">
+                  Could not load one or more benchmarks.
+                </div>
+              )}
+
+              {!benchLoading && !benchHasError && benchSectors.length > 0 && (
+                <div>
+                  {/* Overall card */}
+                  <div className="bg-slate-50 rounded-xl p-3 mb-4 border border-slate-100">
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                      Overall (composite benchmark)
+                    </p>
+                    <div className="flex items-end justify-between">
+                      <div>
+                        <p className="text-[8px] text-slate-400 mb-0.5">Your XIRR</p>
+                        <p className="text-[18px] font-bold text-slate-800">
+                          {benchActualXirr !== null ? `${benchActualXirr >= 0 ? '+' : ''}${benchActualXirr.toFixed(1)}%` : '—'}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[8px] text-slate-400 mb-0.5">Alpha</p>
+                        <p className={`text-[15px] font-bold ${benchAlpha !== null ? benchAlpha >= 0 ? 'text-green-500' : 'text-red-400' : 'text-slate-400'}`}>
+                          {benchAlpha !== null ? `${benchAlpha >= 0 ? '+' : ''}${benchAlpha.toFixed(1)}%` : '—'}
+                          {benchAlpha !== null && <span className="ml-0.5 text-[12px]">{benchAlpha >= 0 ? '↑' : '↓'}</span>}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[8px] text-slate-400 mb-0.5">Benchmark</p>
+                        <p className="text-[18px] font-bold text-slate-500">
+                          {benchBenchXirr !== null ? `${benchBenchXirr >= 0 ? '+' : ''}${benchBenchXirr.toFixed(1)}%` : '—'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sector rows — collapsible */}
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                    By Sector
+                  </p>
+                  {(() => {
+                    const symToYf = new Map(filteredHoldings.map(h => [h.symbol, h.yf_symbol]))
+                    const fmtX = (v: number | null) => v !== null ? `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` : '—'
+                    return (
+                      <div className="space-y-0">
+                        {benchSectors.map(s => {
+                          const isOpen = expandedSectors.has(s.sector)
+                          const sectorRows = rows.filter(r =>
+                            getSectorForHolding(symToYf.get(r.navSym) ?? r.navSym) === s.sector
+                          )
+                          return (
+                            <div key={s.sector}>
+                              {/* Sector header row */}
+                              <button
+                                className="w-full flex items-center gap-1.5 py-2 border-b border-slate-100 active:bg-slate-50"
+                                onClick={() => setExpandedSectors(prev => {
+                                  const next = new Set(prev)
+                                  next.has(s.sector) ? next.delete(s.sector) : next.add(s.sector)
+                                  return next
+                                })}
+                              >
+                                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: SECTOR_COLOR[s.sector] }} />
+                                <span className="text-[11px] font-medium text-slate-700 shrink-0" style={{ minWidth: 74 }}>{s.sector}</span>
+                                <span className="text-[9px] text-slate-400 shrink-0" style={{ minWidth: 16 }}>{sectorRows.length}</span>
+                                <div className="flex-1 flex items-center justify-end gap-2">
+                                  <span className="text-[11px] font-semibold text-slate-700">{fmtX(s.actualXirr)}</span>
+                                  <span className="text-[9px] text-slate-300">vs</span>
+                                  <span className="text-[10px] text-slate-400">
+                                    {BENCHMARK_LABEL[s.benchSymbol] ?? s.benchSymbol}
+                                    {s.benchXirr !== null ? ` ${fmtX(s.benchXirr)}` : ' —'}
+                                  </span>
+                                  <span
+                                    className={`text-[11px] font-semibold shrink-0 ${s.alpha !== null ? s.alpha >= 0 ? 'text-green-500' : 'text-red-400' : 'text-slate-300'}`}
+                                    style={{ minWidth: 40, textAlign: 'right' }}
+                                  >
+                                    {fmtX(s.alpha)}
+                                  </span>
+                                  <span className="text-[9px] text-slate-300 shrink-0">{isOpen ? '▲' : '▼'}</span>
+                                </div>
+                              </button>
+
+                              {/* Expanded: individual stocks */}
+                              {isOpen && sectorRows.length > 0 && (
+                                <div className="bg-slate-50 rounded-b-lg mb-1">
+                                  {/* Sub-header */}
+                                  <div className="flex items-center gap-1 px-3 py-1 border-b border-slate-100">
+                                    <span className="text-[8px] text-slate-400 uppercase tracking-widest flex-1">Stock</span>
+                                    <span className="text-[8px] text-slate-400 uppercase tracking-widest" style={{ minWidth: 38, textAlign: 'right' }}>XIRR</span>
+                                    <span className="text-[8px] text-slate-400 uppercase tracking-widest" style={{ minWidth: 38, textAlign: 'right' }}>Index</span>
+                                    <span className="text-[8px] text-slate-400 uppercase tracking-widest" style={{ minWidth: 38, textAlign: 'right' }}>Alpha</span>
+                                  </div>
+                                  {sectorRows.map(r => {
+                                    const hXirr     = xirrMap.get(r.key) ?? null
+                                    const yfSym     = symToYf.get(r.navSym) ?? r.navSym
+                                    const hBenchX   = holdingBenchXirr.get(yfSym) ?? null
+                                    const hAlpha    = hXirr !== null && hBenchX !== null ? hXirr - hBenchX : null
+                                    return (
+                                      <div key={r.key} className="flex items-center gap-1 px-3 py-1.5 border-b border-slate-100 last:border-0">
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-[11px] font-medium text-slate-700 truncate">{r.subLabel || r.ticker}</p>
+                                          <p className="text-[9px] text-slate-400">{r.ticker}</p>
+                                        </div>
+                                        <span className="text-[11px] font-semibold text-slate-700 shrink-0" style={{ minWidth: 38, textAlign: 'right' }}>
+                                          {fmtX(hXirr)}
+                                        </span>
+                                        <span className="text-[11px] font-semibold text-slate-400 shrink-0" style={{ minWidth: 38, textAlign: 'right' }}>
+                                          {fmtX(hBenchX)}
+                                        </span>
+                                        <span className={`text-[11px] font-semibold shrink-0 ${hAlpha !== null ? hAlpha >= 0 ? 'text-green-500' : 'text-red-400' : 'text-slate-300'}`}
+                                          style={{ minWidth: 38, textAlign: 'right' }}>
+                                          {fmtX(hAlpha)}
+                                        </span>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
