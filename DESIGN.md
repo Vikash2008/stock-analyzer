@@ -270,6 +270,21 @@ Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone
 
 - None.
 
+## TxRow Layout (TransactionsPage)
+
+```
+[BUY/SELL/DIV badge — pill, centered, whitespace all sides]
+  Date             Unreal gains (%) · Y sh left     Cur value (Inv value)
+  Inv = Xsh × P   Real gains (%) · X sh sold        Total gains (%)
+```
+- 2 rows × 3 columns grid; badge is a separate pill outside the grid
+- Card background tinted green (`#f0fdf4`) or red (`#fff1f2`) based on total gain sign; border tinted to match
+- R1R: `curValue (invValue)` — for SELL: `₹0 (₹0)`
+- R2L: `₹12.5K = 10sh × 1250.00`
+- Date format: `6 Dec'25` (day Mon'YY)
+- Middle cells: qty label anchored left, gain value truncates right — no wrapping
+- All values use `fmtCompact` to stay within column width
+
 ## Local Dev Notes
 
 - Node v24 at `C:\Program Files\nodejs` — run `$env:PATH = "C:\Program Files\nodejs;$env:PATH"` if npm not found
@@ -340,3 +355,6 @@ Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone
 | 2026-05-27 | TxRow redesign with GainGrid | Left: date + qty·price/sh = invested amount; Right: current value (invested) + 3-col CSS Grid (qty/dir | label | gain+pct); minWidth:210 ensures 1fr col aligns across all cards |
 | 2026-05-27 | FIFO same-date BUY lot fix | dateQtyAttributed Map distributes qtyRealized sequentially across same-date BUY lots in FIFO order; fixes Axis Bank double-realized bug |
 | 2026-05-27 | UI-only fix rule in CLAUDE.md + memory | Trigger: "UI fix" / "UI only" / "quick UI fix" → edit reported file directly, max 2 tool calls, no analysis |
+| 2026-05-27 | XIRR fix — closed positions in segment view | closedRows now tracks all portfolios per symbol; xirrMap + filteredSummaryXirr use row.portfolios for closed rows instead of filtPorts (open-only) |
+| 2026-05-27 | XIRR fix — "All" filter mode | filteredSummaryXirr computes client-side for all 3 modes; was returning data.xirr_stk for "All" which mixed Indian + US stocks |
+| 2026-05-27 | TxRow redesign — 2-row × 3-col layout | Badge pill outside grid; R1: date/unreal/curValue; R2: invested/real/totalGain; green/red card tint; date format 6 Dec'25 |

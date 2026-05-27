@@ -33,6 +33,9 @@
 
 | Item | Completed |
 |------|-----------|
+| XIRR fix — closed US stocks in segment view (closedRows tracks all portfolios; xirrMap/filteredSummaryXirr use row.portfolios) | 2026-05-27 |
+| XIRR fix — "All" filter mode computes client-side; was returning xirr_stk which mixed Indian+US stocks | 2026-05-27 |
+| TxRow redesign — 2-row × 3-col; badge pill; date/unreal/curValue + invested/real/totalGain; green/red card tint | 2026-05-27 |
 | Keep-alive ping — GitHub Actions cron every 14 min pings /health; /health endpoint added to backend | 2026-05-27 |
 | Realized P&L bug fix — segment summary card now counts fully-exited positions (iterates data.realized directly) | 2026-05-27 |
 | Open/Closed/All toggle on HoldingsPage — all views (By Broker, By Type, Stocks, MF, Total) | 2026-05-27 |
