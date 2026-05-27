@@ -25,7 +25,7 @@ interface ChartPoint {
   sell?:  number
 }
 
-const RANGES = ['1m', '3m', '6m', '1y', '2y', '3y', '5y', 'All'] as const
+const RANGES = ['1d', '1m', '3m', '6m', '1y', '2y', '3y', '5y', 'All'] as const
 type ChartRange = typeof RANGES[number]
 
 const RANGE_DAYS: Record<string, number> = {
@@ -98,19 +98,28 @@ function SellDot(props: any) {
 
 export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceChartProps) {
   const [range, setRange] = useState<ChartRange>('All')
-  const start   = useMemo(() => firstTxDate(transactions), [transactions])
-  const { data: history, isLoading } = useHistory(yf_symbol, start)
+  const start = useMemo(() => firstTxDate(transactions), [transactions])
+  const { data: history, isLoading: dailyLoading }      = useHistory(yf_symbol, start)
+  const { data: intradayHistory, isLoading: intLoading } = useHistory(yf_symbol, null, '1d')
 
   const allChartData = useMemo(() => {
     if (!history?.dates.length) return []
     return buildChartData(history.dates, history.prices, transactions)
   }, [history, transactions])
 
+  const intradayChartData = useMemo(() => {
+    if (!intradayHistory?.dates.length) return []
+    return intradayHistory.dates.map((d, i) => ({ date: d, price: intradayHistory.prices[i] }))
+  }, [intradayHistory])
+
   const chartData = useMemo(() => {
+    if (range === '1d') return intradayChartData
     if (!allChartData.length || range === 'All') return allChartData
     const cutoff = new Date(Date.now() - RANGE_DAYS[range] * 86_400_000).toISOString().slice(0, 10)
     return allChartData.filter(p => p.date >= cutoff)
-  }, [allChartData, range])
+  }, [allChartData, intradayChartData, range])
+
+  const isLoading = range === '1d' ? intLoading : dailyLoading
 
   const yFmt = (v: number) => {
     if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}K`
@@ -159,10 +168,12 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceC
             dataKey="date"
             tick={{ fontSize: 8, fill: '#94a3b8' }}
             tickFormatter={d => {
-              if (['1m', '3m', '6m', '1y'].includes(range)) return d.slice(5) // "MM-DD"
-              const [yr, mo] = d.split('-')
-              const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-              return `${months[parseInt(mo, 10) - 1]} '${yr.slice(2)}`
+              if (range === '1d') return d  // already "HH:MM"
+              const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+              const [yr, mo, day] = d.split('-')
+              if (['1m', '3m', '6m', '1y'].includes(range))
+                return `${parseInt(day, 10)} ${MONTHS[parseInt(mo, 10) - 1]}`
+              return `${MONTHS[parseInt(mo, 10) - 1]} '${yr.slice(2)}`
             }}
             minTickGap={40}
           />
