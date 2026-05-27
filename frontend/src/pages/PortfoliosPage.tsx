@@ -28,6 +28,17 @@ interface CardStats {
   navPath:   string
 }
 
+const TYPE_GROUPS = [
+  { key: 'stocks', label: 'Stocks',       keys: ['indian_stock', 'us_stock'] },
+  { key: 'mf',     label: 'Mutual Funds', keys: ['indian_mf',    'us_mf']    },
+]
+
+const BROKER_GROUPS = [
+  { key: 'indian', label: 'Indian Stocks', test: (p: string) => !USD_PORTS.has(p) && !p.startsWith('MF_') },
+  { key: 'us',     label: 'US Stocks',     test: (p: string) => USD_PORTS.has(p) },
+  { key: 'mf',     label: 'Mutual Funds',  test: (p: string) => p.startsWith('MF_') },
+]
+
 const TYPE_SEGMENTS = [
   { key: 'indian_stock', label: 'Indian Stocks' },
   { key: 'us_stock',     label: 'US Stocks'     },
@@ -74,13 +85,18 @@ function typeCards(holdings: Holding[], rmap: RealizedMap): CardStats[] {
 
 function isPos(v: number) { return v >= 0 }
 
-function BreakCard({ card, currency, xirr, onClick }: { card: CardStats; currency: Currency; xirr: number | null; onClick: () => void }) {
+function BreakCard({ card, currency, xirr, onClick, compact = false }: { card: CardStats; currency: Currency; xirr: number | null; onClick: () => void; compact?: boolean }) {
   const totalGain = (card.current - card.invested) + card.realGain
   const totalCost = card.invested + card.realCost
   const pct = totalCost !== 0 ? (totalGain / totalCost) * 100 : 0
   const pos = isPos(totalGain)
   const todayPrior = card.current - (card.todayGain ?? 0)
   const todayPct = card.todayGain !== null && todayPrior !== 0 ? (card.todayGain / todayPrior) * 100 : null
+
+  const valSize  = compact ? 'text-[13px]' : 'text-[15px]'
+  const lblSize  = compact ? 'text-[8px]'  : 'text-[9px]'
+  const gainSize = compact ? 'text-[9px]'  : 'text-[10px]'
+  const gap      = compact ? 'gap-0.5'     : 'gap-1'
 
   return (
     <div
@@ -93,24 +109,24 @@ function BreakCard({ card, currency, xirr, onClick }: { card: CardStats; currenc
       }}
       onClick={onClick}
     >
-      <p className="text-[9px] font-bold text-slate-700 uppercase tracking-widest mb-1">{card.label}</p>
+      <p className={`${lblSize} font-bold text-slate-700 uppercase tracking-widest mb-1`}>{card.label}</p>
       <div className="flex items-baseline justify-between">
-        <span className="text-[15px] font-bold text-slate-900 min-w-0">{fmt(card.current, currency)}</span>
-        <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-          <span className="text-[9px] text-slate-400">Today</span>
-          <span className="text-[10px]" style={{ color: card.todayGain !== null ? (card.todayGain >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8' }}>
+        <span className={`${valSize} font-bold text-slate-900 min-w-0`}>{fmt(card.current, currency)}</span>
+        <span className={`flex items-center ${gap} shrink-0 whitespace-nowrap`}>
+          <span className={`${lblSize} text-slate-400`}>Today</span>
+          <span className={gainSize} style={{ color: card.todayGain !== null ? (card.todayGain >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8' }}>
             {card.todayGain !== null ? fmtCompactGainLine(card.todayGain, todayPct, currency) : '—'}
           </span>
         </span>
       </div>
       <div className="flex items-center justify-between mt-0.5">
         {xirr !== null
-          ? <span className="text-[9px] font-semibold" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
-          : <span className="text-[9px] text-slate-400">{fmtCompact(card.invested, currency)} inv</span>
+          ? <span className={`${lblSize} font-semibold`} style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
+          : <span className={`${lblSize} text-slate-400`}>{fmtCompact(card.invested, currency)} inv</span>
         }
-        <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-          <span className="text-[9px] text-slate-400">Total</span>
-          <span className="text-[10px]" style={{ color: pos ? '#0a7a42' : '#be1c1c' }}>
+        <span className={`flex items-center ${gap} shrink-0 whitespace-nowrap`}>
+          <span className={`${lblSize} text-slate-400`}>Total</span>
+          <span className={gainSize} style={{ color: pos ? '#0a7a42' : '#be1c1c' }}>
             {fmtCompactGainLine(totalGain, pct, currency)}
           </span>
         </span>
@@ -301,8 +317,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         </div>
       </div>
 
-      {/* Stocks + MF summary tiles — full width, stacked */}
-      <div className="space-y-2">
+      {/* Stocks + MF summary tiles — side by side */}
+      <div className="grid grid-cols-2 gap-2">
         {[
           { label: 'Stocks',       stats: stk, seg: 'stk', xirr: data.xirr_stk },
           { label: 'Mutual Funds', stats: mf,  seg: 'mf',  xirr: data.xirr_mf  },
@@ -324,22 +340,22 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
             >
               <p className="text-[9px] font-bold text-slate-700 uppercase tracking-widest mb-1">{label}</p>
               <div className="flex items-baseline justify-between">
-                <span className="text-[15px] font-bold text-slate-900 min-w-0">{fmt(stats.cur, currency)}</span>
-                <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-                  <span className="text-[9px] text-slate-400">Today</span>
-                  <span className="text-[10px]" style={{ color: tgC }}>
+                <span className="text-[13px] font-bold text-slate-900 min-w-0">{fmt(stats.cur, currency)}</span>
+                <span className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
+                  <span className="text-[8px] text-slate-400">Today</span>
+                  <span className="text-[9px]" style={{ color: tgC }}>
                     {stats.todayGain !== 0 ? fmtCompactGainLine(stats.todayGain, stats.todayPct, currency) : '—'}
                   </span>
                 </span>
               </div>
               <div className="flex items-center justify-between mt-0.5">
                 {xirr !== null && xirr !== undefined
-                  ? <span className="text-[9px] font-semibold" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
-                  : <span className="text-[9px] text-slate-400">XIRR —</span>
+                  ? <span className="text-[8px] font-semibold" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
+                  : <span className="text-[8px] text-slate-400">XIRR —</span>
                 }
-                <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-                  <span className="text-[9px] text-slate-400">Total</span>
-                  <span className="text-[10px]" style={{ color: tc }}>
+                <span className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
+                  <span className="text-[8px] text-slate-400">Total</span>
+                  <span className="text-[9px]" style={{ color: tc }}>
                     {fmtCompactGainLine(stats.gain, stats.pct, currency)}
                   </span>
                 </span>
@@ -351,7 +367,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
       {/* Breakdown toggle */}
       <div className="flex items-center justify-between px-0.5">
-        <p className="text-[9px] text-slate-400 uppercase tracking-widest">Breakdown</p>
+        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Breakdown</p>
         <div className="flex gap-1">
           {(['type', 'broker'] as BreakdownMode[]).map(m => (
             <button
@@ -370,9 +386,47 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       </div>
 
       {/* Breakdown cards */}
-      {cards.map(card => (
-        <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} />
-      ))}
+      {mode === 'type' ? (
+        <div className="space-y-3">
+          {TYPE_GROUPS.map(group => {
+            const gc = cards.filter(c => group.keys.includes(c.key))
+            if (!gc.length) return null
+            return (
+              <div key={group.key}>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <div className="w-0.5 h-3 rounded-full bg-slate-300" />
+                  <span className="text-[7px] text-slate-400 uppercase tracking-widest">{group.label}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {gc.map(card => (
+                    <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact />
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {BROKER_GROUPS.map(group => {
+            const gc = cards.filter(c => group.test(c.key))
+            if (!gc.length) return null
+            return (
+              <div key={group.key}>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <div className="w-0.5 h-3 rounded-full bg-slate-300" />
+                  <span className="text-[7px] text-slate-400 uppercase tracking-widest">{group.label}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {gc.map(card => (
+                    <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact />
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Timestamp + refresh */}
       <div className="flex justify-end pb-2">
