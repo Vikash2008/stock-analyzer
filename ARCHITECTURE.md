@@ -43,7 +43,7 @@ frontend/
     utils/segments.ts            classify.py TypeScript port
     utils/realized.ts            _agg_realized() TypeScript port
     utils/xirr.ts                Client-side XIRR (bisection + Newton fallback)
-    utils/sectors.ts             SYMBOL_SECTOR (63 symbols → SectorKey), SECTOR_COLOR, SECTOR_BENCHMARK, BENCHMARK_LABEL, getSectorForHolding()
+    utils/sectors.ts             SYMBOL_SECTOR (63 symbols → SectorKey), SECTOR_COLOR, SECTOR_BENCHMARK, BENCHMARK_LABEL, getSectorForHolding(); MarketCapKey, MARKET_CAP_COLOR, SYMBOL_MARKET_CAP, getMarketCapForHolding()
     components/             LoadingSkeleton, SummaryCard, HoldingCard, TxRow, PriceChart, AnalysisTab
     pages/                  PortfoliosPage, HoldingsPage, TransactionsPage
     App.tsx                 React Router routes
