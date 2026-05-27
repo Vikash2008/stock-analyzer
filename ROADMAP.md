@@ -33,6 +33,9 @@
 
 | Item | Completed |
 |------|-----------|
+| PriceChart 5d range added; X-axis weekday labels "Mon"/"Tue" | 2026-05-27 |
+| All chart X-axis tickFormatter fixed (HoldingsPage + TransactionsPage + PriceChart): range-aware labels, ISO date stored in t field | 2026-05-27 |
+| 1d intraday timestamps converted to IST (backend tz_convert); 1d chart % uses prev_close from intraday response (captures gap-up/down) | 2026-05-27 |
 | PriceChart 1d intraday range (5-min bars, HH:MM X-axis); range-aware X-axis format ("12 Oct" for short, "Oct '23" for long) | 2026-05-27 |
 | Charts pre-fetch on page load; no loading bar; history cache preserved on force refresh; ↻ sync on HoldingsPage Charts tab | 2026-05-27 |
 | HoldingsPage default filter = All with closed rows hidden (showClosed=false) | 2026-05-27 |

@@ -366,3 +366,7 @@ Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone
 | 2026-05-27 | TransactionsPage ↻ changed to invalidateQueries | Was removeQueries (blanked chart); now keeps old data visible while silently re-fetching |
 | 2026-05-27 | PriceChart X-axis range-aware tickFormatter | Long ranges (2y/3y/5y/All): "Oct '23"; short ranges (1m/3m/6m/1y): "12 Oct"; 1d: "HH:MM" |
 | 2026-05-27 | PriceChart 1d intraday range | Fetches 5-min bars via /api/history?period=1d; X-axis shows time; cached 5 min on backend; BUY/SELL markers not shown for intraday |
+| 2026-05-27 | PriceChart 5d range added | RANGES now includes '5d'; RANGE_DAYS['5d']=7; X-axis shows weekday name "Mon"/"Tue" |
+| 2026-05-27 | All chart X-axis tickFormatter per range | HoldingsPage + TransactionsPage: t field changed from pre-formatted locale string to ISO date; tickFormatter: 1m/3m/6m="12 Oct", 1y="Jan", 2y+="Oct '23" |
+| 2026-05-27 | 1d intraday timestamps converted to IST | Backend tz_convert('Asia/Kolkata') before strftime; was showing UTC (3:50–9:55 instead of 9:15–3:30) |
+| 2026-05-27 | 1d chart % uses prev_close from intraday response | Backend _fetch_intraday now returns prev_close (yesterday's daily close); PriceChart uses (last_bar - prev_close)/prev_close instead of first-bar delta — correctly captures gap-up/gap-down |

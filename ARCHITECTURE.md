@@ -28,7 +28,7 @@ backend/
   serializers.py            PortfolioBundle → JSON-safe dict (NaN/Timestamp/numpy handling)
   routers/
     portfolio.py            GET /api/portfolio?currency=INR&force_refresh=false
-    history.py              GET /api/history?yf_symbol=INFY.NS&start=YYYY-MM-DD
+    history.py              GET /api/history?yf_symbol=INFY.NS&start=YYYY-MM-DD OR ?period=1d (intraday; timestamps in IST; includes prev_close)
   requirements_backend.txt  Backend-only deps
 
 frontend/
@@ -93,7 +93,7 @@ msp_v2.csv
 | Method | Path | Params | Notes |
 |--------|------|--------|-------|
 | GET | `/api/portfolio` | `currency=INR\|USD`, `force_refresh=false` | Full bundle; 60s in-memory cache on top of disk cache |
-| GET | `/api/history` | `yf_symbol`, `start=YYYY-MM-DD` OR `period=1d` | Daily price history (1hr cache) or intraday 5-min bars (5min cache) |
+| GET | `/api/history` | `yf_symbol`, `start=YYYY-MM-DD` OR `period=1d` | Daily price history (1hr cache) or intraday 5-min bars (5min cache); intraday response includes `prev_close` (yesterday's daily close) and timestamps in IST |
 | GET | `/health` | — | Returns `{"status":"ok"}`; used by keep-alive cron |
 
 ---
