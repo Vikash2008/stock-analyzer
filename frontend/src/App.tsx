@@ -18,7 +18,7 @@ const queryClient = new QueryClient({
 
 const persister = createSyncStoragePersister({
   storage: window.localStorage,
-  key: 'stock-analyzer-chart-cache',
+  key: 'stock-analyzer-cache',
 })
 
 export type Currency = 'INR' | 'USD'
@@ -52,7 +52,7 @@ export default function App() {
         persister,
         maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 days
         dehydrateOptions: {
-          shouldDehydrateQuery: (query) => query.queryKey[0] === 'history',
+          shouldDehydrateQuery: (query) => query.queryKey[0] === 'history' || query.queryKey[0] === 'portfolio',
         },
       }}
     >
