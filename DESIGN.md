@@ -366,6 +366,13 @@ Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone
 | 2026-05-27 | TransactionsPage ↻ changed to invalidateQueries | Was removeQueries (blanked chart); now keeps old data visible while silently re-fetching |
 | 2026-05-27 | PriceChart X-axis range-aware tickFormatter | Long ranges (2y/3y/5y/All): "Oct '23"; short ranges (1m/3m/6m/1y): "12 Oct"; 1d: "HH:MM" |
 | 2026-05-27 | PriceChart 1d intraday range | Fetches 5-min bars via /api/history?period=1d; X-axis shows time; cached 5 min on backend; BUY/SELL markers not shown for intraday |
+| 2026-05-27 | All charts default range = 1y | PriceChart was 'All'; now '1y' matching HoldingsPage + TransactionsPage |
+| 2026-05-27 | Stocks/MF tiles side-by-side | Changed from full-width stacked (space-y-2) to grid grid-cols-2 gap-2; fonts reduced: value 15px→13px, labels 9px→8px, gains 10px→9px |
+| 2026-05-27 | BreakCard compact prop | compact=true uses 13px value / 8px labels / 9px gains / gap-0.5 — used in all 2-col grid layouts |
+| 2026-05-27 | By Type breakdown grouped sections | TYPE_GROUPS constant; Stocks section (Indian+US) + Mutual Funds section (Indian+US MF); each section has subtle left-line pill + section label + 2-col compact grid |
+| 2026-05-27 | By Broker breakdown grouped sections | BROKER_GROUPS constant; Indian Stocks / US Stocks / Mutual Funds sections; same left-line + label + 2-col compact grid layout |
+| 2026-05-27 | Breakdown label sizing | "Breakdown" title: 9px font-bold text-slate-500; section labels (Stocks, Indian Stocks, etc.): 7px text-slate-400 non-bold |
+| 2026-05-27 | XIRR By Type includes closed positions | cardXirrMap now iterates all data.transactions + classifies by getSegmentType via yfMap lookup; was filtering by holdingKeys (open-only) |
 | 2026-05-27 | PriceChart 5d range added | RANGES now includes '5d'; RANGE_DAYS['5d']=7; X-axis shows weekday name "Mon"/"Tue" |
 | 2026-05-27 | All chart X-axis tickFormatter per range | HoldingsPage + TransactionsPage: t field changed from pre-formatted locale string to ISO date; tickFormatter: 1m/3m/6m="12 Oct", 1y="Jan", 2y+="Oct '23" |
 | 2026-05-27 | 1d intraday timestamps converted to IST | Backend tz_convert('Asia/Kolkata') before strftime; was showing UTC (3:50–9:55 instead of 9:15–3:30) |

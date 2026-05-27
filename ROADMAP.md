@@ -33,6 +33,9 @@
 
 | Item | Completed |
 |------|-----------|
+| All charts default range = 1y | 2026-05-27 |
+| PortfoliosPage: Stocks/MF tiles side-by-side; By Type + By Broker grouped sections with section labels; BreakCard compact prop | 2026-05-27 |
+| XIRR By Type fixed to include closed positions (iterates all transactions via yfMap) | 2026-05-27 |
 | PriceChart 5d range added; X-axis weekday labels "Mon"/"Tue" | 2026-05-27 |
 | All chart X-axis tickFormatter fixed (HoldingsPage + TransactionsPage + PriceChart): range-aware labels, ISO date stored in t field | 2026-05-27 |
 | 1d intraday timestamps converted to IST (backend tz_convert); 1d chart % uses prev_close from intraday response (captures gap-up/down) | 2026-05-27 |
