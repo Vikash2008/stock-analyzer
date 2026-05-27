@@ -33,6 +33,7 @@
 
 | Item | Completed |
 |------|-----------|
+| Analysis tab on HoldingsPage — Allocation (stacked bar + sector rows) + Benchmarking (sector XIRR vs transaction-matched composite benchmark; collapsible sector rows; per-holding XIRR vs own-date-simulated benchmark; sectors.ts + useBenchmarkXirr.ts) | 2026-05-27 |
 | Portfolio bundle persisted to localStorage — instant reopen after swipe-up, stale-while-revalidate | 2026-05-27 |
 | All charts default range = 1y | 2026-05-27 |
 | PortfoliosPage: Stocks/MF tiles side-by-side; By Type + By Broker grouped sections with section labels; BreakCard compact prop | 2026-05-27 |

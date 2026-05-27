@@ -140,6 +140,31 @@ DATE    BUY/SELL/DIV    QTY @ PRICE    VALUE
 - Sort control (top-right of list): Current Value | Invested | Daily Gain | Daily Gain % | Total Gain | Total Gain % | XIRR — tap again to toggle ↑/↓; default Current Value ↓
 - List of HoldingCards, tappable; each shows XIRR computed client-side
 - Closed holdings (no open position): current=0, Total G/L = realized P&L, XIRR from BUY+SELL cashflows only (no terminal value)
+- **3 tabs**: Holdings | Charts | Analysis
+
+### Analysis Tab (HoldingsPage)
+
+Two sub-tabs: **Allocation** and **Benchmarking**
+
+#### Allocation sub-tab
+- Stacked color bar showing sector proportions (full-width)
+- Sorted sector rows: color dot | sector name | count | mini progress bar | % | compact value
+
+#### Benchmarking sub-tab
+- **Overall card**: Your XIRR | Alpha | Benchmark XIRR (composite — naturally weighted by capital deployed per sector)
+- **By Sector** collapsible rows (tap to expand):
+  - Collapsed: color dot | sector name | count | actual XIRR | vs | benchmark label + XIRR | alpha | ▼/▲
+  - Expanded sub-header: Stock | XIRR | Index | Alpha
+  - Expanded rows: holding name + ticker | individual XIRR | per-holding benchmark XIRR | alpha
+- **Benchmark method (Option B — transaction-matched composite)**:
+  - For each BUY transaction, simulate buying the sector's benchmark index with the same cash amount
+  - Track units held; on SELL, proportionally reduce benchmark units
+  - Terminal value = remaining units × current benchmark price
+  - Per-holding benchmark XIRR: simulated using ONLY that holding's own transaction dates (makes ITBEES ≈ 0% alpha vs Nifty IT)
+  - Sector benchmark XIRR: composite of all holdings in that sector
+- **Sector taxonomy** (9 buckets): Banking, Finance (NBFC+Insurance+Capital Markets+AMC), Healthcare, IT (ITBEES+Affle+Tata Digital+Aditya BSL), Growth (Eternal/Swiggy/RateGain/Dynacons/Netweb), Tech (25 US stocks + MON100/MAFANG/S&P500 MF/NASDAQ MF), Smallcap (7 MFs), Equity (DSP ELSS+Mirae ELSS+Parag Parikh), Other
+- **Benchmark indices**: Banking→^NSEBANK, Finance→NIFTY_FIN_SERVICE.NS, Healthcare→^CNXPHARMA, IT→^CNXIT, Growth→^CRSLDX, Tech→^NDX, Smallcap→^NSMCAP250, Equity/Other→^NSEI
+- Benchmark data fetched via `useBenchmarkXirr` hook (useQueries in parallel); enabled only when Analysis tab active
 
 ### TransactionsPage (`/transactions/:port/:sym`)
 - Back button (label = origin page name via nav state)
@@ -378,3 +403,6 @@ Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone
 | 2026-05-27 | All chart X-axis tickFormatter per range | HoldingsPage + TransactionsPage: t field changed from pre-formatted locale string to ISO date; tickFormatter: 1m/3m/6m="12 Oct", 1y="Jan", 2y+="Oct '23" |
 | 2026-05-27 | 1d intraday timestamps converted to IST | Backend tz_convert('Asia/Kolkata') before strftime; was showing UTC (3:50–9:55 instead of 9:15–3:30) |
 | 2026-05-27 | 1d chart % uses prev_close from intraday response | Backend _fetch_intraday now returns prev_close (yesterday's daily close); PriceChart uses (last_bar - prev_close)/prev_close instead of first-bar delta — correctly captures gap-up/gap-down |
+| 2026-05-27 | Analysis tab on HoldingsPage — Allocation + Benchmarking | Allocation: stacked bar + sector rows (color, count, %, value). Benchmarking: per-sector XIRR vs benchmark (transaction-matched composite); per-holding benchmark XIRR on own tx dates so index ETFs show ~0% alpha; collapsible sector rows expand to show Stock \| XIRR \| Index \| Alpha |
+| 2026-05-27 | Sector taxonomy (sectors.ts) — 9 buckets | Banking, Finance, Healthcare, IT, Growth, Tech (all US), Smallcap (MFs), Equity (ELSS+Parag Parikh), Other; SECTOR_COLOR + SYMBOL_SECTOR + SECTOR_BENCHMARK maps |
+| 2026-05-27 | useBenchmarkXirr — per-holding benchmark XIRR | holdingBench Map tracks simulated benchmark cashflows per yf_symbol; holdingBenchXirr map in output allows expanded rows to show per-holding alpha vs own-date-simulated benchmark |

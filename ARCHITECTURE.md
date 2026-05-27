@@ -38,10 +38,12 @@ frontend/
     hooks/usePortfolio.ts        TanStack Query, 30min staleTime, useForceRefresh() (clears ['history'] cache)
     hooks/useHistory.ts          TanStack Query for price history, staleTime+gcTime=Infinity
     hooks/usePortfolioHistory.ts useQueries per-symbol history → value/invested/P&L/return/xirr series; exposes loadedCount+totalCount
+    hooks/useBenchmarkXirr.ts    useQueries benchmark histories in parallel; computes sector + per-holding XIRR vs benchmark (transaction-matched); exports holdingBenchXirr Map
     utils/fmt.ts                 fmtINR/fmtUSD/fmtPct/fmtGainLine
     utils/segments.ts            classify.py TypeScript port
     utils/realized.ts            _agg_realized() TypeScript port
     utils/xirr.ts                Client-side XIRR (bisection + Newton fallback)
+    utils/sectors.ts             SYMBOL_SECTOR (63 symbols → SectorKey), SECTOR_COLOR, SECTOR_BENCHMARK, BENCHMARK_LABEL, getSectorForHolding()
     components/             LoadingSkeleton, SummaryCard, HoldingCard, TxRow, PriceChart, AnalysisTab
     pages/                  PortfoliosPage, HoldingsPage, TransactionsPage
     App.tsx                 React Router routes
@@ -215,6 +217,8 @@ Keep-alive: GitHub Actions cron pings `/health` every 14 min to reduce cold star
 | `frontend/src/pages/HoldingsPage.tsx` | `HoldingsPage` | Holdings list + sort + XIRR |
 | `frontend/src/pages/TransactionsPage.tsx` | `TransactionsPage` | Tx list + 8-metric charts |
 | `frontend/src/utils/segments.ts` | `getSegmentType()` | Segment classification |
+| `frontend/src/utils/sectors.ts` | `getSectorForHolding()` | Sector classification for Analysis tab |
+| `frontend/src/hooks/useBenchmarkXirr.ts` | `useBenchmarkXirr()` | Sector + per-holding benchmark XIRR computation |
 | `frontend/src/utils/fmt.ts` | `fmtINR/fmtUSD` | Number formatting |
 
 ---
