@@ -27,11 +27,22 @@ export default function App() {
   const [currency, setCurrency] = useState<Currency>('INR')
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload()
-      })
+    if (!('serviceWorker' in navigator)) return
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload()
+    })
+
+    const checkForUpdate = () => {
+      if (document.visibilityState === 'visible') {
+        navigator.serviceWorker.getRegistration().then(reg => {
+          if (reg) reg.update()
+        })
+      }
     }
+
+    document.addEventListener('visibilitychange', checkForUpdate)
+    return () => document.removeEventListener('visibilitychange', checkForUpdate)
   }, [])
 
   return (
