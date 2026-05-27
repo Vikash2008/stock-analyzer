@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
@@ -56,7 +56,9 @@ export default function TransactionsPage({ currency }: Props) {
   const { portfolio = '', symbol = '' } = useParams<{ portfolio: string; symbol: string }>()
   const { data, isLoading, error } = usePortfolio(currency)
   const qc = useQueryClient()
-  const [activeTab,   setActiveTab]   = useState<'transactions' | 'charts' | 'analysis'>('transactions')
+  const [activeTab,   setActiveTab]   = useState<'transactions' | 'charts' | 'notes'>('transactions')
+
+  useEffect(() => { window.scrollTo(0, 0) }, [])
   const [chartMetric, setChartMetric] = useState<ChartMetric>('Price')
   const [chartRange,  setChartRange]  = useState<ChartRange>('1y')
   const [syncing,     setSyncing]     = useState(false)
@@ -148,6 +150,9 @@ export default function TransactionsPage({ currency }: Props) {
       buyMap.set(bk, { qtyRealized: be.qtyRealized + r.quantity, realGain: be.realGain + pnl, realCost: be.realCost + cost })
     }
 
+    // Track how much of each date's qtyRealized has been attributed to earlier same-date lots
+    const dateQtyAttributed = new Map<string, number>()
+
     return symTxns.map(tx => {
       if (tx.type === 'SELL') {
         const s = sellMap.get(tx.date.slice(0, 10))
@@ -155,21 +160,29 @@ export default function TransactionsPage({ currency }: Props) {
         return { status: 'realized' as const, gain: s.gain, pct: s.cost !== 0 ? (s.gain / s.cost) * 100 : 0 }
       }
 
-      // BUY — held / sold / partial
+      // BUY — distribute same-date qtyRealized in FIFO order across lots
       if (!holding) return null
-      const b            = buyMap.get(tx.date.slice(0, 10)) ?? { qtyRealized: 0, realGain: 0, realCost: 0 }
-      const qtyRemaining = tx.quantity - b.qtyRealized
-      const unrealGain   = (holding.current_price - tx.price) * Math.max(0, qtyRemaining) * fx
-      const unrealPct    = tx.price !== 0 ? ((holding.current_price - tx.price) / tx.price) * 100 : 0
+      const dateKey  = tx.date.slice(0, 10)
+      const bTotal   = buyMap.get(dateKey) ?? { qtyRealized: 0, realGain: 0, realCost: 0 }
+      const prevUsed = dateQtyAttributed.get(dateKey) ?? 0
+      const qtyRealizedThisLot = Math.max(0, Math.min(tx.quantity, bTotal.qtyRealized - prevUsed))
+      dateQtyAttributed.set(dateKey, prevUsed + qtyRealizedThisLot)
+
+      const fraction   = bTotal.qtyRealized > 1e-9 ? qtyRealizedThisLot / bTotal.qtyRealized : 0
+      const b          = { qtyRealized: qtyRealizedThisLot, realGain: bTotal.realGain * fraction, realCost: bTotal.realCost * fraction }
+      const qtyRemaining   = tx.quantity - qtyRealizedThisLot
+      const unrealGain     = (holding.current_price - tx.price) * Math.max(0, qtyRemaining) * fx
+      const unrealPct      = tx.price !== 0 ? ((holding.current_price - tx.price) / tx.price) * 100 : 0
+      const currentValue   = holding.current_price * Math.max(0, qtyRemaining) * fx
 
       if (b.qtyRealized <= 1e-9)
-        return { status: 'held' as const, gain: unrealGain, pct: unrealPct }
+        return { status: 'held' as const, gain: unrealGain, pct: unrealPct, currentValue }
       if (qtyRemaining <= 1e-9)
         return { status: 'sold' as const, gain: b.realGain, pct: b.realCost !== 0 ? (b.realGain / b.realCost) * 100 : 0 }
       return {
         status:    'partial' as const,
         realGain:  b.realGain,  realPct:  b.realCost !== 0 ? (b.realGain / b.realCost) * 100 : 0, realQty:  b.qtyRealized,
-        unrealGain, unrealPct, unrealQty: qtyRemaining,
+        unrealGain, unrealPct, unrealQty: qtyRemaining, currentValue,
       }
     })
   }, [symTxns, symRealized, holding, data, decoded.portfolio])
@@ -336,7 +349,7 @@ export default function TransactionsPage({ currency }: Props) {
 
       {/* Tabs */}
       <div className="flex items-center gap-3 mb-3 border-b border-slate-200">
-        {(['transactions', 'charts', 'analysis'] as const).map(tab => (
+        {(['transactions', 'charts', 'notes'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -385,7 +398,7 @@ export default function TransactionsPage({ currency }: Props) {
         </>
       )}
 
-      {activeTab === 'analysis' && (
+      {activeTab === 'notes' && (
         <AnalysisTab portfolio={decoded.portfolio} symbol={decoded.symbol} />
       )}
 

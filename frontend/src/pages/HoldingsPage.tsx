@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import React, { useMemo, useState, useEffect } from 'react'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine,
@@ -160,6 +160,7 @@ function buildRows(
 
 export default function HoldingsPage({ currency }: Props) {
   const navigate = useNavigate()
+  const location = useLocation()
   const { portfolio, segment } = useParams<{ portfolio?: string; segment?: string }>()
   const { data, isLoading, error } = usePortfolio(currency)
   const [viewMode,    setViewMode]    = useState<'cumulative' | 'standalone'>('cumulative')
@@ -170,6 +171,19 @@ export default function HoldingsPage({ currency }: Props) {
   const [sortField,   setSortField]   = useState<SortField>('current')
   const [sortDir,     setSortDir]     = useState<'desc' | 'asc'>('desc')
   const [sortOpen,    setSortOpen]    = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [showClosed,   setShowClosed]   = useState(true)
+
+  useEffect(() => {
+    const key = `holdingsScroll:${location.pathname}`
+    const saved = sessionStorage.getItem(key)
+    if (saved) {
+      sessionStorage.removeItem(key)
+      window.scrollTo(0, parseInt(saved, 10))
+    } else {
+      window.scrollTo(0, 0)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const realizedMap = useMemo(
     () => (data ? aggRealized(data.realized, data.usd_inr) : new Map()),
@@ -248,7 +262,7 @@ export default function HoldingsPage({ currency }: Props) {
       [segment],
     ) : null
 
-    const symMap = new Map<string, { rg: number; rc: number; firstPort: string }>()
+    const symMap = new Map<string, { rg: number; rc: number; firstPort: string; ports: string[] }>()
     for (const r of data.realized) {
       if (SKIP_PORTS.has(r.portfolio)) continue
       if (portfolio && r.portfolio !== portfolio) continue
@@ -257,16 +271,18 @@ export default function HoldingsPage({ currency }: Props) {
         if (!segFilter.has(getSegmentType(r.portfolio, yf))) continue
       }
       const fx = r.currency === 'USD' ? data.usd_inr : 1.0
-      const e  = symMap.get(r.symbol) ?? { rg: 0, rc: 0, firstPort: r.portfolio }
+      const e  = symMap.get(r.symbol) ?? { rg: 0, rc: 0, firstPort: r.portfolio, ports: [] }
+      if (!e.ports.includes(r.portfolio)) e.ports.push(r.portfolio)
       symMap.set(r.symbol, {
         rg: e.rg + r.realized_pnl * fx,
         rc: e.rc + (r.type === 'SELL' ? r.quantity * r.buy_price * fx : 0),
         firstPort: e.firstPort,
+        ports: e.ports,
       })
     }
     return [...symMap.entries()]
       .filter(([sym]) => !openSymbols.has(sym))
-      .map(([sym, { rg, rc, firstPort }]) => ({
+      .map(([sym, { rg, rc, firstPort, ports }]) => ({
         key: `closed:${sym}`,
         ticker: sym,
         subLabel: nameMap.get(sym) ?? '',
@@ -274,10 +290,23 @@ export default function HoldingsPage({ currency }: Props) {
         realGain: rg, realCost: rc,
         todayGain: null, todayPct: null, ltp: null,
         navPort: firstPort, navSym: sym,
-        portfolios: [firstPort],
+        portfolios: ports,
       }))
       .sort((a, b) => b.realGain - a.realGain)
   }, [data, portfolio, segment, filteredHoldings])
+
+  const displayStats = useMemo(() => {
+    const closedRealGain = closedRows.reduce((s, r) => s + r.realGain, 0)
+    const closedRealCost = closedRows.reduce((s, r) => s + r.realCost, 0)
+    if (holdingFilter === 'closed') {
+      return { cur: 0, inv: 0, tg: null, todayPct: null, realGain: closedRealGain, realCost: closedRealCost }
+    }
+    if (holdingFilter === 'open') {
+      // partial sells of open positions = all realized minus fully-closed realized
+      return { ...summaryStats, realGain: summaryStats.realGain - closedRealGain, realCost: summaryStats.realCost - closedRealCost }
+    }
+    return summaryStats
+  }, [holdingFilter, summaryStats, closedRows])
 
   // Chart data hooks — always called, gated by enabled flag
   const filtPorts = useMemo(
@@ -300,9 +329,10 @@ export default function HoldingsPage({ currency }: Props) {
     const isCumulative = !!segment && viewMode === 'cumulative'
 
     for (const row of [...rows, ...(holdingFilter !== 'open' ? closedRows : [])]) {
+      const rowPorts = (isCumulative && row.key.startsWith('closed:')) ? new Set(row.portfolios) : filtPorts
       const txns = data.transactions.filter(t =>
         isCumulative
-          ? t.symbol === row.navSym && filtPorts.has(t.portfolio)
+          ? t.symbol === row.navSym && rowPorts.has(t.portfolio)
           : t.symbol === row.navSym && t.portfolio === row.navPort,
       )
 
@@ -327,18 +357,20 @@ export default function HoldingsPage({ currency }: Props) {
   }, [rows, closedRows, holdingFilter, data, currency, filtPorts, segment, viewMode])
 
   const sortedRows = useMemo(() => {
-    const open = [...rows].sort((a, b) => {
+    const sortFn = (a: CardRow, b: CardRow) => {
       const va = getSortValue(a, sortField, xirrMap)
       const vb = getSortValue(b, sortField, xirrMap)
       if (va === -Infinity && vb === -Infinity) return 0
       if (va === -Infinity) return 1
       if (vb === -Infinity) return -1
       return sortDir === 'desc' ? vb - va : va - vb
-    })
-    if (holdingFilter === 'closed') return closedRows
-    if (holdingFilter === 'all')    return [...open, ...closedRows]
+    }
+    const open   = [...rows].sort(sortFn)
+    const closed = [...closedRows].sort(sortFn)
+    if (holdingFilter === 'closed') return closed
+    if (holdingFilter === 'all')    return showClosed ? [...open, ...closed] : open
     return open
-  }, [rows, closedRows, holdingFilter, sortField, sortDir, xirrMap])
+  }, [rows, closedRows, holdingFilter, showClosed, sortField, sortDir, xirrMap])
 
   const summaryXirr = useMemo(() => {
     if (!data) return null
@@ -347,6 +379,40 @@ export default function HoldingsPage({ currency }: Props) {
     if (segment === 'mf'  || segment === 'indian_mf'   || segment === 'us_mf')    return data.xirr_mf
     return data.xirr_total
   }, [data, portfolio, segment])
+
+  const filteredSummaryXirr = useMemo(() => {
+    if (!data) return null
+    const isCumulative = !!segment && viewMode === 'cumulative'
+    const targetRows =
+      holdingFilter === 'closed' ? closedRows :
+      holdingFilter === 'open'   ? rows :
+      [...rows, ...closedRows]
+    if (targetRows.length === 0) return null
+    const today = new Date()
+    const cfs: { date: Date; amount: number }[] = []
+    for (const row of targetRows) {
+      const rowPorts = (isCumulative && row.key.startsWith('closed:')) ? new Set(row.portfolios) : filtPorts
+      const txns = data.transactions.filter(t =>
+        isCumulative
+          ? t.symbol === row.navSym && rowPorts.has(t.portfolio)
+          : t.symbol === row.navSym && t.portfolio === row.navPort,
+      )
+      for (const tx of txns) {
+        if (tx.type === 'DIVIDEND') continue
+        const isUsd = USD_PORTS.has(tx.portfolio)
+        const fx = isUsd
+          ? (currency === 'INR' ? data.usd_inr : 1)
+          : (currency === 'USD' ? 1 / data.usd_inr : 1)
+        const amt = tx.quantity * tx.price * fx
+        const chg = (tx.charges ?? 0) * fx
+        if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
+        if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
+      }
+      if (row.current > 0) cfs.push({ date: today, amount: row.current })
+    }
+    const r = computeXIRR(cfs)
+    return r !== null ? r * 100 : null
+  }, [holdingFilter, data, closedRows, rows, filtPorts, segment, viewMode, currency])
 
   const { series: portSeries, isLoading: histLoading, loadedCount, totalCount } = usePortfolioHistory(
     filteredHoldings,
@@ -405,21 +471,91 @@ export default function HoldingsPage({ currency }: Props) {
 
   return (
     <div className="max-w-xl mx-auto px-4 py-4">
-      {/* Back */}
-      <button onClick={() => navigate('/')} className="text-[11px] text-[#2563eb] mb-3">
-        {backLabel}
-      </button>
+      {/* Back + Settings */}
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={() => navigate('/')} className="text-[11px] text-[#2563eb]">
+          {backLabel}
+        </button>
+        <div className="relative">
+          <button
+            onClick={() => setSettingsOpen(o => !o)}
+            className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors ${settingsOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-400 active:bg-slate-100'}`}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
+          {settingsOpen && (
+            <>
+              <div className="fixed inset-0 z-[9]" onClick={() => setSettingsOpen(false)} />
+              <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-10 p-3 min-w-[190px]">
+                {/* Row 1: Open / Closed / All */}
+                <p className="text-[8px] text-slate-400 uppercase tracking-widest mb-1.5">Status</p>
+                <div className="relative flex bg-slate-100 rounded-full p-[2px] mb-3">
+                  <div
+                    className="absolute top-[2px] bottom-[2px] w-1/3 rounded-full bg-white shadow-sm transition-transform duration-150"
+                    style={{ transform: `translateX(${holdingFilter === 'open' ? '0%' : holdingFilter === 'closed' ? '100%' : '200%'})` }}
+                  />
+                  {(['open', 'closed', 'all'] as const).map(v => (
+                    <button
+                      key={v}
+                      onClick={() => setHoldingFilter(v)}
+                      className={`relative z-10 flex-1 text-[9px] py-[4px] capitalize transition-colors ${holdingFilter === v ? 'text-slate-700 font-semibold' : 'text-slate-400'}`}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+                {/* Show Closed toggle — All filter only */}
+                {holdingFilter === 'all' && (
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[8px] text-slate-400 uppercase tracking-widest">Show Closed</p>
+                    <button
+                      onClick={() => setShowClosed(v => !v)}
+                      className={`relative w-8 h-4 rounded-full transition-colors duration-150 ${showClosed ? 'bg-[#2563eb]' : 'bg-slate-200'}`}
+                    >
+                      <span className={`absolute top-[2px] w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-150 ${showClosed ? 'translate-x-[18px]' : 'translate-x-[2px]'}`} />
+                    </button>
+                  </div>
+                )}
+                {/* Row 2: Grouped / Standalone — segment views only */}
+                {segment && (
+                  <>
+                    <p className="text-[8px] text-slate-400 uppercase tracking-widest mb-1.5">View</p>
+                    <div className="relative flex bg-slate-100 rounded-full p-[2px]">
+                      <div
+                        className="absolute top-[2px] bottom-[2px] w-1/2 rounded-full bg-white shadow-sm transition-transform duration-150"
+                        style={{ transform: `translateX(${viewMode === 'standalone' ? '100%' : '0%'})` }}
+                      />
+                      {(['cumulative', 'standalone'] as const).map(m => (
+                        <button
+                          key={m}
+                          onClick={() => setViewMode(m)}
+                          className={`relative z-10 flex-1 text-[9px] py-[4px] transition-colors ${viewMode === m ? 'text-slate-700 font-semibold' : 'text-slate-400'}`}
+                        >
+                          {m === 'cumulative' ? 'Grouped' : 'Standalone'}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
 
       {/* Summary card */}
       <SummaryCard
         label={label}
-        current={summaryStats.cur}
-        invested={summaryStats.inv}
-        realGain={summaryStats.realGain}
-        realCost={summaryStats.realCost}
-        todayGain={summaryStats.tg || null}
-        todayPct={summaryStats.todayPct}
-        xirr={summaryXirr}
+        current={displayStats.cur}
+        invested={displayStats.inv}
+        realGain={displayStats.realGain}
+        realCost={displayStats.realCost}
+        todayGain={displayStats.tg || null}
+        todayPct={displayStats.todayPct}
+        xirr={filteredSummaryXirr}
         currency={currency}
       />
 
@@ -443,44 +579,6 @@ export default function HoldingsPage({ currency }: Props) {
       {/* ── Holdings tab ── */}
       {activeTab === 'holdings' && (
         <>
-          <div className="flex items-center justify-between mb-2.5">
-            {/* Grouped / Each slider — segment views only */}
-            {segment ? (
-              <div className="relative flex bg-slate-100 rounded-full p-[2px]">
-                <div
-                  className="absolute top-[2px] bottom-[2px] w-1/2 rounded-full bg-white shadow-sm transition-transform duration-150"
-                  style={{ transform: `translateX(${viewMode === 'standalone' ? '100%' : '0%'})` }}
-                />
-                {(['cumulative', 'standalone'] as const).map(m => (
-                  <button
-                    key={m}
-                    onClick={() => setViewMode(m)}
-                    className={`relative z-10 text-[9px] px-2.5 py-[3px] transition-colors ${viewMode === m ? 'text-slate-700 font-semibold' : 'text-slate-400'}`}
-                  >
-                    {m === 'cumulative' ? 'Grouped' : 'Each'}
-                  </button>
-                ))}
-              </div>
-            ) : <div />}
-
-            {/* Open / Closed / All slider */}
-            <div className="relative flex bg-slate-100 rounded-full p-[2px]">
-              <div
-                className="absolute top-[2px] bottom-[2px] w-1/3 rounded-full bg-white shadow-sm transition-transform duration-150"
-                style={{ transform: `translateX(${holdingFilter === 'open' ? '0%' : holdingFilter === 'closed' ? '100%' : '200%'})` }}
-              />
-              {(['open', 'closed', 'all'] as const).map(v => (
-                <button
-                  key={v}
-                  onClick={() => setHoldingFilter(v)}
-                  className={`relative z-10 text-[9px] px-2.5 py-[3px] capitalize transition-colors ${holdingFilter === v ? 'text-slate-700 font-semibold' : 'text-slate-400'}`}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Count + sort */}
           <div className="flex items-center justify-between mb-2">
             <p className="text-[9px] text-slate-400">
@@ -535,7 +633,10 @@ export default function HoldingsPage({ currency }: Props) {
                 ltp={r.ltp}
                 xirr={xirrMap.get(r.key) ?? null}
                 currency={currency}
-                onClick={() => navigate(`/transactions/${encodeURIComponent(r.navPort)}/${encodeURIComponent(r.navSym)}`, { state: { from: label, portfolios: r.portfolios } })}
+                onClick={() => {
+                  sessionStorage.setItem(`holdingsScroll:${location.pathname}`, String(window.scrollY))
+                  navigate(`/transactions/${encodeURIComponent(r.navPort)}/${encodeURIComponent(r.navSym)}`, { state: { from: label, portfolios: r.portfolios } })
+                }}
               />
             ))}
           </div>
