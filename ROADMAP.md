@@ -33,6 +33,8 @@
 
 | Item | Completed |
 |------|-----------|
+| Allocation sub-tab: removed stacked bar; deduplicated holdings via buildRows; 5-column expanded layout (Holding / # / Alloc % / Value / XIRR / Today) | 2026-05-27 |
+| Benchmarking sub-tab: visual redesign to match allocation (name row + colored XIRR bar, vs X% inline, no alpha column in rows); useBenchmarkXirr USD_BENCH_SYMS fix for MON100 alpha; colored tab pills (Holdings/Charts/Analysis + Allocation/Benchmarking) | 2026-05-27 |
 | Analysis tab on HoldingsPage — Allocation (stacked bar + sector rows) + Benchmarking (sector XIRR vs transaction-matched composite benchmark; collapsible sector rows; per-holding XIRR vs own-date-simulated benchmark; sectors.ts + useBenchmarkXirr.ts) | 2026-05-27 |
 | Portfolio bundle persisted to localStorage — instant reopen after swipe-up, stale-while-revalidate | 2026-05-27 |
 | All charts default range = 1y | 2026-05-27 |

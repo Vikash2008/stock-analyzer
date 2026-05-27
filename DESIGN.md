@@ -140,22 +140,32 @@ DATE    BUY/SELL/DIV    QTY @ PRICE    VALUE
 - Sort control (top-right of list): Current Value | Invested | Daily Gain | Daily Gain % | Total Gain | Total Gain % | XIRR — tap again to toggle ↑/↓; default Current Value ↓
 - List of HoldingCards, tappable; each shows XIRR computed client-side
 - Closed holdings (no open position): current=0, Total G/L = realized P&L, XIRR from BUY+SELL cashflows only (no terminal value)
-- **3 tabs**: Holdings | Charts | Analysis
+- **3 tabs**: Holdings | Charts | Analysis — each tab a colored pill (Holdings=blue, Charts=emerald, Analysis=violet)
+- Analysis sub-tabs: Allocation (amber pill) | Benchmarking (sky pill)
 
 ### Analysis Tab (HoldingsPage)
 
 Two sub-tabs: **Allocation** and **Benchmarking**
 
 #### Allocation sub-tab
-- Stacked color bar showing sector proportions (full-width)
-- Sorted sector rows: color dot | sector name | count | mini progress bar | % | compact value
+- **No** stacked color bar (removed — was visually noisy)
+- Collapsible sector rows: sector name | count | alloc% | compact value | alloc bar (colored) | ▼/▲
+- Expanded holdings: column header row (`Holding | # | Alloc | Value | XIRR | Today`) + one row per unique symbol
+  - Deduplication: uses `rows` (buildRows cumulative output) so each symbol appears once even if held in multiple portfolios
+  - `#` = count of portfolios holding that symbol
+  - `Alloc` = holding's current value as % of total portfolio value
+  - `Value` = fmtCompact current value
+  - `XIRR` = xirrMap.get(r.key) — colored green/red
+  - `Today` = todayPct — colored green/red
+  - All numeric columns: fixed-width (`w-[34px]`, `w-[48px]`, `w-[38px]`), `whitespace-nowrap`, `text-right`
 
 #### Benchmarking sub-tab
-- **Overall card**: Your XIRR | Alpha | Benchmark XIRR (composite — naturally weighted by capital deployed per sector)
-- **By Sector** collapsible rows (tap to expand):
-  - Collapsed: color dot | sector name | count | actual XIRR | vs | benchmark label + XIRR | alpha | ▼/▲
-  - Expanded sub-header: Stock | XIRR | Index | Alpha
-  - Expanded rows: holding name + ticker | individual XIRR | per-holding benchmark XIRR | alpha
+- **Overall card** (`bg-slate-50 rounded-lg border border-slate-100`): 3-col grid — Your XIRR | Benchmark | Alpha
+- **By Sector** collapsible rows — same visual language as Allocation:
+  - Collapsed: sector name (left, `flex-1 truncate`) | count·benchmark label | `vs X%` bench XIRR | colored XIRR% | ▼/▲; then `h-1.5` colored XIRR bar below
+  - Expanded rows (no column header): holding name+ticker | `vs X%` bench XIRR | colored XIRR% | spacer; then `h-1` colored mini bar
+  - Bar color = `SECTOR_COLOR[sector]`; bar width = `actualXirr / maxXirr * 100%` (maxXirr = max absolute XIRR across all sectors)
+  - No alpha column in sector or holding rows
 - **Benchmark method (Option B — transaction-matched composite)**:
   - For each BUY transaction, simulate buying the sector's benchmark index with the same cash amount
   - Track units held; on SELL, proportionally reduce benchmark units
@@ -234,6 +244,51 @@ All cards (Hero, Stocks/MF tiles, BreakCards, HoldingCard, SummaryCard) show:
 - `Total` label (`text-[9px] text-slate-400`) + total gain value (`text-[10px]` colored)
 - Gain values use `fmtCompactGainLine` — compact format: ₹23.4K, ₹1.2L, ₹2.3Cr (no full number below 1K)
 - Hero card gain values are `text-[10px]` matching all other cards
+
+---
+
+## Card Metric Alignment Rules (Recurring — Enforce on Every Card)
+
+These rules apply any time a metric (XIRR, Alpha, Today Gain, Current Value, etc.) is placed on a card row. Violations cause columns to misalign or overflow — this has happened repeatedly and must be caught before shipping.
+
+### Rules
+
+1. **Fixed columns, not fluid text.** Use CSS Grid or `flex` with explicit `min-w-0` + `shrink-0`. Never let a numeric column's width float with its content.
+
+2. **Cross-row alignment.** When the same metric appears on multiple rows of the same list (e.g. all sector rows, all stock rows), all rows must share the same grid template applied at the *list container* level — not per-row. This ensures columns line up vertically.
+
+3. **No wrapping.** Every metric cell must have `whitespace-nowrap`. Use `overflow-hidden text-ellipsis` (or Tailwind `truncate`) on text cells that might be long (company names, sector names).
+
+4. **Right-aligned numerics.** Numeric columns (XIRR %, Alpha, gains) must be `text-right` with a fixed or minimum width (`min-w-[Xch]` or `w-[Xrem]`) so the decimal points and signs align vertically across rows.
+
+5. **Three-level alignment in Analysis → Benchmarking.** Overall card / sector rows (collapsed) / stock rows (expanded) all display XIRR + Alpha. The XIRR and Alpha columns must have the same right-edge offset at each level so the eye can scan the column vertically.
+
+### Implementation Patterns
+
+```tsx
+// Sector row (collapsed) — fixed-width numeric tail
+<div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 items-center">
+  <span className="truncate">Sector Name</span>
+  <span className="w-[6ch] text-right whitespace-nowrap">XIRR%</span>
+  <span className="w-[2ch] text-center text-slate-400">vs</span>
+  <span className="w-[5ch] text-right whitespace-nowrap">α</span>
+</div>
+
+// Expanded stock row — same tail widths as sector row
+<div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 items-center">
+  <span className="truncate">Stock Name · TICKER</span>
+  <span className="w-[6ch] text-right whitespace-nowrap">XIRR%</span>
+  <span className="w-[6ch] text-right text-slate-400 whitespace-nowrap">Bench%</span>
+  <span className="w-[5ch] text-right whitespace-nowrap">α</span>
+</div>
+```
+
+### Checklist Before Shipping Any Card Change
+
+- [ ] Does every row use a grid or fixed-flex layout (not raw `flex` with auto-width children)?
+- [ ] Is `whitespace-nowrap` on every numeric span?
+- [ ] Do the column widths match across all rows of the same list?
+- [ ] Tested at 360–412px viewport width without horizontal scroll?
 
 ---
 
