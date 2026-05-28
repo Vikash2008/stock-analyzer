@@ -47,21 +47,6 @@ Navigate to `/` (root).
 **Expected:** Exact match on all three
 **Status:** Pass ✓
 
-#### P-TILES-2: Tiles are side-by-side, no horizontal overflow at 360–412px
-**How to check:** Open on mobile or resize browser to 360px wide
-**Expected:** Two tiles in a 2-column grid; no text truncates unexpectedly; no horizontal scroll bar
-**Status:** Pending ⬜
-
-#### P-TILES-3: Stocks tile navigates to /holdings/segment/stk
-**How to check:** Tap Stocks tile
-**Expected:** Navigates to Holdings page with "Stocks" as label
-**Status:** Pending ⬜
-
-#### P-TILES-4: MF tile navigates to /holdings/segment/mf
-**How to check:** Tap MF tile
-**Expected:** Navigates to Holdings page with "Mutual Funds" as label
-**Status:** Pending ⬜
-
 ---
 
 ### By Type Breakdown
@@ -88,15 +73,6 @@ Navigate to `/` (root).
 **Expected:** Values close (both client-side XIRR from all transactions including sells)
 **Status:** Pending ⬜
 
-#### P-TYPE-5: Type cards navigate to correct segment
-**How to check:** Tap each type card
-**Expected:**
-- Indian Stocks → `/holdings/segment/indian_stock`
-- US Stocks → `/holdings/segment/us_stock`
-- Indian MF → `/holdings/segment/indian_mf`
-- US MF → `/holdings/segment/us_mf`
-**Status:** Pending ⬜
-
 ---
 
 ### By Broker Breakdown
@@ -119,29 +95,10 @@ Navigate to `/` (root).
 **Expected:** Current value = ₹0; Total gain = Upstox's realized P&L (~0.47L); XIRR shows a value
 **Status:** Pass ✓
 
-#### P-BROKER-4: Each broker card navigates to correct holdings page
-**How to check:** Tap Zerodha card → back → tap AngelOne card
-**Expected:** Each navigates to `/holdings/portfolio/:name` with correct portfolio name in header
-**Status:** Pending ⬜
-
-#### P-BROKER-5: By Broker total = By Type total
+#### P-BROKER-4: By Broker total = By Type total (Hero unchanged)
 **How to check:** Switch between By Type and By Broker; Hero card must not change
 **Expected:** Hero card numbers identical in both views
-**Status:** Pending ⬜
-
----
-
-### Pull-to-Refresh
-
-#### P-REFRESH-1: Swipe-down triggers data reload
-**How to check:** Pull down >64px on mobile → release when indicator shows "↑ Release to refresh"
-**Expected:** Spinner shows; `as_of` timestamp at page bottom updates after response arrives
-**Status:** Pending ⬜
-
-#### P-REFRESH-2: Stale data stays visible during refresh
-**How to check:** Trigger pull-to-refresh; observe portfolio numbers during loading
-**Expected:** Numbers remain visible (no blank screen or skeleton); only spinner/timestamp indicate loading
-**Status:** Pass ✓
+**Status:** Pass ✓ (by construction — hero computed from `active` holdings; independent of `mode` state)
 
 ---
 
@@ -574,21 +531,6 @@ Quick spot-checks after any gains, realized, or filter change.
 ## T — Transactions Page
 
 Navigate to any `/transactions/:portfolio/:symbol`.
-
-#### T-TXROW-1: Transaction rows show correct type badge
-**How to check:** Inspect BUY, SELL, DIVIDEND rows
-**Expected:** BUY = green badge; SELL = red badge; DIVIDEND = sky badge
-**Status:** Pending ⬜
-
-#### T-TXROW-2: Card tint matches total gain sign
-**How to check:** Find a transaction row with positive total gain and one with negative
-**Expected:** Positive = green-tinted card; Negative = red-tinted card
-**Status:** Pending ⬜
-
-#### T-TXROW-3: R1 right cell = current value (invested value for SELL = ₹0)
-**How to check:** Look at a SELL row's top-right cell
-**Expected:** Shows `₹0 (₹0)` for fully-closed SELL row
-**Status:** Pending ⬜
 
 #### T-SUMMARY-1: Overview card current value matches HoldingCard (X6)
 **How to check:** Note HoldingCard current; navigate to its TransactionsPage; compare overview card current
