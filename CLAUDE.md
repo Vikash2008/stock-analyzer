@@ -86,12 +86,71 @@ python validate.py -r   # force price refresh
 ## Critical Invariants
 
 1. **FIFO per portfolio** — `_run_fifo()` runs once per portfolio group; never mix portfolios before FIFO.
-2. **Equity is a duplicate** — aggregate of all other portfolios; exclude from XIRR via `SKIP_PORTS`.
-3. **USD portfolios** — `Vested`, `IndMoney US`, `IndMoney Mummy`; FX fallback ~95.5 (never 84.0 or 85.5).
-4. **classify.py** — single source of truth for `USD_PORTS`, `SKIP_PORTS`, `segment()`. Also ported to `frontend/src/utils/segments.ts`.
-5. **yf_symbol** — NSE: `.NS`, BSE: `.BO`, US: uppercase (e.g. `META` not `Meta`).
-6. **Single fetch on load** — all filtering (segment, portfolio) is client-side React state; no extra API calls on navigation.
-7. **CORS** — `ALLOWED_ORIGIN` env var on Render must match Vercel production URL exactly.
+2. **Equity is a duplicate** — aggregate of stock portfolios (Zerodha + AngelOne + Groww + IndMoney Ind + USD_PORTS); exclude from XIRR via `SKIP_PORTS`. Difference from sum ≤ 0.2 L (FX rounding).
+3. **MF_Portfolio is a duplicate** — aggregate of MF portfolios (MF_Vikash + MF_Mahak + others); also in `SKIP_PORTS`.
+4. **USD portfolios** — `Vested`, `IndMoney US`, `IndMoney Mummy`; FX fallback ~95.5 (never 84.0 or 85.5).
+5. **Indian stock portfolios** — `Zerodha`, `AngelOne`, `Groww`, `IndMoney Ind`; not in `USD_PORTS`; classify as `indian_stock`.
+6. **classify.py** — single source of truth for `USD_PORTS`, `SKIP_PORTS`, `segment()`. Also ported to `frontend/src/utils/segments.ts`.
+7. **yf_symbol** — NSE: `.NS`, BSE: `.BO`, US: uppercase (e.g. `META` not `Meta`).
+8. **Realized records use clean symbol** — `portfolio.py` stores `tx["symbol"]` (no `.NS`/`.BO`) in realized records; rmap keys are `portfolio:cleanSymbol`.
+9. **Single fetch on load** — all filtering (segment, portfolio) is client-side React state; no extra API calls on navigation.
+10. **CORS** — `ALLOWED_ORIGIN` env var on Render must match Vercel production URL exactly.
+11. **classifyClean vs getSegmentType** — both must agree for all known symbols; classifyClean uses clean symbol (`MON100`, `MAFANG`); getSegmentType uses yf_symbol (`MON100.NS`, `MAFANG.NS`). Keep `US_ETF_CLEAN` in sync with `US_ETF_SYMS`.
+
+---
+
+## Number Correctness Rules (verify after any gains/realized change)
+
+These rules must hold at all times. If any fails, there is a bug in aggregation logic.
+
+### Portfolio Page
+| Rule | Check |
+|------|-------|
+| P1 | Hero current = Stocks current + MF current |
+| P2 | Hero invested = Stocks invested + MF invested |
+| P3 | Hero totalGain = Stocks totalGain + MF totalGain |
+| P4 | Stocks totalGain = Indian Stocks + US Stocks |
+| P5 | MF totalGain = Indian MF + US MF |
+| P6 | Hero todayGain = sum of all holding.disp_today_gain (non-SKIP) |
+| P7 | By Broker: sum of all broker cards = Hero |
+| P8 | By Type: sum of all type cards = Hero |
+
+### Holdings Page
+| Rule | Check |
+|------|-------|
+| H1 | Summary current = sum of open HoldingCard current values |
+| H2 | Summary invested = sum of open HoldingCard invested values |
+| H3 | Summary todayGain = sum of HoldingCard todayGains |
+| H4 | Summary totalGain = unrealized + realizedGain |
+| H5 | open.totalGain + closed.totalGain = all.totalGain |
+| H6 | open.realized + closed.realized = all.realized |
+
+### Transactions Page
+| Rule | Check |
+|------|-------|
+| T1 | currentValue = qty × currentPrice (backend-computed) |
+| T2 | totalGain = (currentValue − invested) + realizedGain |
+| T3 | invested = avgCost × openQty (backend-computed) |
+
+### Cross-Page (most important — navigate and compare)
+| Rule | Check |
+|------|-------|
+| X1 | Hero totalGain = Holdings(/segment/total) summary totalGain |
+| X2 | Stocks tile totalGain = Holdings(/segment/stk) summary totalGain |
+| X3 | Indian Stocks card totalGain = Holdings(/segment/indian_stock) summary totalGain |
+| X4 | US Stocks card totalGain = Holdings(/segment/us_stock) summary totalGain |
+| X5 | HoldingCard totalGain = TransactionsPage summary totalGain |
+| X6 | HoldingCard currentValue = TransactionsPage currentValue |
+| X7 | HoldingCard todayGain = TransactionsPage todayGain |
+
+### Data Layer
+| Rule | Check |
+|------|-------|
+| D1 | `Equity` and `MF_Portfolio` excluded from every aggregation |
+| D2 | USD portfolio gains in INR = native value × `usd_inr` (never hardcoded FX) |
+| D3 | rmap keyed by `portfolio:cleanSymbol` (no `.NS`/`.BO`) — confirmed in `portfolio.py` |
+| D4 | `data.total_gain` = unrealized only; frontend adds realized on top for true total |
+| D5 | Equity.invested ≈ sum of non-SKIP non-Equity portfolios (tolerance ≤ 0.2 L) |
 
 ---
 
@@ -100,6 +159,7 @@ python validate.py -r   # force price refresh
 - USD/INR live rate: ~95.95
 - Zerodha invested: ₹37,09,666
 - Equity invested: ₹1,33,22,568
+- Hero invested (all non-SKIP): ~₹1,44,95,000 (Equity + MF_Vikash + MF_Mahak)
 
 ---
 

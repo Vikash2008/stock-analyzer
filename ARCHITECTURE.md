@@ -213,7 +213,7 @@ Keep-alive: GitHub Actions cron pings `/health` every 14 min to reduce cold star
 | `src/engine.py` | `build()` | Add new bundle fields |
 | `src/portfolio.py` | `_run_fifo()` | FIFO logic, realized_pnl |
 | `src/cache.py` | `Cache` | Change cache TTLs |
-| `frontend/src/pages/PortfoliosPage.tsx` | `PortfoliosPage` | Overview / hero card |
+| `frontend/src/pages/PortfoliosPage.tsx` | `PortfoliosPage`, `classifyClean()`, `typeCards()` | Overview / hero card; classifyClean = per-entry realized classifier by (portfolio, cleanSymbol) |
 | `frontend/src/pages/HoldingsPage.tsx` | `HoldingsPage` | Holdings list + sort + XIRR |
 | `frontend/src/pages/TransactionsPage.tsx` | `TransactionsPage` | Tx list + 8-metric charts |
 | `frontend/src/utils/segments.ts` | `getSegmentType()` | Segment classification |

@@ -34,6 +34,9 @@
 
 | Item | Completed |
 |------|-----------|
+| Number correctness audit — 21 invariant rules (P1–P8, H1–H6, T1–T3, X1–X7, D1–D5) defined, audited, and documented in CLAUDE.md; all pass | 2026-05-29 |
+| classifyClean fix — PortfoliosPage stk/mf tiles and typeCards now use per-entry (portfolio, cleanSymbol) classification instead of portfolio-level realizedForPorts; fixes 5L double-count in Stocks breakdown (MON100/MAFANG in Zerodha) | 2026-05-29 |
+| Total segment realized = 0 fix — HoldingsPage segFilter for segment='total' now covers all 4 segment types; X1 cross-page invariant restored | 2026-05-29 |
 | Returns histogram "all sectors" fix — periodData uses portSeries.total (unrealized + cumulative realized); gains = total[end]−total[start]; sum of all year bars ≈ total P&L ≈ 68L; sector-specific views unchanged | 2026-05-28 |
 | Returns sub-tab on Analysis tab — Sector pills (All + per-sector colored), Year/Month toggle, Metric toggle (Return%/Gains/XIRR), year selector for month mode, per-period rows with colored value + bar; usePortfolioHistory now exposes symbolPriceMap for zero-cost sector series | 2026-05-28 |
 | By Holdings Concentration section — pie chart, Top 5/10/20 toggle, right-side coverage stat, legend with XIRR; accordion with other sections | 2026-05-28 |
