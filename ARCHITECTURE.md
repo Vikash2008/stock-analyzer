@@ -13,6 +13,7 @@
     keepalive.yml           GitHub Actions cron (*/14 * * * *) — pings /health to prevent Render cold start
 
 validate.py                 Terminal CLI (independent of backend)
+testcases.md                Manual test cases — Charts tab + Portfolios page invariants
 
 src/
   engine.py                 build(currency, force_refresh) → PortfolioBundle

@@ -34,6 +34,10 @@
 
 | Item | Completed |
 |------|-----------|
+| Upstox broker card fix — portfolioCards seeds agg from rmap for fully-closed portfolios; By Broker stock cards sum now matches Stocks tile (was off by 0.47L) | 2026-05-29 |
+| HoldingsPage filtRealized segment fix — Realized Gains chart endpoint matches Summary card for all segments; Upstox 0.47L realized now included | 2026-05-29 |
+| Return % chart formula fix (A6) — usePortfolioHistory tracks cumRealCost; returnPct = totalGain/(invested+realizedCost); gap was up to −53pp for MF | 2026-05-29 |
+| testcases.md — 10 manual test cases for Charts tab + Portfolios page broker/type invariants; includes expected values and known limitations | 2026-05-29 |
 | Number correctness audit — 21 invariant rules (P1–P8, H1–H6, T1–T3, X1–X7, D1–D5) defined, audited, and documented in CLAUDE.md; all pass | 2026-05-29 |
 | classifyClean fix — PortfoliosPage stk/mf tiles and typeCards now use per-entry (portfolio, cleanSymbol) classification instead of portfolio-level realizedForPorts; fixes 5L double-count in Stocks breakdown (MON100/MAFANG in Zerodha) | 2026-05-29 |
 | Total segment realized = 0 fix — HoldingsPage segFilter for segment='total' now covers all 4 segment types; X1 cross-page invariant restored | 2026-05-29 |
