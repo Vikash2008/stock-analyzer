@@ -182,7 +182,7 @@ export default function HoldingsPage({ currency }: Props) {
   const [expandedAllocSectors, setExpandedAllocSectors] = useState<Set<string>>(new Set())
   const [expandedMktCapBuckets, setExpandedMktCapBuckets] = useState<Set<string>>(new Set())
   const [sectorSectionOpen,   setSectorSectionOpen]   = useState(true)
-  const [mktCapSectionOpen,   setMktCapSectionOpen]   = useState(true)
+  const [mktCapSectionOpen,   setMktCapSectionOpen]   = useState(false)
   const [benchSectorSectionOpen, setBenchSectorSectionOpen] = useState(true)
   const qc = useQueryClient()
 
@@ -289,6 +289,68 @@ export default function HoldingsPage({ currency }: Props) {
     () => buildRows(filteredHoldings, realizedMap, 'cumulative', true),
     [filteredHoldings, realizedMap],
   )
+
+  const allocSectorXirrMap = useMemo(() => {
+    if (!data) return new Map<SectorKey, number | null>()
+    const symToYf = new Map(filteredHoldings.map(h => [h.symbol, h.yf_symbol]))
+    const today = new Date()
+    const sectorCfs = new Map<SectorKey, { date: Date; amount: number }[]>()
+    const sectorTerminal = new Map<SectorKey, number>()
+    for (const row of allocGroupedRows) {
+      const sector = getSectorForHolding(symToYf.get(row.navSym) ?? row.navSym)
+      const cfs = sectorCfs.get(sector) ?? []
+      for (const tx of data.transactions.filter(t => t.symbol === row.navSym && row.portfolios.includes(t.portfolio))) {
+        if (tx.type === 'DIVIDEND') continue
+        const isUsd = USD_PORTS.has(tx.portfolio)
+        const fx = isUsd ? (currency === 'INR' ? data.usd_inr : 1) : (currency === 'USD' ? 1 / data.usd_inr : 1)
+        const amt = tx.quantity * tx.price * fx
+        const chg = (tx.charges ?? 0) * fx
+        if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
+        if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
+      }
+      sectorCfs.set(sector, cfs)
+      if (row.current > 0) sectorTerminal.set(sector, (sectorTerminal.get(sector) ?? 0) + row.current)
+    }
+    const map = new Map<SectorKey, number | null>()
+    for (const [sector, cfs] of sectorCfs) {
+      const terminal = sectorTerminal.get(sector) ?? 0
+      if (terminal > 0) cfs.push({ date: today, amount: terminal })
+      const r = computeXIRR(cfs)
+      map.set(sector, r !== null ? r * 100 : null)
+    }
+    return map
+  }, [allocGroupedRows, filteredHoldings, data, currency])
+
+  const allocMktCapXirrMap = useMemo(() => {
+    if (!data) return new Map<MarketCapKey, number | null>()
+    const symToYf = new Map(filteredHoldings.map(h => [h.symbol, h.yf_symbol]))
+    const today = new Date()
+    const bucketCfs = new Map<MarketCapKey, { date: Date; amount: number }[]>()
+    const bucketTerminal = new Map<MarketCapKey, number>()
+    for (const row of allocGroupedRows) {
+      const bucket = getMarketCapForHolding(symToYf.get(row.navSym) ?? row.navSym)
+      const cfs = bucketCfs.get(bucket) ?? []
+      for (const tx of data.transactions.filter(t => t.symbol === row.navSym && row.portfolios.includes(t.portfolio))) {
+        if (tx.type === 'DIVIDEND') continue
+        const isUsd = USD_PORTS.has(tx.portfolio)
+        const fx = isUsd ? (currency === 'INR' ? data.usd_inr : 1) : (currency === 'USD' ? 1 / data.usd_inr : 1)
+        const amt = tx.quantity * tx.price * fx
+        const chg = (tx.charges ?? 0) * fx
+        if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
+        if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
+      }
+      bucketCfs.set(bucket, cfs)
+      if (row.current > 0) bucketTerminal.set(bucket, (bucketTerminal.get(bucket) ?? 0) + row.current)
+    }
+    const map = new Map<MarketCapKey, number | null>()
+    for (const [bucket, cfs] of bucketCfs) {
+      const terminal = bucketTerminal.get(bucket) ?? 0
+      if (terminal > 0) cfs.push({ date: today, amount: terminal })
+      const r = computeXIRR(cfs)
+      map.set(bucket, r !== null ? r * 100 : null)
+    }
+    return map
+  }, [allocGroupedRows, filteredHoldings, data, currency])
 
   const allocXirrMap = useMemo(() => {
     if (!data) return new Map<string, number | null>()
@@ -658,18 +720,18 @@ export default function HoldingsPage({ currency }: Props) {
       />
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-3">
+      <div className="flex gap-2">
         {(['holdings', 'charts', 'analysis'] as const).map(tab => {
           const colors = {
-            holdings: activeTab === tab ? 'bg-blue-50 text-blue-600' : 'text-slate-400',
-            charts:   activeTab === tab ? 'bg-emerald-50 text-emerald-600' : 'text-slate-400',
-            analysis: activeTab === tab ? 'bg-violet-50 text-violet-600' : 'text-slate-400',
+            holdings: activeTab === tab ? 'bg-blue-500 text-white' : 'text-slate-400',
+            charts:   activeTab === tab ? 'bg-emerald-500 text-white' : 'text-slate-400',
+            analysis: activeTab === tab ? 'bg-violet-500 text-white' : 'text-slate-400',
           }
           return (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`text-[11px] px-3 py-1 rounded-full capitalize font-medium transition-colors ${colors[tab]}`}
+              className={`text-[11px] px-3 py-1 rounded-full capitalize font-medium transition-colors relative ${colors[tab]} ${activeTab === tab ? 'mb-[-1px] z-10' : ''}`}
             >
               {tab}
             </button>
@@ -689,10 +751,11 @@ export default function HoldingsPage({ currency }: Props) {
           </button>
         )}
       </div>
+      <div className="mt-3 border border-slate-200 rounded-xl p-3">
 
       {/* ── Holdings tab ── */}
       {activeTab === 'holdings' && (
-        <>
+        <div className="p-3">
           {/* Count + sort */}
           <div className="flex items-center justify-between mb-2">
             <p className="text-[9px] text-slate-400">
@@ -754,12 +817,12 @@ export default function HoldingsPage({ currency }: Props) {
               />
             ))}
           </div>
-        </>
+        </div>
       )}
 
       {/* ── Charts tab ── */}
       {activeTab === 'charts' && (
-        <div>
+        <div className="p-3">
           {/* Metric selector */}
           <div
             className="flex gap-1.5 overflow-x-auto pb-2 mb-3"
@@ -771,7 +834,7 @@ export default function HoldingsPage({ currency }: Props) {
                 onClick={() => setChartMetric(m)}
                 className={`text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-colors ${
                   chartMetric === m
-                    ? 'bg-[#2563eb] text-white border-[#2563eb]'
+                    ? 'bg-emerald-500 text-white border-emerald-500'
                     : 'bg-white text-slate-500 border-slate-200'
                 }`}
               >
@@ -891,24 +954,25 @@ export default function HoldingsPage({ currency }: Props) {
 
       {/* ── Analysis tab ── */}
       {activeTab === 'analysis' && (
-        <div>
+        <div className="p-3">
           {/* Sub-tab bar */}
-          <div className="flex gap-2 mb-4">
-            {(['allocation', 'benchmarking'] as const).map(st => {
-              const colors = {
-                allocation:   analysisSubTab === st ? 'bg-amber-50 text-amber-600' : 'text-slate-400',
-                benchmarking: analysisSubTab === st ? 'bg-sky-50 text-sky-600' : 'text-slate-400',
-              }
-              return (
-                <button
-                  key={st}
-                  onClick={() => setAnalysisSubTab(st)}
-                  className={`text-[11px] px-3 py-1 rounded-full font-medium transition-colors whitespace-nowrap ${colors[st]}`}
-                >
-                  {st === 'allocation' ? 'Allocation' : 'Benchmarking'}
-                </button>
-              )
-            })}
+          <div
+            className="flex gap-1.5 overflow-x-auto pb-2 mb-3"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+          >
+            {(['allocation', 'benchmarking'] as const).map(st => (
+              <button
+                key={st}
+                onClick={() => setAnalysisSubTab(st)}
+                className={`text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-colors ${
+                  analysisSubTab === st
+                    ? st === 'allocation' ? 'bg-amber-500 text-white border-amber-500' : 'bg-sky-500 text-white border-sky-500'
+                    : 'bg-white text-slate-500 border-slate-200'
+                }`}
+              >
+                {st === 'allocation' ? 'Allocation' : 'Benchmarking'}
+              </button>
+            ))}
           </div>
 
           {analysisSubTab === 'allocation' && (
@@ -921,7 +985,7 @@ export default function HoldingsPage({ currency }: Props) {
                 return (
                   <div>
                     <div className="border border-slate-200 rounded-xl mb-3">
-                    <button className="flex items-center gap-1 w-full text-left text-[8px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5" onClick={() => setSectorSectionOpen(o => !o)}>
+                    <button className="flex items-center gap-1 w-full text-left text-[8px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5" onClick={() => { if (!sectorSectionOpen) setMktCapSectionOpen(false); setSectorSectionOpen(o => !o) }}>
                       By Sector <span className="text-[7px] text-slate-300 ml-0.5">{sectorSectionOpen ? '▲' : '▼'}</span>
                     </button>
                     {sectorSectionOpen && <div className="flex items-center gap-1.5 px-2 pb-1">
@@ -938,13 +1002,7 @@ export default function HoldingsPage({ currency }: Props) {
                         .filter(r => getSectorForHolding(symToYf.get(r.navSym) ?? r.navSym) === s.name)
                         .sort((a, b) => b.current - a.current)
 
-                      // Sector XIRR — weighted average by current value
-                      let sXirrNum = 0, sXirrDen = 0
-                      for (const r of sectorAllocRows) {
-                        const x = allocXirrMap.get(r.key) ?? null
-                        if (x !== null && r.current > 0) { sXirrNum += x * r.current; sXirrDen += r.current }
-                      }
-                      const sXirr = sXirrDen > 0 ? sXirrNum / sXirrDen : null
+                      const sXirr = allocSectorXirrMap.get(s.name) ?? null
 
                       // Sector today gain
                       const hasTodayData = sectorAllocRows.some(r => r.todayGain !== null)
@@ -1015,7 +1073,7 @@ export default function HoldingsPage({ currency }: Props) {
                     })}
                     </div>
                     <div className="border border-slate-200 rounded-xl">
-                    <button className="flex items-center gap-1 w-full text-left text-[8px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5" onClick={() => setMktCapSectionOpen(o => !o)}>
+                    <button className="flex items-center gap-1 w-full text-left text-[8px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5" onClick={() => { if (!mktCapSectionOpen) setSectorSectionOpen(false); setMktCapSectionOpen(o => !o) }}>
                       By Market Cap <span className="text-[7px] text-slate-300 ml-0.5">{mktCapSectionOpen ? '▲' : '▼'}</span>
                     </button>
                     {mktCapSectionOpen && <div className="flex items-center gap-1.5 px-2 pb-1">
@@ -1032,12 +1090,7 @@ export default function HoldingsPage({ currency }: Props) {
                         .filter(r => getMarketCapForHolding(symToYf.get(r.navSym) ?? r.navSym) === b.name)
                         .sort((x, y) => y.current - x.current)
 
-                      let sXirrNum = 0, sXirrDen = 0
-                      for (const r of bucketAllocRows) {
-                        const x = allocXirrMap.get(r.key) ?? null
-                        if (x !== null && r.current > 0) { sXirrNum += x * r.current; sXirrDen += r.current }
-                      }
-                      const sXirr = sXirrDen > 0 ? sXirrNum / sXirrDen : null
+                      const sXirr = allocMktCapXirrMap.get(b.name) ?? null
 
                       const hasTodayData = bucketAllocRows.some(r => r.todayGain !== null)
                       const sTodayGain = hasTodayData
@@ -1256,6 +1309,7 @@ export default function HoldingsPage({ currency }: Props) {
           )}
         </div>
       )}
+      </div>
     </div>
   )
 }
