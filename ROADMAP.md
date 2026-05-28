@@ -33,6 +33,7 @@
 
 | Item | Completed |
 |------|-----------|
+| Benchmarking sub-tab redesign — allocation-style layout; green overall card; bordered collapsible "By Sector" section; columns XIRR / Index (XIRR) / Alpha; centered alpha bar (green right / red left); per-holding alpha computed and displayed | 2026-05-28 |
 | Allocation sub-tab — collapsible By Sector / By Market Cap sections with bordered wrappers; section labels aligned to card content; tappable ▲/▼ toggle headers | 2026-05-27 |
 | Market cap bucket reclassification — ETF/MF bucket removed; 4 buckets (Large/Mid/Small/US); small cap funds + SBI Contra → Small Cap; US-tracking ETFs/MFs → US Stocks; ELSS/ITBEES/digital India → Large Cap | 2026-05-27 |
 | Allocation sub-tab: removed stacked bar; deduplicated holdings via buildRows; 5-column expanded layout (Holding / # / Alloc % / Value / XIRR / Today) | 2026-05-27 |
