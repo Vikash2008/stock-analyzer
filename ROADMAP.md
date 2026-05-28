@@ -33,6 +33,10 @@
 
 | Item | Completed |
 |------|-----------|
+| Allocation accordion — By Sector open default, By Market Cap collapsed; accordion (open one closes other) | 2026-05-28 |
+| Solid tab colors — Holdings/Charts/Analysis solid fill; Allocation=amber, Benchmarking=sky pill buttons; chart pills=emerald | 2026-05-28 |
+| Sector/MktCap XIRR fix — pooled cashflows (allocSectorXirrMap + allocMktCapXirrMap); was weighted avg giving inflated ~94% | 2026-05-28 |
+| Tab content border — active tab content in subtle rounded border card | 2026-05-28 |
 | Benchmarking sub-tab redesign — allocation-style layout; green overall card; bordered collapsible "By Sector" section; columns XIRR / Index (XIRR) / Alpha; centered alpha bar (green right / red left); per-holding alpha computed and displayed | 2026-05-28 |
 | Allocation sub-tab — collapsible By Sector / By Market Cap sections with bordered wrappers; section labels aligned to card content; tappable ▲/▼ toggle headers | 2026-05-27 |
 | Market cap bucket reclassification — ETF/MF bucket removed; 4 buckets (Large/Mid/Small/US); small cap funds + SBI Contra → Small Cap; US-tracking ETFs/MFs → US Stocks; ELSS/ITBEES/digital India → Large Cap | 2026-05-27 |

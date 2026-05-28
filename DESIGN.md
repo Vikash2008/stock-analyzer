@@ -470,3 +470,8 @@ Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone
 | 2026-05-27 | Benchmarking column order | Columns: Sector Name \| XIRR \| Index (XIRR) \| Alpha; "Index (XIRR)" is a merged column showing "BENCHMARK_LABEL (benchXirr%)" in one cell (w-[86px] overflow-hidden); Alpha colored green/red |
 | 2026-05-27 | Benchmarking — centered alpha bar | Zero-centered bar (h-1.5 sector rows, h-1 holding rows); green extends right for positive alpha, red extends left for negative; width = |alpha| / maxAlpha × 50%; center divider line at 50%; holding rows restructured to div wrapper to accommodate bar below flex row |
 | 2026-05-27 | Benchmarking holding rows — per-holding alpha | Alpha computed as hXirr − hBenchX per holding row; shows same benchmark label as parent sector in merged Index (XIRR) cell |
+| 2026-05-28 | Allocation accordion sections | By Sector open by default, By Market Cap collapsed; opening one collapses the other (accordion pattern) |
+| 2026-05-28 | Solid tab colors on HoldingsPage | Holdings=bg-blue-500, Charts=bg-emerald-500, Analysis=bg-violet-500 (was light bg-*-50); chart metric pills=emerald-500; Allocation=amber-500, Benchmarking=sky-500 |
+| 2026-05-28 | Allocation/Benchmarking as metric-pill style buttons | Same scrollable pill pattern as chart metric buttons (border, bg-white inactive / colored active) |
+| 2026-05-28 | Sector/MktCap XIRR — pooled cashflows fix | allocSectorXirrMap + allocMktCapXirrMap useMemos compute XIRR from combined cashflows; was weighted average of per-holding XIRRs (mathematically incorrect, gave inflated ~94%) |
+| 2026-05-28 | Content border on HoldingsPage tabs | Active tab content wrapped in border border-slate-200 rounded-xl p-3; tab row sits above outside the border |
