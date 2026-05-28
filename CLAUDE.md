@@ -15,6 +15,7 @@
 3. **If stuck for more than ~30 seconds, ask.** Do not keep thinking in circles — ask one focused question and wait for the answer.
 4. **Use context, not files.** Work from what is already in context. Do not read files to "confirm" things already known from this session.
 5. **All files read in a session stay in context.** Never re-read a file already read this session — cache aggressively, save time.
+6. **Ask clarifying questions before complex or repeated tasks.** If a task is ambiguous, touches data logic, or has already failed once — stop and ask focused questions BEFORE writing code. Do not attempt the same approach repeatedly. Two failed attempts = mandatory clarification pause. Ask what the expected output is, what data is available, and what the user has already verified. This is non-negotiable.
 
 ---
 
