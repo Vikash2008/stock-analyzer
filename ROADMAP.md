@@ -33,6 +33,7 @@
 
 | Item | Completed |
 |------|-----------|
+| Returns sub-tab on Analysis tab — Sector pills (All + per-sector colored), Year/Month toggle, Metric toggle (Return%/Gains/XIRR), year selector for month mode, per-period rows with colored value + bar; usePortfolioHistory now exposes symbolPriceMap for zero-cost sector series | 2026-05-28 |
 | By Holdings Concentration section — pie chart, Top 5/10/20 toggle, right-side coverage stat, legend with XIRR; accordion with other sections | 2026-05-28 |
 | Benchmarking UI redesign — overall card inline label+value; Sector+XIRR merged column; Benchmark(XIRR) renamed; flex-1 equal columns; coverage stat aligned | 2026-05-28 |
 | Tab strips — sky-50 strip for Charts (metric pills + ↻), violet-50 strip for Analysis (sub-pills); outer border removed for all tabs | 2026-05-28 |
