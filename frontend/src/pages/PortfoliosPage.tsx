@@ -56,6 +56,13 @@ function portfolioCards(holdings: Holding[], rmap: RealizedMap): CardStats[] {
       todayGain: h.disp_today_gain !== null ? (p.todayGain ?? 0) + h.disp_today_gain : p.todayGain,
     })
   }
+  // Include fully-closed portfolios (realized gains exist but no open holdings)
+  for (const key of rmap.keys()) {
+    const port = key.slice(0, key.indexOf(':'))
+    if (!agg.has(port) && !SKIP_PORTS.has(port)) {
+      agg.set(port, { current: 0, invested: 0, todayGain: null })
+    }
+  }
   return [...agg.entries()].map(([name, v]) => {
     const [rg, rc] = realizedForPorts(rmap, new Set([name]))
     return {
@@ -68,6 +75,18 @@ function portfolioCards(holdings: Holding[], rmap: RealizedMap): CardStats[] {
   }).sort((a, b) => b.current - a.current)
 }
 
+// Clean-symbol sets for realized-entry classification (rmap keys use clean symbol, not yf_symbol)
+const US_ETF_CLEAN = new Set(['MON100', 'MAFANG'])
+const US_MF_CLEAN  = new Set(['0P0001NCLP', '0P0001JMZB'])
+
+function classifyClean(portfolio: string, sym: string): string {
+  if (SKIP_PORTS.has(portfolio)) return 'skip'
+  if (USD_PORTS.has(portfolio))  return 'us_stock'
+  if (portfolio.startsWith('MF_')) return US_MF_CLEAN.has(sym) ? 'us_mf' : 'indian_mf'
+  if (US_ETF_CLEAN.has(sym))     return 'us_stock'
+  return 'indian_stock'
+}
+
 function typeCards(holdings: Holding[], rmap: RealizedMap): CardStats[] {
   return TYPE_SEGMENTS.map(({ key, label }) => {
     const hs = holdings.filter(h => getSegmentType(h.portfolio, h.yf_symbol) === key)
@@ -78,7 +97,15 @@ function typeCards(holdings: Holding[], rmap: RealizedMap): CardStats[] {
       invested += h.disp_invested
       if (h.disp_today_gain !== null) todayGain = (todayGain ?? 0) + h.disp_today_gain
     }
-    const [rg, rc] = realizedForPorts(rmap, new Set(hs.map(h => h.portfolio)))
+    // Classify each realized entry by (portfolio, cleanSymbol) to avoid double-counting
+    // portfolios that span multiple segment types (e.g. Zerodha holds Indian stocks + MON100/MAFANG)
+    let rg = 0, rc = 0
+    for (const [mapKey, [g, c]] of rmap) {
+      const ci   = mapKey.indexOf(':')
+      const port = mapKey.slice(0, ci)
+      const sym  = mapKey.slice(ci + 1)
+      if (classifyClean(port, sym) === key) { rg += g; rc += c }
+    }
     return { key, label, current, invested, realGain: rg, realCost: rc, todayGain, navPath: `/holdings/segment/${key}` }
   }).filter(Boolean) as CardStats[]
 }
@@ -185,7 +212,12 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     const cur = hs.reduce((s, h) => s + h.disp_current,  0)
     const inv = hs.reduce((s, h) => s + h.disp_invested, 0)
     const tg  = hs.reduce((s, h) => h.disp_today_gain !== null ? s + h.disp_today_gain : s, 0)
-    const [rg, rc] = realizedForPorts(rmap, new Set(hs.map(h => h.portfolio)))
+    let rg = 0, rc = 0
+    for (const [mapKey, [g, c]] of rmap) {
+      const ci  = mapKey.indexOf(':')
+      const seg = classifyClean(mapKey.slice(0, ci), mapKey.slice(ci + 1))
+      if (seg === 'indian_stock' || seg === 'us_stock') { rg += g; rc += c }
+    }
     const gain = (cur - inv) + rg
     const cost = inv + rc
     const prior = cur - tg
@@ -198,7 +230,12 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     const cur = hs.reduce((s, h) => s + h.disp_current,  0)
     const inv = hs.reduce((s, h) => s + h.disp_invested, 0)
     const tg  = hs.reduce((s, h) => h.disp_today_gain !== null ? s + h.disp_today_gain : s, 0)
-    const [rg, rc] = realizedForPorts(rmap, new Set(hs.map(h => h.portfolio)))
+    let rg = 0, rc = 0
+    for (const [mapKey, [g, c]] of rmap) {
+      const ci  = mapKey.indexOf(':')
+      const seg = classifyClean(mapKey.slice(0, ci), mapKey.slice(ci + 1))
+      if (seg === 'indian_mf' || seg === 'us_mf') { rg += g; rc += c }
+    }
     const gain = (cur - inv) + rg
     const cost = inv + rc
     const prior = cur - tg

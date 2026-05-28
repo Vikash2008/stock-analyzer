@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine,
   PieChart, Pie, Cell,
 } from 'recharts'
@@ -187,7 +187,7 @@ export default function HoldingsPage({ currency }: Props) {
   const [viewMode,    setViewMode]    = useState<'cumulative' | 'standalone'>('cumulative')
   const [holdingFilter, setHoldingFilter] = useState<'open' | 'closed' | 'all'>('all')
   const [activeTab,   setActiveTab]   = useState<'holdings' | 'charts' | 'analysis'>('holdings')
-  const [analysisSubTab, setAnalysisSubTab] = useState<'allocation' | 'benchmarking'>('allocation')
+  const [analysisSubTab, setAnalysisSubTab] = useState<'allocation' | 'benchmarking' | 'returns'>('allocation')
   const [chartMetric, setChartMetric] = useState<ChartMetric>('Portfolio Value')
   const [chartRange,  setChartRange]  = useState<ChartRange>('1y')
   const [sortField,   setSortField]   = useState<SortField>('current')
@@ -204,6 +204,11 @@ export default function HoldingsPage({ currency }: Props) {
   const [benchSectorSectionOpen, setBenchSectorSectionOpen] = useState(true)
   const [concentrationTop, setConcentrationTop] = useState<5 | 10 | 20>(10)
   const [concentrationSectionOpen, setConcentrationSectionOpen] = useState(false)
+  const [returnsMode,   setReturnsMode]   = useState<'year' | 'month'>('year')
+  const [returnsYear,   setReturnsYear]   = useState<number>(new Date().getFullYear())
+  const [returnsMetric, setReturnsMetric] = useState<'returnPct' | 'gains' | 'xirr'>('gains')
+  const [returnsSector, setReturnsSector] = useState<SectorKey | 'all'>('all')
+  const [returnsConfigOpen, setReturnsConfigOpen] = useState(false)
   const qc = useQueryClient()
 
   useEffect(() => {
@@ -274,8 +279,9 @@ export default function HoldingsPage({ currency }: Props) {
       for (const tx of data.transactions) symToYf.set(tx.symbol, tx.yf_symbol)
 
       const segFilter = new Set(
-        segment === 'stk' ? ['indian_stock', 'us_stock'] :
-        segment === 'mf'  ? ['indian_mf',   'us_mf']    :
+        segment === 'total' ? ['indian_stock', 'us_stock', 'indian_mf', 'us_mf'] :
+        segment === 'stk'   ? ['indian_stock', 'us_stock'] :
+        segment === 'mf'    ? ['indian_mf',   'us_mf']    :
         [segment],
       )
 
@@ -497,10 +503,24 @@ export default function HoldingsPage({ currency }: Props) {
     () => (data?.transactions ?? []).filter(t => filtPorts.has(t.portfolio)),
     [data, filtPorts],
   )
-  const filtRealized = useMemo(
-    () => (data?.realized ?? []).filter(r => filtPorts.has(r.portfolio)),
-    [data, filtPorts],
-  )
+  const filtRealized = useMemo(() => {
+    if (!data) return []
+    if (portfolio) return data.realized.filter(r => r.portfolio === portfolio)
+    if (!segment)  return data.realized.filter(r => filtPorts.has(r.portfolio))
+    const symToYf = new Map<string, string>()
+    for (const tx of data.transactions) symToYf.set(tx.symbol, tx.yf_symbol)
+    const segFilter = new Set(
+      segment === 'stk'   ? ['indian_stock', 'us_stock']                        :
+      segment === 'mf'    ? ['indian_mf',    'us_mf']                           :
+      segment === 'total' ? ['indian_stock', 'us_stock', 'indian_mf', 'us_mf'] :
+      [segment],
+    )
+    return data.realized.filter(r => {
+      if (SKIP_PORTS.has(r.portfolio)) return false
+      const yf = symToYf.get(r.symbol) ?? r.symbol
+      return segFilter.has(getSegmentType(r.portfolio, yf))
+    })
+  }, [data, filtPorts, segment, portfolio])
 
   const {
     sectors:           benchSectors,
@@ -611,7 +631,7 @@ export default function HoldingsPage({ currency }: Props) {
     return r !== null ? r * 100 : null
   }, [holdingFilter, data, closedRows, rows, filtPorts, segment, viewMode, currency])
 
-  const { series: portSeries, isLoading: histLoading, loadedCount, totalCount } = usePortfolioHistory(
+  const { series: portSeries, isLoading: histLoading, loadedCount, totalCount, symbolPriceMap } = usePortfolioHistory(
     filteredHoldings,
     filtTxns,
     filtRealized,
@@ -619,6 +639,189 @@ export default function HoldingsPage({ currency }: Props) {
     currency,
     !!data,
   )
+
+  // ── Returns tab: per-sector daily value series ──────────────────────────────
+  const sectorValueSeries = useMemo((): Map<SectorKey | 'all', Array<{ dateStr: string; value: number }>> => {
+    if (!symbolPriceMap.size || !filteredHoldings.length || !data) return new Map()
+    const usdInr  = data.usd_inr
+    const dateSet = new Set<string>()
+    for (const [, m] of symbolPriceMap) for (const dt of m.keys()) dateSet.add(dt)
+    const allDates = [...dateSet].sort()
+    if (!allDates.length) return new Map()
+    const qtyDelta   = new Map<string, Map<string, number>>()
+    const firstDateM = new Map<string, string>()
+    for (const tx of filtTxns) {
+      if (tx.type === 'DIVIDEND') continue
+      const delta   = tx.type === 'BUY' ? tx.quantity : -tx.quantity
+      const key     = `${tx.portfolio}:${tx.yf_symbol}`
+      const dateStr = tx.date.slice(0, 10)
+      if (!qtyDelta.has(key)) qtyDelta.set(key, new Map())
+      qtyDelta.get(key)!.set(dateStr, (qtyDelta.get(key)!.get(dateStr) ?? 0) + delta)
+      if (!firstDateM.has(key) || dateStr < firstDateM.get(key)!) firstDateM.set(key, dateStr)
+    }
+    const groups = new Map<SectorKey | 'all', Holding[]>()
+    groups.set('all', filteredHoldings)
+    for (const h of filteredHoldings) {
+      const s = getSectorForHolding(h.yf_symbol)
+      if (!groups.has(s)) groups.set(s, [])
+      groups.get(s)!.push(h)
+    }
+    const result = new Map<SectorKey | 'all', Array<{ dateStr: string; value: number }>>()
+    for (const [gk, gh] of groups) {
+      const valArr = new Array<number>(allDates.length).fill(0)
+      for (const h of gh) {
+        const pm     = symbolPriceMap.get(h.yf_symbol)
+        if (!pm?.size) continue
+        const key    = `${h.portfolio}:${h.yf_symbol}`
+        const deltas = qtyDelta.get(key) ?? new Map<string, number>()
+        const first  = firstDateM.get(key) ?? allDates[0]
+        const isUsd  = USD_PORTS.has(h.portfolio)
+        const fx     = isUsd ? (currency === 'INR' ? usdInr : 1) : (currency === 'USD' ? 1 / usdInr : 1)
+        let qty = 0, lastPx: number | null = null
+        for (let i = 0; i < allDates.length; i++) {
+          const d = allDates[i]
+          if (d < first) continue
+          const dlt = deltas.get(d)
+          if (dlt !== undefined) qty = Math.max(0, qty + dlt)
+          const px = pm.get(d)
+          if (px !== undefined) lastPx = px
+          if (lastPx === null || qty <= 0) continue
+          valArr[i] += lastPx * qty * fx
+        }
+      }
+      const si = valArr.findIndex(v => v > 0)
+      if (si < 0) continue
+      result.set(gk, allDates.slice(si).map((d, i) => ({ dateStr: d, value: valArr[si + i] })))
+    }
+    return result
+  }, [symbolPriceMap, filteredHoldings, filtTxns, data, currency])
+
+  const returnsSectors = useMemo((): SectorKey[] =>
+    ([...new Set(filteredHoldings.map(h => getSectorForHolding(h.yf_symbol)))].sort() as SectorKey[]),
+  [filteredHoldings])
+
+  const returnsAvailableYears = useMemo((): number[] => {
+    const s = sectorValueSeries.get(returnsSector) ?? []
+    const yrs = [...new Set(s.map(pt => parseInt(pt.dateStr.slice(0, 4), 10)))].sort()
+    return yrs.length ? yrs : [new Date().getFullYear()]
+  }, [sectorValueSeries, returnsSector])
+
+  const periodData = useMemo(() => {
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    const isAll = returnsSector === 'all'
+    const ps    = portSeries
+
+    // For "all sectors": use portSeries.total (unrealized + cumulative realized P&L).
+    // This correctly includes closed positions. Period gains = total[end] - total[start]
+    // — no netInvested subtraction needed because portSeries.total already excludes capital.
+    // Sum of all period gains ≈ current total P&L (unrealized + all realized).
+    const portPts = (isAll && ps)
+      ? ps.total.dates.map((d, i) => ({
+          dateStr:  d.toISOString().slice(0, 10),
+          total:    ps.total.values[i],
+          invested: ps.invested.values[i],
+          value:    ps.value.values[i],
+        }))
+      : null
+
+    const series = sectorValueSeries.get(returnsSector) ?? []
+    if (!data) return []
+    if (isAll ? !portPts?.length : !series.length) return []
+
+    const now            = new Date()
+    const currentYearStr = String(now.getFullYear())
+    const currentMoStr   = String(now.getMonth() + 1).padStart(2, '0')
+    const usdInrSnap     = data.usd_inr
+    const sectorTxns     = isAll
+      ? filtTxns
+      : filtTxns.filter(tx => getSectorForHolding(tx.yf_symbol) === returnsSector)
+
+    // Returns cumulative total-gains (isAll) or open-position value (sector) at or before cutoff
+    function lastValueAtOrBefore(cutoff: string): number {
+      if (portPts) { let v = 0; for (const pt of portPts) { if (pt.dateStr > cutoff) break; v = pt.total } return v }
+      let v = 0; for (const pt of series) { if (pt.dateStr > cutoff) break; v = pt.value } return v
+    }
+    // Invested capital at or before cutoff — denominator for returnPct in 'all' mode
+    function lastInvAtOrBefore(cutoff: string): number {
+      let v = 0; if (portPts) for (const pt of portPts) { if (pt.dateStr > cutoff) break; v = pt.invested } return v
+    }
+    // Open-holdings market value at or before cutoff — terminal value for XIRR in 'all' mode
+    function lastOpenValAtOrBefore(cutoff: string): number {
+      let v = 0; if (portPts) for (const pt of portPts) { if (pt.dateStr > cutoff) break; v = pt.value } return v
+    }
+    function netInvested(afterDate: string, upToDate: string): number {
+      let net = 0
+      for (const tx of sectorTxns) {
+        const d = tx.date.slice(0, 10)
+        if (d <= afterDate || d > upToDate || tx.type === 'DIVIDEND') continue
+        const isUsd = USD_PORTS.has(tx.portfolio)
+        const fx = isUsd ? (currency === 'INR' ? usdInrSnap : 1) : (currency === 'USD' ? 1 / usdInrSnap : 1)
+        const amt = tx.quantity * tx.price * fx
+        const chg = (tx.charges ?? 0) * fx
+        if (tx.type === 'BUY')  net += amt + chg
+        if (tx.type === 'SELL') net -= amt - chg
+      }
+      return net
+    }
+    function buildXirr(upTo: string, terminal: number): number | null {
+      const cfs: { date: Date; amount: number }[] = []
+      for (const tx of sectorTxns) {
+        if (tx.date.slice(0, 10) > upTo || tx.type === 'DIVIDEND') continue
+        const isUsd = USD_PORTS.has(tx.portfolio)
+        const fx    = isUsd ? (currency === 'INR' ? usdInrSnap : 1) : (currency === 'USD' ? 1 / usdInrSnap : 1)
+        const amt   = tx.quantity * tx.price * fx
+        const chg   = (tx.charges ?? 0) * fx
+        if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
+        if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount: amt - chg })
+      }
+      if (terminal > 0) cfs.push({ date: new Date(upTo), amount: terminal })
+      const r = computeXIRR(cfs)
+      return r !== null && isFinite(r) && r > -0.99 && r < 50 ? r * 100 : null
+    }
+
+    function computePeriod(endDate: string, prevEnd: string, label: string, isYtdMtd: boolean) {
+      const endV   = lastValueAtOrBefore(endDate)
+      const startV = lastValueAtOrBefore(prevEnd)
+      if (portPts) {
+        const gains    = endV - startV
+        const startInv = lastInvAtOrBefore(prevEnd)
+        return { label, returnPct: startInv > 0 ? gains / startInv * 100 : 0, gains, xirr: buildXirr(endDate, lastOpenValAtOrBefore(endDate)), isYtd: isYtdMtd }
+      }
+      const gains = endV - startV - netInvested(prevEnd, endDate)
+      return { label, returnPct: startV > 0 ? gains / startV * 100 : 0, gains, xirr: buildXirr(endDate, endV), isYtd: isYtdMtd }
+    }
+
+    const srcDates = portPts ? portPts.map(pt => pt.dateStr) : series.map(pt => pt.dateStr)
+
+    if (returnsMode === 'year') {
+      const yrMap = new Map<string, string[]>()
+      for (const d of srcDates) { const yr = d.slice(0, 4); if (!yrMap.has(yr)) yrMap.set(yr, []); yrMap.get(yr)!.push(d) }
+      return [...yrMap.keys()].sort().map(yr => {
+        const dates = yrMap.get(yr)!
+        return computePeriod(dates[dates.length - 1], `${parseInt(yr, 10) - 1}-12-31`, yr === currentYearStr ? `${yr} YTD` : yr, yr === currentYearStr)
+      })
+    } else {
+      const effYear   = returnsAvailableYears.includes(returnsYear) ? returnsYear : (returnsAvailableYears[returnsAvailableYears.length - 1] ?? returnsYear)
+      const yearStr   = String(effYear)
+      const yearDates = srcDates.filter(d => d.startsWith(yearStr))
+      if (!yearDates.length) return []
+      const moMap = new Map<string, string[]>()
+      for (const d of yearDates) { const mo = d.slice(5, 7); if (!moMap.has(mo)) moMap.set(mo, []); moMap.get(mo)!.push(d) }
+      return [...moMap.keys()].sort().map(mo => {
+        const dates   = moMap.get(mo)!
+        const moStart = new Date(`${yearStr}-${mo}-01`)
+        moStart.setDate(moStart.getDate() - 1)
+        const isMtd = yearStr === currentYearStr && mo === currentMoStr
+        return computePeriod(dates[dates.length - 1], moStart.toISOString().slice(0, 10), `${MONTHS[parseInt(mo, 10) - 1]}${isMtd ? ' MTD' : ''}`, isMtd)
+      })
+    }
+  }, [sectorValueSeries, returnsSector, returnsMode, returnsYear, returnsAvailableYears, filtTxns, data, currency, portSeries])
+
+  useEffect(() => {
+    if (returnsAvailableYears.length && !returnsAvailableYears.includes(returnsYear))
+      setReturnsYear(returnsAvailableYears[returnsAvailableYears.length - 1])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [returnsAvailableYears])
 
   const metricSeries = useMemo((): DatedSeries | null => {
     if (!portSeries) return null
@@ -807,25 +1010,26 @@ export default function HoldingsPage({ currency }: Props) {
           </button>
         </div>
       )}
-      {/* Analysis strip — sub-tab pills */}
+      {/* Analysis strip — segmented control + config gear */}
       {activeTab === 'analysis' && (
-        <div
-          className="flex gap-1.5 overflow-x-auto bg-violet-50 border border-violet-100 rounded-xl px-2.5 py-1.5 mt-2"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
-        >
-          {(['allocation', 'benchmarking'] as const).map(st => (
-            <button
-              key={st}
-              onClick={() => setAnalysisSubTab(st)}
-              className={`text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-colors ${
-                analysisSubTab === st
-                  ? st === 'allocation' ? 'bg-amber-500 text-white border-amber-500' : 'bg-sky-500 text-white border-sky-500'
-                  : 'bg-white text-slate-500 border-slate-200'
-              }`}
-            >
-              {st === 'allocation' ? 'Allocation' : 'Benchmarking'}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 bg-violet-50 border border-violet-100 rounded-xl px-2.5 py-1.5 mt-2">
+          <div className="flex gap-1.5 flex-1">
+            {(['allocation', 'benchmarking', 'returns'] as const).map(st => (
+              <button
+                key={st}
+                onClick={() => setAnalysisSubTab(st)}
+                className={`text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-colors ${
+                  analysisSubTab === st
+                    ? st === 'allocation' ? 'bg-amber-500 text-white border-amber-500'
+                      : st === 'benchmarking' ? 'bg-sky-500 text-white border-sky-500'
+                      : 'bg-green-500 text-white border-green-500'
+                    : 'bg-white text-slate-500 border-slate-200'
+                }`}
+              >
+                {st === 'allocation' ? 'Allocation' : st === 'benchmarking' ? 'Benchmarking' : 'Returns'}
+              </button>
+            ))}
+          </div>
         </div>
       )}
       <div className="mt-2">
@@ -833,6 +1037,48 @@ export default function HoldingsPage({ currency }: Props) {
       {/* ── Holdings tab ── */}
       {activeTab === 'holdings' && (
         <div className="p-3">
+          {/* Count + Sort */}
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] text-slate-400">
+              {holdingFilter === 'open'   ? `${rows.length} open` :
+               holdingFilter === 'closed' ? `${closedRows.length} closed` :
+               (rows.length && closedRows.length)
+                 ? `${rows.length} open · ${closedRows.length} closed`
+                 : rows.length ? `${rows.length} open` : `${closedRows.length} closed`}
+            </span>
+            <div className="relative">
+              <button
+                onClick={() => setSortOpen(o => !o)}
+                className="text-[10px] text-slate-400 flex items-center gap-1"
+              >
+                <span>{SORT_OPTIONS.find(o => o.field === sortField)?.label}</span>
+                <span>{sortDir === 'desc' ? '↓' : '↑'}</span>
+              </button>
+              {sortOpen && (
+                <>
+                  <div className="fixed inset-0 z-[9]" onClick={() => setSortOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-10 py-1 min-w-[140px]">
+                    {SORT_OPTIONS.map(opt => (
+                      <button
+                        key={opt.field}
+                        onClick={() => {
+                          if (sortField === opt.field) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+                          else { setSortField(opt.field); setSortDir('desc') }
+                          setSortOpen(false)
+                        }}
+                        className={`w-full text-left px-3 py-1.5 text-[10px] flex items-center justify-between ${
+                          sortField === opt.field ? 'text-[#2563eb] font-semibold' : 'text-slate-600'
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        {sortField === opt.field && <span>{sortDir === 'desc' ? '↓' : '↑'}</span>}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
           <div className="space-y-2">
             {sortedRows.map(r => (
               <HoldingCard
@@ -1224,6 +1470,148 @@ export default function HoldingsPage({ currency }: Props) {
                       )}
                     </div>
                   </div>
+                )
+              })()}
+            </div>
+          )}
+
+          {analysisSubTab === 'returns' && (
+            <div>
+              {histLoading ? (
+                <p className="text-center text-[11px] text-slate-400 py-6">Loading price history…</p>
+              ) : periodData.length === 0 ? (
+                <p className="text-center text-[11px] text-slate-400 py-6">No data for this selection.</p>
+              ) : (() => {
+                const histData = periodData.map(row => {
+                  const raw = returnsMetric === 'xirr' ? row.xirr : returnsMetric === 'gains' ? row.gains : row.returnPct
+                  return { label: row.label, value: raw ?? 0, isYtd: row.isYtd, raw }
+                })
+                const symToYfLocal = new Map(filteredHoldings.map(h => [h.symbol, h.yf_symbol]))
+                const summaryGains = periodData.reduce((s, r) => s + r.gains, 0)
+                const summaryLabel = returnsMode === 'year' ? 'by year' : String(returnsYear)
+                const fmtV = (v: number) =>
+                  returnsMetric === 'gains'
+                    ? `${v >= 0 ? '+' : '−'}${fmtCompact(Math.abs(v), currency)}`
+                    : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`
+                const metricLabel = returnsMetric === 'gains' ? 'Gains' : returnsMetric === 'xirr' ? 'XIRR' : 'Return'
+                const yTickFmtR = (v: number) =>
+                  returnsMetric === 'gains'
+                    ? (Math.abs(v) >= 1e7 ? `${(v/1e7).toFixed(1)}Cr` : Math.abs(v) >= 1e5 ? `${(v/1e5).toFixed(1)}L` : Math.abs(v) >= 1e3 ? `${(v/1e3).toFixed(0)}K` : String(v))
+                    : `${v.toFixed(0)}%`
+                return (
+                  <>
+                    {/* Summary line */}
+                    <div className="flex items-center mb-2">
+                      <span className={`text-[13px] font-bold ${summaryGains >= 0 ? 'text-green-600' : 'text-red-400'}`}>
+                        {`${summaryGains >= 0 ? '+' : '−'}${fmtCompact(Math.abs(summaryGains), currency)}`}
+                      </span>
+                      <span className="text-[9px] text-slate-400 ml-2 flex-1">
+                        {returnsSector === 'all' ? 'all sectors' : returnsSector} · {summaryLabel}
+                      </span>
+                      <div className="relative shrink-0">
+                        <button
+                          onClick={() => setReturnsConfigOpen(o => !o)}
+                          className={`w-6 h-6 flex items-center justify-center rounded-full transition-colors ${returnsConfigOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-400 active:bg-slate-100'}`}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                          </svg>
+                        </button>
+                        {returnsConfigOpen && (
+                          <>
+                            <div className="fixed inset-0 z-[9]" onClick={() => setReturnsConfigOpen(false)} />
+                            <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-10 p-3 min-w-[160px]">
+                              <p className="text-[8px] text-slate-400 uppercase tracking-widest mb-1">Sector</p>
+                              <div className="flex flex-col gap-0.5 mb-3">
+                                {(['all', ...returnsSectors] as Array<SectorKey | 'all'>).map(s => (
+                                  <button
+                                    key={s}
+                                    onClick={() => setReturnsSector(s)}
+                                    className={`flex items-center gap-1.5 text-left px-2 py-1 rounded-lg text-[9px] ${returnsSector === s ? 'bg-slate-100 text-slate-700 font-semibold' : 'text-slate-500'}`}
+                                  >
+                                    {s !== 'all' && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: SECTOR_COLOR[s] }} />}
+                                    {s === 'all' ? 'All Sectors' : s}
+                                  </button>
+                                ))}
+                              </div>
+                              <p className="text-[8px] text-slate-400 uppercase tracking-widest mb-1">Period</p>
+                              <div className="relative flex bg-slate-100 rounded-full p-[2px] mb-3">
+                                <div
+                                  className="absolute top-[2px] bottom-[2px] w-1/2 rounded-full bg-white shadow-sm transition-transform duration-150"
+                                  style={{ transform: `translateX(${returnsMode === 'month' ? '100%' : '0%'})` }}
+                                />
+                                {(['year', 'month'] as const).map(m => (
+                                  <button key={m} onClick={() => setReturnsMode(m)}
+                                    className={`relative z-10 flex-1 text-[9px] py-[4px] capitalize transition-colors ${returnsMode === m ? 'text-slate-700 font-semibold' : 'text-slate-400'}`}
+                                  >{m}</button>
+                                ))}
+                              </div>
+                              {returnsMode === 'month' && (
+                                <>
+                                  <p className="text-[8px] text-slate-400 uppercase tracking-widest mb-1">Year</p>
+                                  <div className="flex flex-wrap gap-1 mb-3">
+                                    {returnsAvailableYears.map(yr => (
+                                      <button
+                                        key={yr}
+                                        onClick={() => setReturnsYear(yr)}
+                                        className={`text-[9px] px-2 py-0.5 rounded-full border ${returnsYear === yr ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200'}`}
+                                      >{yr}</button>
+                                    ))}
+                                  </div>
+                                </>
+                              )}
+                              <p className="text-[8px] text-slate-400 uppercase tracking-widest mb-1">Metric</p>
+                              <div className="relative flex bg-slate-100 rounded-full p-[2px]">
+                                <div
+                                  className="absolute top-[2px] bottom-[2px] rounded-full bg-white shadow-sm transition-transform duration-150"
+                                  style={{ width: '33.33%', transform: `translateX(${returnsMetric === 'returnPct' ? '0%' : returnsMetric === 'gains' ? '100%' : '200%'})` }}
+                                />
+                                {([['returnPct', 'Return %'], ['gains', 'Gains'], ['xirr', 'XIRR']] as const).map(([val, lbl]) => (
+                                  <button key={val} onClick={() => setReturnsMetric(val)}
+                                    className={`relative z-10 flex-1 text-[9px] py-[4px] transition-colors ${returnsMetric === val ? 'text-slate-700 font-semibold' : 'text-slate-400'}`}
+                                  >{lbl}</button>
+                                ))}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Histogram */}
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={histData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="20%">
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                        <XAxis
+                          dataKey="label"
+                          tick={{ fontSize: 8, fill: '#94a3b8' }}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 8, fill: '#94a3b8' }}
+                          tickFormatter={yTickFmtR}
+                          width={40}
+                          tickLine={false}
+                          axisLine={false}
+                          domain={['auto', 'auto']}
+                        />
+                        <Tooltip
+                          formatter={(v: number) => [fmtV(v), metricLabel]}
+                          contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #e2e8f0' }}
+                          labelStyle={{ fontSize: 9, color: '#94a3b8' }}
+                          cursor={{ fill: '#f1f5f9' }}
+                        />
+                        <ReferenceLine y={0} stroke="#cbd5e1" strokeWidth={1} />
+                        <Bar dataKey="value" radius={[3, 3, 0, 0]}>
+                          {histData.map((entry, i) => (
+                            <Cell key={i} fill={entry.value >= 0 ? '#4ade80' : '#f87171'} fillOpacity={entry.isYtd ? 0.5 : 1} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </>
                 )
               })()}
             </div>

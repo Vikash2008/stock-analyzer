@@ -131,7 +131,15 @@ export function usePortfolioHistory(
       // current_price as a constant so the last chart point matches summary.
       const constPx = pm?.size ? null : h.current_price
 
-      let qty = 0, lastPx: number | null = null
+      // Pre-accumulate qty from transactions that predate the price history start.
+      // yfinance history may start later than the first BUY (e.g. 2018-01-01 but
+      // first BUY was 2017-07-24) — those deltas never appear in allDates otherwise.
+      let qty = 0
+      for (const [dateStr, delta] of deltas) {
+        if (dateStr < allDates[0]) qty += delta
+      }
+      qty = Math.max(0, qty)
+      let lastPx: number | null = null
 
       for (let i = 0; i < n; i++) {
         const d = allDates[i]
