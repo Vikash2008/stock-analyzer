@@ -53,6 +53,9 @@
 
 | Item | Completed |
 |------|-----------|
+| Returns summary line text + number fix — year mode shows "all sectors · by year" + total gains (sum of all bars); month mode shows "sector · YEAR" + that year's gains; was showing all-time allocGroupedRows total which excluded closed positions | 2026-05-29 |
+| Returns default metric = Gains — initial state changed from returnPct to gains; Gains (INR) more useful as landing view | 2026-05-29 |
+| testcases.md exhaustive rewrite — 60+ cases for Overview, Holdings tab, Charts tab, Analysis (Allocation/Benchmarking/Returns incl. SUMLINE-1–5), Transactions page, cross-page invariants | 2026-05-29 |
 | Upstox broker card fix — portfolioCards seeds agg from rmap for fully-closed portfolios; By Broker stock cards sum now matches Stocks tile (was off by 0.47L) | 2026-05-29 |
 | HoldingsPage filtRealized segment fix — Realized Gains chart endpoint matches Summary card for all segments; Upstox 0.47L realized now included | 2026-05-29 |
 | Return % chart formula fix (A6) — usePortfolioHistory tracks cumRealCost; returnPct = totalGain/(invested+realizedCost); gap was up to −53pp for MF | 2026-05-29 |
