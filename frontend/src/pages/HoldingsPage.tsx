@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine,
+  PieChart, Pie, Cell,
 } from 'recharts'
 import { usePortfolio } from '../hooks/usePortfolio'
 import { useQueryClient } from '@tanstack/react-query'
@@ -50,6 +51,23 @@ const PCT_METRICS = new Set<ChartMetric>(['Return %', 'XIRR Trend'])
 const ZERO_LINE_METRICS = new Set<ChartMetric>([
   'Unrealized Gains', 'Realized Gains', 'Total Gains', 'Return %', 'XIRR Trend',
 ])
+
+const PIE_COLORS = [
+  '#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444',
+  '#06b6d4','#ec4899','#84cc16','#f97316','#6366f1',
+  '#14b8a6','#a855f7','#22c55e','#eab308','#e11d48',
+  '#0ea5e9','#d946ef','#4ade80','#fb923c','#818cf8',
+]
+
+const METRIC_COLOR: Record<ChartMetric, string> = {
+  'Portfolio Value':  'bg-blue-500 border-blue-500',
+  'Invested':         'bg-violet-500 border-violet-500',
+  'Unrealized Gains': 'bg-teal-500 border-teal-500',
+  'Realized Gains':   'bg-amber-500 border-amber-500',
+  'Total Gains':      'bg-emerald-500 border-emerald-500',
+  'Return %':         'bg-sky-500 border-sky-500',
+  'XIRR Trend':       'bg-rose-500 border-rose-500',
+}
 
 type SortField = 'current' | 'invested' | 'todayGain' | 'todayPct' | 'totalGain' | 'totalPct' | 'xirr'
 const SORT_OPTIONS: { field: SortField; label: string }[] = [
@@ -184,6 +202,8 @@ export default function HoldingsPage({ currency }: Props) {
   const [sectorSectionOpen,   setSectorSectionOpen]   = useState(true)
   const [mktCapSectionOpen,   setMktCapSectionOpen]   = useState(false)
   const [benchSectorSectionOpen, setBenchSectorSectionOpen] = useState(true)
+  const [concentrationTop, setConcentrationTop] = useState<5 | 10 | 20>(10)
+  const [concentrationSectionOpen, setConcentrationSectionOpen] = useState(false)
   const qc = useQueryClient()
 
   useEffect(() => {
@@ -351,6 +371,23 @@ export default function HoldingsPage({ currency }: Props) {
     }
     return map
   }, [allocGroupedRows, filteredHoldings, data, currency])
+
+  const concentrationData = useMemo(() => {
+    if (!allocGroupedRows.length) return []
+    const sorted = [...allocGroupedRows].sort((a, b) => b.current - a.current)
+    const top = sorted.slice(0, concentrationTop)
+    const other = sorted.slice(concentrationTop)
+    const otherTotal = other.reduce((s, r) => s + r.current, 0)
+    const result: { name: string; ticker: string; key: string; value: number; color: string }[] = top.map((r, i) => ({
+      name: r.subLabel || r.ticker,
+      ticker: r.ticker,
+      key: r.key,
+      value: r.current,
+      color: PIE_COLORS[i % PIE_COLORS.length],
+    }))
+    if (otherTotal > 0) result.push({ name: 'Other', ticker: '', key: '', value: otherTotal, color: '#94a3b8' })
+    return result
+  }, [allocGroupedRows, concentrationTop])
 
   const allocXirrMap = useMemo(() => {
     if (!data) return new Map<string, number | null>()
@@ -737,9 +774,28 @@ export default function HoldingsPage({ currency }: Props) {
             </button>
           )
         })}
-        {activeTab === 'charts' && (
+      </div>
+      {/* Charts strip — metric pills + sync */}
+      {activeTab === 'charts' && (
+        <div className="flex items-center gap-2 bg-sky-50 border border-sky-100 rounded-xl px-2.5 py-1.5 mt-2">
+          <div
+            className="flex gap-1.5 overflow-x-auto flex-1"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+          >
+            {METRICS.map(m => (
+              <button
+                key={m}
+                onClick={() => setChartMetric(m)}
+                className={`text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-colors ${
+                  chartMetric === m ? `${METRIC_COLOR[m]} text-white` : 'bg-white text-slate-500 border-slate-200'
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
           <button
-            className="ml-auto pb-1.5 text-slate-400 active:text-[#2563eb]"
+            className="shrink-0 text-slate-400 active:text-[#2563eb]"
             onClick={() => {
               if (syncing) return
               setSyncing(true)
@@ -749,52 +805,34 @@ export default function HoldingsPage({ currency }: Props) {
           >
             <span className={`text-[14px] inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
           </button>
-        )}
-      </div>
-      <div className="mt-3 border border-slate-200 rounded-xl p-3">
+        </div>
+      )}
+      {/* Analysis strip — sub-tab pills */}
+      {activeTab === 'analysis' && (
+        <div
+          className="flex gap-1.5 overflow-x-auto bg-violet-50 border border-violet-100 rounded-xl px-2.5 py-1.5 mt-2"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+        >
+          {(['allocation', 'benchmarking'] as const).map(st => (
+            <button
+              key={st}
+              onClick={() => setAnalysisSubTab(st)}
+              className={`text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-colors ${
+                analysisSubTab === st
+                  ? st === 'allocation' ? 'bg-amber-500 text-white border-amber-500' : 'bg-sky-500 text-white border-sky-500'
+                  : 'bg-white text-slate-500 border-slate-200'
+              }`}
+            >
+              {st === 'allocation' ? 'Allocation' : 'Benchmarking'}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="mt-2">
 
       {/* ── Holdings tab ── */}
       {activeTab === 'holdings' && (
         <div className="p-3">
-          {/* Count + sort */}
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[9px] text-slate-400">
-              {holdingFilter === 'closed' ? `${closedRows.length} closed` : holdingFilter === 'all' ? `${rows.length} open · ${closedRows.length} closed` : `${rows.length} open`}
-            </p>
-            <div className="relative">
-              <button
-                onClick={() => setSortOpen(o => !o)}
-                className="flex items-center gap-0.5 text-[9px] text-slate-400 py-1 px-1"
-              >
-                <span>{SORT_OPTIONS.find(o => o.field === sortField)?.label}</span>
-                <span>{sortDir === 'desc' ? ' ↓' : ' ↑'}</span>
-              </button>
-              {sortOpen && (
-                <>
-                  <div className="fixed inset-0 z-[9]" onClick={() => setSortOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 min-w-[140px] py-1">
-                    {SORT_OPTIONS.map(opt => (
-                      <button
-                        key={opt.field}
-                        onClick={() => {
-                          if (sortField === opt.field) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
-                          else { setSortField(opt.field); setSortDir('desc') }
-                          setSortOpen(false)
-                        }}
-                        className={`w-full text-left text-[10px] px-3 py-1.5 flex justify-between items-center ${
-                          sortField === opt.field ? 'text-[#2563eb] font-medium' : 'text-slate-600'
-                        }`}
-                      >
-                        <span>{opt.label}</span>
-                        {sortField === opt.field && <span className="ml-2">{sortDir === 'desc' ? '↓' : '↑'}</span>}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
           <div className="space-y-2">
             {sortedRows.map(r => (
               <HoldingCard
@@ -823,26 +861,6 @@ export default function HoldingsPage({ currency }: Props) {
       {/* ── Charts tab ── */}
       {activeTab === 'charts' && (
         <div className="p-3">
-          {/* Metric selector */}
-          <div
-            className="flex gap-1.5 overflow-x-auto pb-2 mb-3"
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
-          >
-            {METRICS.map(m => (
-              <button
-                key={m}
-                onClick={() => setChartMetric(m)}
-                className={`text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-colors ${
-                  chartMetric === m
-                    ? 'bg-emerald-500 text-white border-emerald-500'
-                    : 'bg-white text-slate-500 border-slate-200'
-                }`}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
-
           {portSeries && !metricSeries && (
             <div className="text-center py-10 text-slate-400 text-xs">
               No data for this period.
@@ -955,26 +973,6 @@ export default function HoldingsPage({ currency }: Props) {
       {/* ── Analysis tab ── */}
       {activeTab === 'analysis' && (
         <div className="p-3">
-          {/* Sub-tab bar */}
-          <div
-            className="flex gap-1.5 overflow-x-auto pb-2 mb-3"
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
-          >
-            {(['allocation', 'benchmarking'] as const).map(st => (
-              <button
-                key={st}
-                onClick={() => setAnalysisSubTab(st)}
-                className={`text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-colors ${
-                  analysisSubTab === st
-                    ? st === 'allocation' ? 'bg-amber-500 text-white border-amber-500' : 'bg-sky-500 text-white border-sky-500'
-                    : 'bg-white text-slate-500 border-slate-200'
-                }`}
-              >
-                {st === 'allocation' ? 'Allocation' : 'Benchmarking'}
-              </button>
-            ))}
-          </div>
-
           {analysisSubTab === 'allocation' && (
             <div>
               {(() => {
@@ -985,8 +983,8 @@ export default function HoldingsPage({ currency }: Props) {
                 return (
                   <div>
                     <div className="border border-slate-200 rounded-xl mb-3">
-                    <button className="flex items-center gap-1 w-full text-left text-[8px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5" onClick={() => { if (!sectorSectionOpen) setMktCapSectionOpen(false); setSectorSectionOpen(o => !o) }}>
-                      By Sector <span className="text-[7px] text-slate-300 ml-0.5">{sectorSectionOpen ? '▲' : '▼'}</span>
+                    <button className="flex items-center gap-1 w-full text-left text-[8px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5" onClick={() => { if (!sectorSectionOpen) { setMktCapSectionOpen(false); setConcentrationSectionOpen(false) } setSectorSectionOpen(o => !o) }}>
+                      <span className="text-blue-600">By Sector</span> <span className="text-[7px] text-slate-300 ml-0.5">{sectorSectionOpen ? '▲' : '▼'}</span>
                     </button>
                     {sectorSectionOpen && <div className="flex items-center gap-1.5 px-2 pb-1">
                       <span className="text-[7px] font-semibold text-slate-500 flex-1">Sector</span>
@@ -1073,8 +1071,8 @@ export default function HoldingsPage({ currency }: Props) {
                     })}
                     </div>
                     <div className="border border-slate-200 rounded-xl">
-                    <button className="flex items-center gap-1 w-full text-left text-[8px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5" onClick={() => { if (!mktCapSectionOpen) setSectorSectionOpen(false); setMktCapSectionOpen(o => !o) }}>
-                      By Market Cap <span className="text-[7px] text-slate-300 ml-0.5">{mktCapSectionOpen ? '▲' : '▼'}</span>
+                    <button className="flex items-center gap-1 w-full text-left text-[8px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5" onClick={() => { if (!mktCapSectionOpen) { setSectorSectionOpen(false); setConcentrationSectionOpen(false) } setMktCapSectionOpen(o => !o) }}>
+                      <span className="text-orange-600">By Market Cap</span> <span className="text-[7px] text-slate-300 ml-0.5">{mktCapSectionOpen ? '▲' : '▼'}</span>
                     </button>
                     {mktCapSectionOpen && <div className="flex items-center gap-1.5 px-2 pb-1">
                       <span className="text-[7px] font-semibold text-slate-500 flex-1">Bucket</span>
@@ -1159,6 +1157,72 @@ export default function HoldingsPage({ currency }: Props) {
                       )
                     })}
                     </div>
+                    {/* Concentration section */}
+                    <div className="border border-slate-200 rounded-xl mt-3">
+                      <button className="flex items-center gap-1 w-full text-left text-[8px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5" onClick={() => { if (!concentrationSectionOpen) { setSectorSectionOpen(false); setMktCapSectionOpen(false) } setConcentrationSectionOpen(o => !o) }}>
+                        <span className="text-emerald-600">By Holdings Concentration</span> <span className="text-[7px] text-slate-300 ml-0.5">{concentrationSectionOpen ? '▲' : '▼'}</span>
+                      </button>
+                      {concentrationSectionOpen && (
+                        <div className="px-3 pb-3">
+                          <div className="flex bg-slate-100 rounded-full p-[2px] mb-3">
+                            {([5, 10, 20] as const).map(n => (
+                              <button
+                                key={n}
+                                onClick={() => setConcentrationTop(n)}
+                                className={`flex-1 text-[9px] py-[4px] rounded-full transition-colors ${concentrationTop === n ? 'bg-white shadow-sm text-slate-700 font-semibold' : 'text-slate-400'}`}
+                              >
+                                Top {n}
+                              </button>
+                            ))}
+                          </div>
+                          {(() => {
+                            const topValue = concentrationData.filter(e => e.name !== 'Other').reduce((s, e) => s + e.value, 0)
+                            const topPct = totalValue > 0 ? topValue / totalValue * 100 : 0
+                            return (
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <ResponsiveContainer width="100%" height={180}>
+                                    <PieChart>
+                                      <Pie data={concentrationData} cx="50%" cy="50%" outerRadius={80} dataKey="value" strokeWidth={0}>
+                                        {concentrationData.map((_, i) => (
+                                          <Cell key={i} fill={concentrationData[i].color} />
+                                        ))}
+                                      </Pie>
+                                      <Tooltip
+                                        formatter={(v: number, name: string) => [fmtCompact(v, currency), name]}
+                                        contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #e2e8f0' }}
+                                      />
+                                    </PieChart>
+                                  </ResponsiveContainer>
+                                </div>
+                                <div className="shrink-0 text-right">
+                                  <p className="text-[8px] text-slate-400 whitespace-nowrap">Top {concentrationTop} stocks</p>
+                                  <p className="text-[22px] font-bold text-slate-700">{topPct.toFixed(1)}%</p>
+                                  <p className="text-[8px] text-slate-400">of portfolio</p>
+                                </div>
+                              </div>
+                            )
+                          })()}
+                          <div className="space-y-1.5 mt-1">
+                            {concentrationData.map((entry, i) => {
+                              const entryXirr = entry.key ? allocXirrMap.get(entry.key) ?? null : null
+                              const xirrColor = entryXirr !== null ? (entryXirr >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
+                              return (
+                                <div key={i} className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
+                                  <span className="text-[9px] text-slate-600 flex-1 truncate">{entry.name}{entry.ticker ? ` · ${entry.ticker}` : ''}</span>
+                                  <span className="text-[9px] font-medium text-slate-700 whitespace-nowrap">
+                                    {fmtCompact(entry.value, currency)}
+                                    {entryXirr !== null && <span className={`ml-1 ${xirrColor}`}>({entryXirr >= 0 ? '+' : ''}{entryXirr.toFixed(1)}%)</span>}
+                                  </span>
+                                  <span className="text-[9px] text-slate-400 whitespace-nowrap w-[36px] text-right">{totalValue > 0 ? `${(entry.value / totalValue * 100).toFixed(1)}%` : '—'}</span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )
               })()}
@@ -1186,27 +1250,28 @@ export default function HoldingsPage({ currency }: Props) {
                 return (
                   <div>
                     {/* Overall card — light green */}
-                    <div className="bg-green-50 rounded-lg px-3 py-2 mb-3 border border-green-100">
+                    <div className="bg-green-50 rounded-lg px-2 py-2 mb-3 border border-green-100">
                       <p className="text-[7px] font-bold text-green-600 uppercase tracking-widest mb-1.5">Overall</p>
-                      <div className="grid grid-cols-3 gap-1">
-                        <div>
-                          <p className="text-[7px] text-slate-400">Your XIRR</p>
-                          <p className={`text-[13px] font-bold whitespace-nowrap ${benchActualXirr !== null ? benchActualXirr >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'}`}>
+                      <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5 flex-1">
+                          <span className="text-[7px] text-slate-400 whitespace-nowrap">Your XIRR</span>
+                          <span className={`text-[13px] font-bold whitespace-nowrap ${benchActualXirr !== null ? benchActualXirr >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'}`}>
                             {benchActualXirr !== null ? `${benchActualXirr >= 0 ? '+' : ''}${benchActualXirr.toFixed(1)}%` : '—'}
-                          </p>
+                          </span>
                         </div>
-                        <div className="text-center">
-                          <p className="text-[7px] text-slate-400">Benchmark</p>
-                          <p className="text-[13px] font-bold text-slate-500 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 flex-1">
+                          <span className="text-[7px] text-slate-400 whitespace-nowrap">Benchmark</span>
+                          <span className="text-[13px] font-bold text-slate-500 whitespace-nowrap">
                             {benchBenchXirr !== null ? `${benchBenchXirr >= 0 ? '+' : ''}${benchBenchXirr.toFixed(1)}%` : '—'}
-                          </p>
+                          </span>
                         </div>
-                        <div className="text-right">
-                          <p className="text-[7px] text-slate-400">Alpha</p>
-                          <p className={`text-[13px] font-bold whitespace-nowrap ${benchAlpha !== null ? benchAlpha >= 0 ? 'text-green-500' : 'text-red-400' : 'text-slate-400'}`}>
+                        <div className="flex items-center gap-1.5 flex-1 justify-end">
+                          <span className="text-[7px] text-slate-400 whitespace-nowrap">Alpha</span>
+                          <span className={`text-[13px] font-bold whitespace-nowrap ${benchAlpha !== null ? benchAlpha >= 0 ? 'text-green-500' : 'text-red-400' : 'text-slate-400'}`}>
                             {benchAlpha !== null ? `${benchAlpha >= 0 ? '+' : ''}${benchAlpha.toFixed(1)}%` : '—'}
-                          </p>
+                          </span>
                         </div>
+                        <span className="w-[8px]" />
                       </div>
                     </div>
 
@@ -1216,15 +1281,14 @@ export default function HoldingsPage({ currency }: Props) {
                         className="flex items-center gap-1 w-full text-left text-[8px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5"
                         onClick={() => setBenchSectorSectionOpen(o => !o)}
                       >
-                        By Sector <span className="text-[7px] text-slate-300 ml-0.5">{benchSectorSectionOpen ? '▲' : '▼'}</span>
+                        <span className="text-sky-600">By Sector</span> <span className="text-[7px] text-slate-300 ml-0.5">{benchSectorSectionOpen ? '▲' : '▼'}</span>
                       </button>
 
                       {benchSectorSectionOpen && (
-                        <div className="flex items-center gap-1.5 px-2 pb-1">
-                          <span className="text-[7px] font-semibold text-slate-500 flex-1">Sector</span>
-                          <span className="text-[7px] font-semibold text-slate-500 w-[38px] text-right">XIRR</span>
-                          <span className="text-[7px] font-semibold text-slate-500 w-[86px] text-right">Index (XIRR)</span>
-                          <span className="text-[7px] font-semibold text-slate-500 w-[36px] text-right">Alpha</span>
+                        <div className="flex items-center gap-1 px-2 pb-1">
+                          <span className="text-[7px] font-semibold text-slate-500 flex-1">Sector (XIRR)</span>
+                          <span className="text-[7px] font-semibold text-slate-500 flex-1">Benchmark (XIRR)</span>
+                          <span className="text-[7px] font-semibold text-slate-500 flex-1 text-right">Alpha</span>
                           <span className="w-[8px]" />
                         </div>
                       )}
@@ -1246,11 +1310,10 @@ export default function HoldingsPage({ currency }: Props) {
                                 return next
                               })}
                             >
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] font-medium text-slate-700 flex-1 truncate">{s.sector}</span>
-                                <span className={`text-[10px] font-semibold whitespace-nowrap w-[38px] text-right ${xirrColor}`}>{fmtX(s.actualXirr)}</span>
-                                <span className="text-[8px] text-slate-400 w-[86px] text-right overflow-hidden text-ellipsis">{BENCHMARK_LABEL[s.benchSymbol] ?? s.benchSymbol} ({fmtX(s.benchXirr)})</span>
-                                <span className={`text-[10px] font-semibold whitespace-nowrap w-[36px] text-right ${alphaColor}`}>{fmtX(s.alpha)}</span>
+                              <div className="flex items-center gap-1">
+                                <span className={`text-[9px] font-medium flex-1 overflow-hidden text-ellipsis whitespace-nowrap`}><span className="text-slate-700">{s.sector}</span> <span className={xirrColor}>({fmtX(s.actualXirr)})</span></span>
+                                <span className="text-[9px] text-slate-400 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{BENCHMARK_LABEL[s.benchSymbol] ?? s.benchSymbol} ({fmtX(s.benchXirr)})</span>
+                                <span className={`text-[9px] font-semibold flex-1 whitespace-nowrap text-right ${alphaColor}`}>{fmtX(s.alpha)}</span>
                                 <span className="text-[8px] text-slate-300 w-[8px] text-right">{isOpen ? '▲' : '▼'}</span>
                               </div>
                               <div className="relative h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1.5">
@@ -1274,14 +1337,10 @@ export default function HoldingsPage({ currency }: Props) {
                                   const hAlphaColor = hAlpha !== null ? hAlpha >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'
                                   return (
                                     <div key={r.key} className="bg-slate-50 rounded-lg px-2 py-1.5">
-                                      <div className="flex items-center gap-1.5">
-                                        <div className="flex-1 min-w-0">
-                                          <span className="text-[10px] text-slate-600 truncate block">{r.subLabel || r.ticker}</span>
-                                          <span className="text-[7px] text-slate-400">{r.ticker}</span>
-                                        </div>
-                                        <span className={`text-[9px] font-semibold whitespace-nowrap w-[38px] text-right ${hColor}`}>{fmtX(hXirr)}</span>
-                                        <span className="text-[8px] text-slate-400 w-[86px] text-right overflow-hidden text-ellipsis">{BENCHMARK_LABEL[s.benchSymbol] ?? s.benchSymbol} ({fmtX(hBenchX)})</span>
-                                        <span className={`text-[9px] font-semibold whitespace-nowrap w-[36px] text-right ${hAlphaColor}`}>{fmtX(hAlpha)}</span>
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-[9px] font-medium flex-1 overflow-hidden text-ellipsis whitespace-nowrap"><span className="text-slate-600">{r.subLabel || r.ticker}</span> <span className={hColor}>({fmtX(hXirr)})</span></span>
+                                        <span className="text-[9px] text-slate-400 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{BENCHMARK_LABEL[s.benchSymbol] ?? s.benchSymbol} ({fmtX(hBenchX)})</span>
+                                        <span className={`text-[9px] font-semibold flex-1 whitespace-nowrap text-right ${hAlphaColor}`}>{fmtX(hAlpha)}</span>
                                         <span className="w-[8px]" />
                                       </div>
                                       <div className="relative h-1 bg-slate-100 rounded-full overflow-hidden mt-1">

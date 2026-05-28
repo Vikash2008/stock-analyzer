@@ -8,6 +8,16 @@
 4. Assume all existing code is correct unless the user shows an error.
 5. Ask the user what they want to do next (one question max if ambiguous).
 
+## Critical Rules — Apply to Every Session and Every Prompt
+
+1. **Do only what is asked.** If the request says "UI fix only", do UI fix only — no corner-case checks, no edge-case handling, nothing else.
+2. **Keep working files in context.** Once a file is read, never re-read it in the same session unless the user explicitly changes it. Use the already-read content.
+3. **If stuck for more than ~30 seconds, ask.** Do not keep thinking in circles — ask one focused question and wait for the answer.
+4. **Use context, not files.** Work from what is already in context. Do not read files to "confirm" things already known from this session.
+5. **All files read in a session stay in context.** Never re-read a file already read this session — cache aggressively, save time.
+
+---
+
 ## Working Style — Follow This Every Session
 
 - **Execution-first.** No over-analysis, no unrelated file exploration, no edge-case evaluation, no architecture redesign.
@@ -106,6 +116,7 @@ python validate.py -r   # force price refresh
 
 | Command | What it does |
 |---------|-------------|
+| `/get_ready` | Session start — reads all 6 boot files in parallel + outputs last session context + pending backlog |
 | `/save_state` | Updates DESIGN.md, ARCHITECTURE.md, CLAUDE.md with session changes |
 | `/ship` | Git commit → git push → Vercel + Render auto-deploy |
 
