@@ -33,6 +33,13 @@
 
 | Item | Completed |
 |------|-----------|
+| By Holdings Concentration section — pie chart, Top 5/10/20 toggle, right-side coverage stat, legend with XIRR; accordion with other sections | 2026-05-28 |
+| Benchmarking UI redesign — overall card inline label+value; Sector+XIRR merged column; Benchmark(XIRR) renamed; flex-1 equal columns; coverage stat aligned | 2026-05-28 |
+| Tab strips — sky-50 strip for Charts (metric pills + ↻), violet-50 strip for Analysis (sub-pills); outer border removed for all tabs | 2026-05-28 |
+| Chart metric pills unique colors — METRIC_COLOR map per metric (blue/violet/teal/amber/emerald/sky/rose) | 2026-05-28 |
+| Section headers colored in Analysis tab — By Sector=blue, By Market Cap=orange, By Holdings Concentration=emerald, Benchmarking By Sector=sky | 2026-05-28 |
+| /get_ready slash command — reads 6 boot files in parallel, outputs session status | 2026-05-28 |
+| Critical Rules section added to CLAUDE.md — 5 session-wide rules | 2026-05-28 |
 | Allocation accordion — By Sector open default, By Market Cap collapsed; accordion (open one closes other) | 2026-05-28 |
 | Solid tab colors — Holdings/Charts/Analysis solid fill; Allocation=amber, Benchmarking=sky pill buttons; chart pills=emerald | 2026-05-28 |
 | Sector/MktCap XIRR fix — pooled cashflows (allocSectorXirrMap + allocMktCapXirrMap); was weighted avg giving inflated ~94% | 2026-05-28 |

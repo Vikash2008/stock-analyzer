@@ -475,3 +475,12 @@ Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone
 | 2026-05-28 | Allocation/Benchmarking as metric-pill style buttons | Same scrollable pill pattern as chart metric buttons (border, bg-white inactive / colored active) |
 | 2026-05-28 | Sector/MktCap XIRR — pooled cashflows fix | allocSectorXirrMap + allocMktCapXirrMap useMemos compute XIRR from combined cashflows; was weighted average of per-holding XIRRs (mathematically incorrect, gave inflated ~94%) |
 | 2026-05-28 | Content border on HoldingsPage tabs | Active tab content wrapped in border border-slate-200 rounded-xl p-3; tab row sits above outside the border |
+| 2026-05-28 | Tab content border removed | Outer border removed for all tabs (Holdings, Charts, Analysis) |
+| 2026-05-28 | Colored tinted strips below tab row | Charts tab: sky-50/sky-100 strip with metric pills + ↻; Analysis tab: violet-50/violet-100 strip with Allocation/Benchmarking pills; Holdings tab: no strip |
+| 2026-05-28 | Chart metric pills — unique colors per metric | METRIC_COLOR map: Portfolio Value=blue-500, Invested=violet-500, Unrealized Gains=teal-500, Realized Gains=amber-500, Total Gains=emerald-500, Return %=sky-500, XIRR Trend=rose-500 |
+| 2026-05-28 | Benchmarking overall card — inline label+value | Label and value on same line (flex row); three items (Your XIRR, Benchmark, Alpha) use flex-1 + 8px spacer to align with sector columns below |
+| 2026-05-28 | Benchmarking columns redesign | Sector+XIRR merged into one flex-1 cell "Banking (+18.5%)"; "Index (XIRR)" renamed "Benchmark (XIRR)"; all 3 columns equal flex-1; gap reduced to gap-1 |
+| 2026-05-28 | Benchmarking section headers colored | "By Sector" in Benchmarking = text-sky-600; "By Sector"=text-blue-600, "By Market Cap"=text-orange-600, "By Holdings Concentration"=text-emerald-600 in Allocation |
+| 2026-05-28 | By Holdings Concentration section in Allocation | New accordion section; Top 5/10/20 iOS toggle (default 10); PieChart (Recharts) with PIE_COLORS array; right-side coverage stat "Top X stocks covers Y%"; legend with color dot + name·ticker + value + XIRR in parentheses + alloc%; accordion-linked with By Sector and By Market Cap |
+| 2026-05-28 | /get_ready slash command | .claude/commands/get_ready.md — reads 6 boot files in parallel, outputs compact session status (last completed + pending backlog) |
+| 2026-05-28 | Critical Rules section in CLAUDE.md | 5 rules: do only what's asked, keep files in context, ask if stuck 30s, use context not files, cache all reads |
