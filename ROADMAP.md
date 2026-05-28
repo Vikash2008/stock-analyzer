@@ -17,6 +17,25 @@
 
 ---
 
+## Backlog — Chart Accuracy (MF Portfolio Value Gap)
+
+| # | Item | Notes | Status |
+|---|------|-------|--------|
+| 1 | Confirm stale-cache theory | Click ↻ on Charts tab while on MF segment — if Portfolio Value jumps from 19.76L → ~23.38L, confirms theory | pending |
+| 2 | Fix chart stale data for MF NAVs | Root cause: `staleTime: Infinity` on history queries + 7-day localStorage cache means chart never auto-refetches. MF NAVs change daily → chart last-point drifts from live price. Fix: call `qc.invalidateQueries(['history'])` inside `useForceRefresh` (not removeQueries — keeps old data visible while re-fetching silently) | pending |
+
+**Diagnosis log (2026-05-29):**
+- Symptom: MF segment Charts → Portfolio Value = 19.76L; Summary card = 23.38L (gap 3.62L). Total Gains = 22.4L vs 24.7L (gap 2.3L). Realized Gains = exact match (confirmed).
+- Gap is entirely in unrealized / portfolio value component.
+- Ruled out — no-yfinance-history: check_yf_history.py shows all 82 symbols have yfinance price history.
+- Ruled out — qty mismatch: debug_chart_gap.py shows all 19 MF holding qtys are correct (net BUY−SELL = h.quantity for every holding).
+- Ruled out — price mismatch: check_mf_prices.py shows live price = historical last close (ratio=1.000) for all 14 MF `.BO` symbols.
+- Hypothesis: chart shows stale localStorage-cached prices (may be days old); summary uses live prices (30-min TTL). Needs confirmation via ↻ button test.
+- All MF holdings use `.BO` yf_symbol format (e.g. `0P0000XVFY.BO`) — these are BSE NAV fund symbols; latest hist date = 2026-05-27.
+- Our fallback fix (current_price constant for holdings with no history) was a red herring — all symbols DO have history.
+
+---
+
 ## Backlog — Cold Start UX
 
 | # | Item | Notes | Status |

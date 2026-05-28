@@ -73,18 +73,26 @@ export function usePortfolioHistory(
   const isLoading   = enabled && queries.some(q => q.isLoading || q.isPending)
   const loadedCount = queries.filter(q => q.status === 'success').length
 
-  const series = useMemo((): PortfolioSeries | null => {
-    if (!enabled || isLoading || !holdings.length) return null
-
-    // price map: yf_symbol → dateStr → price
-    const priceMap = new Map<string, Map<string, number>>()
+  // Exposed for consumers that need per-sector / per-group series (e.g. Returns tab)
+  const symbolPriceMap = useMemo((): Map<string, Map<string, number>> => {
+    if (!enabled || isLoading) return new Map()
+    const pm = new Map<string, Map<string, number>>()
     for (let i = 0; i < symbols.length; i++) {
       const d = queries[i]?.data
       if (!d?.dates.length) continue
       const m = new Map<string, number>()
       d.dates.forEach((dt, j) => m.set(dt, d.prices[j]))
-      priceMap.set(symbols[i], m)
+      pm.set(symbols[i], m)
     }
+    return pm
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, isLoading, loadedCount, symbols])
+
+  const series = useMemo((): PortfolioSeries | null => {
+    if (!enabled || isLoading || !holdings.length) return null
+
+    const priceMap = symbolPriceMap
+    if (!priceMap.size) return null
 
     // Union of all trading dates, sorted
     const dateSet = new Set<string>()
@@ -112,13 +120,16 @@ export function usePortfolioHistory(
     const invArr = new Array<number>(n).fill(0)
 
     for (const h of holdings) {
-      const pm = priceMap.get(h.yf_symbol)
-      if (!pm?.size) continue
+      const pm     = priceMap.get(h.yf_symbol)
       const key    = `${h.portfolio}:${h.yf_symbol}`
       const deltas = qtyDelta.get(key) ?? new Map<string, number>()
       const first  = firstDate.get(key) ?? allDates[0]
       const isUsd  = USD_PORTS.has(h.portfolio)
       const fx     = isUsd ? (currency === 'INR' ? usdInr : 1) : (currency === 'USD' ? 1 / usdInr : 1)
+
+      // Fallback: holdings with no yfinance history (e.g. NAV-based MFs) use
+      // current_price as a constant so the last chart point matches summary.
+      const constPx = pm?.size ? null : h.current_price
 
       let qty = 0, lastPx: number | null = null
 
@@ -127,8 +138,12 @@ export function usePortfolioHistory(
         if (d < first) continue
         const dlt = deltas.get(d)
         if (dlt !== undefined) qty = Math.max(0, qty + dlt)
-        const px = pm.get(d)
-        if (px !== undefined) lastPx = px
+        if (pm?.size) {
+          const px = pm.get(d)
+          if (px !== undefined) lastPx = px
+        } else {
+          lastPx = constPx
+        }
         if (lastPx === null || qty <= 0) continue
         valArr[i] += lastPx     * qty * fx
         invArr[i] += h.avg_cost * qty * fx
@@ -143,28 +158,38 @@ export function usePortfolioHistory(
     const values     = valArr.slice(startIdx)
     const invested   = invArr.slice(startIdx)
     const unrealized = values.map((v, i) => v - invested[i])
-    const returnPct  = values.map((v, i) => invested[i] > 0 ? (v - invested[i]) / invested[i] * 100 : 0)
 
-    // Realized — cumulative by sell_date
+    // Realized — cumulative by sell_date; cost basis tracked for true Return %
     const realEvts = realized
       .map(r => {
         const isUsd = r.currency === 'USD'
-        const pnl   = r.realized_pnl * (
-          isUsd && currency === 'INR' ? usdInr :
-          !isUsd && currency === 'USD' ? 1 / usdInr : 1
-        )
-        return { d: r.sell_date.slice(0, 10), pnl }
+        const fx    = isUsd && currency === 'INR' ? usdInr : !isUsd && currency === 'USD' ? 1 / usdInr : 1
+        return {
+          d:    r.sell_date.slice(0, 10),
+          pnl:  r.realized_pnl * fx,
+          cost: r.type === 'SELL' ? r.quantity * r.buy_price * fx : 0,
+        }
       })
       .sort((a, b) => a.d < b.d ? -1 : 1)
 
-    const realVals = new Array<number>(dates.length).fill(0)
-    let cumReal = 0, ri = 0
+    const realVals     = new Array<number>(dates.length).fill(0)
+    const realCostVals = new Array<number>(dates.length).fill(0)
+    let cumReal = 0, cumRealCost = 0, ri = 0
     for (let i = 0; i < datesSlice.length; i++) {
-      while (ri < realEvts.length && realEvts[ri].d <= datesSlice[i]) cumReal += realEvts[ri++].pnl
-      realVals[i] = cumReal
+      while (ri < realEvts.length && realEvts[ri].d <= datesSlice[i]) {
+        cumReal     += realEvts[ri].pnl
+        cumRealCost += realEvts[ri].cost
+        ri++
+      }
+      realVals[i]     = cumReal
+      realCostVals[i] = cumRealCost
     }
 
     const totalVals = unrealized.map((u, i) => u + realVals[i])
+    const returnPct = totalVals.map((tg, i) => {
+      const totalCost = invested[i] + realCostVals[i]
+      return totalCost > 0 ? tg / totalCost * 100 : 0
+    })
 
     // XIRR trend — one data point per month-end
     const xirrDates:  Date[]   = []
@@ -223,7 +248,7 @@ export function usePortfolioHistory(
       xirrTrend:  { dates: xirrDates, values: xirrVals },
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, isLoading, loadedCount, holdings, transactions, realized, usdInr, currency, symbols])
+  }, [enabled, isLoading, loadedCount, holdings, transactions, realized, usdInr, currency, symbols, symbolPriceMap])
 
-  return { series, isLoading, loadedCount, totalCount: symbols.length }
+  return { series, isLoading, loadedCount, totalCount: symbols.length, symbolPriceMap }
 }

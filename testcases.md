@@ -175,6 +175,26 @@ Quick spot-checks after any gains/realized change:
 
 ---
 
+## Open Issues (under investigation)
+
+### CHART-MF-1: MF Portfolio Value chart last point ≠ Summary current value
+**Symptom:** Charts tab → Portfolio Value last point shows ~19.76L; Summary card shows ~23.38L (gap ~3.62L). Total Gains chart shows ~22.4L vs Summary ~24.7L (gap ~2.3L). Realized Gains matches exactly.
+
+**What was ruled out:**
+- All 82 yf_symbols have yfinance price history (check_yf_history.py: 0 failures)
+- All MF holding qtys are correct — net BUY−SELL = h.quantity for every holding (debug_chart_gap.py: all OK)
+- Live price = historical last close (ratio=1.000) for all 14 MF `.BO` symbols (check_mf_prices.py)
+
+**Hypothesis:** Chart uses stale browser localStorage history cache (`staleTime: Infinity`, 7-day maxAge). MF NAVs change daily — if chart data was cached days ago, last chart point drifts from today's live price.
+
+**To confirm:** Click ↻ on Charts tab while on MF segment. If Portfolio Value updates from 19.76L → ~23.38L, stale cache is confirmed.
+
+**Proposed fix:** In `useForceRefresh`, call `qc.invalidateQueries(['history'])` so chart data silently re-fetches after each portfolio refresh (keeps old data visible — does not blank the chart).
+
+**Status:** Pending confirmation ⚠️
+
+---
+
 ## Known Limitations (not bugs)
 
 | Item | Detail |
