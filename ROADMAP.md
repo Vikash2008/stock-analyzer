@@ -32,6 +32,9 @@
 
 | Item | Completed |
 |------|-----------|
+| Benchmarking date range filter — collapsible config at top of Benchmarking pill; From/To month+year selects; "Use today as end date" toggle; Apply/Clear; benchTxnsDate filters BUY-only by date window, SELLs always included | 2026-05-29 |
+| Benchmarking holding row truncation — name truncates with ellipsis; XIRR rendered as separate shrink-0 span so it's always visible regardless of name length | 2026-05-29 |
+| benchTxns Upstox fix — fully-closed portfolios (Upstox) now included in benchmarking cashflows; filtPorts previously excluded them since they have no open holdings | 2026-05-29 |
 | Benchmarking sector classification fix — 40+ closed Indian symbols (HDFCBANK, KOTAKBANK, INFY, TCS, KPITTECH, DIVISLAB, NIFTYBEES etc.) added to SYMBOL_SECTOR with correct Banking/Finance/Healthcare/IT/Equity sectors; SYMBOL_MARKET_CAP updated; fixes inflated IT alpha and depressed overall alpha caused by all closed positions defaulting to Other (^NSEI) | 2026-05-29 |
 | Benchmarking US closed positions — INTC, SOUN, FIG added to Tech sector | 2026-05-29 |
 | Benchmarking "Others" hidden when holdingCount=0 — sectors with only closed positions no longer shown in By Sector list | 2026-05-29 |
