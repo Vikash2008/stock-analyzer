@@ -41,6 +41,7 @@
 | Item | Completed |
 |------|-----------|
 | Stock sector reclassifications — LAXMIMACH/INDIAMART/DREAMFOLKS/IRCTC/EASEMYTRIP → Growth; TATAINVEST/IBREALEST → Finance; NYKAA → Consumer; both sectors.ts and debug_benchmark.py updated. ET Money.NS (bad data symbol) left unclassified intentionally. | 2026-05-29 |
+| MF sector classification — Global sector added (^GSPC); all 70 MF symbols explicitly classified across Equity/Smallcap/IT/Finance/Healthcare/Global/Other; SBI Contra moved Smallcap→Equity; 0P0001JMZB moved Tech→Global; Other sector excluded from Benchmarking pill (By Sector list + overall XIRR computation); debug_benchmark_mf.py created | 2026-05-30 |
 | Benchmarking pill UI: sector cards match Allocation style (border-slate-200 mb-2); sectors + holdings sorted by allocation % (currentValue desc); Sector(XIRR) column flex-[2] for wider name area | 2026-05-29 |
 | Returns sub-tab: Return % toggle removed (Gains-only); chart full width via hidden right Y-axis (width=0); cumulative return % line preserved on hidden axis; gear icon inline with summary | 2026-05-29 |
 | analyze_sectors.py — standalone Python script for Tech + Banking sector XIRR analysis including all portfolios (Indian + US); Tech open-only +42.7%, Banking open-only +13.4% | 2026-05-29 |
