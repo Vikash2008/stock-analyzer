@@ -32,6 +32,9 @@
 
 | Item | Completed |
 |------|-----------|
+| Benchmarking sector classification fix — 40+ closed Indian symbols (HDFCBANK, KOTAKBANK, INFY, TCS, KPITTECH, DIVISLAB, NIFTYBEES etc.) added to SYMBOL_SECTOR with correct Banking/Finance/Healthcare/IT/Equity sectors; SYMBOL_MARKET_CAP updated; fixes inflated IT alpha and depressed overall alpha caused by all closed positions defaulting to Other (^NSEI) | 2026-05-29 |
+| Benchmarking US closed positions — INTC, SOUN, FIG added to Tech sector | 2026-05-29 |
+| Benchmarking "Others" hidden when holdingCount=0 — sectors with only closed positions no longer shown in By Sector list | 2026-05-29 |
 | Chart last-point pinned to live prices — `usePortfolioHistory` appends/overrides last data point with `h.disp_current`/`h.disp_invested`; eliminates 1–2L Unrealized/Total Gains gap between chart and summary card | 2026-05-29 |
 | testcases.md AN-BENCH-* — all 12 benchmarking test cases run via Playwright; 10/12 pass, 1 N/A, 1 pending (lazy-load DevTools check); AN-BENCH-3 expectation corrected for FX asymmetry on MON100/MAFANG | 2026-05-29 |
 | Closed holdings TxRow BUY cards — removed null guard; fully-sold lots now show realized gain, ₹0(₹0) current value | 2026-05-29 |
