@@ -156,10 +156,12 @@ These rules must hold at all times. If any fails, there is a bug in aggregation 
 
 ## Validated Numbers (as of May 2026)
 
-- USD/INR live rate: ~95.95
+- USD/INR live rate: ~95.38
 - Zerodha invested: ₹37,09,666
 - Equity invested: ₹1,33,22,568
 - Hero invested (all non-SKIP): ~₹1,44,95,000 (Equity + MF_Vikash + MF_Mahak)
+- Tech sector XIRR (stk segment, open+closed): ~42% — open-only = +43.2%, open+closed = +42.0%; UI shows 42.4% ✓
+- Note: `analyze_sectors.py` includes MF_Mahak's tech MFs (0P0001NCLP, 0P0001JMZB) which the UI stk segment excludes (they're indian_mf); use the stk-specific pool for comparison
 
 ---
 
