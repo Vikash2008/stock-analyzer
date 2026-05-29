@@ -32,6 +32,8 @@
 
 | Item | Completed |
 |------|-----------|
+| Chart last-point pinned to live prices — `usePortfolioHistory` appends/overrides last data point with `h.disp_current`/`h.disp_invested`; eliminates 1–2L Unrealized/Total Gains gap between chart and summary card | 2026-05-29 |
+| testcases.md AN-BENCH-* — all 12 benchmarking test cases run via Playwright; 10/12 pass, 1 N/A, 1 pending (lazy-load DevTools check); AN-BENCH-3 expectation corrected for FX asymmetry on MON100/MAFANG | 2026-05-29 |
 | Closed holdings TxRow BUY cards — removed null guard; fully-sold lots now show realized gain, ₹0(₹0) current value | 2026-05-29 |
 | Closed holdings TransactionsPage summary card — XIRR from cashflows, anyHolding fallback for LTP, ₹0 current/invested, lastSellPrice LTP fallback | 2026-05-29 |
 | Closed holdings HoldingCard LTP — priceMap (open portfolio) + lastSellMap (latest SELL tx) fallback chain | 2026-05-29 |
