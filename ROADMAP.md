@@ -17,33 +17,12 @@
 
 ---
 
-## Backlog — Chart Accuracy (MF Portfolio Value Gap)
-
-| # | Item | Notes | Status |
-|---|------|-------|--------|
-| 1 | Confirm stale-cache theory | Click ↻ on Charts tab while on MF segment — if Portfolio Value jumps from 19.76L → ~23.38L, confirms theory | pending |
-| 2 | Fix chart stale data for MF NAVs | Root cause: `staleTime: Infinity` on history queries + 7-day localStorage cache means chart never auto-refetches. MF NAVs change daily → chart last-point drifts from live price. Fix: call `qc.invalidateQueries(['history'])` inside `useForceRefresh` (not removeQueries — keeps old data visible while re-fetching silently) | pending |
-
-**Diagnosis log (2026-05-29):**
-- Symptom: MF segment Charts → Portfolio Value = 19.76L; Summary card = 23.38L (gap 3.62L). Total Gains = 22.4L vs 24.7L (gap 2.3L). Realized Gains = exact match (confirmed).
-- Gap is entirely in unrealized / portfolio value component.
-- Ruled out — no-yfinance-history: check_yf_history.py shows all 82 symbols have yfinance price history.
-- Ruled out — qty mismatch: debug_chart_gap.py shows all 19 MF holding qtys are correct (net BUY−SELL = h.quantity for every holding).
-- Ruled out — price mismatch: check_mf_prices.py shows live price = historical last close (ratio=1.000) for all 14 MF `.BO` symbols.
-- Hypothesis: chart shows stale localStorage-cached prices (may be days old); summary uses live prices (30-min TTL). Needs confirmation via ↻ button test.
-- All MF holdings use `.BO` yf_symbol format (e.g. `0P0000XVFY.BO`) — these are BSE NAV fund symbols; latest hist date = 2026-05-27.
-- Our fallback fix (current_price constant for holdings with no history) was a red herring — all symbols DO have history.
-
----
-
 ## Backlog — Cold Start UX
 
 | # | Item | Notes | Status |
 |---|------|-------|--------|
 | 1 | Keep-alive ping (GitHub Actions cron) | Add `.github/workflows/keepalive.yml` — pings backend every 14 min so Render free tier never sleeps. Risk: against Render ToS spirit; GitHub private repo = 500 min/month free (est. ~150–200 min/month used). Cron jitter may cause occasional miss. | done |
-| 2 | Progressive loading messages (frontend) | Track elapsed time since fetch start. After 8s show "Backend waking up…", after 30s show "Still starting up (~60s on first load)". Safety net for cold starts that slip through. Only touches `PortfoliosPage.tsx` / `LoadingSkeleton.tsx`. | pending |
-| 3 | Combine both (recommended) | GitHub Actions keep-alive prevents most cold starts; progressive UI handles the rare miss gracefully. Zero cost, no backend changes. | pending |
-| 4 | Returns tab per-period gains — use portSeries.total | sectorValueSeries only tracks open positions; closed positions create mismatch. Fix: for "All Sectors" use portSeries.total differences (same series Charts tab uses — already correct). For specific sectors: needs discussion — may require price history for sold positions or a different approach. | done |
+| 2 | Returns tab per-period gains — use portSeries.total | sectorValueSeries only tracks open positions; closed positions create mismatch. Fix: for "All Sectors" use portSeries.total differences (same series Charts tab uses — already correct). For specific sectors: needs discussion — may require price history for sold positions or a different approach. | done |
 
 > Note: Render free tier spin-down (15 min idle) is not configurable. Paid Starter plan ($7/month) gives always-on. For now, keep-alive + UI messaging is the free solution.
 
@@ -53,6 +32,12 @@
 
 | Item | Completed |
 |------|-----------|
+| Closed holdings TxRow BUY cards — removed null guard; fully-sold lots now show realized gain, ₹0(₹0) current value | 2026-05-29 |
+| Closed holdings TransactionsPage summary card — XIRR from cashflows, anyHolding fallback for LTP, ₹0 current/invested, lastSellPrice LTP fallback | 2026-05-29 |
+| Closed holdings HoldingCard LTP — priceMap (open portfolio) + lastSellMap (latest SELL tx) fallback chain | 2026-05-29 |
+| Returns sub-tab XIRR metric removed — 2-option toggle (Return % / Gains) only | 2026-05-29 |
+| Returns sub-tab ComposedChart — bars = period gain/return%, indigo line = cumulative return% (right Y-axis); YTD override from live displayStats matches summary tile | 2026-05-29 |
+| Returns sub-tab summary line — Gains mode: total gains; Return % mode: live cumulative return % | 2026-05-29 |
 | Returns summary line text + number fix — year mode shows "all sectors · by year" + total gains (sum of all bars); month mode shows "sector · YEAR" + that year's gains; was showing all-time allocGroupedRows total which excluded closed positions | 2026-05-29 |
 | Returns default metric = Gains — initial state changed from returnPct to gains; Gains (INR) more useful as landing view | 2026-05-29 |
 | testcases.md exhaustive rewrite — 60+ cases for Overview, Holdings tab, Charts tab, Analysis (Allocation/Benchmarking/Returns incl. SUMLINE-1–5), Transactions page, cross-page invariants | 2026-05-29 |
