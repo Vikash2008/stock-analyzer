@@ -591,6 +591,7 @@ export default function HoldingsPage({ currency }: Props) {
     overallAlpha:      benchAlpha,
     holdingBenchXirr:  holdingBenchXirr,
     isLoading:         benchLoading,
+    isFetching:        benchFetching,
     hasError:          benchHasError,
   } = useBenchmarkXirr(
     filteredHoldings,
@@ -605,8 +606,8 @@ export default function HoldingsPage({ currency }: Props) {
   )
 
   useEffect(() => {
-    if (benchSyncing && !benchLoading) setBenchSyncing(false)
-  }, [benchSyncing, benchLoading])
+    if (benchSyncing && !benchLoading && !benchFetching) setBenchSyncing(false)
+  }, [benchSyncing, benchLoading, benchFetching])
 
   const xirrMap = useMemo(() => {
     if (!data) return new Map<string, number | null>()

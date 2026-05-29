@@ -55,6 +55,7 @@ export interface BenchmarkOutput {
   overallAlpha:      number | null
   holdingBenchXirr:  Map<string, number | null>  // yf_symbol → benchmark XIRR %
   isLoading:         boolean
+  isFetching:        boolean
   hasError:          boolean
 }
 
@@ -107,8 +108,9 @@ export function useBenchmarkXirr(
     })),
   })
 
-  const isLoading = histResults.some(r => r.isLoading)
-  const hasError  = histResults.some(r => r.isError)
+  const isLoading  = histResults.some(r => r.isLoading)
+  const isFetching = histResults.some(r => r.isFetching)
+  const hasError   = histResults.some(r => r.isError)
 
   const output = useMemo((): Omit<BenchmarkOutput, 'isLoading' | 'hasError'> | null => {
     if (!enabled || isLoading) return null
@@ -409,6 +411,7 @@ export function useBenchmarkXirr(
     overallAlpha:      output?.overallAlpha        ?? null,
     holdingBenchXirr:  output?.holdingBenchXirr   ?? new Map(),
     isLoading,
+    isFetching,
     hasError,
   }
 }
