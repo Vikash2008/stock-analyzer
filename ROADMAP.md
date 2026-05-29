@@ -41,6 +41,9 @@
 | Item | Completed |
 |------|-----------|
 | Stock sector reclassifications — LAXMIMACH/INDIAMART/DREAMFOLKS/IRCTC/EASEMYTRIP → Growth; TATAINVEST/IBREALEST → Finance; NYKAA → Consumer; both sectors.ts and debug_benchmark.py updated. ET Money.NS (bad data symbol) left unclassified intentionally. | 2026-05-29 |
+| Benchmarking pill UI: sector cards match Allocation style (border-slate-200 mb-2); sectors + holdings sorted by allocation % (currentValue desc); Sector(XIRR) column flex-[2] for wider name area | 2026-05-29 |
+| Returns sub-tab: Return % toggle removed (Gains-only); chart full width via hidden right Y-axis (width=0); cumulative return % line preserved on hidden axis; gear icon inline with summary | 2026-05-29 |
+| analyze_sectors.py — standalone Python script for Tech + Banking sector XIRR analysis including all portfolios (Indian + US); Tech open-only +42.7%, Banking open-only +13.4% | 2026-05-29 |
 | debug_benchmark.py US_ETF_SYMS exclusion fix — MON100/MAFANG now excluded from Indian stocks XIRR computation, matching UI's getSegmentType; debug and UI alpha numbers now reconciled (UI 3.1% is correct) | 2026-05-29 |
 | Indian stocks benchmarking full diagnostic — debug_benchmark.py overhauled: added Upstox to INDIAN_STOCK_PORTS, synced SYMBOL_SECTOR with sectors.ts, added print_unclassified_summary(); root cause of overall alpha drag identified: Consumer stocks (HINDUNILVR/PAGEIND/ASIANPAINT/DMART etc.) benchmarked against ^NSEI instead of ^CNXFMCG, plus IT sector drag from KPITTECH (-36.42% on 0.70L); overall Indian stocks alpha with final classification: +5.0% (open+closed, inception-to-date) | 2026-05-29 |
 | Consumer sector added to sectors.ts — 15 FMCG/durables stocks (HINDUNILVR, ASIANPAINT, DMART, PAGEIND, EMAMILTD, HAVELLS, WHIRLPOOL, BERGEPAINT, MANYAVAR, SYMPHONY, TTKPRESTIG, VGUARD, MARICO, ITC, VOLTAS); benchmark ^CNXFMCG; color #ec4899 (pink-500) | 2026-05-29 |
