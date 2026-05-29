@@ -41,6 +41,8 @@
 | Item | Completed |
 |------|-----------|
 | Stock sector reclassifications — LAXMIMACH/INDIAMART/DREAMFOLKS/IRCTC/EASEMYTRIP → Growth; TATAINVEST/IBREALEST → Finance; NYKAA → Consumer; both sectors.ts and debug_benchmark.py updated. ET Money.NS (bad data symbol) left unclassified intentionally. | 2026-05-29 |
+| Benchmarking ↻ sync icon on Analysis strip — same row as sub-tab pills, only visible on Benchmarking; invalidates ['history'] + ['benchmark-hist']; benchSyncing state clears when benchLoading goes false | 2026-05-30 |
+| 1d local cache + no-blank-screen UX — maxAge 7d→1d; portfolio staleTime 30min→1d; benchmark-hist queries persisted to localStorage (were never persisted before — caused blank screen every app restart); Returns tab shows stale portSeries during sync instead of blank | 2026-05-30 |
 | MF sector classification — Global sector added (^GSPC); all 70 MF symbols explicitly classified across Equity/Smallcap/IT/Finance/Healthcare/Global/Other; SBI Contra moved Smallcap→Equity; 0P0001JMZB moved Tech→Global; Other sector excluded from Benchmarking pill (By Sector list + overall XIRR computation); debug_benchmark_mf.py created | 2026-05-30 |
 | Charts tab UX — cached charts on hard refresh (usePortfolioHistory builds from available queries); sync icon spins until refetch done (useEffect + isFetching); progress bar on first load (X/Y symbols); fixed ReferenceError crash (useEffect moved after histLoading declaration) | 2026-05-30 |
 | Overview UX — "Refreshing…" banner auto-dismisses after 1.5s; bottom ↻ keeps spinning until fetch done (split bannerVisible + refreshing states) | 2026-05-30 |

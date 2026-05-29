@@ -171,8 +171,9 @@ msp_v2.csv
 
 | What | TTL | Scope |
 |------|-----|-------|
-| price history queries (`['history', ...]`) | 7 days | scoped via `shouldDehydrateQuery` |
-| portfolio bundle (`['portfolio', currency]`) | 7 days | persisted alongside history; restores on reopen, background-refetches if stale |
+| price history queries (`['history', ...]`) | 1 day | scoped via `shouldDehydrateQuery` |
+| benchmark histories (`['benchmark-hist', ...]`) | 1 day | persisted via `shouldDehydrateQuery`; eliminates blank Benchmarking tab on restart |
+| portfolio bundle (`['portfolio', currency]`) | 1 day | restores on reopen; staleTime=1d so no auto background-refetch; ↻ only trigger |
 
 ---
 
