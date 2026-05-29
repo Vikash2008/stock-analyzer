@@ -209,7 +209,7 @@ export default function HoldingsPage({ currency }: Props) {
   const [concentrationSectionOpen, setConcentrationSectionOpen] = useState(false)
   const [returnsMode,   setReturnsMode]   = useState<'year' | 'month'>('year')
   const [returnsYear,   setReturnsYear]   = useState<number>(new Date().getFullYear())
-  const [returnsMetric, setReturnsMetric] = useState<'returnPct' | 'gains'>('gains')
+  const [returnsMetric] = useState<'gains'>('gains')
   const [returnsSector, setReturnsSector] = useState<SectorKey | 'all'>('all')
   const [returnsConfigOpen, setReturnsConfigOpen] = useState(false)
   const [benchConfigOpen,  setBenchConfigOpen]  = useState(false)
@@ -1544,38 +1544,26 @@ export default function HoldingsPage({ currency }: Props) {
                   ? (displayStats.cur - displayStats.inv + displayStats.realGain) / (displayStats.inv + displayStats.realCost) * 100
                   : null
                 const histData = periodData.map(row => {
-                  const raw   = returnsMetric === 'gains' ? row.gains : row.returnPct
+                  const raw   = row.gains
                   const cumul = row.isYtd && liveReturnPct !== null ? liveReturnPct : row.cumulReturnPct
                   return { label: row.label, value: raw ?? 0, cumul: cumul ?? null, isYtd: row.isYtd, raw }
                 })
                 const symToYfLocal = new Map(filteredHoldings.map(h => [h.symbol, h.yf_symbol]))
                 const summaryGains = periodData.reduce((s, r) => s + r.gains, 0)
-                const cumulReturnPct = portSeries?.returnPct.values.at(-1) ?? null
                 const summaryLabel = returnsMode === 'year' ? 'by year' : String(returnsYear)
-                const fmtV = (v: number) =>
-                  returnsMetric === 'gains'
-                    ? `${v >= 0 ? '+' : '−'}${fmtCompact(Math.abs(v), currency)}`
-                    : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`
-                const metricLabel = returnsMetric === 'gains' ? 'Gains' : 'Return'
+                const fmtV = (v: number) => `${v >= 0 ? '+' : '−'}${fmtCompact(Math.abs(v), currency)}`
+                const metricLabel = 'Gains'
                 const yTickFmtR = (v: number) =>
-                  returnsMetric === 'gains'
-                    ? (Math.abs(v) >= 1e7 ? `${(v/1e7).toFixed(1)}Cr` : Math.abs(v) >= 1e5 ? `${(v/1e5).toFixed(1)}L` : Math.abs(v) >= 1e3 ? `${(v/1e3).toFixed(0)}K` : String(v))
-                    : `${v.toFixed(0)}%`
+                  Math.abs(v) >= 1e7 ? `${(v/1e7).toFixed(1)}Cr` : Math.abs(v) >= 1e5 ? `${(v/1e5).toFixed(1)}L` : Math.abs(v) >= 1e3 ? `${(v/1e3).toFixed(0)}K` : String(v)
                 return (
                   <>
                     {/* Summary line */}
-                    <div className="flex items-center mb-2">
-                      {returnsMetric === 'gains' ? (
-                        <span className={`text-[13px] font-bold ${summaryGains >= 0 ? 'text-green-600' : 'text-red-400'}`}>
-                          {`${summaryGains >= 0 ? '+' : '−'}${fmtCompact(Math.abs(summaryGains), currency)}`}
-                        </span>
-                      ) : (
-                        <span className={`text-[13px] font-bold ${(cumulReturnPct ?? 0) >= 0 ? 'text-green-600' : 'text-red-400'}`}>
-                          {cumulReturnPct !== null ? `${cumulReturnPct >= 0 ? '+' : ''}${cumulReturnPct.toFixed(2)}%` : '—'}
-                        </span>
-                      )}
-                      <span className="text-[9px] text-slate-400 ml-2 flex-1">
-                        {returnsMetric === 'returnPct' ? 'total return · now' : `${returnsSector === 'all' ? 'all sectors' : returnsSector} · ${summaryLabel}`}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`text-[13px] font-bold whitespace-nowrap ${summaryGains >= 0 ? 'text-green-600' : 'text-red-400'}`}>
+                        {`${summaryGains >= 0 ? '+' : '−'}${fmtCompact(Math.abs(summaryGains), currency)}`}
+                      </span>
+                      <span className="text-[9px] text-slate-400 flex-1 min-w-0 truncate">
+                        {`${returnsSector === 'all' ? 'all sectors' : returnsSector} · ${summaryLabel}`}
                       </span>
                       <div className="relative shrink-0">
                         <button
@@ -1630,27 +1618,15 @@ export default function HoldingsPage({ currency }: Props) {
                                   </div>
                                 </>
                               )}
-                              <p className="text-[8px] text-slate-400 uppercase tracking-widest mb-1">Metric</p>
-                              <div className="relative flex bg-slate-100 rounded-full p-[2px]">
-                                <div
-                                  className="absolute top-[2px] bottom-[2px] rounded-full bg-white shadow-sm transition-transform duration-150"
-                                  style={{ width: '50%', transform: `translateX(${returnsMetric === 'returnPct' ? '0%' : '100%'})` }}
-                                />
-                                {([['returnPct', 'Return %'], ['gains', 'Gains']] as const).map(([val, lbl]) => (
-                                  <button key={val} onClick={() => setReturnsMetric(val)}
-                                    className={`relative z-10 flex-1 text-[9px] py-[4px] transition-colors ${returnsMetric === val ? 'text-slate-700 font-semibold' : 'text-slate-400'}`}
-                                  >{lbl}</button>
-                                ))}
-                              </div>
                             </div>
                           </>
                         )}
                       </div>
                     </div>
 
-                    {/* Histogram + cumulative line */}
+                    {/* Histogram + cumulative return % line */}
                     <ResponsiveContainer width="100%" height={220}>
-                      <ComposedChart data={histData} margin={{ top: 4, right: 44, left: 0, bottom: 0 }} barCategoryGap="20%">
+                      <ComposedChart data={histData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="20%">
                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                         <XAxis
                           dataKey="label"
@@ -1670,9 +1646,8 @@ export default function HoldingsPage({ currency }: Props) {
                         <YAxis
                           yAxisId="right"
                           orientation="right"
-                          tick={{ fontSize: 8, fill: '#6366f1' }}
-                          tickFormatter={(v: number) => `${v.toFixed(0)}%`}
-                          width={40}
+                          width={0}
+                          tick={false}
                           tickLine={false}
                           axisLine={false}
                           domain={['auto', 'auto']}
@@ -1680,7 +1655,7 @@ export default function HoldingsPage({ currency }: Props) {
                         <Tooltip
                           formatter={(v: number, name: string) => [
                             name === 'cumul' ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%` : fmtV(v),
-                            name === 'cumul' ? 'Total Return' : metricLabel,
+                            name === 'cumul' ? 'Cumul Return' : metricLabel,
                           ]}
                           contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #e2e8f0' }}
                           labelStyle={{ fontSize: 9, color: '#94a3b8' }}
@@ -1858,22 +1833,22 @@ export default function HoldingsPage({ currency }: Props) {
 
                       {benchSectorSectionOpen && (
                         <div className="flex items-center gap-1 px-2 pb-1">
-                          <span className="text-[7px] font-semibold text-slate-500 flex-1">Sector (XIRR)</span>
+                          <span className="text-[7px] font-semibold text-slate-500 flex-[2]">Sector (XIRR)</span>
                           <span className="text-[7px] font-semibold text-slate-500 flex-1">Benchmark (XIRR)</span>
                           <span className="text-[7px] font-semibold text-slate-500 flex-1 text-right">Alpha</span>
                           <span className="w-[8px]" />
                         </div>
                       )}
 
-                      {benchSectorSectionOpen && benchSectors.filter(s => s.holdingCount > 0).map(s => {
+                      {benchSectorSectionOpen && [...benchSectors.filter(s => s.holdingCount > 0)].sort((a, b) => b.currentValue - a.currentValue).map(s => {
                         const isOpen = expandedSectors.has(s.sector)
                         const sectorRows = rows.filter(r =>
                           getSectorForHolding(symToYf.get(r.navSym) ?? r.navSym) === s.sector
-                        )
+                        ).sort((a, b) => b.current - a.current)
                         const xirrColor  = s.actualXirr !== null ? s.actualXirr >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'
                         const alphaColor = s.alpha !== null ? s.alpha >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'
                         return (
-                          <div key={s.sector} className="border border-slate-100 rounded-lg mb-1">
+                          <div key={s.sector} className="border border-slate-200 rounded-lg mb-2">
                             <button
                               className="w-full px-2 py-1.5 text-left active:opacity-60"
                               onClick={() => setExpandedSectors(prev => {
@@ -1883,7 +1858,7 @@ export default function HoldingsPage({ currency }: Props) {
                               })}
                             >
                               <div className="flex items-center gap-1">
-                                <span className={`text-[9px] font-medium flex-1 overflow-hidden text-ellipsis whitespace-nowrap`}><span className="text-slate-700">{s.sector}</span> <span className={xirrColor}>({fmtX(s.actualXirr)})</span></span>
+                                <span className={`text-[9px] font-medium flex-[2] overflow-hidden text-ellipsis whitespace-nowrap`}><span className="text-slate-700">{s.sector}</span> <span className={xirrColor}>({fmtX(s.actualXirr)})</span></span>
                                 <span className="text-[9px] text-slate-400 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{BENCHMARK_LABEL[s.benchSymbol] ?? s.benchSymbol} ({fmtX(s.benchXirr)})</span>
                                 <span className={`text-[9px] font-semibold flex-1 whitespace-nowrap text-right ${alphaColor}`}>{fmtX(s.alpha)}</span>
                                 <span className="text-[8px] text-slate-300 w-[8px] text-right">{isOpen ? '▲' : '▼'}</span>
@@ -1910,7 +1885,7 @@ export default function HoldingsPage({ currency }: Props) {
                                   return (
                                     <div key={r.key} className="bg-slate-50 rounded-lg px-2 py-1.5">
                                       <div className="flex items-center gap-1">
-                                        <span className="flex items-center gap-1 flex-1 min-w-0">
+                                        <span className="flex items-center gap-1 flex-[2] min-w-0">
                                           <span className="text-[9px] font-medium text-slate-600 truncate min-w-0">{r.subLabel || r.ticker}</span>
                                           <span className={`text-[9px] font-medium shrink-0 ${hColor}`}>{fmtX(hXirr)}</span>
                                         </span>

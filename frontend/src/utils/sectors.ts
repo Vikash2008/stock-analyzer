@@ -1,6 +1,6 @@
 export type SectorKey =
   | 'Banking' | 'Finance' | 'Healthcare' | 'IT'
-  | 'Growth'  | 'Tech'    | 'Smallcap'   | 'Equity' | 'Other'
+  | 'Growth'  | 'Tech'    | 'Smallcap'   | 'Equity' | 'Consumer' | 'Other'
 
 export const SECTOR_COLOR: Record<SectorKey, string> = {
   Banking:    '#3b82f6',
@@ -11,6 +11,7 @@ export const SECTOR_COLOR: Record<SectorKey, string> = {
   Tech:       '#38bdf8',
   Smallcap:   '#f59e0b',
   Equity:     '#10b981',
+  Consumer:   '#ec4899',
   Other:      '#94a3b8',
 }
 
@@ -63,6 +64,8 @@ const SYMBOL_SECTOR: Record<string, SectorKey> = {
   'LICI.NS':       'Finance',
   'POLICYBZR.NS':  'Finance',
   'PAYTM.NS':      'Finance',
+  'TATAINVEST.NS': 'Finance',
+  'IBREALEST.NS':  'Finance',
 
   // ── Healthcare ─────────────────────────────────────────
   'LALPATHLAB.NS': 'Healthcare',
@@ -90,6 +93,7 @@ const SYMBOL_SECTOR: Record<string, SectorKey> = {
   'KPITTECH.NS':   'IT',
   'TATAELXSI.NS':  'IT',
   'HAPPSTMNDS.NS': 'IT',
+  'TECHM.NS':      'IT',
 
   // ── Growth ─────────────────────────────────────────────
   'ETERNAL.NS':    'Growth',
@@ -97,6 +101,11 @@ const SYMBOL_SECTOR: Record<string, SectorKey> = {
   'RATEGAIN.NS':   'Growth',
   'DSSL.NS':       'Growth',
   'NETWEB.NS':     'Growth',
+  'LAXMIMACH.NS':  'Growth',
+  'INDIAMART.NS':  'Growth',
+  'DREAMFOLKS.NS': 'Growth',
+  'IRCTC.NS':      'Growth',
+  'EASEMYTRIP.NS': 'Growth',
 
   // ── Tech (US stocks + US-tracking ETFs/MFs) ────────────
   'META':          'Tech',
@@ -140,12 +149,35 @@ const SYMBOL_SECTOR: Record<string, SectorKey> = {
   '0P0001EUZZ.BO': 'Smallcap', // Tata Small Cap Fund Dir Gr
   '0P0001F5O4.BO': 'Smallcap', // Bank of India Small Cap Dir Gr
   '0P0000XW24.BO': 'Smallcap', // DSP Small Cap Dir Gr
+  'DELTACORP.NS':  'Smallcap',
+  'TARSONS.NS':    'Smallcap',
+  'GREENPANEL.NS': 'Smallcap',
+  'ORIENTELEC.NS': 'Smallcap',
+  'PVRINOX.NS':    'Smallcap',
 
   // ── Equity (diversified/ELSS MFs) ──────────────────────
   '0P0000XW2T.BO': 'Equity',   // DSP ELSS Tax Saver Dir Gr
   '0P00017844.BO': 'Equity',   // Mirae Asset ELSS Tax Saver Dir Gr
   '0P0000YWL1.BO': 'Equity',   // Parag Parikh Long Term Equity Direct Growth
-  'NIFTYBEES.NS':  'Equity',   // Nifty 50 BeES ETF
+  'NIFTYBEES.NS':  'Other',    // Nifty 50 BeES ETF (same ^NSEI benchmark as Other)
+
+  // ── Consumer (FMCG + Consumer Durables) ───────────────────────
+  'HINDUNILVR.NS': 'Consumer',
+  'ASIANPAINT.NS': 'Consumer',
+  'DMART.NS':      'Consumer',
+  'PAGEIND.NS':    'Consumer',
+  'EMAMILTD.NS':   'Consumer',
+  'HAVELLS.NS':    'Consumer',
+  'WHIRLPOOL.NS':  'Consumer',
+  'BERGEPAINT.NS': 'Consumer',
+  'MANYAVAR.NS':   'Consumer',
+  'SYMPHONY.NS':   'Consumer',
+  'TTKPRESTIG.NS': 'Consumer',
+  'VGUARD.NS':     'Consumer',
+  'MARICO.NS':     'Consumer',
+  'ITC.NS':        'Consumer',
+  'VOLTAS.NS':     'Consumer',
+  'NYKAA.NS':      'Consumer',
 
   // ── Other ──────────────────────────────────────────────
   'INDIGOPNTS.NS': 'Other',
@@ -160,8 +192,9 @@ export const SECTOR_BENCHMARK: Record<SectorKey, string> = {
   IT:         '^CNXIT',
   Growth:     '^CRSLDX',
   Tech:       '^NDX',
-  Smallcap:   '^NSMCAP250',
+  Smallcap:   'NIFTY_MIDCAP_100.NS',
   Equity:     '^NSEI',
+  Consumer:   '^CNXFMCG',
   Other:      '^NSEI',
 }
 
@@ -172,7 +205,8 @@ export const BENCHMARK_LABEL: Record<string, string> = {
   '^CNXIT':     'Nifty IT',
   '^CRSLDX':    'Nifty 500',
   '^NDX':       'NASDAQ 100',
-  '^NSMCAP250': 'Nifty SC 250',
+  'NIFTY_MIDCAP_100.NS': 'Nifty Mid 100',
+  '^CNXFMCG':   'Nifty FMCG',
   '^NSEI':      'Nifty 50',
 }
 
