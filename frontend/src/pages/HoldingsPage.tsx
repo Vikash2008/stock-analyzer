@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  LineChart, Line, BarChart, Bar, ComposedChart,
+  XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine,
   PieChart, Pie, Cell,
 } from 'recharts'
@@ -206,7 +207,7 @@ export default function HoldingsPage({ currency }: Props) {
   const [concentrationSectionOpen, setConcentrationSectionOpen] = useState(false)
   const [returnsMode,   setReturnsMode]   = useState<'year' | 'month'>('year')
   const [returnsYear,   setReturnsYear]   = useState<number>(new Date().getFullYear())
-  const [returnsMetric, setReturnsMetric] = useState<'returnPct' | 'gains' | 'xirr'>('gains')
+  const [returnsMetric, setReturnsMetric] = useState<'returnPct' | 'gains'>('gains')
   const [returnsSector, setReturnsSector] = useState<SectorKey | 'all'>('all')
   const [returnsConfigOpen, setReturnsConfigOpen] = useState(false)
   const qc = useQueryClient()
@@ -438,6 +439,16 @@ export default function HoldingsPage({ currency }: Props) {
       [segment],
     ) : null
 
+    const priceMap = new Map<string, number>()
+    for (const h of data.holdings) if (!SKIP_PORTS.has(h.portfolio)) priceMap.set(h.symbol, h.current_price)
+
+    const lastSellMap = new Map<string, { price: number; date: string }>()
+    for (const tx of data.transactions) {
+      if (tx.type !== 'SELL') continue
+      const ex = lastSellMap.get(tx.symbol)
+      if (!ex || tx.date > ex.date) lastSellMap.set(tx.symbol, { price: tx.price, date: tx.date })
+    }
+
     const symMap = new Map<string, { rg: number; rc: number; firstPort: string; ports: string[] }>()
     for (const r of data.realized) {
       if (SKIP_PORTS.has(r.portfolio)) continue
@@ -464,7 +475,7 @@ export default function HoldingsPage({ currency }: Props) {
         subLabel: nameMap.get(sym) ?? '',
         current: 0, invested: 0,
         realGain: rg, realCost: rc,
-        todayGain: null, todayPct: null, ltp: null,
+        todayGain: null, todayPct: null, ltp: priceMap.get(sym) ?? lastSellMap.get(sym)?.price ?? null,
         navPort: firstPort, navSym: sym,
         portfolios: ports,
       }))
@@ -717,10 +728,11 @@ export default function HoldingsPage({ currency }: Props) {
     // Sum of all period gains ≈ current total P&L (unrealized + all realized).
     const portPts = (isAll && ps)
       ? ps.total.dates.map((d, i) => ({
-          dateStr:  d.toISOString().slice(0, 10),
-          total:    ps.total.values[i],
-          invested: ps.invested.values[i],
-          value:    ps.value.values[i],
+          dateStr:   d.toISOString().slice(0, 10),
+          total:     ps.total.values[i],
+          invested:  ps.invested.values[i],
+          value:     ps.value.values[i],
+          returnPct: ps.returnPct.values[i],
         }))
       : null
 
@@ -744,6 +756,10 @@ export default function HoldingsPage({ currency }: Props) {
     // Invested capital at or before cutoff — denominator for returnPct in 'all' mode
     function lastInvAtOrBefore(cutoff: string): number {
       let v = 0; if (portPts) for (const pt of portPts) { if (pt.dateStr > cutoff) break; v = pt.invested } return v
+    }
+    // Cumulative return % at or before cutoff — already uses (invested + realCost) denominator
+    function lastReturnPctAtOrBefore(cutoff: string): number {
+      let v = 0; if (portPts) for (const pt of portPts) { if (pt.dateStr > cutoff) break; v = pt.returnPct } return v
     }
     // Open-holdings market value at or before cutoff — terminal value for XIRR in 'all' mode
     function lastOpenValAtOrBefore(cutoff: string): number {
@@ -783,12 +799,12 @@ export default function HoldingsPage({ currency }: Props) {
       const endV   = lastValueAtOrBefore(endDate)
       const startV = lastValueAtOrBefore(prevEnd)
       if (portPts) {
-        const gains    = endV - startV
-        const startInv = lastInvAtOrBefore(prevEnd)
-        return { label, returnPct: startInv > 0 ? gains / startInv * 100 : 0, gains, xirr: buildXirr(endDate, lastOpenValAtOrBefore(endDate)), isYtd: isYtdMtd }
+        const gains      = endV - startV
+        const startPortV = lastOpenValAtOrBefore(prevEnd) || lastInvAtOrBefore(prevEnd)
+        return { label, returnPct: startPortV > 0 ? gains / startPortV * 100 : 0, gains, cumulGains: endV, cumulReturnPct: lastReturnPctAtOrBefore(endDate), xirr: buildXirr(endDate, lastOpenValAtOrBefore(endDate)), isYtd: isYtdMtd }
       }
       const gains = endV - startV - netInvested(prevEnd, endDate)
-      return { label, returnPct: startV > 0 ? gains / startV * 100 : 0, gains, xirr: buildXirr(endDate, endV), isYtd: isYtdMtd }
+      return { label, returnPct: startV > 0 ? gains / startV * 100 : 0, gains, cumulGains: endV, cumulReturnPct: null, xirr: buildXirr(endDate, endV), isYtd: isYtdMtd }
     }
 
     const srcDates = portPts ? portPts.map(pt => pt.dateStr) : series.map(pt => pt.dateStr)
@@ -1036,7 +1052,7 @@ export default function HoldingsPage({ currency }: Props) {
 
       {/* ── Holdings tab ── */}
       {activeTab === 'holdings' && (
-        <div className="p-3">
+        <div>
           {/* Count + Sort */}
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] text-slate-400">
@@ -1234,9 +1250,8 @@ export default function HoldingsPage({ currency }: Props) {
                     </button>
                     {sectorSectionOpen && <div className="flex items-center gap-1.5 px-2 pb-1">
                       <span className="text-[7px] font-semibold text-slate-500 flex-1">Sector</span>
-                      <span className="text-[7px] font-semibold text-slate-500 w-[52px]">Allocation</span>
-                      <span className="text-[7px] font-semibold text-slate-500 w-[48px]">Value</span>
-                      <span className="text-[7px] font-semibold text-slate-500 w-[40px]">XIRR</span>
+                      <span className="text-[7px] font-semibold text-slate-500 w-[52px]">Alloc</span>
+                      <span className="text-[7px] font-semibold text-slate-500 w-[90px]">Value (XIRR)</span>
                       <span className="text-[7px] font-semibold text-slate-500 w-[80px]">Today</span>
                       <span className="w-[8px]" />
                     </div>}
@@ -1260,7 +1275,7 @@ export default function HoldingsPage({ currency }: Props) {
                       const sTodayColor = sTodayPct !== null ? (sTodayPct >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
 
                       return (
-                        <div key={s.name} className="border border-slate-100 rounded-lg mb-1">
+                        <div key={s.name} className="border border-slate-200 rounded-lg mb-2">
                           <button
                             className="w-full px-2 py-1.5 text-left active:opacity-60"
                             onClick={() => setExpandedAllocSectors(prev => {
@@ -1272,11 +1287,12 @@ export default function HoldingsPage({ currency }: Props) {
                             <div className="flex items-center gap-1.5 mb-1">
                               <span className="flex-1 min-w-0 flex items-center gap-1">
                                 <span className="text-[10px] font-medium text-slate-700 truncate">{s.name}</span>
-                                <span className="text-[8px] text-slate-400 whitespace-nowrap shrink-0">({sectorAllocRows.length} holdings)</span>
+                                <span className="text-[8px] text-slate-400 whitespace-nowrap shrink-0">(#{sectorAllocRows.length})</span>
                               </span>
                               <span className="text-[9px] text-slate-500 whitespace-nowrap w-[52px]">{s.pct.toFixed(1)}%</span>
-                              <span className="text-[9px] font-medium text-slate-700 whitespace-nowrap w-[48px]">{fmtCompact(s.value, currency)}</span>
-                              <span className={`text-[9px] font-medium whitespace-nowrap w-[40px] ${sXirrColor}`}>{sXirr !== null ? `${sXirr >= 0 ? '+' : ''}${sXirr.toFixed(1)}%` : '—'}</span>
+                              <span className="text-[9px] font-medium text-slate-700 whitespace-nowrap w-[90px]">
+                                {fmtCompact(s.value, currency)}{sXirr !== null && <span className={sXirrColor}> ({sXirr >= 0 ? '+' : ''}{sXirr.toFixed(1)}%)</span>}
+                              </span>
                               <span className={`text-[8px] font-medium whitespace-nowrap w-[80px] ${sTodayColor}`}>
                                 {sTodayGain !== null ? `${fmtTodayGain(sTodayGain)}${sTodayPct !== null ? ` (${sTodayPct >= 0 ? '+' : ''}${sTodayPct.toFixed(1)}%)` : ''}` : '—'}
                               </span>
@@ -1287,21 +1303,22 @@ export default function HoldingsPage({ currency }: Props) {
                             </div>
                           </button>
                           {isOpen && sectorAllocRows.length > 0 && (
-                            <div className="border-t border-slate-100">
-                              <div className="py-2 space-y-1.5">
+                            <div className="border-t border-slate-200 bg-slate-50 rounded-b-lg">
+                              <div className="py-2 px-1 space-y-1.5">
                                 {sectorAllocRows.map(r => {
                                   const hPct = totalValue > 0 ? r.current / totalValue * 100 : 0
                                   const hXirr = allocXirrMap.get(r.key) ?? null
                                   const xirrColor = hXirr !== null ? (hXirr >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
                                   const todayColor = r.todayPct !== null ? (r.todayPct >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
                                   return (
-                                    <div key={r.key} className="flex items-center gap-1.5 bg-slate-50 rounded-lg px-2 py-1.5">
+                                    <div key={r.key} className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-2 py-1.5">
                                       <div className="flex-1 min-w-0">
                                         <span className="text-[10px] text-slate-600 truncate block">{r.subLabel || r.ticker}</span>
                                       </div>
                                       <span className="text-[9px] text-slate-500 w-[52px] whitespace-nowrap">{hPct.toFixed(1)}%</span>
-                                      <span className="text-[9px] font-medium text-slate-700 w-[48px] whitespace-nowrap">{fmtCompact(r.current, currency)}</span>
-                                      <span className={`text-[9px] font-medium w-[40px] whitespace-nowrap ${xirrColor}`}>{hXirr !== null ? `${hXirr >= 0 ? '+' : ''}${hXirr.toFixed(1)}%` : '—'}</span>
+                                      <span className="text-[9px] font-medium text-slate-700 w-[90px] whitespace-nowrap">
+                                        {fmtCompact(r.current, currency)}{hXirr !== null && <span className={xirrColor}> ({hXirr >= 0 ? '+' : ''}{hXirr.toFixed(1)}%)</span>}
+                                      </span>
                                       <span className={`text-[8px] font-medium whitespace-nowrap w-[80px] ${todayColor}`}>
                                         {r.todayGain !== null ? `${fmtTodayGain(r.todayGain)}${r.todayPct !== null ? ` (${r.todayPct >= 0 ? '+' : ''}${r.todayPct.toFixed(1)}%)` : ''}` : '—'}
                                       </span>
@@ -1322,9 +1339,8 @@ export default function HoldingsPage({ currency }: Props) {
                     </button>
                     {mktCapSectionOpen && <div className="flex items-center gap-1.5 px-2 pb-1">
                       <span className="text-[7px] font-semibold text-slate-500 flex-1">Bucket</span>
-                      <span className="text-[7px] font-semibold text-slate-500 w-[52px]">Allocation</span>
-                      <span className="text-[7px] font-semibold text-slate-500 w-[48px]">Value</span>
-                      <span className="text-[7px] font-semibold text-slate-500 w-[40px]">XIRR</span>
+                      <span className="text-[7px] font-semibold text-slate-500 w-[52px]">Alloc</span>
+                      <span className="text-[7px] font-semibold text-slate-500 w-[90px]">Value (XIRR)</span>
                       <span className="text-[7px] font-semibold text-slate-500 w-[80px]">Today</span>
                       <span className="w-[8px]" />
                     </div>}
@@ -1347,7 +1363,7 @@ export default function HoldingsPage({ currency }: Props) {
                       const sTodayColor = sTodayPct !== null ? (sTodayPct >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
 
                       return (
-                        <div key={b.name} className="border border-slate-100 rounded-lg mb-1">
+                        <div key={b.name} className="border border-slate-200 rounded-lg mb-2">
                           <button
                             className="w-full px-2 py-1.5 text-left active:opacity-60"
                             onClick={() => setExpandedMktCapBuckets(prev => {
@@ -1359,11 +1375,12 @@ export default function HoldingsPage({ currency }: Props) {
                             <div className="flex items-center gap-1.5 mb-1">
                               <span className="flex-1 min-w-0 flex items-center gap-1">
                                 <span className="text-[10px] font-medium text-slate-700 truncate">{b.name}</span>
-                                <span className="text-[8px] text-slate-400 whitespace-nowrap shrink-0">({bucketAllocRows.length} holdings)</span>
+                                <span className="text-[8px] text-slate-400 whitespace-nowrap shrink-0">(#{bucketAllocRows.length})</span>
                               </span>
                               <span className="text-[9px] text-slate-500 whitespace-nowrap w-[52px]">{b.pct.toFixed(1)}%</span>
-                              <span className="text-[9px] font-medium text-slate-700 whitespace-nowrap w-[48px]">{fmtCompact(b.value, currency)}</span>
-                              <span className={`text-[9px] font-medium whitespace-nowrap w-[40px] ${sXirrColor}`}>{sXirr !== null ? `${sXirr >= 0 ? '+' : ''}${sXirr.toFixed(1)}%` : '—'}</span>
+                              <span className="text-[9px] font-medium text-slate-700 whitespace-nowrap w-[90px]">
+                                {fmtCompact(b.value, currency)}{sXirr !== null && <span className={sXirrColor}> ({sXirr >= 0 ? '+' : ''}{sXirr.toFixed(1)}%)</span>}
+                              </span>
                               <span className={`text-[8px] font-medium whitespace-nowrap w-[80px] ${sTodayColor}`}>
                                 {sTodayGain !== null ? `${fmtTodayGain(sTodayGain)}${sTodayPct !== null ? ` (${sTodayPct >= 0 ? '+' : ''}${sTodayPct.toFixed(1)}%)` : ''}` : '—'}
                               </span>
@@ -1374,21 +1391,22 @@ export default function HoldingsPage({ currency }: Props) {
                             </div>
                           </button>
                           {isOpen && bucketAllocRows.length > 0 && (
-                            <div className="border-t border-slate-100">
-                              <div className="py-2 space-y-1.5">
+                            <div className="border-t border-slate-200 bg-slate-50 rounded-b-lg">
+                              <div className="py-2 px-1 space-y-1.5">
                                 {bucketAllocRows.map(r => {
                                   const hPct = totalValue > 0 ? r.current / totalValue * 100 : 0
                                   const hXirr = allocXirrMap.get(r.key) ?? null
                                   const xirrColor = hXirr !== null ? (hXirr >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
                                   const todayColor = r.todayPct !== null ? (r.todayPct >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
                                   return (
-                                    <div key={r.key} className="flex items-center gap-1.5 bg-slate-50 rounded-lg px-2 py-1.5">
+                                    <div key={r.key} className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-2 py-1.5">
                                       <div className="flex-1 min-w-0">
                                         <span className="text-[10px] text-slate-600 truncate block">{r.subLabel || r.ticker}</span>
                                       </div>
                                       <span className="text-[9px] text-slate-500 w-[52px] whitespace-nowrap">{hPct.toFixed(1)}%</span>
-                                      <span className="text-[9px] font-medium text-slate-700 w-[48px] whitespace-nowrap">{fmtCompact(r.current, currency)}</span>
-                                      <span className={`text-[9px] font-medium w-[40px] whitespace-nowrap ${xirrColor}`}>{hXirr !== null ? `${hXirr >= 0 ? '+' : ''}${hXirr.toFixed(1)}%` : '—'}</span>
+                                      <span className="text-[9px] font-medium text-slate-700 w-[90px] whitespace-nowrap">
+                                        {fmtCompact(r.current, currency)}{hXirr !== null && <span className={xirrColor}> ({hXirr >= 0 ? '+' : ''}{hXirr.toFixed(1)}%)</span>}
+                                      </span>
                                       <span className={`text-[8px] font-medium whitespace-nowrap w-[80px] ${todayColor}`}>
                                         {r.todayGain !== null ? `${fmtTodayGain(r.todayGain)}${r.todayPct !== null ? ` (${r.todayPct >= 0 ? '+' : ''}${r.todayPct.toFixed(1)}%)` : ''}` : '—'}
                                       </span>
@@ -1482,18 +1500,23 @@ export default function HoldingsPage({ currency }: Props) {
               ) : periodData.length === 0 ? (
                 <p className="text-center text-[11px] text-slate-400 py-6">No data for this selection.</p>
               ) : (() => {
+                const liveReturnPct = (displayStats.inv + displayStats.realCost) > 0
+                  ? (displayStats.cur - displayStats.inv + displayStats.realGain) / (displayStats.inv + displayStats.realCost) * 100
+                  : null
                 const histData = periodData.map(row => {
-                  const raw = returnsMetric === 'xirr' ? row.xirr : returnsMetric === 'gains' ? row.gains : row.returnPct
-                  return { label: row.label, value: raw ?? 0, isYtd: row.isYtd, raw }
+                  const raw   = returnsMetric === 'gains' ? row.gains : row.returnPct
+                  const cumul = row.isYtd && liveReturnPct !== null ? liveReturnPct : row.cumulReturnPct
+                  return { label: row.label, value: raw ?? 0, cumul: cumul ?? null, isYtd: row.isYtd, raw }
                 })
                 const symToYfLocal = new Map(filteredHoldings.map(h => [h.symbol, h.yf_symbol]))
                 const summaryGains = periodData.reduce((s, r) => s + r.gains, 0)
+                const cumulReturnPct = portSeries?.returnPct.values.at(-1) ?? null
                 const summaryLabel = returnsMode === 'year' ? 'by year' : String(returnsYear)
                 const fmtV = (v: number) =>
                   returnsMetric === 'gains'
                     ? `${v >= 0 ? '+' : '−'}${fmtCompact(Math.abs(v), currency)}`
                     : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`
-                const metricLabel = returnsMetric === 'gains' ? 'Gains' : returnsMetric === 'xirr' ? 'XIRR' : 'Return'
+                const metricLabel = returnsMetric === 'gains' ? 'Gains' : 'Return'
                 const yTickFmtR = (v: number) =>
                   returnsMetric === 'gains'
                     ? (Math.abs(v) >= 1e7 ? `${(v/1e7).toFixed(1)}Cr` : Math.abs(v) >= 1e5 ? `${(v/1e5).toFixed(1)}L` : Math.abs(v) >= 1e3 ? `${(v/1e3).toFixed(0)}K` : String(v))
@@ -1502,11 +1525,17 @@ export default function HoldingsPage({ currency }: Props) {
                   <>
                     {/* Summary line */}
                     <div className="flex items-center mb-2">
-                      <span className={`text-[13px] font-bold ${summaryGains >= 0 ? 'text-green-600' : 'text-red-400'}`}>
-                        {`${summaryGains >= 0 ? '+' : '−'}${fmtCompact(Math.abs(summaryGains), currency)}`}
-                      </span>
+                      {returnsMetric === 'gains' ? (
+                        <span className={`text-[13px] font-bold ${summaryGains >= 0 ? 'text-green-600' : 'text-red-400'}`}>
+                          {`${summaryGains >= 0 ? '+' : '−'}${fmtCompact(Math.abs(summaryGains), currency)}`}
+                        </span>
+                      ) : (
+                        <span className={`text-[13px] font-bold ${(cumulReturnPct ?? 0) >= 0 ? 'text-green-600' : 'text-red-400'}`}>
+                          {cumulReturnPct !== null ? `${cumulReturnPct >= 0 ? '+' : ''}${cumulReturnPct.toFixed(2)}%` : '—'}
+                        </span>
+                      )}
                       <span className="text-[9px] text-slate-400 ml-2 flex-1">
-                        {returnsSector === 'all' ? 'all sectors' : returnsSector} · {summaryLabel}
+                        {returnsMetric === 'returnPct' ? 'total return · now' : `${returnsSector === 'all' ? 'all sectors' : returnsSector} · ${summaryLabel}`}
                       </span>
                       <div className="relative shrink-0">
                         <button
@@ -1565,9 +1594,9 @@ export default function HoldingsPage({ currency }: Props) {
                               <div className="relative flex bg-slate-100 rounded-full p-[2px]">
                                 <div
                                   className="absolute top-[2px] bottom-[2px] rounded-full bg-white shadow-sm transition-transform duration-150"
-                                  style={{ width: '33.33%', transform: `translateX(${returnsMetric === 'returnPct' ? '0%' : returnsMetric === 'gains' ? '100%' : '200%'})` }}
+                                  style={{ width: '50%', transform: `translateX(${returnsMetric === 'returnPct' ? '0%' : '100%'})` }}
                                 />
-                                {([['returnPct', 'Return %'], ['gains', 'Gains'], ['xirr', 'XIRR']] as const).map(([val, lbl]) => (
+                                {([['returnPct', 'Return %'], ['gains', 'Gains']] as const).map(([val, lbl]) => (
                                   <button key={val} onClick={() => setReturnsMetric(val)}
                                     className={`relative z-10 flex-1 text-[9px] py-[4px] transition-colors ${returnsMetric === val ? 'text-slate-700 font-semibold' : 'text-slate-400'}`}
                                   >{lbl}</button>
@@ -1579,9 +1608,9 @@ export default function HoldingsPage({ currency }: Props) {
                       </div>
                     </div>
 
-                    {/* Histogram */}
+                    {/* Histogram + cumulative line */}
                     <ResponsiveContainer width="100%" height={220}>
-                      <BarChart data={histData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="20%">
+                      <ComposedChart data={histData} margin={{ top: 4, right: 44, left: 0, bottom: 0 }} barCategoryGap="20%">
                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                         <XAxis
                           dataKey="label"
@@ -1590,6 +1619,7 @@ export default function HoldingsPage({ currency }: Props) {
                           axisLine={false}
                         />
                         <YAxis
+                          yAxisId="left"
                           tick={{ fontSize: 8, fill: '#94a3b8' }}
                           tickFormatter={yTickFmtR}
                           width={40}
@@ -1597,19 +1627,41 @@ export default function HoldingsPage({ currency }: Props) {
                           axisLine={false}
                           domain={['auto', 'auto']}
                         />
+                        <YAxis
+                          yAxisId="right"
+                          orientation="right"
+                          tick={{ fontSize: 8, fill: '#6366f1' }}
+                          tickFormatter={(v: number) => `${v.toFixed(0)}%`}
+                          width={40}
+                          tickLine={false}
+                          axisLine={false}
+                          domain={['auto', 'auto']}
+                        />
                         <Tooltip
-                          formatter={(v: number) => [fmtV(v), metricLabel]}
+                          formatter={(v: number, name: string) => [
+                            name === 'cumul' ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%` : fmtV(v),
+                            name === 'cumul' ? 'Total Return' : metricLabel,
+                          ]}
                           contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #e2e8f0' }}
                           labelStyle={{ fontSize: 9, color: '#94a3b8' }}
                           cursor={{ fill: '#f1f5f9' }}
                         />
-                        <ReferenceLine y={0} stroke="#cbd5e1" strokeWidth={1} />
-                        <Bar dataKey="value" radius={[3, 3, 0, 0]}>
+                        <ReferenceLine yAxisId="left" y={0} stroke="#cbd5e1" strokeWidth={1} />
+                        <Bar yAxisId="left" dataKey="value" radius={[3, 3, 0, 0]}>
                           {histData.map((entry, i) => (
                             <Cell key={i} fill={entry.value >= 0 ? '#4ade80' : '#f87171'} fillOpacity={entry.isYtd ? 0.5 : 1} />
                           ))}
                         </Bar>
-                      </BarChart>
+                        <Line
+                          yAxisId="right"
+                          dataKey="cumul"
+                          stroke="#6366f1"
+                          strokeWidth={1.5}
+                          dot={{ r: 2.5, fill: '#6366f1', strokeWidth: 0 }}
+                          activeDot={{ r: 4, strokeWidth: 0 }}
+                          connectNulls
+                        />
+                      </ComposedChart>
                     </ResponsiveContainer>
                   </>
                 )

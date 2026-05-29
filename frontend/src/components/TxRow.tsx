@@ -83,6 +83,7 @@ export function TxRow({ tx, currency, usdInr, gain }: TxRowProps) {
     r2rightColor = gc(tg)
 
   } else if (gain?.status === 'sold') {
+    r1right    = `${fmtCompact(0, currency)} (${fmtCompact(0, currency)})`
     r2midGain  = fmtG(gain.gain, gain.pct, currency)
     r2midSub   = `${fq(tx.quantity)}sh sold`
     r2midColor = gc(gain.gain)

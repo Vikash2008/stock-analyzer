@@ -111,7 +111,7 @@ export default function TransactionsPage({ currency }: Props) {
   }, [data, portfolioFilter, decoded.symbol])
 
   const holdingXirr = useMemo(() => {
-    if (!symTxns.length || !holdingList.length || !data) return null
+    if (!symTxns.length || !data) return null
     const today = new Date()
     const aggCurrent = holdingList.reduce((s, h) => s + h.disp_current, 0)
     const cfs: { date: Date; amount: number }[] = []
@@ -161,7 +161,8 @@ export default function TransactionsPage({ currency }: Props) {
       }
 
       // BUY — distribute same-date qtyRealized in FIFO order across lots
-      if (!holding) return null
+      // holding may be null for fully closed positions; use current_price=0 (no open qty remains)
+      const currentPrice = holding?.current_price ?? 0
       const dateKey  = tx.date.slice(0, 10)
       const bTotal   = buyMap.get(dateKey) ?? { qtyRealized: 0, realGain: 0, realCost: 0 }
       const prevUsed = dateQtyAttributed.get(dateKey) ?? 0
@@ -171,9 +172,9 @@ export default function TransactionsPage({ currency }: Props) {
       const fraction   = bTotal.qtyRealized > 1e-9 ? qtyRealizedThisLot / bTotal.qtyRealized : 0
       const b          = { qtyRealized: qtyRealizedThisLot, realGain: bTotal.realGain * fraction, realCost: bTotal.realCost * fraction }
       const qtyRemaining   = tx.quantity - qtyRealizedThisLot
-      const unrealGain     = (holding.current_price - tx.price) * Math.max(0, qtyRemaining) * fx
-      const unrealPct      = tx.price !== 0 ? ((holding.current_price - tx.price) / tx.price) * 100 : 0
-      const currentValue   = holding.current_price * Math.max(0, qtyRemaining) * fx
+      const unrealGain     = (currentPrice - tx.price) * Math.max(0, qtyRemaining) * fx
+      const unrealPct      = tx.price !== 0 ? ((currentPrice - tx.price) / tx.price) * 100 : 0
+      const currentValue   = currentPrice * Math.max(0, qtyRemaining) * fx
 
       if (b.qtyRealized <= 1e-9)
         return { status: 'held' as const, gain: unrealGain, pct: unrealPct, currentValue }
@@ -257,11 +258,14 @@ export default function TransactionsPage({ currency }: Props) {
 
   const aggQty    = holdingList.reduce((s, h) => s + h.quantity, 0)
   const aggAvgCost = aggQty > 0 ? holdingList.reduce((s, h) => s + h.avg_cost * h.quantity, 0) / aggQty : 0
-  const ltp   = holding?.current_price?.toFixed(2) ?? '—'
+  // for closed holdings (no open position), try any portfolio's holding for LTP/name/yf_symbol
+  const anyHolding = holding ?? data.holdings.find(h => h.symbol === decoded.symbol && !SKIP_PORTS.has(h.portfolio)) ?? null
+  const lastSellPrice = symTxns.find(t => t.type === 'SELL')?.price
+  const ltp   = anyHolding?.current_price?.toFixed(2) ?? lastSellPrice?.toFixed(2) ?? '—'
   const qty   = holdingList.length ? aggQty.toFixed(3) : '—'
   const avg   = holdingList.length ? aggAvgCost.toFixed(2) : '—'
-  const co    = holding?.company ?? ''
-  const yf    = holding?.yf_symbol ?? decoded.symbol
+  const co    = anyHolding?.company ?? ''
+  const yf    = anyHolding?.yf_symbol ?? decoded.symbol
 
   const isPct       = PCT_METRICS.has(chartMetric)
   const chartLast   = metricSeries?.values[metricSeries.values.length - 1] ?? null
@@ -304,7 +308,7 @@ export default function TransactionsPage({ currency }: Props) {
         {/* Current value + today gain */}
         <div className="flex items-baseline justify-between mb-1">
           <span className="text-[20px] font-bold text-slate-900 tracking-tight">
-            {holding ? fmt(cur, dispCur) : '—'}
+            {fmt(cur, dispCur)}
           </span>
           <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
             <span className="text-[9px] text-slate-400">Today</span>
@@ -335,7 +339,7 @@ export default function TransactionsPage({ currency }: Props) {
         >
           <span className="text-[9px] text-slate-400">
             Invested{' '}
-            <span className="text-slate-600 font-semibold">{holding ? fmt(inv, dispCur) : '—'}</span>
+            <span className="text-slate-600 font-semibold">{fmt(inv, dispCur)}</span>
             {holding && <span className="text-slate-400"> · {qty} sh · {avg}/sh</span>}
           </span>
           <span className="text-[9px] text-slate-400">

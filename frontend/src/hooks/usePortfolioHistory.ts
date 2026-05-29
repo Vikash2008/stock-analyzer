@@ -158,6 +158,23 @@ export function usePortfolioHistory(
       }
     }
 
+    // Pin the last data point to live prices so the chart endpoint matches the summary card.
+    // yfinance history uses EOD closes; current_price is live (30-min cache). The gap = intraday move.
+    const todayStr = new Date().toISOString().slice(0, 10)
+    let todayVal = 0, todayInv = 0
+    for (const h of holdings) {
+      todayVal += h.disp_current
+      todayInv += h.disp_invested
+    }
+    if (allDates.length > 0 && allDates[allDates.length - 1] === todayStr) {
+      valArr[valArr.length - 1] = todayVal
+      invArr[invArr.length - 1] = todayInv
+    } else if (todayVal > 0) {
+      allDates.push(todayStr)
+      valArr.push(todayVal)
+      invArr.push(todayInv)
+    }
+
     const startIdx = valArr.findIndex(v => v > 0)
     if (startIdx < 0) return null
 
