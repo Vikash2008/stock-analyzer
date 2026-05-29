@@ -50,9 +50,12 @@ export default function App() {
       client={queryClient}
       persistOptions={{
         persister,
-        maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 days
+        maxAge: 24 * 60 * 60 * 1000,  // 1 day
         dehydrateOptions: {
-          shouldDehydrateQuery: (query) => query.queryKey[0] === 'history' || query.queryKey[0] === 'portfolio',
+          shouldDehydrateQuery: (query) =>
+            query.queryKey[0] === 'history' ||
+            query.queryKey[0] === 'portfolio' ||
+            query.queryKey[0] === 'benchmark-hist',
         },
       }}
     >

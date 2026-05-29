@@ -199,6 +199,7 @@ export default function HoldingsPage({ currency }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [showClosed,   setShowClosed]   = useState(false)
   const [syncing,      setSyncing]      = useState(false)
+  const [benchSyncing, setBenchSyncing] = useState(false)
   const [expandedSectors,     setExpandedSectors]     = useState<Set<string>>(new Set())
   const [expandedAllocSectors, setExpandedAllocSectors] = useState<Set<string>>(new Set())
   const [expandedMktCapBuckets, setExpandedMktCapBuckets] = useState<Set<string>>(new Set())
@@ -602,6 +603,10 @@ export default function HoldingsPage({ currency }: Props) {
     benchPeriodEnd,
     symbolPriceMap,
   )
+
+  useEffect(() => {
+    if (benchSyncing && !benchLoading) setBenchSyncing(false)
+  }, [benchSyncing, benchLoading])
 
   const xirrMap = useMemo(() => {
     if (!data) return new Map<string, number | null>()
@@ -1070,7 +1075,7 @@ export default function HoldingsPage({ currency }: Props) {
           </button>
         </div>
       )}
-      {/* Analysis strip — segmented control + config gear */}
+      {/* Analysis strip — segmented control + sync icon for benchmarking */}
       {activeTab === 'analysis' && (
         <div className="flex items-center gap-2 bg-violet-50 border border-violet-100 rounded-xl px-2.5 py-1.5 mt-2">
           <div className="flex gap-1.5 flex-1">
@@ -1090,6 +1095,19 @@ export default function HoldingsPage({ currency }: Props) {
               </button>
             ))}
           </div>
+          {analysisSubTab === 'benchmarking' && (
+            <button
+              className="shrink-0 text-slate-400 active:text-sky-500"
+              onClick={() => {
+                if (benchSyncing) return
+                setBenchSyncing(true)
+                qc.invalidateQueries({ queryKey: ['history'] })
+                qc.invalidateQueries({ queryKey: ['benchmark-hist'] })
+              }}
+            >
+              <span className={`text-[14px] inline-block ${benchSyncing ? 'animate-spin' : ''}`}>↻</span>
+            </button>
+          )}
         </div>
       )}
       <div className="mt-2">
@@ -1555,7 +1573,7 @@ export default function HoldingsPage({ currency }: Props) {
 
           {analysisSubTab === 'returns' && (
             <div>
-              {histLoading ? (
+              {!portSeries && histLoading ? (
                 <p className="text-center text-[11px] text-slate-400 py-6">Loading price history…</p>
               ) : periodData.length === 0 ? (
                 <p className="text-center text-[11px] text-slate-400 py-6">No data for this selection.</p>
