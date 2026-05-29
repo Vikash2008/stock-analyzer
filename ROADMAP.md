@@ -17,6 +17,14 @@
 
 ---
 
+## Backlog — Benchmarking Accuracy
+
+| # | Item | Notes | Status |
+|---|------|-------|--------|
+| 1 | UI 2pp alpha gap | debug_benchmark.py shows +5.0% overall alpha for Indian stocks (open+closed, inception-to-date); UI shows ~2%. Remaining gap likely due to date filter (Option B) being active in UI — user to confirm by checking 📅 row in Benchmarking pill. If no filter, investigate further. | pending |
+
+---
+
 ## Backlog — Cold Start UX
 
 | # | Item | Notes | Status |
@@ -32,6 +40,10 @@
 
 | Item | Completed |
 |------|-----------|
+| Indian stocks benchmarking full diagnostic — debug_benchmark.py overhauled: added Upstox to INDIAN_STOCK_PORTS, synced SYMBOL_SECTOR with sectors.ts, added print_unclassified_summary(); root cause of overall alpha drag identified: Consumer stocks (HINDUNILVR/PAGEIND/ASIANPAINT/DMART etc.) benchmarked against ^NSEI instead of ^CNXFMCG, plus IT sector drag from KPITTECH (-36.42% on 0.70L); overall Indian stocks alpha with final classification: +5.0% (open+closed, inception-to-date) | 2026-05-29 |
+| Consumer sector added to sectors.ts — 15 FMCG/durables stocks (HINDUNILVR, ASIANPAINT, DMART, PAGEIND, EMAMILTD, HAVELLS, WHIRLPOOL, BERGEPAINT, MANYAVAR, SYMPHONY, TTKPRESTIG, VGUARD, MARICO, ITC, VOLTAS); benchmark ^CNXFMCG; color #ec4899 (pink-500) | 2026-05-29 |
+| Smallcap sector expanded — DELTACORP, TARSONS, GREENPANEL, ORIENTELEC, PVRINOX added (closed positions from Groww); benchmark changed ^NSMCAP250→NIFTY_MIDCAP_100.NS (^NSMCAP250 and ^CNXMID both 404 in yfinance) | 2026-05-29 |
+| TECHM.NS classified as IT — was defaulting to Other; now correctly benchmarked vs ^CNXIT | 2026-05-29 |
 | NIFTYBEES.NS reclassified Other in SYMBOL_SECTOR — removes confusing "Equity" sector from Stocks portfolio benchmarking; benchmark ^NSEI unchanged | 2026-05-29 |
 | Benchmarking period XIRR (Option B) — opening balance at T1 from symbolPriceMap (actual) + histMap (bench); cashflows [T1,T2]; terminal at T2; sector rows + overall card update; usePortfolioHistory extraSymbols for closed-position prices; benchTxnsDate replaced with benchPeriodStart/benchPeriodEnd | 2026-05-29 |
 | Benchmarking date range filter — collapsible config at top of Benchmarking pill; From/To month+year selects; "Use today as end date" toggle; Apply/Clear; now drives Option B period XIRR instead of BUY-only filter | 2026-05-29 |
