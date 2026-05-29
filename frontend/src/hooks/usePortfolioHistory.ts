@@ -42,14 +42,18 @@ export function sliceSeries(s: DatedSeries, range: string): DatedSeries | null {
 }
 
 export function usePortfolioHistory(
-  holdings:     Holding[],
-  transactions: Transaction[],
-  realized:     Realized[],
-  usdInr:       number,
-  currency:     Currency,
-  enabled:      boolean,
+  holdings:      Holding[],
+  transactions:  Transaction[],
+  realized:      Realized[],
+  usdInr:        number,
+  currency:      Currency,
+  enabled:       boolean,
+  extraSymbols?: string[],  // additional symbols to fetch for symbolPriceMap (e.g. closed positions)
 ) {
-  const symbols = useMemo(() => [...new Set(holdings.map(h => h.yf_symbol))], [holdings])
+  const symbols = useMemo(
+    () => [...new Set([...holdings.map(h => h.yf_symbol), ...(extraSymbols ?? [])])],
+    [holdings, extraSymbols],
+  )
 
   const startDate = useMemo(() => {
     if (!transactions.length) return '2020-01-01'

@@ -27,6 +27,16 @@ function priceOnOrBefore(dates: string[], prices: number[], target: string): num
   return out
 }
 
+// Finds latest price on or before `target` from an unsorted Map<dateStr, price>
+function priceFromMapOnOrBefore(map: Map<string, number>, target: string): number | null {
+  let bestDate = ''
+  let bestPrice: number | null = null
+  for (const [d, p] of map) {
+    if (d <= target && d > bestDate) { bestDate = d; bestPrice = p }
+  }
+  return bestPrice
+}
+
 export interface SectorBenchResult {
   sector:        SectorKey
   benchSymbol:   string
@@ -55,6 +65,12 @@ export function useBenchmarkXirr(
   usdInr: number,
   currency: Currency,
   enabled: boolean,
+  // Option B period XIRR: T1=periodStart, T2=periodEnd (null=today)
+  // Opening balance at T1 is injected as a cashflow; terminal at T2.
+  // When both are null, behaves identically to the prior inception-to-date approach.
+  periodStart: string | null = null,
+  periodEnd: string | null = null,
+  symbolPriceMap: Map<string, Map<string, number>> | null = null,
 ): BenchmarkOutput {
 
   // Derive sector map + unique bench symbols + earliest date
@@ -73,9 +89,9 @@ export function useBenchmarkXirr(
       .map(t => t.date.slice(0, 10))
       .sort()
     return {
-      yfToSector:     m,
+      yfToSector:      m,
       uniqueBenchSyms: [...benchSet],
-      startDate:      dates[0] ?? '2019-01-01',
+      startDate:       dates[0] ?? '2019-01-01',
     }
   }, [filteredHoldings, closedYfSymbols, transactions])
 
@@ -96,6 +112,8 @@ export function useBenchmarkXirr(
 
   const output = useMemo((): Omit<BenchmarkOutput, 'isLoading' | 'hasError'> | null => {
     if (!enabled || isLoading) return null
+    // Period mode requires symbolPriceMap to compute opening balance actual values
+    if (periodStart && (!symbolPriceMap || symbolPriceMap.size === 0)) return null
 
     const histMap = new Map<string, { dates: string[]; prices: number[] }>()
     uniqueBenchSyms.forEach((sym, i) => {
@@ -106,16 +124,15 @@ export function useBenchmarkXirr(
 
     type CF = { date: Date; amount: number }
 
-    // Per-(portfolio:symbol) running state
+    // Per-(portfolio:symbol) running state — tracks ALL transactions from inception
     const qtyHeld   = new Map<string, number>()
     const unitsHeld = new Map<string, number>()
-    // Key metadata for terminal value pass
     const keyMeta   = new Map<string, { sector: SectorKey; benchSym: string; isUsd: boolean; yfSymbol: string }>()
 
-    // Cashflow buckets
-    const sectorActual  = new Map<SectorKey, CF[]>()
-    const sectorBench   = new Map<SectorKey, CF[]>()
-    const holdingBench  = new Map<string, CF[]>()   // yf_symbol → simulated bench CFs
+    // Cashflow buckets — only populated for transactions in [T1, T2]
+    const sectorActual = new Map<SectorKey, CF[]>()
+    const sectorBench  = new Map<SectorKey, CF[]>()
+    const holdingBench = new Map<string, CF[]>()   // yf_symbol → simulated bench CFs
     for (const s of new Set(yfToSector.values())) {
       sectorActual.set(s, [])
       sectorBench.set(s, [])
@@ -123,12 +140,87 @@ export function useBenchmarkXirr(
     const overallActual: CF[] = []
     const overallBench:  CF[] = []
 
-    // Process transactions in chronological order
+    // holdingCount: unique yfSymbols per sector that participated in the period
+    const sectorYfSs = new Map<SectorKey, Set<string>>()
+
+    // True when we've injected the opening balance and are collecting period cashflows
+    let openingInjected = !periodStart
+
+    // ── Opening balance injection at T1 ─────────────────────────────────────
+    // Reads qtyHeld + unitsHeld at the moment just before T1's first transaction.
+    // For actual: uses symbolPriceMap prices at T1.
+    // For benchmark: uses histMap prices at T1.
+    const injectOpening = () => {
+      const T1str  = periodStart!
+      const T1date = new Date(T1str)
+      let totalActualOpen = 0
+      let totalBenchOpen  = 0
+      const yfBenchOpen = new Map<string, number>()   // yfSymbol → bench opening value
+
+      for (const [key, qty] of qtyHeld.entries()) {
+        if (qty <= 0) continue
+        const meta = keyMeta.get(key)
+        if (!meta) continue
+        const { sector, benchSym, isUsd, yfSymbol } = meta
+        const benchIsUsd = USD_BENCH_SYMS.has(benchSym)
+        const fx = isUsd
+          ? (currency === 'INR' ? usdInr : 1)
+          : (currency === 'USD' ? 1 / usdInr : 1)
+
+        // Actual price at T1
+        const symMap = symbolPriceMap?.get(yfSymbol)
+        const rawPx  = symMap ? priceFromMapOnOrBefore(symMap, T1str) : null
+        if (rawPx !== null) {
+          const v = qty * rawPx * fx
+          sectorActual.get(sector)!.push({ date: T1date, amount: -v })
+          totalActualOpen += v
+        }
+
+        // Benchmark price at T1
+        const hist   = histMap.get(benchSym)
+        const rawBP  = hist ? priceOnOrBefore(hist.dates, hist.prices, T1str) : null
+        const benchP = rawBP !== null
+          ? (benchIsUsd && currency === 'INR' ? rawBP * usdInr : rawBP)
+          : null
+        const units  = unitsHeld.get(key) ?? 0
+        if (benchP !== null && units > 0) {
+          const v = units * benchP
+          sectorBench.get(sector)!.push({ date: T1date, amount: -v })
+          totalBenchOpen += v
+          yfBenchOpen.set(yfSymbol, (yfBenchOpen.get(yfSymbol) ?? 0) + v)
+        }
+
+        // Track holding count: positions open at T1 count in the period
+        if (!sectorYfSs.has(sector)) sectorYfSs.set(sector, new Set())
+        sectorYfSs.get(sector)!.add(yfSymbol)
+      }
+
+      if (totalActualOpen > 0) overallActual.push({ date: T1date, amount: -totalActualOpen })
+      if (totalBenchOpen  > 0) overallBench.push({ date: T1date, amount: -totalBenchOpen })
+
+      for (const [ys, v] of yfBenchOpen.entries()) {
+        if (!holdingBench.has(ys)) holdingBench.set(ys, [])
+        holdingBench.get(ys)!.push({ date: T1date, amount: -v })
+      }
+    }
+
+    // ── Main simulation loop ─────────────────────────────────────────────────
     const txns = transactions
       .filter(t => yfToSector.has(t.yf_symbol) && (t.type === 'BUY' || t.type === 'SELL'))
-      .sort((a, b) => a.date < b.date ? -1 : 1)
+      .sort((a, b) => (a.date < b.date ? -1 : 1))
 
     for (const tx of txns) {
+      const txDay = tx.date.slice(0, 10)
+
+      // Stop processing once we pass T2
+      if (periodEnd && txDay > periodEnd) break
+
+      // Inject opening balance just before the first transaction at or after T1
+      if (!openingInjected && txDay >= periodStart!) {
+        injectOpening()
+        openingInjected = true
+      }
+
       const key    = `${tx.portfolio}:${tx.symbol}`
       const sector = yfToSector.get(tx.yf_symbol)!
       const bSym   = SECTOR_BENCHMARK[sector]
@@ -138,16 +230,12 @@ export function useBenchmarkXirr(
       if (!keyMeta.has(key)) keyMeta.set(key, { sector, benchSym: bSym, isUsd, yfSymbol: tx.yf_symbol })
       if (!holdingBench.has(tx.yf_symbol)) holdingBench.set(tx.yf_symbol, [])
 
-      const fx = isUsd
+      const fx         = isUsd
         ? (currency === 'INR' ? usdInr : 1)
         : (currency === 'USD' ? 1 / usdInr : 1)
-
-      const txDay        = tx.date.slice(0, 10)
-      const rawBenchP    = hist ? priceOnOrBefore(hist.dates, hist.prices, txDay) : null
-      // Convert bench price to display currency based on the benchmark's own currency
-      // (not the portfolio's currency — MON100 is INR but its benchmark ^NDX is USD)
-      const benchIsUsd   = USD_BENCH_SYMS.has(bSym)
-      const benchP       = rawBenchP !== null
+      const rawBenchP  = hist ? priceOnOrBefore(hist.dates, hist.prices, txDay) : null
+      const benchIsUsd = USD_BENCH_SYMS.has(bSym)
+      const benchP     = rawBenchP !== null
         ? (benchIsUsd && currency === 'INR' ? rawBenchP * usdInr : rawBenchP)
         : null
 
@@ -156,77 +244,122 @@ export function useBenchmarkXirr(
         qtyHeld.set(key, (qtyHeld.get(key) ?? 0) + tx.quantity)
         if (benchP) unitsHeld.set(key, (unitsHeld.get(key) ?? 0) + amount / benchP)
 
-        const cf: CF = { date: new Date(tx.date), amount: -amount }
-        sectorActual.get(sector)!.push({ ...cf })
-        sectorBench.get(sector)!.push({ ...cf })
-        holdingBench.get(tx.yf_symbol)!.push({ ...cf })
-        overallActual.push({ ...cf })
-        overallBench.push({ ...cf })
-
+        if (openingInjected) {
+          const cf: CF = { date: new Date(tx.date), amount: -amount }
+          sectorActual.get(sector)!.push({ ...cf })
+          sectorBench.get(sector)!.push({ ...cf })
+          holdingBench.get(tx.yf_symbol)!.push({ ...cf })
+          overallActual.push({ ...cf })
+          overallBench.push({ ...cf })
+          if (!sectorYfSs.has(sector)) sectorYfSs.set(sector, new Set())
+          sectorYfSs.get(sector)!.add(tx.yf_symbol)
+        }
       } else { // SELL
         const prevQty = qtyHeld.get(key) ?? 0
         if (prevQty <= 0) continue
-        const frac    = Math.min(tx.quantity / prevQty, 1)
+        const frac = Math.min(tx.quantity / prevQty, 1)
         qtyHeld.set(key, Math.max(0, prevQty - tx.quantity))
 
-        const sellAmt = tx.quantity * tx.price * fx - (tx.charges ?? 0) * fx
-        sectorActual.get(sector)!.push({ date: new Date(tx.date), amount: sellAmt })
-        overallActual.push({ date: new Date(tx.date), amount: sellAmt })
-
+        // Always update benchmark units proportionally (pre-period sells reduce the T1 baseline)
         if (benchP) {
           const prev      = unitsHeld.get(key) ?? 0
           const unitsSold = frac * prev
           unitsHeld.set(key, Math.max(0, prev - unitsSold))
-          const benchSell = unitsSold * benchP
-          sectorBench.get(sector)!.push({ date: new Date(tx.date), amount: benchSell })
-          holdingBench.get(tx.yf_symbol)!.push({ date: new Date(tx.date), amount: benchSell })
-          overallBench.push({ date: new Date(tx.date), amount: benchSell })
+
+          if (openingInjected && unitsSold > 0) {
+            const benchSell = unitsSold * benchP
+            sectorBench.get(sector)!.push({ date: new Date(tx.date), amount: benchSell })
+            holdingBench.get(tx.yf_symbol)!.push({ date: new Date(tx.date), amount: benchSell })
+            overallBench.push({ date: new Date(tx.date), amount: benchSell })
+          }
+        }
+
+        if (openingInjected) {
+          const sellAmt = tx.quantity * tx.price * fx - (tx.charges ?? 0) * fx
+          sectorActual.get(sector)!.push({ date: new Date(tx.date), amount: sellAmt })
+          overallActual.push({ date: new Date(tx.date), amount: sellAmt })
+          if (!sectorYfSs.has(sector)) sectorYfSs.set(sector, new Set())
+          sectorYfSs.get(sector)!.add(tx.yf_symbol)
         }
       }
     }
 
-    // Terminal values
-    const today = new Date()
-
-    // Sector-level aggregates from open holdings
-    const sectorVal      = new Map<SectorKey, number>()
-    const sectorInv      = new Map<SectorKey, number>()
-    const sectorCnt      = new Map<SectorKey, number>()
-    for (const h of filteredHoldings) {
-      const s = getSectorForHolding(h.yf_symbol)
-      sectorVal.set(s, (sectorVal.get(s) ?? 0) + h.disp_current)
-      sectorInv.set(s, (sectorInv.get(s) ?? 0) + h.disp_invested)
-      sectorCnt.set(s, (sectorCnt.get(s) ?? 0) + 1)
+    // If T1 is after all transactions, inject opening with the final simulation state
+    if (!openingInjected && periodStart) {
+      injectOpening()
     }
+
+    // ── Terminal values ──────────────────────────────────────────────────────
+    const today    = new Date()
+    const termDate = periodEnd ? new Date(periodEnd) : today
+    const termStr  = periodEnd ?? today.toISOString().slice(0, 10)
+
+    const sectorVal = new Map<SectorKey, number>()
+    const sectorInv = new Map<SectorKey, number>()
+
+    if (!periodEnd) {
+      // T2 = today: use live prices from filteredHoldings (same as inception-to-date path)
+      for (const h of filteredHoldings) {
+        const s = getSectorForHolding(h.yf_symbol)
+        sectorVal.set(s, (sectorVal.get(s) ?? 0) + h.disp_current)
+        sectorInv.set(s, (sectorInv.get(s) ?? 0) + h.disp_invested)
+        if (!sectorYfSs.has(s)) sectorYfSs.set(s, new Set())
+        sectorYfSs.get(s)!.add(h.yf_symbol)
+      }
+    } else {
+      // T2 = explicit past date: compute from simulation qty state × symbolPriceMap at T2
+      for (const [key, qty] of qtyHeld.entries()) {
+        if (qty <= 0) continue
+        const meta = keyMeta.get(key)
+        if (!meta) continue
+        const { sector, isUsd, yfSymbol } = meta
+        const fx     = isUsd
+          ? (currency === 'INR' ? usdInr : 1)
+          : (currency === 'USD' ? 1 / usdInr : 1)
+        const symMap = symbolPriceMap?.get(yfSymbol)
+        const px     = symMap ? priceFromMapOnOrBefore(symMap, termStr) : null
+        if (px !== null) {
+          sectorVal.set(sector, (sectorVal.get(sector) ?? 0) + qty * px * fx)
+        }
+      }
+      // sectorInv is display-only metadata; use today's open holdings as best proxy
+      for (const h of filteredHoldings) {
+        const s = getSectorForHolding(h.yf_symbol)
+        sectorInv.set(s, (sectorInv.get(s) ?? 0) + h.disp_invested)
+      }
+    }
+
+    // Inject actual terminal values
     let totalActTerm = 0
     for (const [s, v] of sectorVal.entries()) {
       if (v > 0) {
-        sectorActual.get(s)!.push({ date: today, amount: v })
+        sectorActual.get(s)!.push({ date: termDate, amount: v })
         totalActTerm += v
       }
     }
-    if (totalActTerm > 0) overallActual.push({ date: today, amount: totalActTerm })
+    if (totalActTerm > 0) overallActual.push({ date: termDate, amount: totalActTerm })
 
-    // Benchmark terminal: remaining units × current bench price
+    // Benchmark terminal: remaining units × benchmark price at T2
     for (const [key, units] of unitsHeld.entries()) {
       if (units <= 0) continue
       const meta = keyMeta.get(key)
       if (!meta) continue
       const hist = histMap.get(meta.benchSym)
       if (!hist || hist.prices.length === 0) continue
-      const rawCur     = hist.prices[hist.prices.length - 1]
+      const rawCur     = periodEnd
+        ? (priceOnOrBefore(hist.dates, hist.prices, termStr) ?? hist.prices[hist.prices.length - 1])
+        : hist.prices[hist.prices.length - 1]
       const benchIsUsd = USD_BENCH_SYMS.has(meta.benchSym)
       const cur        = benchIsUsd && currency === 'INR' ? rawCur * usdInr : rawCur
-      const tv     = units * cur
-      sectorBench.get(meta.sector)!.push({ date: today, amount: tv })
-      overallBench.push({ date: today, amount: tv })
-      // Per-holding bench terminal
+      const tv         = units * cur
+      sectorBench.get(meta.sector)!.push({ date: termDate, amount: tv })
+      overallBench.push({ date: termDate, amount: tv })
       const ys = meta.yfSymbol
       if (!holdingBench.has(ys)) holdingBench.set(ys, [])
-      holdingBench.get(ys)!.push({ date: today, amount: tv })
+      holdingBench.get(ys)!.push({ date: termDate, amount: tv })
     }
 
-    // Compute XIRRs
+    // ── Compute XIRRs ────────────────────────────────────────────────────────
     const xirr = (cfs: CF[]) => {
       const r = computeXIRR(cfs)
       return r !== null ? r * 100 : null
@@ -244,7 +377,7 @@ export function useBenchmarkXirr(
         alpha:        aX !== null && bX !== null ? aX - bX : null,
         invested:     sectorInv.get(s) ?? 0,
         currentValue: sectorVal.get(s) ?? 0,
-        holdingCount: sectorCnt.get(s) ?? 0,
+        holdingCount: sectorYfSs.get(s)?.size ?? 0,
       })
     }
     sectors.sort((a, b) => b.invested - a.invested)
@@ -267,6 +400,7 @@ export function useBenchmarkXirr(
   }, [
     enabled, isLoading, filteredHoldings, transactions,
     yfToSector, uniqueBenchSyms, histResults, usdInr, currency,
+    periodStart, periodEnd, symbolPriceMap,
   ])
 
   return {

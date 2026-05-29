@@ -538,17 +538,16 @@ export default function HoldingsPage({ currency }: Props) {
     const sorted = [...years].filter(y => y <= cur).sort()
     return sorted.length ? sorted : [cur]
   }, [data])
-  const benchTxnsDate = useMemo(() => {
-    if (!benchDateEnabled) return benchTxns
-    const start = `${benchStartYear}-${String(benchStartMonth).padStart(2, '0')}-01`
-    const endD = benchEndToday
-      ? new Date().toISOString().slice(0, 10)
-      : `${benchEndYear}-${String(benchEndMonth).padStart(2, '0')}-31`
-    // Filter only BUY transactions by date; keep all SELLs so exits are always captured
-    return benchTxns.filter(t =>
-      t.type !== 'BUY' || (t.date.slice(0, 10) >= start && t.date.slice(0, 10) <= endD)
-    )
-  }, [benchTxns, benchDateEnabled, benchStartYear, benchStartMonth, benchEndYear, benchEndMonth, benchEndToday])
+  const benchPeriodStart = useMemo((): string | null => {
+    if (!benchDateEnabled) return null
+    return `${benchStartYear}-${String(benchStartMonth).padStart(2, '0')}-01`
+  }, [benchDateEnabled, benchStartYear, benchStartMonth])
+
+  const benchPeriodEnd = useMemo((): string | null => {
+    if (!benchDateEnabled || benchEndToday) return null
+    const lastDay = new Date(benchEndYear, benchEndMonth, 0).getDate()
+    return `${benchEndYear}-${String(benchEndMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+  }, [benchDateEnabled, benchEndToday, benchEndYear, benchEndMonth])
   const filtRealized = useMemo(() => {
     if (!data) return []
     if (portfolio) return data.realized.filter(r => r.portfolio === portfolio)
@@ -568,6 +567,17 @@ export default function HoldingsPage({ currency }: Props) {
     })
   }, [data, filtPorts, segment, portfolio])
 
+  // Placed before useBenchmarkXirr so symbolPriceMap is available for period XIRR opening balance
+  const { series: portSeries, isLoading: histLoading, loadedCount, totalCount, symbolPriceMap } = usePortfolioHistory(
+    filteredHoldings,
+    filtTxns,
+    filtRealized,
+    data?.usd_inr ?? 95.5,
+    currency,
+    !!data,
+    closedYfSymbolsArr,
+  )
+
   const {
     sectors:           benchSectors,
     overallActualXirr: benchActualXirr,
@@ -579,10 +589,13 @@ export default function HoldingsPage({ currency }: Props) {
   } = useBenchmarkXirr(
     filteredHoldings,
     closedYfSymbolsArr,
-    benchTxnsDate,
+    benchTxns,
     data?.usd_inr ?? 95.5,
     currency,
     activeTab === 'analysis' && !!data,
+    benchPeriodStart,
+    benchPeriodEnd,
+    symbolPriceMap,
   )
 
   const xirrMap = useMemo(() => {
@@ -677,14 +690,6 @@ export default function HoldingsPage({ currency }: Props) {
     return r !== null ? r * 100 : null
   }, [holdingFilter, data, closedRows, rows, filtPorts, segment, viewMode, currency])
 
-  const { series: portSeries, isLoading: histLoading, loadedCount, totalCount, symbolPriceMap } = usePortfolioHistory(
-    filteredHoldings,
-    filtTxns,
-    filtRealized,
-    data?.usd_inr ?? 95.5,
-    currency,
-    !!data,
-  )
 
   // ── Returns tab: per-sector daily value series ──────────────────────────────
   const sectorValueSeries = useMemo((): Map<SectorKey | 'all', Array<{ dateStr: string; value: number }>> => {
