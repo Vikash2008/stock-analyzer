@@ -22,6 +22,20 @@ const SYMBOL_SECTOR: Record<string, SectorKey> = {
   'SBIN.NS':       'Banking',
   'MAHABANK.NS':   'Banking',
   'FEDERALBNK.NS': 'Banking',
+  'HDFCBANK.NS':   'Banking',
+  'KOTAKBANK.NS':  'Banking',
+  'BANKBEES.NS':   'Banking',   // Nifty Bank BeES ETF
+  'BANKBARODA.NS': 'Banking',
+  'CANBK.NS':      'Banking',
+  'BANDHANBNK.NS': 'Banking',
+  'INDUSINDBK.NS': 'Banking',
+  'EQUITASBNK.NS': 'Banking',
+  'AUBANK.NS':     'Banking',
+  'CSBBANK.NS':    'Banking',
+  'CUB.NS':        'Banking',
+  'UJJIVANSFB.NS': 'Banking',
+  'PNB.NS':        'Banking',
+  'ESAFSFB.NS':    'Banking',
 
   // ── Finance ────────────────────────────────────────────
   'BAJFINANCE.NS': 'Finance',
@@ -40,6 +54,15 @@ const SYMBOL_SECTOR: Record<string, SectorKey> = {
   'BSE.NS':        'Finance',
   'CAMS.NS':       'Finance',
   'WEALTH.NS':     'Finance',
+  'BAJAJFINSV.NS': 'Finance',
+  'MANAPPURAM.NS': 'Finance',
+  'M&MFIN.NS':     'Finance',
+  'ABSLAMC.NS':    'Finance',
+  '5PAISA.NS':     'Finance',
+  'SAMMAANCAP.NS': 'Finance',
+  'LICI.NS':       'Finance',
+  'POLICYBZR.NS':  'Finance',
+  'PAYTM.NS':      'Finance',
 
   // ── Healthcare ─────────────────────────────────────────
   'LALPATHLAB.NS': 'Healthcare',
@@ -51,12 +74,22 @@ const SYMBOL_SECTOR: Record<string, SectorKey> = {
   'SUPRIYA.NS':    'Healthcare',
   'YATHARTH.NS':   'Healthcare',
   'HEALTHY.NS':    'Healthcare',
+  'DIVISLAB.NS':   'Healthcare',
+  'GLAND.NS':      'Healthcare',
+  'ZYDUSLIFE.NS':  'Healthcare',
+  'ZYDUSWELL.NS':  'Healthcare',
+  'AMRUTANJAN.NS': 'Healthcare',
 
   // ── IT ─────────────────────────────────────────────────
   'ITBEES.NS':     'IT',
   'AFFLE.NS':      'IT',
   '0P0001784G.BO': 'IT',   // Tata Digital India Dir Gr
   '0P0000XVXV.BO': 'IT',   // Aditya BSL Digital India Dir Gr
+  'INFY.NS':       'IT',
+  'TCS.NS':        'IT',
+  'KPITTECH.NS':   'IT',
+  'TATAELXSI.NS':  'IT',
+  'HAPPSTMNDS.NS': 'IT',
 
   // ── Growth ─────────────────────────────────────────────
   'ETERNAL.NS':    'Growth',
@@ -91,6 +124,9 @@ const SYMBOL_SECTOR: Record<string, SectorKey> = {
   'IONQ':          'Tech',
   'NBIS':          'Tech',
   'NOW':           'Tech',
+  'INTC':          'Tech',
+  'SOUN':          'Tech',
+  'FIG':           'Tech',
   'MON100.NS':     'Tech',  // Motilal Oswal NASDAQ 100 ETF
   'MAFANG.NS':     'Tech',  // Mirae Asset NYSE FANG+ ETF
   '0P0001JMZB.BO': 'Tech',  // Motilal Oswal S&P 500 Index Dir Gr
@@ -109,6 +145,7 @@ const SYMBOL_SECTOR: Record<string, SectorKey> = {
   '0P0000XW2T.BO': 'Equity',   // DSP ELSS Tax Saver Dir Gr
   '0P00017844.BO': 'Equity',   // Mirae Asset ELSS Tax Saver Dir Gr
   '0P0000YWL1.BO': 'Equity',   // Parag Parikh Long Term Equity Direct Growth
+  'NIFTYBEES.NS':  'Equity',   // Nifty 50 BeES ETF
 
   // ── Other ──────────────────────────────────────────────
   'INDIGOPNTS.NS': 'Other',
@@ -175,6 +212,28 @@ const SYMBOL_MARKET_CAP: Record<string, MarketCapKey> = {
   '0P0000XW2T.BO': 'Large Cap',  // DSP ELSS Tax Saver Dir Gr
   '0P00017844.BO': 'Large Cap',  // Mirae Asset ELSS Tax Saver Dir Gr
   '0P0000YWL1.BO': 'Large Cap',  // Parag Parikh Long Term Equity Dir Gr
+  'HDFCBANK.NS':   'Large Cap',
+  'KOTAKBANK.NS':  'Large Cap',
+  'BANKBEES.NS':   'Large Cap',
+  'NIFTYBEES.NS':  'Large Cap',
+  'INDUSINDBK.NS': 'Large Cap',
+  'BANKBARODA.NS': 'Large Cap',
+  'CANBK.NS':      'Large Cap',
+  'PNB.NS':        'Large Cap',
+  'LICI.NS':       'Large Cap',
+  'BAJAJFINSV.NS': 'Large Cap',
+  'DIVISLAB.NS':   'Large Cap',
+  'ZYDUSLIFE.NS':  'Large Cap',
+  'INFY.NS':       'Large Cap',
+  'TCS.NS':        'Large Cap',
+  'HINDUNILVR.NS': 'Large Cap',
+  'ASIANPAINT.NS': 'Large Cap',
+  'DMART.NS':      'Large Cap',
+  'RELIANCE.NS':   'Large Cap',
+  'ITC.NS':        'Large Cap',
+  'HAL.NS':        'Large Cap',
+  'HAVELLS.NS':    'Large Cap',
+  'MARICO.NS':     'Large Cap',
 
   // ── Mid Cap ────────────────────────────────────────────────
   'IDFCFIRSTB.NS': 'Mid Cap',
@@ -196,6 +255,30 @@ const SYMBOL_MARKET_CAP: Record<string, MarketCapKey> = {
   'SWIGGY.NS':     'Mid Cap',
   'INDIGOPNTS.NS': 'Mid Cap',
   'PIIND.NS':      'Mid Cap',
+  'BANDHANBNK.NS': 'Mid Cap',
+  'AUBANK.NS':     'Mid Cap',
+  'CUB.NS':        'Mid Cap',
+  'MANAPPURAM.NS': 'Mid Cap',
+  'M&MFIN.NS':     'Mid Cap',
+  'ABSLAMC.NS':    'Mid Cap',
+  'POLICYBZR.NS':  'Mid Cap',
+  'PAYTM.NS':      'Mid Cap',
+  'GLAND.NS':      'Mid Cap',
+  'ZYDUSWELL.NS':  'Mid Cap',
+  'KPITTECH.NS':   'Mid Cap',
+  'TATAELXSI.NS':  'Mid Cap',
+  'HAPPSTMNDS.NS': 'Mid Cap',
+  'EMAMILTD.NS':   'Mid Cap',
+  'PAGEIND.NS':    'Mid Cap',
+  'BERGEPAINT.NS': 'Mid Cap',
+  'ASTRAL.NS':     'Mid Cap',
+  'WHIRLPOOL.NS':  'Mid Cap',
+  'TATAINVEST.NS': 'Mid Cap',
+  'MANYAVAR.NS':   'Mid Cap',
+  'VOLTAS.NS':     'Mid Cap',
+  'INDIAMART.NS':  'Mid Cap',
+  'PVRINOX.NS':    'Mid Cap',
+  'NYKAA.NS':      'Mid Cap',
 
   // ── Small Cap ─────────────────────────────────────────────
   'ARMANFIN.NS':   'Small Cap',
@@ -206,6 +289,26 @@ const SYMBOL_MARKET_CAP: Record<string, MarketCapKey> = {
   'RATEGAIN.NS':   'Small Cap',
   'JYOTIRES.BO':   'Small Cap',
   'WEALTH.NS':     'Small Cap',
+  'EQUITASBNK.NS': 'Small Cap',
+  'CSBBANK.NS':    'Small Cap',
+  'UJJIVANSFB.NS': 'Small Cap',
+  'ESAFSFB.NS':    'Small Cap',
+  '5PAISA.NS':     'Small Cap',
+  'SAMMAANCAP.NS': 'Small Cap',
+  'AMRUTANJAN.NS': 'Small Cap',
+  'LAXMIMACH.NS':  'Small Cap',
+  'VGUARD.NS':     'Small Cap',
+  'SYMPHONY.NS':   'Small Cap',
+  'ORIENTELEC.NS': 'Small Cap',
+  'TTKPRESTIG.NS': 'Small Cap',
+  'IBREALEST.NS':  'Small Cap',
+  'TARSONS.NS':    'Small Cap',
+  'GREENPANEL.NS': 'Small Cap',
+  'FINEORG.NS':    'Small Cap',
+  'DELTACORP.NS':  'Small Cap',
+  'DREAMFOLKS.NS': 'Small Cap',
+  'EASEMYTRIP.NS': 'Small Cap',
+  'RAJESHEXPO.NS': 'Small Cap',
   '0P0000XVFY.BO': 'Small Cap',  // Nippon India Small Cap Dir Gr
   '0P0000XVAA.BO': 'Small Cap',  // HDFC Small Cap Dir Gr
   '0P00011MAX.BO': 'Small Cap',  // Axis Small Cap Fund Dir Gr
@@ -224,6 +327,9 @@ const SYMBOL_MARKET_CAP: Record<string, MarketCapKey> = {
   'DASH': 'US Stocks', 'ASML': 'US Stocks', 'MELI': 'US Stocks',
   'IREN': 'US Stocks', 'IONQ': 'US Stocks', 'NBIS': 'US Stocks',
   'NOW':  'US Stocks',
+  'INTC': 'US Stocks',
+  'SOUN': 'US Stocks',
+  'FIG':  'US Stocks',
   'MON100.NS':     'US Stocks',  // Motilal Oswal NASDAQ 100 ETF
   'MAFANG.NS':     'US Stocks',  // Mirae Asset NYSE FANG+ ETF
   '0P0001JMZB.BO': 'US Stocks',  // Motilal Oswal S&P 500 Index Dir Gr

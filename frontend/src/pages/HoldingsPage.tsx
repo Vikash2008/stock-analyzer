@@ -53,6 +53,8 @@ const ZERO_LINE_METRICS = new Set<ChartMetric>([
   'Unrealized Gains', 'Realized Gains', 'Total Gains', 'Return %', 'XIRR Trend',
 ])
 
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
 const PIE_COLORS = [
   '#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444',
   '#06b6d4','#ec4899','#84cc16','#f97316','#6366f1',
@@ -210,6 +212,13 @@ export default function HoldingsPage({ currency }: Props) {
   const [returnsMetric, setReturnsMetric] = useState<'returnPct' | 'gains'>('gains')
   const [returnsSector, setReturnsSector] = useState<SectorKey | 'all'>('all')
   const [returnsConfigOpen, setReturnsConfigOpen] = useState(false)
+  const [benchConfigOpen,  setBenchConfigOpen]  = useState(false)
+  const [benchDateEnabled, setBenchDateEnabled] = useState(false)
+  const [benchStartMonth,  setBenchStartMonth]  = useState(1)
+  const [benchStartYear,   setBenchStartYear]   = useState(new Date().getFullYear() - 1)
+  const [benchEndMonth,    setBenchEndMonth]    = useState(new Date().getMonth() + 1)
+  const [benchEndYear,     setBenchEndYear]     = useState(new Date().getFullYear())
+  const [benchEndToday,    setBenchEndToday]    = useState(true)
   const qc = useQueryClient()
 
   useEffect(() => {
@@ -514,6 +523,32 @@ export default function HoldingsPage({ currency }: Props) {
     () => (data?.transactions ?? []).filter(t => filtPorts.has(t.portfolio)),
     [data, filtPorts],
   )
+  // Benchmarking needs transactions from fully-closed portfolios too (e.g. Upstox)
+  // filtPorts only covers portfolios with open holdings; closedRows captures the rest
+  const benchTxns = useMemo(() => {
+    if (!data) return []
+    const ports = new Set(filtPorts)
+    for (const r of closedRows) for (const p of r.portfolios) ports.add(p)
+    return data.transactions.filter(t => ports.has(t.portfolio))
+  }, [data, filtPorts, closedRows])
+  const txnYears = useMemo(() => {
+    if (!data) return [new Date().getFullYear()]
+    const years = new Set(data.transactions.map(t => parseInt(t.date.slice(0, 4), 10)))
+    const cur = new Date().getFullYear()
+    const sorted = [...years].filter(y => y <= cur).sort()
+    return sorted.length ? sorted : [cur]
+  }, [data])
+  const benchTxnsDate = useMemo(() => {
+    if (!benchDateEnabled) return benchTxns
+    const start = `${benchStartYear}-${String(benchStartMonth).padStart(2, '0')}-01`
+    const endD = benchEndToday
+      ? new Date().toISOString().slice(0, 10)
+      : `${benchEndYear}-${String(benchEndMonth).padStart(2, '0')}-31`
+    // Filter only BUY transactions by date; keep all SELLs so exits are always captured
+    return benchTxns.filter(t =>
+      t.type !== 'BUY' || (t.date.slice(0, 10) >= start && t.date.slice(0, 10) <= endD)
+    )
+  }, [benchTxns, benchDateEnabled, benchStartYear, benchStartMonth, benchEndYear, benchEndMonth, benchEndToday])
   const filtRealized = useMemo(() => {
     if (!data) return []
     if (portfolio) return data.realized.filter(r => r.portfolio === portfolio)
@@ -544,7 +579,7 @@ export default function HoldingsPage({ currency }: Props) {
   } = useBenchmarkXirr(
     filteredHoldings,
     closedYfSymbolsArr,
-    filtTxns,
+    benchTxnsDate,
     data?.usd_inr ?? 95.5,
     currency,
     activeTab === 'analysis' && !!data,
@@ -1671,6 +1706,98 @@ export default function HoldingsPage({ currency }: Props) {
 
           {analysisSubTab === 'benchmarking' && (
             <div>
+              {/* Date range config */}
+              <div className="mb-3">
+                <button
+                  className="flex items-center gap-1.5 w-full text-left px-2 py-1.5 bg-slate-50 rounded-xl border border-slate-100"
+                  onClick={() => setBenchConfigOpen(o => !o)}
+                >
+                  <span className="text-[9px] text-slate-400">📅</span>
+                  <span className="text-[9px] text-slate-500 flex-1">
+                    {benchDateEnabled
+                      ? `${MONTHS[benchStartMonth - 1]} ${benchStartYear} → ${benchEndToday ? 'today' : `${MONTHS[benchEndMonth - 1]} ${benchEndYear}`}`
+                      : 'All dates'}
+                  </span>
+                  {benchDateEnabled && (
+                    <span className="text-[8px] bg-sky-100 text-sky-600 rounded px-1 py-0.5 font-medium">Active</span>
+                  )}
+                  <span className="text-[8px] text-slate-300 ml-1">{benchConfigOpen ? '▲' : '▼'}</span>
+                </button>
+
+                {benchConfigOpen && (
+                  <div className="mt-1.5 bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-2.5">
+                    {/* From row */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] text-slate-400 w-[28px] shrink-0">From</span>
+                      <select
+                        value={benchStartMonth}
+                        onChange={e => setBenchStartMonth(+e.target.value)}
+                        className="text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-slate-700 flex-1"
+                      >
+                        {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                      </select>
+                      <select
+                        value={benchStartYear}
+                        onChange={e => setBenchStartYear(+e.target.value)}
+                        className="text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-slate-700 flex-1"
+                      >
+                        {txnYears.map(y => <option key={y} value={y}>{y}</option>)}
+                      </select>
+                    </div>
+
+                    {/* To row */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] text-slate-400 w-[28px] shrink-0">To</span>
+                      <select
+                        value={benchEndMonth}
+                        onChange={e => setBenchEndMonth(+e.target.value)}
+                        disabled={benchEndToday}
+                        className={`text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 flex-1 ${benchEndToday ? 'opacity-30' : 'text-slate-700'}`}
+                      >
+                        {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                      </select>
+                      <select
+                        value={benchEndYear}
+                        onChange={e => setBenchEndYear(+e.target.value)}
+                        disabled={benchEndToday}
+                        className={`text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 flex-1 ${benchEndToday ? 'opacity-30' : 'text-slate-700'}`}
+                      >
+                        {txnYears.map(y => <option key={y} value={y}>{y}</option>)}
+                      </select>
+                    </div>
+
+                    {/* Today toggle */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] text-slate-500">Use today as end date</span>
+                      <button
+                        onClick={() => setBenchEndToday(o => !o)}
+                        className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${benchEndToday ? 'bg-sky-400' : 'bg-slate-200'}`}
+                      >
+                        <span className={`absolute top-[3px] w-[14px] h-[14px] rounded-full bg-white shadow transition-transform ${benchEndToday ? 'translate-x-[19px]' : 'translate-x-[3px]'}`} />
+                      </button>
+                    </div>
+
+                    {/* Apply / Clear */}
+                    <div className="flex gap-2 pt-0.5">
+                      <button
+                        onClick={() => { setBenchDateEnabled(true); setBenchConfigOpen(false) }}
+                        className="flex-1 text-[11px] bg-sky-500 text-white rounded-full py-3 font-medium"
+                      >
+                        Apply
+                      </button>
+                      {benchDateEnabled && (
+                        <button
+                          onClick={() => { setBenchDateEnabled(false); setBenchConfigOpen(false) }}
+                          className="flex-1 text-[11px] bg-slate-200 text-slate-600 rounded-full py-3 font-medium"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {benchLoading && (
                 <div className="py-10 text-center text-[11px] text-slate-400">
                   Loading benchmark data…
@@ -1733,7 +1860,7 @@ export default function HoldingsPage({ currency }: Props) {
                         </div>
                       )}
 
-                      {benchSectorSectionOpen && benchSectors.map(s => {
+                      {benchSectorSectionOpen && benchSectors.filter(s => s.holdingCount > 0).map(s => {
                         const isOpen = expandedSectors.has(s.sector)
                         const sectorRows = rows.filter(r =>
                           getSectorForHolding(symToYf.get(r.navSym) ?? r.navSym) === s.sector
@@ -1778,7 +1905,10 @@ export default function HoldingsPage({ currency }: Props) {
                                   return (
                                     <div key={r.key} className="bg-slate-50 rounded-lg px-2 py-1.5">
                                       <div className="flex items-center gap-1">
-                                        <span className="text-[9px] font-medium flex-1 overflow-hidden text-ellipsis whitespace-nowrap"><span className="text-slate-600">{r.subLabel || r.ticker}</span> <span className={hColor}>({fmtX(hXirr)})</span></span>
+                                        <span className="flex items-center gap-1 flex-1 min-w-0">
+                                          <span className="text-[9px] font-medium text-slate-600 truncate min-w-0">{r.subLabel || r.ticker}</span>
+                                          <span className={`text-[9px] font-medium shrink-0 ${hColor}`}>{fmtX(hXirr)}</span>
+                                        </span>
                                         <span className="text-[9px] text-slate-400 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{BENCHMARK_LABEL[s.benchSymbol] ?? s.benchSymbol} ({fmtX(hBenchX)})</span>
                                         <span className={`text-[9px] font-semibold flex-1 whitespace-nowrap text-right ${hAlphaColor}`}>{fmtX(hAlpha)}</span>
                                         <span className="w-[8px]" />
