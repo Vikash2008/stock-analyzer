@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePortfolio, useForceRefresh } from '../hooks/usePortfolio'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
@@ -169,13 +169,20 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const [mode, setMode]       = useState<BreakdownMode>('type')
   const [pullY, setPullY]     = useState(0)
   const [refreshing, setRefreshing] = useState(false)
+  const [bannerVisible, setBannerVisible] = useState(false)
   const touchStartY           = useRef(0)
+  const bannerTimer           = useRef<ReturnType<typeof setTimeout>>()
   const PULL_THRESHOLD        = 64
 
   const handleRefresh = () => {
     setRefreshing(true)
+    setBannerVisible(true)
+    clearTimeout(bannerTimer.current)
+    bannerTimer.current = setTimeout(() => setBannerVisible(false), 1500)
     forceRefresh().finally(() => setRefreshing(false))
   }
+
+  useEffect(() => () => clearTimeout(bannerTimer.current), [])
 
   const rmap = useMemo(() => data ? aggRealized(data.realized, data.usd_inr) : new Map(), [data])
 
@@ -314,10 +321,10 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {(pullY > 0 || refreshing) && (
+      {(pullY > 0 || bannerVisible) && (
         <div className="flex items-center justify-center text-[12px]" style={{ height: pullY > 0 ? Math.min(pullY * 0.6, 40) : 24 }}>
-          <span className={refreshing || pullY >= PULL_THRESHOLD ? 'text-sky-400' : 'text-slate-400'}>
-            {refreshing ? '↻ Refreshing…' : pullY >= PULL_THRESHOLD ? '↑ Release to refresh' : '↓ Pull to refresh'}
+          <span className={bannerVisible || pullY >= PULL_THRESHOLD ? 'text-sky-400' : 'text-slate-400'}>
+            {bannerVisible ? '↻ Refreshing…' : pullY >= PULL_THRESHOLD ? '↑ Release to refresh' : '↓ Pull to refresh'}
           </span>
         </div>
       )}

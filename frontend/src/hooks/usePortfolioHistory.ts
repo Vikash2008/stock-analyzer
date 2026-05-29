@@ -74,12 +74,14 @@ export function usePortfolioHistory(
     })),
   })
 
-  const isLoading   = enabled && queries.some(q => q.isLoading || q.isPending)
   const loadedCount = queries.filter(q => q.status === 'success').length
+  const isFetching  = queries.some(q => q.fetchStatus === 'fetching')
+  // true when not all symbols have data yet (first load) OR any is actively refetching (sync)
+  const isLoading   = enabled && (loadedCount < symbols.length || isFetching)
 
-  // Exposed for consumers that need per-sector / per-group series (e.g. Returns tab)
+  // Built from whatever queries have data — allows showing cached series while refetching
   const symbolPriceMap = useMemo((): Map<string, Map<string, number>> => {
-    if (!enabled || isLoading) return new Map()
+    if (!enabled) return new Map()
     const pm = new Map<string, Map<string, number>>()
     for (let i = 0; i < symbols.length; i++) {
       const d = queries[i]?.data
@@ -90,10 +92,10 @@ export function usePortfolioHistory(
     }
     return pm
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, isLoading, loadedCount, symbols])
+  }, [enabled, isFetching, loadedCount, symbols])
 
   const series = useMemo((): PortfolioSeries | null => {
-    if (!enabled || isLoading || !holdings.length) return null
+    if (!enabled || !holdings.length) return null
 
     const priceMap = symbolPriceMap
     if (!priceMap.size) return null
@@ -277,7 +279,7 @@ export function usePortfolioHistory(
       xirrTrend:  { dates: xirrDates, values: xirrVals },
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, isLoading, loadedCount, holdings, transactions, realized, usdInr, currency, symbols, symbolPriceMap])
+  }, [enabled, loadedCount, holdings, transactions, realized, usdInr, currency, symbols, symbolPriceMap])
 
   return { series, isLoading, loadedCount, totalCount: symbols.length, symbolPriceMap }
 }

@@ -578,6 +578,11 @@ export default function HoldingsPage({ currency }: Props) {
     closedYfSymbolsArr,
   )
 
+  // Stop sync spinner once all history queries have finished refetching
+  useEffect(() => {
+    if (syncing && !histLoading) setSyncing(false)
+  }, [syncing, histLoading])
+
   const {
     sectors:           benchSectors,
     overallActualXirr: benchActualXirr,
@@ -1059,7 +1064,6 @@ export default function HoldingsPage({ currency }: Props) {
               if (syncing) return
               setSyncing(true)
               qc.invalidateQueries({ queryKey: ['history'] })
-              setTimeout(() => setSyncing(false), 1200)
             }}
           >
             <span className={`text-[14px] inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
@@ -1163,6 +1167,22 @@ export default function HoldingsPage({ currency }: Props) {
       {/* ── Charts tab ── */}
       {activeTab === 'charts' && (
         <div className="p-3">
+          {/* Progress bar — first load only (not during sync refetch) */}
+          {histLoading && loadedCount < totalCount && (
+            <div className="mb-3">
+              <div className="flex justify-between text-[9px] text-slate-400 mb-1">
+                <span>Loading price history… {loadedCount} / {totalCount}</span>
+                <span>{totalCount > 0 ? Math.round(loadedCount / totalCount * 100) : 0}%</span>
+              </div>
+              <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-sky-400 rounded-full transition-all duration-300"
+                  style={{ width: `${totalCount > 0 ? loadedCount / totalCount * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           {portSeries && !metricSeries && (
             <div className="text-center py-10 text-slate-400 text-xs">
               No data for this period.
@@ -1840,7 +1860,7 @@ export default function HoldingsPage({ currency }: Props) {
                         </div>
                       )}
 
-                      {benchSectorSectionOpen && [...benchSectors.filter(s => s.holdingCount > 0)].sort((a, b) => b.currentValue - a.currentValue).map(s => {
+                      {benchSectorSectionOpen && [...benchSectors.filter(s => s.holdingCount > 0 && s.sector !== 'Other')].sort((a, b) => b.currentValue - a.currentValue).map(s => {
                         const isOpen = expandedSectors.has(s.sector)
                         const sectorRows = rows.filter(r =>
                           getSectorForHolding(symToYf.get(r.navSym) ?? r.navSym) === s.sector

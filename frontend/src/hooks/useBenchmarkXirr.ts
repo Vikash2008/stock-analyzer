@@ -173,7 +173,7 @@ export function useBenchmarkXirr(
         if (rawPx !== null) {
           const v = qty * rawPx * fx
           sectorActual.get(sector)!.push({ date: T1date, amount: -v })
-          totalActualOpen += v
+          if (sector !== 'Other') totalActualOpen += v
         }
 
         // Benchmark price at T1
@@ -186,7 +186,7 @@ export function useBenchmarkXirr(
         if (benchP !== null && units > 0) {
           const v = units * benchP
           sectorBench.get(sector)!.push({ date: T1date, amount: -v })
-          totalBenchOpen += v
+          if (sector !== 'Other') totalBenchOpen += v
           yfBenchOpen.set(yfSymbol, (yfBenchOpen.get(yfSymbol) ?? 0) + v)
         }
 
@@ -249,8 +249,7 @@ export function useBenchmarkXirr(
           sectorActual.get(sector)!.push({ ...cf })
           sectorBench.get(sector)!.push({ ...cf })
           holdingBench.get(tx.yf_symbol)!.push({ ...cf })
-          overallActual.push({ ...cf })
-          overallBench.push({ ...cf })
+          if (sector !== 'Other') { overallActual.push({ ...cf }); overallBench.push({ ...cf }) }
           if (!sectorYfSs.has(sector)) sectorYfSs.set(sector, new Set())
           sectorYfSs.get(sector)!.add(tx.yf_symbol)
         }
@@ -270,14 +269,14 @@ export function useBenchmarkXirr(
             const benchSell = unitsSold * benchP
             sectorBench.get(sector)!.push({ date: new Date(tx.date), amount: benchSell })
             holdingBench.get(tx.yf_symbol)!.push({ date: new Date(tx.date), amount: benchSell })
-            overallBench.push({ date: new Date(tx.date), amount: benchSell })
+            if (sector !== 'Other') overallBench.push({ date: new Date(tx.date), amount: benchSell })
           }
         }
 
         if (openingInjected) {
           const sellAmt = tx.quantity * tx.price * fx - (tx.charges ?? 0) * fx
           sectorActual.get(sector)!.push({ date: new Date(tx.date), amount: sellAmt })
-          overallActual.push({ date: new Date(tx.date), amount: sellAmt })
+          if (sector !== 'Other') overallActual.push({ date: new Date(tx.date), amount: sellAmt })
           if (!sectorYfSs.has(sector)) sectorYfSs.set(sector, new Set())
           sectorYfSs.get(sector)!.add(tx.yf_symbol)
         }
@@ -334,7 +333,7 @@ export function useBenchmarkXirr(
     for (const [s, v] of sectorVal.entries()) {
       if (v > 0) {
         sectorActual.get(s)!.push({ date: termDate, amount: v })
-        totalActTerm += v
+        if (s !== 'Other') totalActTerm += v
       }
     }
     if (totalActTerm > 0) overallActual.push({ date: termDate, amount: totalActTerm })
@@ -353,7 +352,7 @@ export function useBenchmarkXirr(
       const cur        = benchIsUsd && currency === 'INR' ? rawCur * usdInr : rawCur
       const tv         = units * cur
       sectorBench.get(meta.sector)!.push({ date: termDate, amount: tv })
-      overallBench.push({ date: termDate, amount: tv })
+      if (meta.sector !== 'Other') overallBench.push({ date: termDate, amount: tv })
       const ys = meta.yfSymbol
       if (!holdingBench.has(ys)) holdingBench.set(ys, [])
       holdingBench.get(ys)!.push({ date: termDate, amount: tv })
