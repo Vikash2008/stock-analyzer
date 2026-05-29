@@ -329,6 +329,21 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         </div>
       )}
 
+      {/* Page header */}
+      <div className="flex items-center justify-between bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl px-4 py-3">
+        <p className="text-[18px] font-bold text-white tracking-tight">Portfolio Manager</p>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className={`flex items-center gap-1.5 transition-colors ${refreshing ? 'text-white' : 'text-emerald-100 active:text-white'}`}
+        >
+          <span className={`text-[14px] leading-none ${refreshing ? 'animate-spin' : ''}`}>↻</span>
+          <span className="text-[9px] uppercase tracking-widest">
+            {new Date(data.as_of).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })} IST
+          </span>
+        </button>
+      </div>
+
       {/* Hero card — Total Portfolio */}
       <div
         className="rounded-[10px] p-3 border cursor-pointer active:opacity-80 transition-opacity"
@@ -477,19 +492,6 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         </div>
       )}
 
-      {/* Timestamp + refresh */}
-      <div className="flex justify-end pb-2">
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className={`flex items-center gap-1.5 py-3 transition-colors ${refreshing ? 'text-sky-400' : 'text-slate-400 active:text-sky-400'}`}
-        >
-          <span className={`text-[15px] leading-none ${refreshing ? 'animate-spin' : ''}`}>↻</span>
-          <span className="text-[9px] uppercase tracking-widest">
-            {new Date(data.as_of).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })} IST
-          </span>
-        </button>
-      </div>
     </div>
   )
 }
