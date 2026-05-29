@@ -38,8 +38,8 @@ frontend/
     api/portfolio.ts        fetch wrapper (uses VITE_API_URL env var)
     hooks/usePortfolio.ts        TanStack Query, 30min staleTime, useForceRefresh() (clears ['history'] cache)
     hooks/useHistory.ts          TanStack Query for price history, staleTime+gcTime=Infinity
-    hooks/usePortfolioHistory.ts useQueries per-symbol history → value/invested/P&L/return/xirr series; exposes loadedCount+totalCount+symbolPriceMap (Map<yf_symbol,Map<dateStr,price>>)
-    hooks/useBenchmarkXirr.ts    useQueries benchmark histories in parallel; computes sector + per-holding XIRR vs benchmark (transaction-matched); exports holdingBenchXirr Map
+    hooks/usePortfolioHistory.ts useQueries per-symbol history → value/invested/P&L/return/xirr series; exposes loadedCount+totalCount+symbolPriceMap (Map<yf_symbol,Map<dateStr,price>>); extraSymbols? param fetches closed-symbol prices into symbolPriceMap
+    hooks/useBenchmarkXirr.ts    useQueries benchmark histories in parallel; Option B period XIRR (opening balance at T1, terminal at T2); sector + per-holding XIRR vs benchmark; exports holdingBenchXirr Map; params: periodStart/periodEnd/symbolPriceMap
     utils/fmt.ts                 fmtINR/fmtUSD/fmtPct/fmtGainLine
     utils/segments.ts            classify.py TypeScript port
     utils/realized.ts            _agg_realized() TypeScript port

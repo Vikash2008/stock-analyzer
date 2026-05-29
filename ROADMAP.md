@@ -32,7 +32,8 @@
 
 | Item | Completed |
 |------|-----------|
-| Benchmarking date range filter — collapsible config at top of Benchmarking pill; From/To month+year selects; "Use today as end date" toggle; Apply/Clear; benchTxnsDate filters BUY-only by date window, SELLs always included | 2026-05-29 |
+| Benchmarking period XIRR (Option B) — opening balance at T1 from symbolPriceMap (actual) + histMap (bench); cashflows [T1,T2]; terminal at T2; sector rows + overall card update; usePortfolioHistory extraSymbols for closed-position prices; benchTxnsDate replaced with benchPeriodStart/benchPeriodEnd | 2026-05-29 |
+| Benchmarking date range filter — collapsible config at top of Benchmarking pill; From/To month+year selects; "Use today as end date" toggle; Apply/Clear; now drives Option B period XIRR instead of BUY-only filter | 2026-05-29 |
 | Benchmarking holding row truncation — name truncates with ellipsis; XIRR rendered as separate shrink-0 span so it's always visible regardless of name length | 2026-05-29 |
 | benchTxns Upstox fix — fully-closed portfolios (Upstox) now included in benchmarking cashflows; filtPorts previously excluded them since they have no open holdings | 2026-05-29 |
 | Benchmarking sector classification fix — 40+ closed Indian symbols (HDFCBANK, KOTAKBANK, INFY, TCS, KPITTECH, DIVISLAB, NIFTYBEES etc.) added to SYMBOL_SECTOR with correct Banking/Finance/Healthcare/IT/Equity sectors; SYMBOL_MARKET_CAP updated; fixes inflated IT alpha and depressed overall alpha caused by all closed positions defaulting to Other (^NSEI) | 2026-05-29 |
