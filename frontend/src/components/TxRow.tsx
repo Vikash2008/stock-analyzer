@@ -107,10 +107,10 @@ export function TxRow({ tx, currency, usdInr, gain }: TxRowProps) {
 
   return (
     <div
-      className="flex items-stretch border rounded-lg mb-1 overflow-hidden"
+      className="flex items-stretch border rounded-lg mb-1 overflow-hidden shadow-sm"
       style={{
-        background: r2rightColor === '#0a7a42' ? '#f0fdf4' : r2rightColor === '#be1c1c' ? '#fff1f2' : '#ffffff',
-        borderColor: r2rightColor === '#0a7a42' ? '#bbf7d0' : r2rightColor === '#be1c1c' ? '#fecdd3' : '#e2e8f0',
+        background: r2rightColor === '#0a7a42' ? '#f7fef9' : r2rightColor === '#be1c1c' ? '#fffbfb' : '#ffffff',
+        borderColor: r2rightColor === '#0a7a42' ? '#d1fae5' : r2rightColor === '#be1c1c' ? '#fee2e2' : '#e2e8f0',
       }}
     >
 

@@ -15,19 +15,19 @@ interface SummaryCardProps {
   xirr?:       number | null
   currency:    Currency
   footer?:     React.ReactNode  // optional custom footer (used on TransactionsPage)
+  highlight?:  { bg: string; accent: string }
 }
 
 export function SummaryCard({
   label, current, invested, realGain, realCost,
-  todayGain, todayPct, xirr, currency, footer,
+  todayGain, todayPct, xirr, currency, footer, highlight,
 }: SummaryCardProps) {
   const totalGain = (current - invested) + realGain
   const totalCost = invested + realCost
   const totalPct  = totalCost !== 0 ? (totalGain / totalCost) * 100 : 0
   const gain      = totalGain >= 0
 
-  const borderColor = gain ? '#10b981' : '#f43f5e'
-  const bgColor     = gain ? '#f0fdf8' : '#fff5f5'
+  const borderColor = highlight?.accent ?? (gain ? '#10b981' : '#f43f5e')
   const textColor   = gain ? '#0a7a42' : '#be1c1c'
   const realColor   = realGain >= 0 ? '#0a7a42' : '#be1c1c'
 
@@ -37,8 +37,8 @@ export function SummaryCard({
 
   return (
     <div
-      className="rounded-[10px] border mb-3 overflow-hidden"
-      style={{ background: bgColor, borderColor: '#e2e8f0', borderLeftWidth: 4, borderLeftColor: borderColor }}
+      className="rounded-[10px] border mb-3 overflow-hidden shadow-sm"
+      style={{ background: highlight?.bg ?? '#ffffff', borderColor: '#e5e7eb', borderLeftWidth: 4, borderLeftColor: borderColor }}
     >
       {/* Gradient top strip */}
       <div style={{ background: gain ? 'linear-gradient(90deg,#10b981,#0d9488)' : 'linear-gradient(90deg,#f43f5e,#e11d48)', height: 3 }} />

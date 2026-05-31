@@ -50,6 +50,36 @@ const ZERO_LINE_METRICS = new Set<ChartMetric>([
   'Unrealized Gains', 'Realized Gains', 'Total Gains', 'Return %', 'XIRR Trend',
 ])
 
+const METRIC_STYLE: Record<ChartMetric, { active: string; inactive: string; line: string; strip: string; sync: string }> = {
+  'Price':            { active: 'bg-gradient-to-r from-slate-600 to-slate-700 text-white border-slate-700 shadow-sm',      inactive: 'bg-slate-50 text-slate-600 border-slate-200',      line: '#64748b', strip: 'bg-slate-50 border-slate-200',    sync: 'bg-gradient-to-br from-slate-600 to-slate-800 border-slate-700' },
+  'Portfolio Value':  { active: 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-600 shadow-sm',         inactive: 'bg-blue-50 text-blue-600 border-blue-200',         line: '#3b82f6', strip: 'bg-blue-50 border-blue-100',      sync: 'bg-gradient-to-br from-blue-600 to-blue-800 border-blue-700' },
+  'Invested':         { active: 'bg-gradient-to-r from-violet-500 to-purple-600 text-white border-violet-600 shadow-sm',   inactive: 'bg-violet-50 text-violet-600 border-violet-200',   line: '#8b5cf6', strip: 'bg-violet-50 border-violet-100',  sync: 'bg-gradient-to-br from-violet-600 to-purple-800 border-violet-700' },
+  'Unrealized Gains': { active: 'bg-gradient-to-r from-teal-400 to-emerald-500 text-white border-teal-500 shadow-sm',      inactive: 'bg-teal-50 text-teal-700 border-teal-200',         line: '#14b8a6', strip: 'bg-teal-50 border-teal-100',      sync: 'bg-gradient-to-br from-teal-600 to-emerald-700 border-teal-700' },
+  'Realized Gains':   { active: 'bg-gradient-to-r from-amber-400 to-orange-500 text-white border-amber-500 shadow-sm',    inactive: 'bg-amber-50 text-amber-700 border-amber-200',      line: '#f59e0b', strip: 'bg-amber-50 border-amber-100',    sync: 'bg-gradient-to-br from-amber-500 to-orange-700 border-amber-600' },
+  'Total Gains':      { active: 'bg-gradient-to-r from-emerald-500 to-green-600 text-white border-emerald-600 shadow-sm', inactive: 'bg-emerald-50 text-emerald-700 border-emerald-200', line: '#10b981', strip: 'bg-emerald-50 border-emerald-100', sync: 'bg-gradient-to-br from-emerald-600 to-green-800 border-emerald-700' },
+  'Return %':         { active: 'bg-gradient-to-r from-sky-400 to-cyan-500 text-white border-sky-500 shadow-sm',           inactive: 'bg-sky-50 text-sky-600 border-sky-200',            line: '#0ea5e9', strip: 'bg-sky-50 border-sky-100',        sync: 'bg-gradient-to-br from-sky-600 to-cyan-700 border-sky-700' },
+  'XIRR Trend':       { active: 'bg-gradient-to-r from-rose-500 to-pink-600 text-white border-rose-500 shadow-sm',        inactive: 'bg-rose-50 text-rose-600 border-rose-200',         line: '#f43f5e', strip: 'bg-rose-50 border-rose-100',      sync: 'bg-gradient-to-br from-rose-600 to-pink-800 border-rose-700' },
+}
+
+const METRIC_HEX: Record<ChartMetric, { stripBg: string; stripBorder: string; syncFrom: string; syncTo: string; syncBorder: string; line: string; pillActiveBg: string; pillActiveBorder: string; pillInactiveBg: string; pillInactiveBorder: string; pillInactiveColor: string }> = {
+  'Price':            { stripBg: '#eef2ff', stripBorder: '#e0e7ff', syncFrom: '#4f46e5', syncTo: '#312e81', syncBorder: '#4338ca', line: '#6366f1', pillActiveBg: 'linear-gradient(to right,#4f46e5,#4338ca)', pillActiveBorder: '#4338ca', pillInactiveBg: '#eef2ff', pillInactiveBorder: '#c7d2fe', pillInactiveColor: '#4f46e5' },
+  'Portfolio Value':  { stripBg: '#eff6ff', stripBorder: '#dbeafe', syncFrom: '#2563eb', syncTo: '#1e40af', syncBorder: '#1d4ed8', line: '#3b82f6', pillActiveBg: 'linear-gradient(to right,#3b82f6,#2563eb)', pillActiveBorder: '#1d4ed8', pillInactiveBg: '#eff6ff', pillInactiveBorder: '#bfdbfe', pillInactiveColor: '#2563eb' },
+  'Invested':         { stripBg: '#f5f3ff', stripBorder: '#ede9fe', syncFrom: '#7c3aed', syncTo: '#4c1d95', syncBorder: '#6d28d9', line: '#8b5cf6', pillActiveBg: 'linear-gradient(to right,#8b5cf6,#7c3aed)', pillActiveBorder: '#6d28d9', pillInactiveBg: '#f5f3ff', pillInactiveBorder: '#ddd6fe', pillInactiveColor: '#7c3aed' },
+  'Unrealized Gains': { stripBg: '#f0fdfa', stripBorder: '#ccfbf1', syncFrom: '#0d9488', syncTo: '#064e3b', syncBorder: '#0f766e', line: '#14b8a6', pillActiveBg: 'linear-gradient(to right,#2dd4bf,#10b981)', pillActiveBorder: '#0f766e', pillInactiveBg: '#f0fdfa', pillInactiveBorder: '#99f6e4', pillInactiveColor: '#0d9488' },
+  'Realized Gains':   { stripBg: '#fffbeb', stripBorder: '#fef3c7', syncFrom: '#d97706', syncTo: '#92400e', syncBorder: '#b45309', line: '#f59e0b', pillActiveBg: 'linear-gradient(to right,#fbbf24,#f97316)', pillActiveBorder: '#b45309', pillInactiveBg: '#fffbeb', pillInactiveBorder: '#fde68a', pillInactiveColor: '#b45309' },
+  'Total Gains':      { stripBg: '#f0fdf4', stripBorder: '#dcfce7', syncFrom: '#16a34a', syncTo: '#14532d', syncBorder: '#15803d', line: '#10b981', pillActiveBg: 'linear-gradient(to right,#10b981,#16a34a)', pillActiveBorder: '#15803d', pillInactiveBg: '#f0fdf4', pillInactiveBorder: '#bbf7d0', pillInactiveColor: '#15803d' },
+  'Return %':         { stripBg: '#f0f9ff', stripBorder: '#e0f2fe', syncFrom: '#0284c7', syncTo: '#0c4a6e', syncBorder: '#0369a1', line: '#0ea5e9', pillActiveBg: 'linear-gradient(to right,#38bdf8,#0ea5e9)', pillActiveBorder: '#0369a1', pillInactiveBg: '#f0f9ff', pillInactiveBorder: '#bae6fd', pillInactiveColor: '#0369a1' },
+  'XIRR Trend':       { stripBg: '#fff1f2', stripBorder: '#ffe4e6', syncFrom: '#e11d48', syncTo: '#881337', syncBorder: '#be123c', line: '#f43f5e', pillActiveBg: 'linear-gradient(to right,#fb7185,#e11d48)', pillActiveBorder: '#be123c', pillInactiveBg: '#fff1f2', pillInactiveBorder: '#fecdd3', pillInactiveColor: '#be123c' },
+}
+
+const fmtSyncTime = (d: Date) => {
+  const h = String(d.getHours()).padStart(2, '0')
+  const m = String(d.getMinutes()).padStart(2, '0')
+  const day = d.getDate()
+  const mon = d.toLocaleString('en', { month: 'short' })
+  return `${h}:${m} ${day} ${mon}`
+}
+
 interface Props { currency: Currency }
 
 export default function TransactionsPage({ currency }: Props) {
@@ -65,6 +95,7 @@ export default function TransactionsPage({ currency }: Props) {
   const [chartRange,  setChartRange]  = useState<ChartRange>('1y')
   const [syncing,       setSyncing]       = useState(false)
   const [reportSyncing, setReportSyncing] = useState(false)
+  const [syncedAt,      setSyncedAt]      = useState<Date | null>(null)
 
   const decoded = {
     portfolio: decodeURIComponent(portfolio),
@@ -286,7 +317,7 @@ export default function TransactionsPage({ currency }: Props) {
   const chartLast   = metricSeries?.values[metricSeries.values.length - 1] ?? null
   const chartFirst  = metricSeries?.values[0] ?? null
   const chartChange = chartLast !== null && chartFirst !== null ? chartLast - chartFirst : null
-  const lineColor   = (chartLast ?? 0) >= 0 ? '#10b981' : '#f43f5e'
+  const lineColor   = METRIC_HEX[chartMetric].line
   const lastColor   = (chartLast ?? 0) >= 0 ? '#0a7a42' : '#be1c1c'
 
   const yTickFmt = (v: number) => {
@@ -307,9 +338,11 @@ export default function TransactionsPage({ currency }: Props) {
 
       {/* Symbol overview card */}
       <div
-        className="rounded-[10px] border px-3 py-2.5 mb-3"
+        className="rounded-[10px] border mb-3 overflow-hidden shadow-sm"
         style={{ background: bg, borderColor: '#e2e8f0', borderLeftWidth: 4, borderLeftColor: border }}
       >
+        <div className="h-[3px]" style={{ background: `linear-gradient(to right, ${border}, ${border}55)` }} />
+        <div className="px-3 py-2.5">
         {/* Label row */}
         <div className="flex justify-between items-center mb-1">
           <span className="text-[9px] font-bold text-slate-700 uppercase tracking-wider truncate max-w-[75%]">
@@ -364,50 +397,94 @@ export default function TransactionsPage({ currency }: Props) {
             </span>
           </span>
         </div>
+        </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-3 mb-3 border-b border-slate-200">
-        {(['transactions', 'charts', 'report', 'notes'] as const).map(tab => (
+      {/* Tabs — iOS segmented control */}
+      <div className="flex bg-slate-100 rounded-full p-0.5 gap-0.5 mb-2">
+        {([['transactions','Txns'],['charts','Charts'],['report','Report'],['notes','Notes']] as const).map(([tab, label]) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`text-[11px] pb-1.5 capitalize font-medium transition-colors ${
+            className={`flex-1 text-[10px] py-1 rounded-full font-medium transition-all ${
               activeTab === tab
-                ? 'text-[#2563eb] border-b-2 border-[#2563eb]'
+                ? tab === 'transactions' ? 'bg-teal-100 text-teal-700 shadow-sm'
+                : tab === 'charts'       ? 'bg-sky-100 text-sky-700 shadow-sm'
+                : tab === 'report'       ? 'bg-violet-100 text-violet-700 shadow-sm'
+                : 'bg-amber-100 text-amber-700 shadow-sm'
                 : 'text-slate-400'
             }`}
           >
-            {tab}
+            {label}
           </button>
         ))}
-        {activeTab === 'charts' && (
-          <button
-            className="ml-auto pb-1.5 text-slate-400 active:text-[#2563eb]"
-            onClick={() => {
-              if (syncing) return
-              setSyncing(true)
-              qc.invalidateQueries({ queryKey: ['history', yf] })
-              setTimeout(() => setSyncing(false), 1200)
-            }}
-          >
-            <span className={`text-[14px] inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
-          </button>
-        )}
-        {activeTab === 'report' && (
-          <button
-            className="ml-auto pb-1.5 text-slate-400 active:text-[#2563eb]"
-            onClick={() => {
-              if (reportSyncing) return
-              setReportSyncing(true)
-              qc.invalidateQueries({ queryKey: ['quickstats', yf] })
-              setTimeout(() => setReportSyncing(false), 1500)
-            }}
-          >
-            <span className={`text-[14px] inline-block ${reportSyncing ? 'animate-spin' : ''}`}>↻</span>
-          </button>
-        )}
       </div>
+
+      {/* Transactions strip */}
+      {activeTab === 'transactions' && (
+        <div className="bg-teal-50 border border-teal-100 rounded-xl px-2.5 py-1 mb-2">
+          <span className="text-[10px] text-teal-700">{symTxns.length} transactions</span>
+        </div>
+      )}
+      {/* Report strip */}
+      {activeTab === 'report' && (
+        <div className="bg-violet-50 border border-violet-100 rounded-xl px-2.5 py-1.5 mb-2 flex items-center justify-between">
+          <span className="text-[10px] text-violet-700">Quick Stats &amp; Research</span>
+          <button
+            className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 border active:opacity-60 bg-gradient-to-br from-violet-600 to-purple-800 border-violet-700"
+            onClick={() => { if (reportSyncing) return; setReportSyncing(true); qc.invalidateQueries({ queryKey: ['quickstats', yf] }); setTimeout(() => setReportSyncing(false), 1500) }}
+          >
+            <span className={`text-[9px] text-white leading-none inline-block ${reportSyncing ? 'animate-spin' : ''}`}>↻</span>
+          </button>
+        </div>
+      )}
+      {/* Notes strip */}
+      {activeTab === 'notes' && (
+        <div className="bg-amber-50 border border-amber-100 rounded-xl px-2.5 py-1.5 mb-2">
+          <span className="text-[10px] text-amber-700">Personal notes</span>
+        </div>
+      )}
+      {/* Charts strip — metric pills + sync */}
+      {activeTab === 'charts' && (
+        <div
+          className="border rounded-xl px-2.5 py-1.5 mb-2"
+          style={{ backgroundColor: METRIC_HEX[chartMetric].stripBg, borderColor: METRIC_HEX[chartMetric].stripBorder }}
+        >
+          <div className="flex items-center gap-2">
+            <div
+              className="flex gap-1.5 overflow-x-auto flex-1"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+            >
+              {METRICS.map(m => (
+                <button
+                  key={m}
+                  onClick={() => setChartMetric(m)}
+                  className="text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-all"
+                  style={chartMetric === m
+                    ? { background: METRIC_HEX[m].pillActiveBg, borderColor: METRIC_HEX[m].pillActiveBorder, color: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.15)' }
+                    : { backgroundColor: METRIC_HEX[m].pillInactiveBg, borderColor: METRIC_HEX[m].pillInactiveBorder, color: METRIC_HEX[m].pillInactiveColor }
+                  }
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+            <button
+              className="flex items-center gap-0.5 shrink-0 rounded-full px-1.5 py-0.5 border active:opacity-60"
+              style={{ background: `linear-gradient(135deg,${METRIC_HEX[chartMetric].syncFrom},${METRIC_HEX[chartMetric].syncTo})`, borderColor: METRIC_HEX[chartMetric].syncBorder }}
+              onClick={() => {
+                if (syncing) return
+                setSyncing(true)
+                qc.invalidateQueries({ queryKey: ['history', yf] })
+                setTimeout(() => { setSyncedAt(new Date()); setSyncing(false) }, 1200)
+              }}
+            >
+              <span className={`text-[9px] text-white leading-none inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
+              {syncedAt && <span className="text-[9px] text-white whitespace-nowrap leading-none ml-0.5">{fmtSyncTime(syncedAt)}</span>}
+            </button>
+          </div>
+        </div>
+      )}
 
       {activeTab === 'transactions' && (
         <>
@@ -415,7 +492,6 @@ export default function TransactionsPage({ currency }: Props) {
             <p className="text-slate-400 text-sm text-center py-6">No transactions found</p>
           ) : (
             <>
-              <p className="text-[9px] text-slate-400 mb-2">{symTxns.length} transactions</p>
               {symTxns.map((t, i) => (
                 <TxRow
                   key={`${t.date}-${i}`}
@@ -444,35 +520,17 @@ export default function TransactionsPage({ currency }: Props) {
       )}
 
       {activeTab === 'charts' && (
-        <div>
-          {/* Metric selector */}
-          <div
-            className="flex gap-1.5 overflow-x-auto pb-2 mb-3"
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
-          >
-            {METRICS.map(m => (
-              <button
-                key={m}
-                onClick={() => setChartMetric(m)}
-                className={`text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-colors ${
-                  chartMetric === m
-                    ? 'bg-[#2563eb] text-white border-[#2563eb]'
-                    : 'bg-white text-slate-500 border-slate-200'
-                }`}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
-
+        <div className="px-0 pt-0 pb-3">
           {/* Price chart */}
           {chartMetric === 'Price' && (
-            <PriceChart
-              transactions={symTxns}
-              yf_symbol={yf}
-              currency={dispCur}
-              usdInr={data.usd_inr}
-            />
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3">
+              <PriceChart
+                transactions={symTxns}
+                yf_symbol={yf}
+                currency={dispCur}
+                usdInr={data.usd_inr}
+              />
+            </div>
           )}
 
           {/* Historical series charts */}
@@ -495,7 +553,7 @@ export default function TransactionsPage({ currency }: Props) {
                       <span>{pct}%</span>
                     </div>
                     <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-sky-400 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+                      <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: METRIC_HEX[chartMetric].line }} />
                     </div>
                   </div>
                 )
@@ -507,7 +565,7 @@ export default function TransactionsPage({ currency }: Props) {
               )}
 
               {metricSeries && rechartsData.length > 0 && (
-                <>
+                <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3">
                   {/* Stat line */}
                   <div className="flex items-baseline gap-2 mb-2">
                     <span className="text-[15px] font-bold" style={{ color: lastColor }}>
@@ -598,7 +656,7 @@ export default function TransactionsPage({ currency }: Props) {
                       </button>
                     ))}
                   </div>
-                </>
+                </div>
               )}
             </>
           )}

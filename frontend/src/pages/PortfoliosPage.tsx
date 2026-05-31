@@ -39,8 +39,8 @@ const BROKER_GROUPS = [
   { key: 'mf',     label: 'Mutual Funds',  test: (p: string) => p.startsWith('MF_'),                       color: '#8b5cf6' },
 ]
 
-const STOCK_CARD_STYLE = { accent: '#10b981', bg: 'linear-gradient(to right, #a7f3d0, #d1fae5 40%, #f0fdf4)' }
-const MF_CARD_STYLE    = { accent: '#0ea5e9', bg: 'linear-gradient(to right, #7dd3fc, #bae6fd 45%, #f0f9ff)' }
+const STOCK_CARD_STYLE = { accent: '#34d399', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' }
+const MF_CARD_STYLE    = { accent: '#93c5fd', bg: 'linear-gradient(to right, #dbeafe, #eff6ff 45%, #f8faff)' }
 
 const TYPE_CARD_STYLE: Record<string, { accent: string; bg: string }> = {
   indian_stock: STOCK_CARD_STYLE,
@@ -369,7 +369,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       )}
 
       {/* Page header */}
-      <div className="flex items-center justify-between bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl px-4 py-3 mx-1">
+      <div className="flex items-center justify-between bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl px-4 py-1.5">
         <p className="text-[18px] font-bold text-white tracking-tight">Portfolio Manager</p>
         <button
           onClick={handleRefresh}

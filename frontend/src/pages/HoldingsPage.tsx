@@ -4,7 +4,7 @@ import {
   LineChart, Line, BarChart, Bar, ComposedChart,
   XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine,
-  PieChart, Pie, Cell,
+  PieChart, Pie, Cell, LabelList,
 } from 'recharts'
 import { usePortfolio } from '../hooks/usePortfolio'
 import { useQueryClient } from '@tanstack/react-query'
@@ -62,14 +62,14 @@ const PIE_COLORS = [
   '#0ea5e9','#d946ef','#4ade80','#fb923c','#818cf8',
 ]
 
-const METRIC_COLOR: Record<ChartMetric, string> = {
-  'Portfolio Value':  'bg-blue-500 border-blue-500',
-  'Invested':         'bg-violet-500 border-violet-500',
-  'Unrealized Gains': 'bg-teal-500 border-teal-500',
-  'Realized Gains':   'bg-amber-500 border-amber-500',
-  'Total Gains':      'bg-emerald-500 border-emerald-500',
-  'Return %':         'bg-sky-500 border-sky-500',
-  'XIRR Trend':       'bg-rose-500 border-rose-500',
+const METRIC_STYLE: Record<ChartMetric, { active: string; inactive: string; line: string; strip: string; sync: string }> = {
+  'Portfolio Value':  { active: 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-600 shadow-sm',    inactive: 'bg-blue-50 text-blue-600 border-blue-200',    line: '#3b82f6', strip: 'bg-blue-50 border-blue-100',    sync: 'bg-gradient-to-br from-blue-600 to-blue-800 border-blue-700' },
+  'Invested':         { active: 'bg-gradient-to-r from-violet-500 to-purple-600 text-white border-violet-600 shadow-sm', inactive: 'bg-violet-50 text-violet-600 border-violet-200', line: '#8b5cf6', strip: 'bg-violet-50 border-violet-100', sync: 'bg-gradient-to-br from-violet-600 to-purple-800 border-violet-700' },
+  'Unrealized Gains': { active: 'bg-gradient-to-r from-teal-400 to-emerald-500 text-white border-teal-500 shadow-sm',  inactive: 'bg-teal-50 text-green-700 border-teal-200',    line: '#14b8a6', strip: 'bg-teal-50 border-teal-100',    sync: 'bg-gradient-to-br from-teal-600 to-emerald-700 border-teal-700' },
+  'Realized Gains':   { active: 'bg-gradient-to-r from-amber-400 to-orange-500 text-white border-amber-500 shadow-sm', inactive: 'bg-amber-50 text-amber-700 border-amber-200',  line: '#f59e0b', strip: 'bg-amber-50 border-amber-100',   sync: 'bg-gradient-to-br from-amber-500 to-orange-700 border-amber-600' },
+  'Total Gains':      { active: 'bg-gradient-to-r from-emerald-500 to-green-600 text-white border-emerald-600 shadow-sm', inactive: 'bg-emerald-50 text-emerald-700 border-emerald-200', line: '#10b981', strip: 'bg-emerald-50 border-emerald-100', sync: 'bg-gradient-to-br from-emerald-600 to-green-800 border-emerald-700' },
+  'Return %':         { active: 'bg-gradient-to-r from-sky-400 to-cyan-500 text-white border-sky-500 shadow-sm',       inactive: 'bg-sky-50 text-sky-600 border-sky-200',       line: '#0ea5e9', strip: 'bg-sky-50 border-sky-100',      sync: 'bg-gradient-to-br from-sky-600 to-cyan-700 border-sky-700' },
+  'XIRR Trend':       { active: 'bg-gradient-to-r from-rose-500 to-pink-600 text-white border-rose-500 shadow-sm',    inactive: 'bg-rose-50 text-rose-600 border-rose-200',    line: '#f43f5e', strip: 'bg-rose-50 border-rose-100',    sync: 'bg-gradient-to-br from-rose-600 to-pink-800 border-rose-700' },
 }
 
 type SortField = 'current' | 'invested' | 'todayGain' | 'todayPct' | 'totalGain' | 'totalPct' | 'xirr'
@@ -203,15 +203,15 @@ export default function HoldingsPage({ currency }: Props) {
   const [histLastSynced,  setHistLastSynced]  = useState<Date | null>(null)
   const [benchLastSynced, setBenchLastSynced] = useState<Date | null>(null)
   const [expandedSectors,     setExpandedSectors]     = useState<Set<string>>(new Set())
-  const [expandedAllocSectors, setExpandedAllocSectors] = useState<Set<string>>(new Set())
-  const [expandedMktCapBuckets, setExpandedMktCapBuckets] = useState<Set<string>>(new Set())
-  const [sectorSectionOpen,   setSectorSectionOpen]   = useState(true)
-  const [mktCapSectionOpen,   setMktCapSectionOpen]   = useState(false)
   const [benchSectorSectionOpen, setBenchSectorSectionOpen] = useState(true)
   const [concentrationTop, setConcentrationTop] = useState<5 | 10 | 20>(10)
+  const [expandedAllocSectors,     setExpandedAllocSectors]     = useState<Set<string>>(new Set())
+  const [expandedMktCapBuckets,    setExpandedMktCapBuckets]    = useState<Set<string>>(new Set())
+  const [sectorSectionOpen,        setSectorSectionOpen]        = useState(true)
+  const [mktCapSectionOpen,        setMktCapSectionOpen]        = useState(false)
   const [concentrationSectionOpen, setConcentrationSectionOpen] = useState(false)
   const [returnsMode,   setReturnsMode]   = useState<'year' | 'month'>('year')
-  const [returnsYear,   setReturnsYear]   = useState<number>(new Date().getFullYear())
+  const [returnsYears,  setReturnsYears]  = useState<number[]>([new Date().getFullYear()])
   const [returnsMetric] = useState<'gains'>('gains')
   const [returnsSector, setReturnsSector] = useState<SectorKey | 'all'>('all')
   const [returnsConfigOpen, setReturnsConfigOpen] = useState(false)
@@ -249,28 +249,28 @@ export default function HoldingsPage({ currency }: Props) {
   }, [data, portfolio, segment])
 
   const sectorData = useMemo(() => {
-    const map = new Map<SectorKey, { value: number; count: number }>()
+    const map = new Map<SectorKey, { value: number; count: number; todayGain: number }>()
     for (const h of filteredHoldings) {
       const sector = getSectorForHolding(h.yf_symbol)
-      const e = map.get(sector) ?? { value: 0, count: 0 }
-      map.set(sector, { value: e.value + h.disp_current, count: e.count + 1 })
+      const e = map.get(sector) ?? { value: 0, count: 0, todayGain: 0 }
+      map.set(sector, { value: e.value + h.disp_current, count: e.count + 1, todayGain: e.todayGain + (h.disp_today_gain ?? 0) })
     }
     const total = [...map.values()].reduce((s, v) => s + v.value, 0)
     return [...map.entries()]
-      .map(([name, { value, count }]) => ({ name, value, count, pct: total > 0 ? value / total * 100 : 0 }))
+      .map(([name, { value, count, todayGain }]) => ({ name, value, count, pct: total > 0 ? value / total * 100 : 0, todayGain }))
       .sort((a, b) => b.value - a.value)
   }, [filteredHoldings])
 
   const mktCapData = useMemo(() => {
-    const map = new Map<MarketCapKey, { value: number; count: number }>()
+    const map = new Map<MarketCapKey, { value: number; count: number; todayGain: number }>()
     for (const h of filteredHoldings) {
       const bucket = getMarketCapForHolding(h.yf_symbol)
-      const e = map.get(bucket) ?? { value: 0, count: 0 }
-      map.set(bucket, { value: e.value + h.disp_current, count: e.count + 1 })
+      const e = map.get(bucket) ?? { value: 0, count: 0, todayGain: 0 }
+      map.set(bucket, { value: e.value + h.disp_current, count: e.count + 1, todayGain: e.todayGain + (h.disp_today_gain ?? 0) })
     }
     const total = [...map.values()].reduce((s, v) => s + v.value, 0)
     return [...map.entries()]
-      .map(([name, { value, count }]) => ({ name, value, count, pct: total > 0 ? value / total * 100 : 0 }))
+      .map(([name, { value, count, todayGain }]) => ({ name, value, count, pct: total > 0 ? value / total * 100 : 0, todayGain }))
       .sort((a, b) => b.value - a.value)
   }, [filteredHoldings])
 
@@ -407,6 +407,7 @@ export default function HoldingsPage({ currency }: Props) {
     if (otherTotal > 0) result.push({ name: 'Other', ticker: '', key: '', value: otherTotal, color: '#94a3b8' })
     return result
   }, [allocGroupedRows, concentrationTop])
+
 
   const allocXirrMap = useMemo(() => {
     if (!data) return new Map<string, number | null>()
@@ -907,25 +908,37 @@ export default function HoldingsPage({ currency }: Props) {
         return computePeriod(dates[dates.length - 1], `${parseInt(yr, 10) - 1}-12-31`, yr === currentYearStr ? `${yr} YTD` : yr, yr === currentYearStr)
       })
     } else {
-      const effYear   = returnsAvailableYears.includes(returnsYear) ? returnsYear : (returnsAvailableYears[returnsAvailableYears.length - 1] ?? returnsYear)
-      const yearStr   = String(effYear)
-      const yearDates = srcDates.filter(d => d.startsWith(yearStr))
-      if (!yearDates.length) return []
-      const moMap = new Map<string, string[]>()
-      for (const d of yearDates) { const mo = d.slice(5, 7); if (!moMap.has(mo)) moMap.set(mo, []); moMap.get(mo)!.push(d) }
-      return [...moMap.keys()].sort().map(mo => {
-        const dates   = moMap.get(mo)!
-        const moStart = new Date(`${yearStr}-${mo}-01`)
-        moStart.setDate(moStart.getDate() - 1)
-        const isMtd = yearStr === currentYearStr && mo === currentMoStr
-        return computePeriod(dates[dates.length - 1], moStart.toISOString().slice(0, 10), `${MONTHS[parseInt(mo, 10) - 1]}${isMtd ? ' MTD' : ''}`, isMtd)
-      })
+      const effYears  = returnsYears.filter(y => returnsAvailableYears.includes(y))
+      const activeYears = (effYears.length > 0 ? effYears : [returnsAvailableYears[returnsAvailableYears.length - 1] ?? new Date().getFullYear()]).slice().sort((a, b) => a - b)
+      const isMultiYear = activeYears.length > 1
+      const results: ReturnType<typeof computePeriod>[] = []
+      for (const yr of activeYears) {
+        const yearStr   = String(yr)
+        const yearDates = srcDates.filter(d => d.startsWith(yearStr))
+        if (!yearDates.length) continue
+        const moMap = new Map<string, string[]>()
+        for (const d of yearDates) { const mo = d.slice(5, 7); if (!moMap.has(mo)) moMap.set(mo, []); moMap.get(mo)!.push(d) }
+        for (const mo of [...moMap.keys()].sort()) {
+          const dates   = moMap.get(mo)!
+          const moStart = new Date(`${yearStr}-${mo}-01`)
+          moStart.setDate(moStart.getDate() - 1)
+          const isMtd   = yearStr === currentYearStr && mo === currentMoStr
+          const label   = isMultiYear
+            ? `${MONTHS[parseInt(mo, 10) - 1]} '${yearStr.slice(2)}${isMtd ? ' MTD' : ''}`
+            : `${MONTHS[parseInt(mo, 10) - 1]}${isMtd ? ' MTD' : ''}`
+          results.push(computePeriod(dates[dates.length - 1], moStart.toISOString().slice(0, 10), label, isMtd))
+        }
+      }
+      return results
     }
-  }, [sectorValueSeries, returnsSector, returnsMode, returnsYear, returnsAvailableYears, filtTxns, data, currency, portSeries])
+  }, [sectorValueSeries, returnsSector, returnsMode, returnsYears, returnsAvailableYears, filtTxns, data, currency, portSeries])
 
   useEffect(() => {
-    if (returnsAvailableYears.length && !returnsAvailableYears.includes(returnsYear))
-      setReturnsYear(returnsAvailableYears[returnsAvailableYears.length - 1])
+    if (!returnsAvailableYears.length) return
+    setReturnsYears(prev => {
+      const valid = prev.filter(y => returnsAvailableYears.includes(y))
+      return valid.length > 0 ? valid : [returnsAvailableYears[returnsAvailableYears.length - 1]]
+    })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [returnsAvailableYears])
 
@@ -963,7 +976,7 @@ export default function HoldingsPage({ currency }: Props) {
   const chartLast  = metricSeries?.values[metricSeries.values.length - 1] ?? null
   const chartFirst = metricSeries?.values[0] ?? null
   const chartChange = chartLast !== null && chartFirst !== null ? chartLast - chartFirst : null
-  const lineColor  = (chartLast ?? 0) >= 0 ? '#10b981' : '#f43f5e'
+  const lineColor  = METRIC_STYLE[chartMetric].line
   const lastColor  = (chartLast ?? 0) >= 0 ? '#0a7a42' : '#be1c1c'
 
   const yTickFmt = (v: number) => {
@@ -1063,32 +1076,37 @@ export default function HoldingsPage({ currency }: Props) {
         todayPct={displayStats.todayPct}
         xirr={filteredSummaryXirr}
         currency={currency}
+        highlight={
+          segment === 'total'
+            ? { bg: 'linear-gradient(to right, #f0fdfa, #d1fae5 45%, #ecfdf5)', accent: '#0d9488' }
+            : { bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)', accent: '#34d399' }
+        }
       />
 
       {/* Tabs */}
-      <div className="flex items-center gap-2">
-        <div className="flex gap-2 flex-1">
-          {(['holdings', 'charts', 'analysis'] as const).map(tab => {
-            const colors = {
-              holdings: activeTab === tab ? 'bg-blue-500 text-white' : 'text-slate-400',
-              charts:   activeTab === tab ? 'bg-emerald-500 text-white' : 'text-slate-400',
-              analysis: activeTab === tab ? 'bg-violet-500 text-white' : 'text-slate-400',
-            }
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`text-[11px] px-3 py-1 rounded-full capitalize font-medium transition-colors relative ${colors[tab]} ${activeTab === tab ? 'mb-[-1px] z-10' : ''}`}
-              >
-                {tab}
-              </button>
-            )
-          })}
-        </div>
+      <div className="flex bg-slate-100 rounded-full p-0.5">
+        {(['holdings', 'charts', 'analysis'] as const).map(tab => {
+          const activeClass = {
+            holdings: 'bg-teal-100 text-green-700',
+            charts:   'bg-sky-100 text-sky-700',
+            analysis: 'bg-violet-100 text-violet-700',
+          }[tab]
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 text-[11px] py-1.5 rounded-full capitalize font-medium transition-all ${
+                activeTab === tab ? `${activeClass} shadow-sm` : 'text-slate-500'
+              }`}
+            >
+              {tab}
+            </button>
+          )
+        })}
       </div>
       {/* Charts strip — metric pills + sync */}
       {activeTab === 'charts' && (
-        <div className="bg-sky-50 border border-sky-100 rounded-xl px-2.5 py-1.5 mt-2">
+        <div className={`${METRIC_STYLE[chartMetric].strip} border rounded-xl px-2.5 py-1.5 mt-2`}>
           <div className="flex items-center gap-2">
             <div
               className="flex gap-1.5 overflow-x-auto flex-1"
@@ -1098,8 +1116,8 @@ export default function HoldingsPage({ currency }: Props) {
                 <button
                   key={m}
                   onClick={() => setChartMetric(m)}
-                  className={`text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-colors ${
-                    chartMetric === m ? `${METRIC_COLOR[m]} text-white` : 'bg-white text-slate-500 border-slate-200'
+                  className={`text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-all ${
+                    chartMetric === m ? METRIC_STYLE[m].active : METRIC_STYLE[m].inactive
                   }`}
                 >
                   {m}
@@ -1107,76 +1125,48 @@ export default function HoldingsPage({ currency }: Props) {
               ))}
             </div>
             <button
-              className="flex items-center gap-0.5 shrink-0 rounded-full px-1.5 py-0.5 bg-sky-100 border border-sky-200 active:opacity-60"
+              className={`flex items-center gap-0.5 shrink-0 rounded-full px-1.5 py-0.5 border active:opacity-60 ${METRIC_STYLE[chartMetric].sync}`}
               onClick={() => { if (syncing) return; setSyncing(true); qc.invalidateQueries({ queryKey: ['history'] }) }}
             >
-              <span className={`text-[9px] text-sky-500 leading-none inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
+              <span className={`text-[9px] text-white leading-none inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
               {histLastSynced && (
-                <span className="text-[9px] text-sky-500 whitespace-nowrap leading-none">{fmtSyncTime(histLastSynced)}</span>
+                <span className="text-[9px] text-white whitespace-nowrap leading-none">{fmtSyncTime(histLastSynced)}</span>
               )}
             </button>
           </div>
         </div>
       )}
-      {/* Analysis strip — segmented control */}
-      {activeTab === 'analysis' && (
-        <div className="bg-violet-50 border border-violet-100 rounded-xl px-2.5 py-1.5 mt-2">
-          <div className="flex gap-1.5">
-            {(['allocation', 'benchmarking', 'returns'] as const).map(st => (
-              <button
-                key={st}
-                onClick={() => setAnalysisSubTab(st)}
-                className={`text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-colors ${
-                  analysisSubTab === st
-                    ? st === 'allocation' ? 'bg-amber-500 text-white border-amber-500'
-                      : st === 'benchmarking' ? 'bg-sky-500 text-white border-sky-500'
-                      : 'bg-green-500 text-white border-green-500'
-                    : 'bg-white text-slate-500 border-slate-200'
-                }`}
-              >
-                {st === 'allocation' ? 'Allocation' : st === 'benchmarking' ? 'Benchmarking' : 'Returns'}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      <div className="mt-2">
-
-      {/* ── Holdings tab ── */}
+      {/* Holdings strip — filter + sort */}
       {activeTab === 'holdings' && (
-        <div>
-          {/* Count + Sort */}
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] text-slate-400">
+        <div className="bg-teal-50 border border-teal-100 rounded-xl px-2.5 py-1.5 mt-2">
+          <div className="flex items-center justify-between gap-2">
+            {/* Count */}
+            <span className="text-[10px] text-green-700">
               {holdingFilter === 'open'   ? `${rows.length} open` :
                holdingFilter === 'closed' ? `${closedRows.length} closed` :
                (rows.length && closedRows.length)
                  ? `${rows.length} open · ${closedRows.length} closed`
                  : rows.length ? `${rows.length} open` : `${closedRows.length} closed`}
             </span>
-            <div className="relative">
-              <button
-                onClick={() => setSortOpen(o => !o)}
-                className="text-[10px] text-slate-400 flex items-center gap-1"
-              >
+            {/* Sort */}
+            <div className="relative shrink-0">
+              <button onClick={() => setSortOpen(o => !o)} className="flex items-center gap-1 text-[9px] text-teal-600 font-medium">
+                <svg width="11" height="10" viewBox="0 0 11 10" fill="currentColor">
+                  <rect x="0" y="0" width="11" height="1.5" rx="0.75"/>
+                  <rect x="1.5" y="3.5" width="8" height="1.5" rx="0.75"/>
+                  <rect x="3" y="7" width="5" height="1.5" rx="0.75"/>
+                </svg>
                 <span>{SORT_OPTIONS.find(o => o.field === sortField)?.label}</span>
-                <span>{sortDir === 'desc' ? '↓' : '↑'}</span>
+                <span className="text-[8px]">{sortDir === 'desc' ? '↓' : '↑'}</span>
               </button>
               {sortOpen && (
                 <>
                   <div className="fixed inset-0 z-[9]" onClick={() => setSortOpen(false)} />
                   <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-10 py-1 min-w-[140px]">
                     {SORT_OPTIONS.map(opt => (
-                      <button
-                        key={opt.field}
-                        onClick={() => {
-                          if (sortField === opt.field) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
-                          else { setSortField(opt.field); setSortDir('desc') }
-                          setSortOpen(false)
-                        }}
-                        className={`w-full text-left px-3 py-1.5 text-[10px] flex items-center justify-between ${
-                          sortField === opt.field ? 'text-[#2563eb] font-semibold' : 'text-slate-600'
-                        }`}
+                      <button key={opt.field}
+                        onClick={() => { if (sortField === opt.field) setSortDir(d => d === 'desc' ? 'asc' : 'desc'); else { setSortField(opt.field); setSortDir('desc') } setSortOpen(false) }}
+                        className={`w-full text-left px-3 py-1.5 text-[10px] flex items-center justify-between ${sortField === opt.field ? 'text-teal-600 font-semibold' : 'text-slate-600'}`}
                       >
                         <span>{opt.label}</span>
                         {sortField === opt.field && <span>{sortDir === 'desc' ? '↓' : '↑'}</span>}
@@ -1187,6 +1177,53 @@ export default function HoldingsPage({ currency }: Props) {
               )}
             </div>
           </div>
+        </div>
+      )}
+      {/* Analysis strip — segmented control */}
+      {activeTab === 'analysis' && (
+        <div className="bg-violet-50 border border-violet-100 rounded-xl px-2.5 py-1.5 mt-2">
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1.5 flex-1">
+              {(['allocation', 'benchmarking', 'returns'] as const).map(st => (
+                <button
+                  key={st}
+                  onClick={() => setAnalysisSubTab(st)}
+                  className="text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-all"
+                  style={analysisSubTab === st
+                    ? st === 'allocation'
+                      ? { background: 'linear-gradient(to right,#fb923c,#f97316)', borderColor: '#ea580c', color: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.15)' }
+                      : st === 'benchmarking'
+                      ? { background: 'linear-gradient(to right,#38bdf8,#0ea5e9)', borderColor: '#0369a1', color: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.15)' }
+                      : { background: 'linear-gradient(to right,#10b981,#16a34a)', borderColor: '#15803d', color: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.15)' }
+                    : st === 'allocation'
+                      ? { backgroundColor: '#fff7ed', borderColor: '#fed7aa', color: '#c2410c' }
+                      : st === 'benchmarking'
+                      ? { backgroundColor: '#f0f9ff', borderColor: '#bae6fd', color: '#0369a1' }
+                      : { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', color: '#15803d' }
+                  }
+                >
+                  {st === 'allocation' ? 'Allocation' : st === 'benchmarking' ? 'Benchmarking' : 'Returns'}
+                </button>
+              ))}
+            </div>
+            {analysisSubTab === 'benchmarking' && (
+              <button
+                className="flex items-center gap-0.5 shrink-0 rounded-full px-1.5 py-0.5 border active:opacity-60"
+                style={{ background: 'linear-gradient(135deg,#0284c7,#0c4a6e)', borderColor: '#0369a1' }}
+                onClick={() => { if (benchSyncing) return; setBenchSyncing(true); qc.invalidateQueries({ queryKey: ['history'] }); qc.invalidateQueries({ queryKey: ['benchmark-hist'] }) }}
+              >
+                <span className={`text-[9px] text-white leading-none inline-block ${benchSyncing ? 'animate-spin' : ''}`}>↻</span>
+                {benchLastSynced && <span className="text-[9px] text-white whitespace-nowrap leading-none ml-0.5">{fmtSyncTime(benchLastSynced)}</span>}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="mt-2">
+
+      {/* ── Holdings tab ── */}
+      {activeTab === 'holdings' && (
+        <div>
           <div className="space-y-2">
             {sortedRows.map(r => (
               <HoldingCard
@@ -1214,7 +1251,7 @@ export default function HoldingsPage({ currency }: Props) {
 
       {/* ── Charts tab ── */}
       {activeTab === 'charts' && (
-        <div className="p-3">
+        <div className="px-3 pt-1 pb-3">
           {/* Progress bar — first load and sync */}
           {histLoading && (() => {
             const isFirst = loadedCount < totalCount
@@ -1227,7 +1264,7 @@ export default function HoldingsPage({ currency }: Props) {
                   <span>{pct}%</span>
                 </div>
                 <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-sky-400 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+                  <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: METRIC_STYLE[chartMetric].line }} />
                 </div>
               </div>
             )
@@ -1246,7 +1283,7 @@ export default function HoldingsPage({ currency }: Props) {
           )}
 
           {metricSeries && rechartsData.length > 0 && (
-            <>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3 mt-1">
               {/* Stat line */}
               <div className="flex items-baseline gap-2 mb-2">
                 <span className="text-[15px] font-bold" style={{ color: lastColor }}>
@@ -1337,7 +1374,7 @@ export default function HoldingsPage({ currency }: Props) {
                   </button>
                 ))}
               </div>
-            </>
+            </div>
           )}
         </div>
       )}
@@ -1358,11 +1395,11 @@ export default function HoldingsPage({ currency }: Props) {
                     <button className="flex items-center gap-1 w-full text-left text-[8px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5" onClick={() => { if (!sectorSectionOpen) { setMktCapSectionOpen(false); setConcentrationSectionOpen(false) } setSectorSectionOpen(o => !o) }}>
                       <span className="text-blue-600">By Sector</span> <span className="text-[7px] text-slate-300 ml-0.5">{sectorSectionOpen ? '▲' : '▼'}</span>
                     </button>
-                    {sectorSectionOpen && <div className="flex items-center gap-1.5 px-2 pb-1">
-                      <span className="text-[7px] font-semibold text-slate-500 flex-1">Sector</span>
-                      <span className="text-[7px] font-semibold text-slate-500 w-[52px]">Alloc</span>
-                      <span className="text-[7px] font-semibold text-slate-500 w-[90px]">Value (XIRR)</span>
-                      <span className="text-[7px] font-semibold text-slate-500 w-[80px]">Today</span>
+                    {sectorSectionOpen && <div className="flex items-center gap-1.5 px-2 py-1.5 mx-1 mb-2 bg-violet-100 rounded-lg">
+                      <span className="text-[7px] font-semibold text-violet-700 flex-1">Sector</span>
+                      <span className="text-[7px] font-semibold text-violet-700 w-[52px] text-center">Alloc</span>
+                      <span className="text-[7px] font-semibold text-violet-700 w-[90px] text-right">Value (XIRR)</span>
+                      <span className="text-[7px] font-semibold text-violet-700 w-[80px] text-right">Today</span>
                       <span className="w-[8px]" />
                     </div>}
                     {sectorSectionOpen && sectorData.map(s => {
@@ -1373,7 +1410,6 @@ export default function HoldingsPage({ currency }: Props) {
 
                       const sXirr = allocSectorXirrMap.get(s.name) ?? null
 
-                      // Sector today gain
                       const hasTodayData = sectorAllocRows.some(r => r.todayGain !== null)
                       const sTodayGain = hasTodayData
                         ? sectorAllocRows.reduce((sum, r) => sum + (r.todayGain ?? 0), 0)
@@ -1399,11 +1435,11 @@ export default function HoldingsPage({ currency }: Props) {
                                 <span className="text-[10px] font-medium text-slate-700 truncate">{s.name}</span>
                                 <span className="text-[8px] text-slate-400 whitespace-nowrap shrink-0">(#{sectorAllocRows.length})</span>
                               </span>
-                              <span className="text-[9px] text-slate-500 whitespace-nowrap w-[52px]">{s.pct.toFixed(1)}%</span>
-                              <span className="text-[9px] font-medium text-slate-700 whitespace-nowrap w-[90px]">
+                              <span className="text-[9px] text-slate-500 whitespace-nowrap w-[52px] text-center">{s.pct.toFixed(1)}%</span>
+                              <span className="text-[9px] font-medium text-slate-700 whitespace-nowrap w-[90px] text-right">
                                 {fmtCompact(s.value, currency)}{sXirr !== null && <span className={sXirrColor}> ({sXirr >= 0 ? '+' : ''}{sXirr.toFixed(1)}%)</span>}
                               </span>
-                              <span className={`text-[8px] font-medium whitespace-nowrap w-[80px] ${sTodayColor}`}>
+                              <span className={`text-[8px] font-medium whitespace-nowrap w-[80px] text-right ${sTodayColor}`}>
                                 {sTodayGain !== null ? `${fmtTodayGain(sTodayGain)}${sTodayPct !== null ? ` (${sTodayPct >= 0 ? '+' : ''}${sTodayPct.toFixed(1)}%)` : ''}` : '—'}
                               </span>
                               <span className="text-[8px] text-slate-300 w-[8px]">{isOpen ? '▲' : '▼'}</span>
@@ -1425,11 +1461,11 @@ export default function HoldingsPage({ currency }: Props) {
                                       <div className="flex-1 min-w-0">
                                         <span className="text-[10px] text-slate-600 truncate block">{r.subLabel || r.ticker}</span>
                                       </div>
-                                      <span className="text-[9px] text-slate-500 w-[52px] whitespace-nowrap">{hPct.toFixed(1)}%</span>
-                                      <span className="text-[9px] font-medium text-slate-700 w-[90px] whitespace-nowrap">
+                                      <span className="text-[9px] text-slate-500 w-[52px] whitespace-nowrap text-center">{hPct.toFixed(1)}%</span>
+                                      <span className="text-[9px] font-medium text-slate-700 w-[90px] whitespace-nowrap text-right">
                                         {fmtCompact(r.current, currency)}{hXirr !== null && <span className={xirrColor}> ({hXirr >= 0 ? '+' : ''}{hXirr.toFixed(1)}%)</span>}
                                       </span>
-                                      <span className={`text-[8px] font-medium whitespace-nowrap w-[80px] ${todayColor}`}>
+                                      <span className={`text-[8px] font-medium whitespace-nowrap w-[80px] text-right ${todayColor}`}>
                                         {r.todayGain !== null ? `${fmtTodayGain(r.todayGain)}${r.todayPct !== null ? ` (${r.todayPct >= 0 ? '+' : ''}${r.todayPct.toFixed(1)}%)` : ''}` : '—'}
                                       </span>
                                       <span className="w-[8px]" />
@@ -1447,11 +1483,11 @@ export default function HoldingsPage({ currency }: Props) {
                     <button className="flex items-center gap-1 w-full text-left text-[8px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5" onClick={() => { if (!mktCapSectionOpen) { setSectorSectionOpen(false); setConcentrationSectionOpen(false) } setMktCapSectionOpen(o => !o) }}>
                       <span className="text-orange-600">By Market Cap</span> <span className="text-[7px] text-slate-300 ml-0.5">{mktCapSectionOpen ? '▲' : '▼'}</span>
                     </button>
-                    {mktCapSectionOpen && <div className="flex items-center gap-1.5 px-2 pb-1">
-                      <span className="text-[7px] font-semibold text-slate-500 flex-1">Bucket</span>
-                      <span className="text-[7px] font-semibold text-slate-500 w-[52px]">Alloc</span>
-                      <span className="text-[7px] font-semibold text-slate-500 w-[90px]">Value (XIRR)</span>
-                      <span className="text-[7px] font-semibold text-slate-500 w-[80px]">Today</span>
+                    {mktCapSectionOpen && <div className="flex items-center gap-1.5 px-2 py-1.5 mx-1 mb-2 bg-violet-100 rounded-lg">
+                      <span className="text-[7px] font-semibold text-violet-700 flex-1">Bucket</span>
+                      <span className="text-[7px] font-semibold text-violet-700 w-[52px] text-center">Alloc</span>
+                      <span className="text-[7px] font-semibold text-violet-700 w-[90px] text-right">Value (XIRR)</span>
+                      <span className="text-[7px] font-semibold text-violet-700 w-[80px] text-right">Today</span>
                       <span className="w-[8px]" />
                     </div>}
                     {mktCapSectionOpen && mktCapData.map(b => {
@@ -1487,11 +1523,11 @@ export default function HoldingsPage({ currency }: Props) {
                                 <span className="text-[10px] font-medium text-slate-700 truncate">{b.name}</span>
                                 <span className="text-[8px] text-slate-400 whitespace-nowrap shrink-0">(#{bucketAllocRows.length})</span>
                               </span>
-                              <span className="text-[9px] text-slate-500 whitespace-nowrap w-[52px]">{b.pct.toFixed(1)}%</span>
-                              <span className="text-[9px] font-medium text-slate-700 whitespace-nowrap w-[90px]">
+                              <span className="text-[9px] text-slate-500 whitespace-nowrap w-[52px] text-center">{b.pct.toFixed(1)}%</span>
+                              <span className="text-[9px] font-medium text-slate-700 whitespace-nowrap w-[90px] text-right">
                                 {fmtCompact(b.value, currency)}{sXirr !== null && <span className={sXirrColor}> ({sXirr >= 0 ? '+' : ''}{sXirr.toFixed(1)}%)</span>}
                               </span>
-                              <span className={`text-[8px] font-medium whitespace-nowrap w-[80px] ${sTodayColor}`}>
+                              <span className={`text-[8px] font-medium whitespace-nowrap w-[80px] text-right ${sTodayColor}`}>
                                 {sTodayGain !== null ? `${fmtTodayGain(sTodayGain)}${sTodayPct !== null ? ` (${sTodayPct >= 0 ? '+' : ''}${sTodayPct.toFixed(1)}%)` : ''}` : '—'}
                               </span>
                               <span className="text-[8px] text-slate-300 w-[8px]">{isOpen ? '▲' : '▼'}</span>
@@ -1513,11 +1549,11 @@ export default function HoldingsPage({ currency }: Props) {
                                       <div className="flex-1 min-w-0">
                                         <span className="text-[10px] text-slate-600 truncate block">{r.subLabel || r.ticker}</span>
                                       </div>
-                                      <span className="text-[9px] text-slate-500 w-[52px] whitespace-nowrap">{hPct.toFixed(1)}%</span>
-                                      <span className="text-[9px] font-medium text-slate-700 w-[90px] whitespace-nowrap">
+                                      <span className="text-[9px] text-slate-500 w-[52px] whitespace-nowrap text-center">{hPct.toFixed(1)}%</span>
+                                      <span className="text-[9px] font-medium text-slate-700 w-[90px] whitespace-nowrap text-right">
                                         {fmtCompact(r.current, currency)}{hXirr !== null && <span className={xirrColor}> ({hXirr >= 0 ? '+' : ''}{hXirr.toFixed(1)}%)</span>}
                                       </span>
-                                      <span className={`text-[8px] font-medium whitespace-nowrap w-[80px] ${todayColor}`}>
+                                      <span className={`text-[8px] font-medium whitespace-nowrap w-[80px] text-right ${todayColor}`}>
                                         {r.todayGain !== null ? `${fmtTodayGain(r.todayGain)}${r.todayPct !== null ? ` (${r.todayPct >= 0 ? '+' : ''}${r.todayPct.toFixed(1)}%)` : ''}` : '—'}
                                       </span>
                                       <span className="w-[8px]" />
@@ -1620,7 +1656,11 @@ export default function HoldingsPage({ currency }: Props) {
                 })
                 const symToYfLocal = new Map(filteredHoldings.map(h => [h.symbol, h.yf_symbol]))
                 const summaryGains = periodData.reduce((s, r) => s + r.gains, 0)
-                const summaryLabel = returnsMode === 'year' ? 'by year' : String(returnsYear)
+                const summaryLabel = returnsMode === 'year'
+                  ? 'by year'
+                  : returnsYears.length === 1
+                    ? String(returnsYears[0])
+                    : `${Math.min(...returnsYears)}–${Math.max(...returnsYears)}`
                 const fmtV = (v: number) => `${v >= 0 ? '+' : '−'}${fmtCompact(Math.abs(v), currency)}`
                 const metricLabel = 'Gains'
                 const yTickFmtR = (v: number) =>
@@ -1681,8 +1721,11 @@ export default function HoldingsPage({ currency }: Props) {
                                     {returnsAvailableYears.map(yr => (
                                       <button
                                         key={yr}
-                                        onClick={() => setReturnsYear(yr)}
-                                        className={`text-[9px] px-2 py-0.5 rounded-full border ${returnsYear === yr ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200'}`}
+                                        onClick={() => setReturnsYears(prev => {
+                                          if (prev.includes(yr)) return prev.length > 1 ? prev.filter(y => y !== yr) : prev
+                                          return [...prev, yr]
+                                        })}
+                                        className={`text-[9px] px-2 py-0.5 rounded-full border ${returnsYears.includes(yr) ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200'}`}
                                       >{yr}</button>
                                     ))}
                                   </div>
@@ -1695,6 +1738,7 @@ export default function HoldingsPage({ currency }: Props) {
                     </div>
 
                     {/* Histogram + cumulative return % line */}
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3 mt-1">
                     <ResponsiveContainer width="100%" height={220}>
                       <ComposedChart data={histData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="20%">
                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
@@ -1736,6 +1780,18 @@ export default function HoldingsPage({ currency }: Props) {
                           {histData.map((entry, i) => (
                             <Cell key={i} fill={entry.value >= 0 ? '#4ade80' : '#f87171'} fillOpacity={entry.isYtd ? 0.5 : 1} />
                           ))}
+                          {returnsMode === 'year' && histData.length <= 8 && (
+                            <LabelList dataKey="value" position="top" content={(props: any) => {
+                              const { x, y, width, value } = props
+                              if (value == null) return null
+                              const v = value as number
+                              return (
+                                <text x={Number(x) + Number(width) / 2} y={Number(y) - 4} textAnchor="middle" fontSize={7} fill={v >= 0 ? '#16a34a' : '#ef4444'}>
+                                  {fmtV(v)}
+                                </text>
+                              )
+                            }} />
+                          )}
                         </Bar>
                         <Line
                           yAxisId="right"
@@ -1748,6 +1804,7 @@ export default function HoldingsPage({ currency }: Props) {
                         />
                       </ComposedChart>
                     </ResponsiveContainer>
+                    </div>
                   </>
                 )
               })()}
@@ -1756,108 +1813,6 @@ export default function HoldingsPage({ currency }: Props) {
 
           {analysisSubTab === 'benchmarking' && (
             <div>
-              {/* Date range config */}
-              <div className="flex items-center mb-3">
-                <div className="w-1/3 min-w-0 shrink-0">
-                  <button
-                    className="flex items-center gap-1.5 w-full text-left px-2 py-1.5 bg-slate-50 rounded-xl border border-slate-100"
-                    onClick={() => setBenchConfigOpen(o => !o)}
-                  >
-                    <span className="text-[8px] text-slate-300">{benchConfigOpen ? '▲' : '▼'}</span>
-                    <span className="text-[9px] text-slate-400">📅</span>
-                    <span className="text-[9px] text-slate-500 flex-1">
-                      {benchDateEnabled
-                        ? `${MONTHS[benchStartMonth - 1]} ${benchStartYear} → ${benchEndToday ? 'today' : `${MONTHS[benchEndMonth - 1]} ${benchEndYear}`}`
-                        : 'All dates'}
-                    </span>
-                    {benchDateEnabled && (
-                      <span className="text-[8px] bg-sky-100 text-sky-600 rounded px-1 py-0.5 font-medium">Active</span>
-                    )}
-                  </button>
-
-                  {benchConfigOpen && (
-                  <div className="mt-0.5 bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-2.5">
-                    {/* From row */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-[9px] text-slate-400 w-[28px] shrink-0">From</span>
-                      <select
-                        value={benchStartMonth}
-                        onChange={e => setBenchStartMonth(+e.target.value)}
-                        className="text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-slate-700 flex-1"
-                      >
-                        {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-                      </select>
-                      <select
-                        value={benchStartYear}
-                        onChange={e => setBenchStartYear(+e.target.value)}
-                        className="text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-slate-700 flex-1"
-                      >
-                        {txnYears.map(y => <option key={y} value={y}>{y}</option>)}
-                      </select>
-                    </div>
-
-                    {/* To row */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-[9px] text-slate-400 w-[28px] shrink-0">To</span>
-                      <select
-                        value={benchEndMonth}
-                        onChange={e => setBenchEndMonth(+e.target.value)}
-                        disabled={benchEndToday}
-                        className={`text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 flex-1 ${benchEndToday ? 'opacity-30' : 'text-slate-700'}`}
-                      >
-                        {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-                      </select>
-                      <select
-                        value={benchEndYear}
-                        onChange={e => setBenchEndYear(+e.target.value)}
-                        disabled={benchEndToday}
-                        className={`text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 flex-1 ${benchEndToday ? 'opacity-30' : 'text-slate-700'}`}
-                      >
-                        {txnYears.map(y => <option key={y} value={y}>{y}</option>)}
-                      </select>
-                    </div>
-
-                    {/* Today toggle */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-slate-500">Use today as end date</span>
-                      <button
-                        onClick={() => setBenchEndToday(o => !o)}
-                        className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${benchEndToday ? 'bg-sky-400' : 'bg-slate-200'}`}
-                      >
-                        <span className={`absolute top-[3px] w-[14px] h-[14px] rounded-full bg-white shadow transition-transform ${benchEndToday ? 'translate-x-[19px]' : 'translate-x-[3px]'}`} />
-                      </button>
-                    </div>
-
-                    {/* Apply / Clear */}
-                    <div className="flex gap-2 pt-0.5">
-                      <button
-                        onClick={() => { setBenchDateEnabled(true); setBenchConfigOpen(false) }}
-                        className="flex-1 text-[11px] bg-sky-500 text-white rounded-full py-3 font-medium"
-                      >
-                        Apply
-                      </button>
-                      {benchDateEnabled && (
-                        <button
-                          onClick={() => { setBenchDateEnabled(false); setBenchConfigOpen(false) }}
-                          className="flex-1 text-[11px] bg-slate-200 text-slate-600 rounded-full py-3 font-medium"
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-                </div>
-                <button
-                  className="flex items-center gap-0.5 shrink-0 ml-auto rounded-full px-1.5 py-0.5 bg-teal-100 border border-teal-200 active:opacity-60"
-                  onClick={() => { if (benchSyncing) return; setBenchSyncing(true); qc.invalidateQueries({ queryKey: ['history'] }); qc.invalidateQueries({ queryKey: ['benchmark-hist'] }) }}
-                >
-                  <span className={`text-[9px] text-teal-500 leading-none inline-block ${benchSyncing ? 'animate-spin' : ''}`}>↻</span>
-                  {benchLastSynced && (
-                    <span className="text-[9px] text-teal-500 whitespace-nowrap leading-none">{fmtSyncTime(benchLastSynced)}</span>
-                  )}
-                </button>
-              </div>
 
               {benchLoading && (() => {
                 const hasProgress = benchLoadedCount > 0 && benchTotalCount > 0
@@ -1903,9 +1858,10 @@ export default function HoldingsPage({ currency }: Props) {
                 const symToYf = new Map(filteredHoldings.map(h => [h.symbol, h.yf_symbol]))
                 const fmtX = (v: number | null) => v !== null ? `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` : '—'
                 const maxAlpha = Math.max(...benchSectors.map(s => Math.abs(s.alpha ?? 0)), 1)
+                const overallAlphaPos = (benchAlpha ?? 0) >= 0
                 return (
                   <div>
-                    {/* Overall card — light green */}
+                    {/* Overall card */}
                     <div className="bg-green-50 rounded-lg px-2 py-2 mb-3 border border-green-100">
                       <p className="text-[7px] font-bold text-green-600 uppercase tracking-widest mb-1.5">Overall</p>
                       <div className="flex items-center gap-1">
@@ -1933,18 +1889,71 @@ export default function HoldingsPage({ currency }: Props) {
 
                     {/* By Sector — bordered collapsible section */}
                     <div className="border border-slate-200 rounded-xl">
-                      <button
-                        className="flex items-center gap-1 w-full text-left text-[8px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5"
-                        onClick={() => setBenchSectorSectionOpen(o => !o)}
-                      >
-                        <span className="text-sky-600">By Sector</span> <span className="text-[7px] text-slate-300 ml-0.5">{benchSectorSectionOpen ? '▲' : '▼'}</span>
-                      </button>
+                      {/* Header row: By Sector toggle + date filter on right */}
+                      <div className="flex items-center px-3 py-2.5">
+                        <button
+                          className="flex items-center gap-1 text-[8px] font-semibold text-slate-500 uppercase tracking-widest"
+                          onClick={() => setBenchSectorSectionOpen(o => !o)}
+                        >
+                          <span className="text-sky-600">By Sector</span>
+                          <span className="text-[7px] text-slate-300 ml-0.5">{benchSectorSectionOpen ? '▲' : '▼'}</span>
+                        </button>
+                        <div className="flex-1" />
+                        <button
+                          className="flex items-center gap-1 bg-slate-50 border border-slate-100 rounded-lg px-2 py-1"
+                          onClick={() => setBenchConfigOpen(o => !o)}
+                        >
+                          <span className="text-[9px] text-slate-400">📅</span>
+                          <span className="text-[8px] text-slate-500 whitespace-nowrap">
+                            {benchDateEnabled
+                              ? `${MONTHS[benchStartMonth - 1]} ${benchStartYear} → ${benchEndToday ? 'today' : `${MONTHS[benchEndMonth - 1]} ${benchEndYear}`}`
+                              : 'All dates'}
+                          </span>
+                          {benchDateEnabled && <span className="text-[7px] bg-sky-100 text-sky-600 rounded px-1 font-medium ml-0.5">Active</span>}
+                        </button>
+                      </div>
+
+                      {/* Date config panel — inline inside the card */}
+                      {benchConfigOpen && (
+                        <div className="mx-3 mb-3 bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] text-slate-400 w-[28px] shrink-0">From</span>
+                            <select value={benchStartMonth} onChange={e => setBenchStartMonth(+e.target.value)} className="text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-slate-700 flex-1">
+                              {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                            </select>
+                            <select value={benchStartYear} onChange={e => setBenchStartYear(+e.target.value)} className="text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-slate-700 flex-1">
+                              {txnYears.map(y => <option key={y} value={y}>{y}</option>)}
+                            </select>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] text-slate-400 w-[28px] shrink-0">To</span>
+                            <select value={benchEndMonth} onChange={e => setBenchEndMonth(+e.target.value)} disabled={benchEndToday} className={`text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 flex-1 ${benchEndToday ? 'opacity-30' : 'text-slate-700'}`}>
+                              {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                            </select>
+                            <select value={benchEndYear} onChange={e => setBenchEndYear(+e.target.value)} disabled={benchEndToday} className={`text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 flex-1 ${benchEndToday ? 'opacity-30' : 'text-slate-700'}`}>
+                              {txnYears.map(y => <option key={y} value={y}>{y}</option>)}
+                            </select>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] text-slate-500">Use today as end date</span>
+                            <button onClick={() => setBenchEndToday(o => !o)} className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${benchEndToday ? 'bg-sky-400' : 'bg-slate-200'}`}>
+                              <span className={`absolute top-[3px] w-[14px] h-[14px] rounded-full bg-white shadow transition-transform ${benchEndToday ? 'translate-x-[19px]' : 'translate-x-[3px]'}`} />
+                            </button>
+                          </div>
+                          <div className="flex gap-2 pt-0.5">
+                            <button onClick={() => { setBenchDateEnabled(true); setBenchConfigOpen(false) }} className="flex-1 text-[11px] bg-sky-500 text-white rounded-full py-3 font-medium">Apply</button>
+                            {benchDateEnabled && (
+                              <button onClick={() => { setBenchDateEnabled(false); setBenchConfigOpen(false) }} className="flex-1 text-[11px] bg-slate-200 text-slate-600 rounded-full py-3 font-medium">Clear</button>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                       {benchSectorSectionOpen && (
-                        <div className="flex items-center gap-1 px-2 pb-1">
-                          <span className="text-[7px] font-semibold text-slate-500 flex-[2]">Sector (XIRR)</span>
-                          <span className="text-[7px] font-semibold text-slate-500 flex-1">Benchmark (XIRR)</span>
-                          <span className="text-[7px] font-semibold text-slate-500 flex-1 text-right">Alpha</span>
+                        <div className="flex items-center gap-1 px-2 py-1.5 mx-1 mb-2 bg-green-100 rounded-lg">
+                          <span className="text-[7px] font-semibold text-green-700 flex-[2]">Sector (XIRR)</span>
+                          <span className="text-[7px] font-semibold text-green-700 flex-1">Benchmark (XIRR)</span>
+                          <span className="text-[7px] font-semibold text-green-700 flex-1 text-right">Alpha</span>
                           <span className="w-[8px]" />
                         </div>
                       )}
@@ -1995,7 +2004,7 @@ export default function HoldingsPage({ currency }: Props) {
                                   const hColor  = hXirr !== null ? hXirr >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'
                                   const hAlphaColor = hAlpha !== null ? hAlpha >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'
                                   return (
-                                    <div key={r.key} className="bg-slate-50 rounded-lg px-2 py-1.5">
+                                    <button key={r.key} className="bg-slate-50 rounded-lg px-2 py-1.5 w-full text-left active:opacity-60" onClick={() => { sessionStorage.setItem(`holdingsScroll:${location.pathname}`, String(window.scrollY)); navigate(`/transactions/${encodeURIComponent(r.navPort)}/${encodeURIComponent(r.navSym)}`, { state: { from: label, portfolios: r.portfolios } }) }}>
                                       <div className="flex items-center gap-1">
                                         <span className="flex items-center gap-1 flex-[2] min-w-0">
                                           <span className="text-[9px] font-medium text-slate-600 truncate min-w-0">{r.subLabel || r.ticker}</span>
@@ -2017,7 +2026,7 @@ export default function HoldingsPage({ currency }: Props) {
                                         )}
                                         <div className="absolute top-0 bottom-0 left-1/2 w-px bg-slate-300" />
                                       </div>
-                                    </div>
+                                    </button>
                                   )
                                 })}
                               </div>

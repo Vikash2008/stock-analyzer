@@ -29,7 +29,7 @@ export function HoldingCard({
   const gain      = totalGain >= 0
 
   const borderColor = gain ? '#10b981' : '#f43f5e'
-  const bgColor     = gain ? '#f0fdf8' : '#fff5f5'
+  const bgColor     = gain ? '#f7fef9' : '#fffbfb'
   const textColor   = gain ? '#0a7a42' : '#be1c1c'
 
   const tgColor = todayGain !== null
@@ -38,8 +38,8 @@ export function HoldingCard({
 
   return (
     <div
-      className="rounded-[10px] border px-3 py-2.5 cursor-pointer active:opacity-75 transition-opacity select-none"
-      style={{ background: bgColor, borderColor: '#e2e8f0', borderLeftWidth: 4, borderLeftColor: borderColor }}
+      className="rounded-[10px] border px-3 py-2.5 cursor-pointer active:opacity-75 transition-opacity select-none shadow-sm"
+      style={{ background: bgColor, borderColor: '#e5e7eb', borderLeftWidth: 4, borderLeftColor: borderColor }}
       onClick={onClick}
     >
       {/* Label row: ticker · company | LTP */}
