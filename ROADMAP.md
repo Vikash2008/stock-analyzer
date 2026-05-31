@@ -40,6 +40,7 @@
 
 | Item | Completed |
 |------|-----------|
+| US stocks benchmarking ^NDX fix — `history.py` retries `yf.download` with `auto_adjust=False` when first call returns empty; newer yfinance on Render silently returns empty for US index symbols; benchmark XIRR and alpha now show correctly on production | 2026-05-31 |
 | Charts + Analysis tab padding fix — extra horizontal padding removed from both tab wrappers; content flush with page edges | 2026-05-31 |
 | Returns pill — histogram border card + bar value labels (year mode ≤8 bars) + multi-select year in month mode (labels `Jan '23`, summary shows range `2023–2025`) | 2026-05-31 |
 | Allocation accordion 4-column layout — Sector/Alloc(%+bar)/Value(XIRR)/Today columns; sectorData+mktCapData include todayGain; sunburst reverted (nivo tooltip crash on undefined datum) | 2026-05-31 |
