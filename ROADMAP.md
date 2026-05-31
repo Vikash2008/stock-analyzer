@@ -40,6 +40,7 @@
 
 | Item | Completed |
 |------|-----------|
+| Report tab on TransactionsPage (between Charts and Notes) — Option B: Quick Stats card (P/E, MCap, 52W range, analyst target from yfinance ticker.info) + 6 Perplexity deep-link section cards (Business Overview, Latest Results & Concall, Growth Catalysts, Key Risks, Industry Outlook, Valuation vs Peers) + Full Report button; sync-only ↻; quickstats persisted to localStorage; new backend `/api/quickstats` endpoint with 60s mem + 24h disk cache | 2026-05-31 |
 | Stock sector reclassifications — LAXMIMACH/INDIAMART/DREAMFOLKS/IRCTC/EASEMYTRIP → Growth; TATAINVEST/IBREALEST → Finance; NYKAA → Consumer; both sectors.ts and debug_benchmark.py updated. ET Money.NS (bad data symbol) left unclassified intentionally. | 2026-05-29 |
 | Benchmarking ↻ sync icon on Analysis strip — same row as sub-tab pills, only visible on Benchmarking; invalidates ['history'] + ['benchmark-hist']; benchSyncing state clears when benchLoading goes false | 2026-05-30 |
 | useIsRestoring loader screen — `AppRoutes` gates on `useIsRestoring()`; shows branded `LoadingScreen` (slate-900, emerald gradient title, spinning ↻) until localStorage cache hydrated; fixes benchmark "Loading…" persisting after hard refresh | 2026-05-30 |
