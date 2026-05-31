@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   LineChart, Line, BarChart, Bar, ComposedChart,
@@ -614,23 +614,23 @@ export default function HoldingsPage({ currency }: Props) {
     if (benchSyncing && !benchLoading && !benchFetching) setBenchSyncing(false)
   }, [benchSyncing, benchLoading, benchFetching])
 
-  const fmtSyncTime = (d: Date) =>
-    d.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false })
+  const fmtSyncTime = (d: Date) => {
+    const hh  = String(d.getHours()).padStart(2, '0')
+    const mm  = String(d.getMinutes()).padStart(2, '0')
+    const dd  = String(d.getDate()).padStart(2, '0')
+    const mon = d.toLocaleString('en-US', { month: 'short' })
+    return `${hh}:${mm} ${dd} ${mon}`
+  }
 
-  // Set histLastSynced when histLoading transitions true → false
-  const prevHistLoading = useRef(false)
+  // Set histLastSynced whenever history data is available (initial load from cache OR after sync)
   useEffect(() => {
-    if (prevHistLoading.current && !histLoading) setHistLastSynced(new Date())
-    prevHistLoading.current = histLoading
-  }, [histLoading])
+    if (!histLoading && loadedCount > 0) setHistLastSynced(new Date())
+  }, [histLoading, loadedCount])
 
-  // Set benchLastSynced when benchmark loading/fetching cycle completes
-  const prevBenchActive = useRef(false)
+  // Set benchLastSynced whenever benchmark data is available (initial load from cache OR after sync)
   useEffect(() => {
-    const active = benchLoading || benchFetching
-    if (prevBenchActive.current && !active) setBenchLastSynced(new Date())
-    prevBenchActive.current = active
-  }, [benchLoading, benchFetching])
+    if (!benchLoading && !benchFetching && benchSectors.length > 0) setBenchLastSynced(new Date())
+  }, [benchLoading, benchFetching, benchSectors.length])
 
   const xirrMap = useMemo(() => {
     if (!data) return new Map<string, number | null>()

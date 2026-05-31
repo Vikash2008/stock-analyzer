@@ -350,7 +350,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           <span className={`text-[9px] uppercase tracking-widest ${refreshError ? 'text-red-300' : ''}`}>
             {refreshError
               ? 'Sync failed · retry'
-              : `${new Date(data.as_of).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })} IST`}
+              : (() => { const d = new Date(data.as_of); const hh = String(d.getHours()).padStart(2,'0'); const mm = String(d.getMinutes()).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); const mon = d.toLocaleString('en-US',{month:'short'}); return `${hh}:${mm} ${dd} ${mon}` })()}
           </span>
         </button>
       </div>
