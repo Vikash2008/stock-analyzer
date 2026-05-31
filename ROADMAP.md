@@ -40,6 +40,8 @@
 
 | Item | Completed |
 |------|-----------|
+| Visual design overhaul — Hero card dark gradient; Stocks/MF tiles type-specific color identity; iOS breakdown toggle; colored section labels; TYPE_ACCENT BreakCard borders; XIRR chips on BreakCard/HoldingCard/SummaryCard; SummaryCard 3px gradient top strip; Charts sync inside metrics bar; Benchmarking sync inside date filter row | 2026-05-31 |
+| Sync pill relocations + styling — Charts ↻ inside sky-50 metrics strip (`bg-sky-100`, `text-[9px]`, mid-aligned); Benchmarking ↻ in date filter row (`bg-teal-100`, `ml-auto`, `w-1/3` date column, chevron moved left); both as single button with `flex items-center` | 2026-05-31 |
 | Benchmarking loader indeterminate pulse + Charts/Benchmarking sync timestamps — Charts ↻ moved to tab row with IST timestamp; Benchmarking ↻ gets IST timestamp in violet-50 strip; loader shows animate-pulse bar when queries land simultaneously (was stuck at 0%) | 2026-05-31 |
 | Benchmarking XIRR mobile/localhost mismatch fixed — `useBenchmarkXirr` terminal value now uses `symbolPriceMap` (freshly synced) instead of `filteredHoldings.disp_current` (stale bundle); eliminates 72.9% vs 24.5% gap when bundle is stale but history is freshly fetched | 2026-05-31 |
 | Dark branded loader + 75s progress bar on cold start/empty cache — LoadingSkeleton full-screen slate-900, emerald gradient title, 75s timer bar, "Taking a bit more time…" at 75s | 2026-05-31 |
