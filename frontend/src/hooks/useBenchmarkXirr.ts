@@ -301,35 +301,40 @@ export function useBenchmarkXirr(
     const sectorVal = new Map<SectorKey, number>()
     const sectorInv = new Map<SectorKey, number>()
 
-    if (!periodEnd) {
-      // T2 = today: use live prices from filteredHoldings (same as inception-to-date path)
-      for (const h of filteredHoldings) {
-        const s = getSectorForHolding(h.yf_symbol)
-        sectorVal.set(s, (sectorVal.get(s) ?? 0) + h.disp_current)
-        sectorInv.set(s, (sectorInv.get(s) ?? 0) + h.disp_invested)
-        if (!sectorYfSs.has(s)) sectorYfSs.set(s, new Set())
-        sectorYfSs.get(s)!.add(h.yf_symbol)
-      }
-    } else {
-      // T2 = explicit past date: compute from simulation qty state × symbolPriceMap at T2
-      for (const [key, qty] of qtyHeld.entries()) {
-        if (qty <= 0) continue
-        const meta = keyMeta.get(key)
-        if (!meta) continue
-        const { sector, isUsd, yfSymbol } = meta
-        const fx     = isUsd
-          ? (currency === 'INR' ? usdInr : 1)
-          : (currency === 'USD' ? 1 / usdInr : 1)
-        const symMap = symbolPriceMap?.get(yfSymbol)
-        const px     = symMap ? priceFromMapOnOrBefore(symMap, termStr) : null
-        if (px !== null) {
-          sectorVal.set(sector, (sectorVal.get(sector) ?? 0) + qty * px * fx)
-        }
-      }
-      // sectorInv is display-only metadata; use today's open holdings as best proxy
-      for (const h of filteredHoldings) {
-        const s = getSectorForHolding(h.yf_symbol)
-        sectorInv.set(s, (sectorInv.get(s) ?? 0) + h.disp_invested)
+    // sectorInv + sectorYfSs metadata always from current open holdings
+    for (const h of filteredHoldings) {
+      const s = getSectorForHolding(h.yf_symbol)
+      sectorInv.set(s, (sectorInv.get(s) ?? 0) + h.disp_invested)
+      if (!sectorYfSs.has(s)) sectorYfSs.set(s, new Set())
+      sectorYfSs.get(s)!.add(h.yf_symbol)
+    }
+
+    // Fallback map for T2=today: keyed by `portfolio:yfSymbol` → Holding
+    // Used when symbolPriceMap has no data for a symbol (e.g. NAV-based MFs)
+    const hlFallback = !periodEnd
+      ? new Map(filteredHoldings.map(h => [`${h.portfolio}:${h.yf_symbol}`, h]))
+      : null
+
+    // sectorVal: always use qtyHeld × symbolPriceMap at T2 — same data source as the
+    // benchmark terminal value (histMap). This prevents stale portfolio bundle prices
+    // from inflating actual XIRR when symbolPriceMap is freshly synced but the bundle is not.
+    for (const [key, qty] of qtyHeld.entries()) {
+      if (qty <= 0) continue
+      const meta = keyMeta.get(key)
+      if (!meta) continue
+      const { sector, isUsd, yfSymbol } = meta
+      const fx     = isUsd
+        ? (currency === 'INR' ? usdInr : 1)
+        : (currency === 'USD' ? 1 / usdInr : 1)
+      const symMap = symbolPriceMap?.get(yfSymbol)
+      const px     = symMap ? priceFromMapOnOrBefore(symMap, termStr) : null
+      if (px !== null) {
+        sectorVal.set(sector, (sectorVal.get(sector) ?? 0) + qty * px * fx)
+      } else if (hlFallback) {
+        // symbolPriceMap missing this symbol — fall back to live price from bundle
+        const portfolio = key.split(':')[0]
+        const h = hlFallback.get(`${portfolio}:${yfSymbol}`)
+        if (h) sectorVal.set(sector, (sectorVal.get(sector) ?? 0) + h.disp_current)
       }
     }
 
