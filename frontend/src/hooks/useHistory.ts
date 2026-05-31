@@ -23,8 +23,8 @@ export function useHistory(yf_symbol: string | null, start: string | null, perio
     queryKey:  ['history', yf_symbol, period ?? start],
     queryFn:   () => fetchHistory(yf_symbol!, start, period),
     enabled:   !!yf_symbol && (!!start || !!period),
-    staleTime: period === '1d' ? 5 * 60_000 : Infinity,
-    gcTime:    period === '1d' ? 10 * 60_000 : Infinity,
+    staleTime: Infinity,
+    gcTime:    Infinity,
     retry: 1,
   })
 }

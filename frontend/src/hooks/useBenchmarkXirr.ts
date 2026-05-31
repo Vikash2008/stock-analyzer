@@ -103,7 +103,7 @@ export function useBenchmarkXirr(
       queryFn:   () => fetchBenchHistory(sym, startDate),
       enabled:   enabled && uniqueBenchSyms.length > 0,
       staleTime: Infinity,
-      gcTime:    24 * 60 * 60 * 1000,
+      gcTime:    Infinity,
       retry:     1,
     })),
   })

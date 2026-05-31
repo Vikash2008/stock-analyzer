@@ -15,6 +15,6 @@ export function useQuickStats(yf_symbol: string, enabled: boolean) {
     queryFn:   () => fetchQuickStats(yf_symbol),
     enabled:   enabled && !!yf_symbol,
     staleTime: Infinity,
-    gcTime:    24 * 60 * 60 * 1000,
+    gcTime:    Infinity,
   })
 }

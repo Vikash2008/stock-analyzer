@@ -10,7 +10,7 @@ import TransactionsPage from './pages/TransactionsPage'
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30 * 60 * 1000,  // 30 min
+      staleTime: Infinity,
       retry: 1,
     },
   },
@@ -92,7 +92,7 @@ export default function App() {
       client={queryClient}
       persistOptions={{
         persister,
-        maxAge: 24 * 60 * 60 * 1000,  // 1 day
+        maxAge: 3 * 24 * 60 * 60 * 1000,  // 3 days
         dehydrateOptions: {
           shouldDehydrateQuery: (query) =>
             query.queryKey[0] === 'history' ||
