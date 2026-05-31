@@ -40,6 +40,9 @@
 
 | Item | Completed |
 |------|-----------|
+| Dark branded loader + 75s progress bar on cold start/empty cache — LoadingSkeleton full-screen slate-900, emerald gradient title, 75s timer bar, "Taking a bit more time…" at 75s | 2026-05-31 |
+| Closed holdings LTP from symbolPriceMap — closedRowsWithLtp memo patches ltp with latest price from usePortfolioHistory symbolPriceMap; was showing last sell price | 2026-05-31 |
+| PriceChart start date fixed to 2000-01-01 — was firstTxDate(transactions); chart now shows full available history; range selector independent of buy dates | 2026-05-31 |
 | Report tab on TransactionsPage (between Charts and Notes) — Option B: Quick Stats card (P/E, MCap, 52W range, analyst target from yfinance ticker.info) + 6 Perplexity deep-link section cards (Business Overview, Latest Results & Concall, Growth Catalysts, Key Risks, Industry Outlook, Valuation vs Peers) + Full Report button; sync-only ↻; quickstats persisted to localStorage; new backend `/api/quickstats` endpoint with 60s mem + 24h disk cache | 2026-05-31 |
 | Sync error feedback on Overview ↻ — `refreshError` state shows "Sync failed · retry" in red-300 for 5s when fetch fails (Render cold start / network error); `errorTimer` auto-clears | 2026-05-31 |
 | staleTime+gcTime=Infinity for all queries (portfolio/history/benchmark-hist/quickstats/useHistory); localStorage maxAge 1d→3d; zero auto-refresh, manual ↻ only | 2026-05-31 |
