@@ -600,3 +600,4 @@ Label row shows `TICKER · Company Name` (or `TICKER · Portfolio` in standalone
 | 2026-05-31 | Returns histogram border card — ComposedChart wrapped in `bg-white rounded-xl shadow-sm border border-slate-100 p-3 mt-1`; matches Charts tab chart card style |
 | 2026-05-31 | Returns bar value labels — `LabelList` with custom SVG `<text>` renderer; shows `+₹12L` / `−₹3L` in green/red above each bar; only in year mode with ≤ 8 bars |
 | 2026-05-31 | Returns year selector multi-select — `returnsYears: number[]` replaces `returnsYear: number`; gear popover year pills toggle on/off (min 1 always selected); multi-year month view shows months across all selected years with labels `Jan '23`, `Feb '24`; summary line shows range `2023–2025` for multi-year |
+| 2026-05-31 | Charts + Analysis tab horizontal padding removed — Charts wrapper `px-3 pt-1 pb-3` → `pt-1 pb-3`; Analysis wrapper `p-3` → `pt-2`; content now flush with page `px-4` edges, matching Holdings tab |
