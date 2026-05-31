@@ -1088,7 +1088,7 @@ export default function HoldingsPage({ currency }: Props) {
         {activeTab === 'charts' && (
           <div className="flex items-center gap-1.5 shrink-0">
             {histLastSynced && (
-              <span className="text-[8px] text-slate-400 whitespace-nowrap">{fmtSyncTime(histLastSynced)}</span>
+              <span className="text-[10px] text-slate-400 whitespace-nowrap">{fmtSyncTime(histLastSynced)}</span>
             )}
             <button
               className="text-slate-400 active:text-emerald-500"
@@ -1147,7 +1147,7 @@ export default function HoldingsPage({ currency }: Props) {
           {analysisSubTab === 'benchmarking' && (
             <div className="flex items-center gap-1.5 shrink-0">
               {benchLastSynced && (
-                <span className="text-[8px] text-slate-400 whitespace-nowrap">{fmtSyncTime(benchLastSynced)}</span>
+                <span className="text-[10px] text-slate-400 whitespace-nowrap">{fmtSyncTime(benchLastSynced)}</span>
               )}
               <button
                 className="text-slate-400 active:text-sky-500"
