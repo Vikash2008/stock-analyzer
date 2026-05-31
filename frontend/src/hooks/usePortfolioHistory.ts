@@ -74,10 +74,11 @@ export function usePortfolioHistory(
     })),
   })
 
-  const loadedCount = queries.filter(q => q.status === 'success').length
-  const isFetching  = queries.some(q => q.fetchStatus === 'fetching')
+  const loadedCount   = queries.filter(q => q.status === 'success').length
+  const fetchingCount = queries.filter(q => q.fetchStatus === 'fetching').length
+  const isFetching    = fetchingCount > 0
   // true when not all symbols have data yet (first load) OR any is actively refetching (sync)
-  const isLoading   = enabled && (loadedCount < symbols.length || isFetching)
+  const isLoading     = enabled && (loadedCount < symbols.length || isFetching)
 
   // Built from whatever queries have data — allows showing cached series while refetching
   const symbolPriceMap = useMemo((): Map<string, Map<string, number>> => {
@@ -281,5 +282,5 @@ export function usePortfolioHistory(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, loadedCount, holdings, transactions, realized, usdInr, currency, symbols, symbolPriceMap])
 
-  return { series, isLoading, loadedCount, totalCount: symbols.length, symbolPriceMap }
+  return { series, isLoading, loadedCount, totalCount: symbols.length, fetchingCount, symbolPriceMap }
 }

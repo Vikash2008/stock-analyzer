@@ -569,7 +569,7 @@ export default function HoldingsPage({ currency }: Props) {
   }, [data, filtPorts, segment, portfolio])
 
   // Placed before useBenchmarkXirr so symbolPriceMap is available for period XIRR opening balance
-  const { series: portSeries, isLoading: histLoading, loadedCount, totalCount, symbolPriceMap } = usePortfolioHistory(
+  const { series: portSeries, isLoading: histLoading, loadedCount, totalCount, fetchingCount: histFetchingCount, symbolPriceMap } = usePortfolioHistory(
     filteredHoldings,
     filtTxns,
     filtRealized,
@@ -593,6 +593,9 @@ export default function HoldingsPage({ currency }: Props) {
     isLoading:         benchLoading,
     isFetching:        benchFetching,
     hasError:          benchHasError,
+    loadedCount:       benchLoadedCount,
+    totalCount:        benchTotalCount,
+    fetchingCount:     benchFetchingCount,
   } = useBenchmarkXirr(
     filteredHoldings,
     closedYfSymbolsArr,
@@ -1186,21 +1189,23 @@ export default function HoldingsPage({ currency }: Props) {
       {/* ── Charts tab ── */}
       {activeTab === 'charts' && (
         <div className="p-3">
-          {/* Progress bar — first load only (not during sync refetch) */}
-          {histLoading && loadedCount < totalCount && (
-            <div className="mb-3">
-              <div className="flex justify-between text-[9px] text-slate-400 mb-1">
-                <span>Loading price history… {loadedCount} / {totalCount}</span>
-                <span>{totalCount > 0 ? Math.round(loadedCount / totalCount * 100) : 0}%</span>
+          {/* Progress bar — first load and sync */}
+          {histLoading && (() => {
+            const isFirst = loadedCount < totalCount
+            const done    = isFirst ? loadedCount : totalCount - histFetchingCount
+            const pct     = totalCount > 0 ? Math.round(done / totalCount * 100) : 0
+            return (
+              <div className="mb-3">
+                <div className="flex justify-between text-[9px] text-slate-400 mb-1">
+                  <span>{isFirst ? 'Loading' : 'Syncing'} price history… {done} / {totalCount}</span>
+                  <span>{pct}%</span>
+                </div>
+                <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-sky-400 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+                </div>
               </div>
-              <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-sky-400 rounded-full transition-all duration-300"
-                  style={{ width: `${totalCount > 0 ? loadedCount / totalCount * 100 : 0}%` }}
-                />
-              </div>
-            </div>
-          )}
+            )
+          })()}
 
           {portSeries && !metricSeries && (
             <div className="text-center py-10 text-slate-400 text-xs">
@@ -1817,11 +1822,35 @@ export default function HoldingsPage({ currency }: Props) {
                 )}
               </div>
 
-              {benchLoading && (
-                <div className="py-10 text-center text-[11px] text-slate-400">
-                  Loading benchmark data…
-                </div>
-              )}
+              {benchLoading && (() => {
+                const pct = benchTotalCount > 0 ? Math.round(benchLoadedCount / benchTotalCount * 100) : 0
+                return (
+                  <div className="py-6">
+                    <div className="flex justify-between text-[9px] text-slate-400 mb-1">
+                      <span>Loading benchmarks… {benchLoadedCount} / {benchTotalCount}</span>
+                      <span>{pct}%</span>
+                    </div>
+                    <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-sky-400 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                )
+              })()}
+              {benchSyncing && benchFetching && benchTotalCount > 0 && (() => {
+                const done = benchTotalCount - benchFetchingCount
+                const pct  = Math.round(done / benchTotalCount * 100)
+                return (
+                  <div className="mb-3">
+                    <div className="flex justify-between text-[9px] text-slate-400 mb-1">
+                      <span>Syncing benchmarks… {done} / {benchTotalCount}</span>
+                      <span>{pct}%</span>
+                    </div>
+                    <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-sky-400 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                )
+              })()}
 
               {!benchLoading && benchHasError && (
                 <div className="py-6 text-center text-[11px] text-red-400">

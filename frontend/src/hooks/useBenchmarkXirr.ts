@@ -108,9 +108,12 @@ export function useBenchmarkXirr(
     })),
   })
 
-  const isLoading  = histResults.some(r => r.isLoading)
-  const isFetching = histResults.some(r => r.isFetching)
-  const hasError   = histResults.some(r => r.isError)
+  const isLoading     = histResults.some(r => r.isLoading)
+  const isFetching    = histResults.some(r => r.isFetching)
+  const hasError      = histResults.some(r => r.isError)
+  const loadedCount   = histResults.filter(r => r.status === 'success').length
+  const fetchingCount = histResults.filter(r => r.fetchStatus === 'fetching').length
+  const totalCount    = uniqueBenchSyms.length
 
   const output = useMemo((): Omit<BenchmarkOutput, 'isLoading' | 'hasError'> | null => {
     if (!enabled || isLoading) return null
@@ -413,5 +416,8 @@ export function useBenchmarkXirr(
     isLoading,
     isFetching,
     hasError,
+    loadedCount,
+    totalCount,
+    fetchingCount,
   }
 }

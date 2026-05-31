@@ -203,7 +203,7 @@ export default function TransactionsPage({ currency }: Props) {
     })
   }, [symTxns, symRealized, holding, data, decoded.portfolio])
 
-  const { series: portSeries, isLoading: histLoading } = usePortfolioHistory(
+  const { series: portSeries, isLoading: histLoading, loadedCount: txLoaded, totalCount: txTotal, fetchingCount: txFetching } = usePortfolioHistory(
     holdingArr,
     symTxns,
     symRealized,
@@ -484,6 +484,22 @@ export default function TransactionsPage({ currency }: Props) {
                 </div>
               )}
 
+              {histLoading && (() => {
+                const isFirst = txLoaded < txTotal
+                const done    = isFirst ? txLoaded : txTotal - txFetching
+                const pct     = txTotal > 0 ? Math.round(done / txTotal * 100) : 0
+                return (
+                  <div className="mb-3">
+                    <div className="flex justify-between text-[9px] text-slate-400 mb-1">
+                      <span>{isFirst ? 'Loading' : 'Syncing'} price history… {done} / {txTotal}</span>
+                      <span>{pct}%</span>
+                    </div>
+                    <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-sky-400 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                )
+              })()}
               {!portSeries && !histLoading && (
                 <div className="text-center py-10 text-slate-400 text-xs">
                   No price history available.
