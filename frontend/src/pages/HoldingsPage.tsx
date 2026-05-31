@@ -646,6 +646,22 @@ export default function HoldingsPage({ currency }: Props) {
     return map
   }, [rows, closedRows, holdingFilter, data, currency, filtPorts, segment, viewMode])
 
+  // Patch ltp on closed rows using latest price from symbolPriceMap (available after usePortfolioHistory)
+  const closedRowsWithLtp = useMemo(() => {
+    if (!symbolPriceMap.size || !data) return closedRows
+    const symToYf = new Map<string, string>()
+    for (const tx of data.transactions) symToYf.set(tx.symbol, tx.yf_symbol)
+    return closedRows.map(r => {
+      const yfSym  = symToYf.get(r.navSym)
+      if (!yfSym) return r
+      const dateMap = symbolPriceMap.get(yfSym)
+      if (!dateMap?.size) return r
+      const lastDate = [...dateMap.keys()].sort().at(-1)!
+      const price    = dateMap.get(lastDate) ?? null
+      return price !== null ? { ...r, ltp: price } : r
+    })
+  }, [closedRows, symbolPriceMap, data])
+
   const sortedRows = useMemo(() => {
     const sortFn = (a: CardRow, b: CardRow) => {
       const va = getSortValue(a, sortField, xirrMap)
@@ -656,11 +672,11 @@ export default function HoldingsPage({ currency }: Props) {
       return sortDir === 'desc' ? vb - va : va - vb
     }
     const open   = [...rows].sort(sortFn)
-    const closed = [...closedRows].sort(sortFn)
+    const closed = [...closedRowsWithLtp].sort(sortFn)
     if (holdingFilter === 'closed') return closed
     if (holdingFilter === 'all')    return showClosed ? [...open, ...closed] : open
     return open
-  }, [rows, closedRows, holdingFilter, showClosed, sortField, sortDir, xirrMap])
+  }, [rows, closedRowsWithLtp, holdingFilter, showClosed, sortField, sortDir, xirrMap])
 
   const summaryXirr = useMemo(() => {
     if (!data) return null
