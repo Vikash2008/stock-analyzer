@@ -1,4 +1,29 @@
+import { useState, useEffect } from 'react'
+
 export function LoadingSkeleton() {
+  const [progress, setProgress] = useState(0)
+  const [overtime, setOvertime] = useState(false)
+
+  useEffect(() => {
+    const TICK_MS = 500
+    const TICKS   = 150          // 150 × 500ms = 75s
+    const step    = 100 / TICKS  // ~0.667 per tick
+
+    const id = setInterval(() => {
+      setProgress(prev => {
+        const next = prev + step
+        if (next >= 100) {
+          clearInterval(id)
+          setOvertime(true)
+          return 100
+        }
+        return next
+      })
+    }, TICK_MS)
+
+    return () => clearInterval(id)
+  }, [])
+
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-5 px-6">
       <div className="text-[22px] font-bold bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
@@ -6,11 +31,16 @@ export function LoadingSkeleton() {
       </div>
       <div className="flex items-center gap-2 text-slate-400 text-[13px]">
         <span className="inline-block animate-spin text-emerald-400 text-[18px]">↻</span>
-        Fetching live prices…
+        {overtime ? 'Taking a bit more time…' : 'Fetching live prices…'}
       </div>
-      <p className="text-slate-600 text-[11px] text-center max-w-[220px]">
-        Backend may take up to 60s to wake up on first visit
-      </p>
+      <div className="w-full max-w-[260px]">
+        <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
     </div>
   )
 }
