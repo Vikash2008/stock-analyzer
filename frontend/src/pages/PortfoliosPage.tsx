@@ -29,15 +29,42 @@ interface CardStats {
 }
 
 const TYPE_GROUPS = [
-  { key: 'stocks', label: 'Stocks',       keys: ['indian_stock', 'us_stock'] },
-  { key: 'mf',     label: 'Mutual Funds', keys: ['indian_mf',    'us_mf']    },
+  { key: 'stocks', label: 'Stocks',       keys: ['indian_stock', 'us_stock'], color: '#10b981' },
+  { key: 'mf',     label: 'Mutual Funds', keys: ['indian_mf',    'us_mf'],    color: '#6366f1' },
 ]
 
 const BROKER_GROUPS = [
-  { key: 'indian', label: 'Indian Stocks', test: (p: string) => !USD_PORTS.has(p) && !p.startsWith('MF_') },
-  { key: 'us',     label: 'US Stocks',     test: (p: string) => USD_PORTS.has(p) },
-  { key: 'mf',     label: 'Mutual Funds',  test: (p: string) => p.startsWith('MF_') },
+  { key: 'indian', label: 'Indian Stocks', test: (p: string) => !USD_PORTS.has(p) && !p.startsWith('MF_'), color: '#10b981' },
+  { key: 'us',     label: 'US Stocks',     test: (p: string) => USD_PORTS.has(p),                          color: '#0ea5e9' },
+  { key: 'mf',     label: 'Mutual Funds',  test: (p: string) => p.startsWith('MF_'),                       color: '#8b5cf6' },
 ]
+
+const TYPE_CARD_STYLE: Record<string, { accent: string; bg: string }> = {
+  indian_stock: { accent: '#10b981', bg: 'linear-gradient(to right, #a7f3d0, #d1fae5 45%, #f0fdf4)' },
+  us_stock:     { accent: '#0d9488', bg: 'linear-gradient(to right, #5eead4, #99f6e4 45%, #f0fdfa)' },
+  indian_mf:    { accent: '#6366f1', bg: 'linear-gradient(to right, #a5b4fc, #c7d2fe 45%, #eef2ff)' },
+  us_mf:        { accent: '#0ea5e9', bg: 'linear-gradient(to right, #7dd3fc, #bae6fd 45%, #f0f9ff)' },
+}
+
+const PORTFOLIO_CARD_STYLE: Record<string, { accent: string; bg: string }> = {
+  Zerodha:            { accent: '#10b981', bg: 'linear-gradient(to right, #6ee7b7, #a7f3d0 45%, #ecfdf5)' },
+  AngelOne:           { accent: '#22c55e', bg: 'linear-gradient(to right, #86efac, #bbf7d0 45%, #f0fdf4)' },
+  Groww:              { accent: '#14b8a6', bg: 'linear-gradient(to right, #5eead4, #99f6e4 45%, #f0fdfa)' },
+  'IndMoney Ind':     { accent: '#34d399', bg: 'linear-gradient(to right, #a7f3d0, #d1fae5 45%, #f0fdf4)' },
+  Upstox:             { accent: '#06b6d4', bg: 'linear-gradient(to right, #67e8f9, #a5f3fc 45%, #ecfeff)' },
+  Vested:             { accent: '#0ea5e9', bg: 'linear-gradient(to right, #7dd3fc, #bae6fd 45%, #f0f9ff)' },
+  'IndMoney US':      { accent: '#38bdf8', bg: 'linear-gradient(to right, #bae6fd, #e0f2fe 45%, #f0f9ff)' },
+  'IndMoney Mummy':   { accent: '#818cf8', bg: 'linear-gradient(to right, #a5b4fc, #c7d2fe 45%, #eef2ff)' },
+  MF_Vikash:          { accent: '#6366f1', bg: 'linear-gradient(to right, #a5b4fc, #c7d2fe 45%, #eef2ff)' },
+  MF_Mahak:           { accent: '#8b5cf6', bg: 'linear-gradient(to right, #c4b5fd, #ddd6fe 45%, #f5f3ff)' },
+}
+
+const TYPE_ACCENT: Record<string, string> = {
+  indian_stock: '#10b981',
+  us_stock:     '#0ea5e9',
+  indian_mf:    '#f59e0b',
+  us_mf:        '#8b5cf6',
+}
 
 const TYPE_SEGMENTS = [
   { key: 'indian_stock', label: 'Indian Stocks' },
@@ -112,7 +139,7 @@ function typeCards(holdings: Holding[], rmap: RealizedMap): CardStats[] {
 
 function isPos(v: number) { return v >= 0 }
 
-function BreakCard({ card, currency, xirr, onClick, compact = false }: { card: CardStats; currency: Currency; xirr: number | null; onClick: () => void; compact?: boolean }) {
+function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor, cardBg }: { card: CardStats; currency: Currency; xirr: number | null; onClick: () => void; compact?: boolean; accentColor?: string; cardBg?: string }) {
   const totalGain = (card.current - card.invested) + card.realGain
   const totalCost = card.invested + card.realCost
   const pct = totalCost !== 0 ? (totalGain / totalCost) * 100 : 0
@@ -129,10 +156,10 @@ function BreakCard({ card, currency, xirr, onClick, compact = false }: { card: C
     <div
       className="rounded-[10px] p-3 border cursor-pointer active:opacity-80 transition-opacity"
       style={{
-        background:      pos ? '#f0fdf8' : '#fff5f5',
+        background:      cardBg ?? (pos ? '#f0fdf8' : '#fff5f5'),
         borderColor:     '#e2e8f0',
         borderLeftWidth: 4,
-        borderLeftColor: pos ? '#10b981' : '#f43f5e',
+        borderLeftColor: accentColor ?? (pos ? '#10b981' : '#f43f5e'),
       }}
       onClick={onClick}
     >
@@ -148,7 +175,7 @@ function BreakCard({ card, currency, xirr, onClick, compact = false }: { card: C
       </div>
       <div className="flex items-center justify-between mt-0.5">
         {xirr !== null
-          ? <span className={`${lblSize} font-semibold`} style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
+          ? <span className={`${lblSize} font-semibold rounded-full px-1.5 py-0.5`} style={{ background: xirr >= 0 ? '#d1fae5' : '#fee2e2', color: xirr >= 0 ? '#065f46' : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
           : <span className={`${lblSize} text-slate-400`}>{fmtCompact(card.invested, currency)} inv</span>
         }
         <span className={`flex items-center ${gap} shrink-0 whitespace-nowrap`}>
@@ -339,7 +366,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       )}
 
       {/* Page header */}
-      <div className="flex items-center justify-between bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl px-4 py-3">
+      <div className="flex items-center justify-between bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl px-4 py-3 mx-1">
         <p className="text-[18px] font-bold text-white tracking-tight">Portfolio Manager</p>
         <button
           onClick={handleRefresh}
@@ -357,35 +384,30 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
       {/* Hero card — Total Portfolio */}
       <div
-        className="rounded-[10px] p-3 border cursor-pointer active:opacity-80 transition-opacity"
-        style={{
-          background:      heroPos ? '#f0fdf8' : '#fff5f5',
-          borderColor:     '#e2e8f0',
-          borderLeftWidth: 4,
-          borderLeftColor: heroPos ? '#10b981' : '#f43f5e',
-        }}
+        className="rounded-[12px] p-4 border cursor-pointer active:opacity-90 transition-opacity"
+        style={{ background: 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)', borderColor: '#99f6e4', borderLeftWidth: 4, borderLeftColor: '#0d9488' }}
         onClick={() => navigate('/holdings/segment/total')}
       >
-        <p className="text-[12px] font-semibold text-slate-600 mb-1">Total Portfolio</p>
+        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Total Portfolio</p>
         <div className="flex items-baseline justify-between">
-          <span className="text-[22px] font-bold text-slate-900 min-w-0">{fmt(hero.cur, currency)}</span>
+          <span className="text-[24px] font-bold text-slate-800 min-w-0">{fmt(hero.cur, currency)}</span>
           <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
             <span className="text-[9px] text-slate-400">Today</span>
-            <span className="text-[10px]" style={{ color: hero.todayGain >= 0 ? '#0a7a42' : '#be1c1c' }}>
+            <span className="text-[10px]" style={{ color: hero.todayGain >= 0 ? '#0d9488' : '#dc2626' }}>
               {hero.todayGain !== 0 ? fmtCompactGainLine(hero.todayGain, hero.todayPct, currency) : '—'}
             </span>
           </span>
         </div>
-        <div className="flex items-center justify-between mt-0.5">
+        <div className="flex items-center justify-between mt-1">
           {data.xirr_total !== null
-            ? <span className="text-[9px] font-semibold" style={{ color: (data.xirr_total ?? 0) >= 0 ? '#0a7a42' : '#be1c1c' }}>
+            ? <span className="text-[9px] font-semibold rounded-full px-2 py-0.5" style={{ background: (data.xirr_total ?? 0) >= 0 ? 'rgba(13,148,136,0.15)' : 'rgba(220,38,38,0.12)', color: (data.xirr_total ?? 0) >= 0 ? '#0f766e' : '#b91c1c' }}>
                 XIRR {fmtPct(data.xirr_total!)}
               </span>
             : <span className="text-[9px] text-slate-400">XIRR —</span>
           }
           <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
             <span className="text-[9px] text-slate-400">Total</span>
-            <span className="text-[10px]" style={{ color: heroPos ? '#0a7a42' : '#be1c1c' }}>
+            <span className="text-[10px]" style={{ color: heroPos ? '#0d9488' : '#dc2626' }}>
               {fmtCompactGainLine(hero.totalGain, hero.returnPct, currency)}
             </span>
           </span>
@@ -395,9 +417,9 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       {/* Stocks + MF summary tiles — side by side */}
       <div className="grid grid-cols-2 gap-2">
         {[
-          { label: 'Stocks',       stats: stk, seg: 'stk', xirr: data.xirr_stk },
-          { label: 'Mutual Funds', stats: mf,  seg: 'mf',  xirr: data.xirr_mf  },
-        ].map(({ label, stats, seg, xirr }) => {
+          { label: 'Stocks',       stats: stk, seg: 'stk', xirr: data.xirr_stk, tileBg: 'linear-gradient(to right, #a7f3d0, #d1fae5 40%, #f0fdf4)', tileAccent: '#10b981' },
+          { label: 'Mutual Funds', stats: mf,  seg: 'mf',  xirr: data.xirr_mf,  tileBg: 'linear-gradient(to right, #a5b4fc, #c7d2fe 40%, #eef2ff)',  tileAccent: '#6366f1' },
+        ].map(({ label, stats, seg, xirr, tileBg, tileAccent }) => {
           const pos = isPos(stats.gain)
           const tc  = pos ? '#0a7a42' : '#be1c1c'
           const tgC = stats.todayGain !== null ? (stats.todayGain >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8'
@@ -406,10 +428,10 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               key={seg}
               className="rounded-[10px] p-3 border cursor-pointer active:opacity-80 transition-opacity"
               style={{
-                background:      pos ? '#f0fdf8' : '#fff5f5',
+                background:      tileBg,
                 borderColor:     '#e2e8f0',
                 borderLeftWidth: 4,
-                borderLeftColor: pos ? '#10b981' : '#f43f5e',
+                borderLeftColor: tileAccent,
               }}
               onClick={() => navigate(`/holdings/segment/${seg}`)}
             >
@@ -443,16 +465,16 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       {/* Breakdown toggle */}
       <div className="flex items-center justify-between px-0.5">
         <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Breakdown</p>
-        <div className="flex gap-1">
+        <div className="relative flex bg-slate-100 rounded-full p-[2px]">
+          <div
+            className="absolute top-[2px] bottom-[2px] w-1/2 rounded-full bg-white shadow-sm transition-transform duration-150"
+            style={{ transform: `translateX(${mode === 'broker' ? '100%' : '0%'})` }}
+          />
           {(['type', 'broker'] as BreakdownMode[]).map(m => (
             <button
               key={m}
               onClick={() => setMode(m)}
-              className={`text-[10px] px-2.5 py-0.5 rounded-full border transition-colors ${
-                mode === m
-                  ? 'bg-[#2563eb] text-white border-[#2563eb]'
-                  : 'bg-white text-slate-500 border-slate-200'
-              }`}
+              className={`relative z-10 flex-1 text-[10px] px-3 py-[4px] whitespace-nowrap transition-colors ${mode === m ? 'text-slate-700 font-semibold' : 'text-slate-400'}`}
             >
               {m === 'broker' ? 'By Broker' : 'By Type'}
             </button>
@@ -469,12 +491,12 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
             return (
               <div key={group.key}>
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <div className="w-0.5 h-3 rounded-full bg-slate-300" />
-                  <span className="text-[7px] text-slate-400 uppercase tracking-widest">{group.label}</span>
+                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: group.color }} />
+                  <span className="text-[8px] font-semibold uppercase tracking-widest" style={{ color: group.color }}>{group.label}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {gc.map(card => (
-                    <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact />
+                    <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={TYPE_CARD_STYLE[card.key]?.accent} cardBg={TYPE_CARD_STYLE[card.key]?.bg} />
                   ))}
                 </div>
               </div>
@@ -489,12 +511,12 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
             return (
               <div key={group.key}>
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <div className="w-0.5 h-3 rounded-full bg-slate-300" />
-                  <span className="text-[7px] text-slate-400 uppercase tracking-widest">{group.label}</span>
+                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: group.color }} />
+                  <span className="text-[8px] font-semibold uppercase tracking-widest" style={{ color: group.color }}>{group.label}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {gc.map(card => (
-                    <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact />
+                    <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={PORTFOLIO_CARD_STYLE[card.key]?.accent} cardBg={PORTFOLIO_CARD_STYLE[card.key]?.bg} />
                   ))}
                 </div>
               </div>

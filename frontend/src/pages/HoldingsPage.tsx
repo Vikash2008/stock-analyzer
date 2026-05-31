@@ -1085,53 +1085,36 @@ export default function HoldingsPage({ currency }: Props) {
             )
           })}
         </div>
-        {/* Charts sync pill */}
-        {activeTab === 'charts' && (
-          <div className="flex items-center gap-1 border border-emerald-200 rounded-full px-2 py-0.5 bg-emerald-50 shrink-0">
-            <button
-              className="active:opacity-60"
-              onClick={() => { if (syncing) return; setSyncing(true); qc.invalidateQueries({ queryKey: ['history'] }) }}
-            >
-              <span className={`text-[12px] text-emerald-500 inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
-            </button>
-            {histLastSynced && (
-              <span className="text-[10px] text-emerald-600 whitespace-nowrap">{fmtSyncTime(histLastSynced)}</span>
-            )}
-          </div>
-        )}
-        {/* Benchmarking sync pill */}
-        {activeTab === 'analysis' && analysisSubTab === 'benchmarking' && (
-          <div className="flex items-center gap-1 border border-sky-200 rounded-full px-2 py-0.5 bg-sky-50 shrink-0">
-            <button
-              className="active:opacity-60"
-              onClick={() => { if (benchSyncing) return; setBenchSyncing(true); qc.invalidateQueries({ queryKey: ['history'] }); qc.invalidateQueries({ queryKey: ['benchmark-hist'] }) }}
-            >
-              <span className={`text-[12px] text-sky-500 inline-block ${benchSyncing ? 'animate-spin' : ''}`}>↻</span>
-            </button>
-            {benchLastSynced && (
-              <span className="text-[10px] text-sky-600 whitespace-nowrap">{fmtSyncTime(benchLastSynced)}</span>
-            )}
-          </div>
-        )}
       </div>
-      {/* Charts strip — metric pills */}
+      {/* Charts strip — metric pills + sync */}
       {activeTab === 'charts' && (
         <div className="bg-sky-50 border border-sky-100 rounded-xl px-2.5 py-1.5 mt-2">
-          <div
-            className="flex gap-1.5 overflow-x-auto"
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
-          >
-            {METRICS.map(m => (
-              <button
-                key={m}
-                onClick={() => setChartMetric(m)}
-                className={`text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-colors ${
-                  chartMetric === m ? `${METRIC_COLOR[m]} text-white` : 'bg-white text-slate-500 border-slate-200'
-                }`}
-              >
-                {m}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <div
+              className="flex gap-1.5 overflow-x-auto flex-1"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+            >
+              {METRICS.map(m => (
+                <button
+                  key={m}
+                  onClick={() => setChartMetric(m)}
+                  className={`text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-colors ${
+                    chartMetric === m ? `${METRIC_COLOR[m]} text-white` : 'bg-white text-slate-500 border-slate-200'
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+            <button
+              className="flex items-center gap-0.5 shrink-0 rounded-full px-1.5 py-0.5 bg-sky-100 border border-sky-200 active:opacity-60"
+              onClick={() => { if (syncing) return; setSyncing(true); qc.invalidateQueries({ queryKey: ['history'] }) }}
+            >
+              <span className={`text-[9px] text-sky-500 leading-none inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
+              {histLastSynced && (
+                <span className="text-[9px] text-sky-500 whitespace-nowrap leading-none">{fmtSyncTime(histLastSynced)}</span>
+              )}
+            </button>
           </div>
         </div>
       )}
@@ -1774,25 +1757,26 @@ export default function HoldingsPage({ currency }: Props) {
           {analysisSubTab === 'benchmarking' && (
             <div>
               {/* Date range config */}
-              <div className="mb-3">
-                <button
-                  className="flex items-center gap-1.5 w-full text-left px-2 py-1.5 bg-slate-50 rounded-xl border border-slate-100"
-                  onClick={() => setBenchConfigOpen(o => !o)}
-                >
-                  <span className="text-[9px] text-slate-400">📅</span>
-                  <span className="text-[9px] text-slate-500 flex-1">
-                    {benchDateEnabled
-                      ? `${MONTHS[benchStartMonth - 1]} ${benchStartYear} → ${benchEndToday ? 'today' : `${MONTHS[benchEndMonth - 1]} ${benchEndYear}`}`
-                      : 'All dates'}
-                  </span>
-                  {benchDateEnabled && (
-                    <span className="text-[8px] bg-sky-100 text-sky-600 rounded px-1 py-0.5 font-medium">Active</span>
-                  )}
-                  <span className="text-[8px] text-slate-300 ml-1">{benchConfigOpen ? '▲' : '▼'}</span>
-                </button>
+              <div className="flex items-center mb-3">
+                <div className="w-1/3 min-w-0 shrink-0">
+                  <button
+                    className="flex items-center gap-1.5 w-full text-left px-2 py-1.5 bg-slate-50 rounded-xl border border-slate-100"
+                    onClick={() => setBenchConfigOpen(o => !o)}
+                  >
+                    <span className="text-[8px] text-slate-300">{benchConfigOpen ? '▲' : '▼'}</span>
+                    <span className="text-[9px] text-slate-400">📅</span>
+                    <span className="text-[9px] text-slate-500 flex-1">
+                      {benchDateEnabled
+                        ? `${MONTHS[benchStartMonth - 1]} ${benchStartYear} → ${benchEndToday ? 'today' : `${MONTHS[benchEndMonth - 1]} ${benchEndYear}`}`
+                        : 'All dates'}
+                    </span>
+                    {benchDateEnabled && (
+                      <span className="text-[8px] bg-sky-100 text-sky-600 rounded px-1 py-0.5 font-medium">Active</span>
+                    )}
+                  </button>
 
-                {benchConfigOpen && (
-                  <div className="mt-1.5 bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-2.5">
+                  {benchConfigOpen && (
+                  <div className="mt-0.5 bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-2.5">
                     {/* From row */}
                     <div className="flex items-center gap-2">
                       <span className="text-[9px] text-slate-400 w-[28px] shrink-0">From</span>
@@ -1863,6 +1847,16 @@ export default function HoldingsPage({ currency }: Props) {
                     </div>
                   </div>
                 )}
+                </div>
+                <button
+                  className="flex items-center gap-0.5 shrink-0 ml-auto rounded-full px-1.5 py-0.5 bg-teal-100 border border-teal-200 active:opacity-60"
+                  onClick={() => { if (benchSyncing) return; setBenchSyncing(true); qc.invalidateQueries({ queryKey: ['history'] }); qc.invalidateQueries({ queryKey: ['benchmark-hist'] }) }}
+                >
+                  <span className={`text-[9px] text-teal-500 leading-none inline-block ${benchSyncing ? 'animate-spin' : ''}`}>↻</span>
+                  {benchLastSynced && (
+                    <span className="text-[9px] text-teal-500 whitespace-nowrap leading-none">{fmtSyncTime(benchLastSynced)}</span>
+                  )}
+                </button>
               </div>
 
               {benchLoading && (() => {
@@ -1974,7 +1968,10 @@ export default function HoldingsPage({ currency }: Props) {
                             >
                               <div className="flex items-center gap-1">
                                 <span className={`text-[9px] font-medium flex-[2] overflow-hidden text-ellipsis whitespace-nowrap`}><span className="text-slate-700">{s.sector}</span> <span className={xirrColor}>({fmtX(s.actualXirr)})</span></span>
-                                <span className="text-[9px] text-slate-400 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{BENCHMARK_LABEL[s.benchSymbol] ?? s.benchSymbol} ({fmtX(s.benchXirr)})</span>
+                                <span className="text-[9px] text-slate-400 flex-1 min-w-0 flex items-center gap-0.5">
+                                  <span className="truncate">{BENCHMARK_LABEL[s.benchSymbol] ?? s.benchSymbol}</span>
+                                  <span className="shrink-0 whitespace-nowrap">({fmtX(s.benchXirr)})</span>
+                                </span>
                                 <span className={`text-[9px] font-semibold flex-1 whitespace-nowrap text-right ${alphaColor}`}>{fmtX(s.alpha)}</span>
                                 <span className="text-[8px] text-slate-300 w-[8px] text-right">{isOpen ? '▲' : '▼'}</span>
                               </div>
@@ -2004,7 +2001,10 @@ export default function HoldingsPage({ currency }: Props) {
                                           <span className="text-[9px] font-medium text-slate-600 truncate min-w-0">{r.subLabel || r.ticker}</span>
                                           <span className={`text-[9px] font-medium shrink-0 ${hColor}`}>{fmtX(hXirr)}</span>
                                         </span>
-                                        <span className="text-[9px] text-slate-400 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{BENCHMARK_LABEL[s.benchSymbol] ?? s.benchSymbol} ({fmtX(hBenchX)})</span>
+                                        <span className="text-[9px] text-slate-400 flex-1 min-w-0 flex items-center gap-0.5">
+                                          <span className="truncate">{BENCHMARK_LABEL[s.benchSymbol] ?? s.benchSymbol}</span>
+                                          <span className="shrink-0 whitespace-nowrap">({fmtX(hBenchX)})</span>
+                                        </span>
                                         <span className={`text-[9px] font-semibold flex-1 whitespace-nowrap text-right ${hAlphaColor}`}>{fmtX(hAlpha)}</span>
                                         <span className="w-[8px]" />
                                       </div>

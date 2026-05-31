@@ -37,9 +37,12 @@ export function SummaryCard({
 
   return (
     <div
-      className="rounded-[10px] border px-3 py-2.5 mb-3"
+      className="rounded-[10px] border mb-3 overflow-hidden"
       style={{ background: bgColor, borderColor: '#e2e8f0', borderLeftWidth: 4, borderLeftColor: borderColor }}
     >
+      {/* Gradient top strip */}
+      <div style={{ background: gain ? 'linear-gradient(90deg,#10b981,#0d9488)' : 'linear-gradient(90deg,#f43f5e,#e11d48)', height: 3 }} />
+      <div className="px-3 py-2.5">
       {/* Label */}
       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">{label}</p>
 
@@ -57,9 +60,9 @@ export function SummaryCard({
       </div>
 
       {/* XIRR | Total G/L */}
-      <div className="flex items-baseline justify-between mb-2">
+      <div className="flex items-center justify-between mb-2">
         {xirr != null
-          ? <span className="text-[9px]" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
+          ? <span className="text-[8px] font-semibold rounded-full px-1.5 py-0.5 leading-none" style={{ background: xirr >= 0 ? '#d1fae5' : '#fee2e2', color: xirr >= 0 ? '#065f46' : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
           : <span className="text-[9px] text-slate-400">XIRR —</span>
         }
         <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
@@ -87,6 +90,7 @@ export function SummaryCard({
           </span>
         </div>
       )}
+      </div>
     </div>
   )
 }
