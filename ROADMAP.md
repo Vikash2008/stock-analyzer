@@ -40,6 +40,8 @@
 
 | Item | Completed |
 |------|-----------|
+| Allocation tab @nivo/sunburst makeover — 3-pill view toggle (By Sector/Market Cap/Concentration); donut chart (sectors inner, holdings outer); center label; tap-to-filter sector; flat tappable holding cards; Concentration view retained | 2026-05-31 |
+| Analysis tab holding rows clickable — Allocation (By Sector + Market Cap expanded rows) + Benchmarking holding rows now navigate to TransactionsPage on tap | 2026-05-31 |
 | HoldingsPage Analysis strip — violet-50 bg (matches tab); gradient active pills (amber/sky/emerald inline styles); tinted inactive pills; benchmarking sync moved into strip with datetime | 2026-05-31 |
 | TransactionsPage full makeover — iOS segmented tab bar (Txns/Charts/Report/Notes); per-tab colored strips; METRIC_HEX inline-style charts strip (bg+pills+sync gradient change per metric); overview card shadow+gradient strip; TxRow whisper tint; charts sync with datetime | 2026-05-31 |
 | HoldingsPage Charts strip — METRIC_STYLE gradient pills, tinted inactive, metric-colored line+progress+strip+sync; chart card border (white rounded-xl shadow-sm); whitespace reduced | 2026-05-31 |

@@ -54,7 +54,7 @@ frontend/
   public/
     manifest.json           PWA manifest (standalone display mode)
     icon.svg                App icon — dark bg + green chart line
-  package.json              react 18, react-router-dom 6, @tanstack/react-query 5, recharts 2, @tanstack/react-query-persist-client, @tanstack/query-sync-storage-persister, vite-plugin-pwa
+  package.json              react 18, react-router-dom 6, @tanstack/react-query 5, recharts 2, @nivo/sunburst, @nivo/core, @tanstack/react-query-persist-client, @tanstack/query-sync-storage-persister, vite-plugin-pwa
   vite.config.ts            /api proxy → localhost:8000 in dev; VitePWA plugin (autoUpdate, Workbox precache)
   .env.production           VITE_API_URL=https://stock-analyzer-2nqw.onrender.com
   index.html                PWA meta tags + manifest link
