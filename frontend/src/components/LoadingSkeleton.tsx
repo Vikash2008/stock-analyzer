@@ -1,24 +1,16 @@
-// Pulsing skeleton shown while the initial API fetch is in-flight.
-// Shape matches the PortfoliosPage card layout so there is no layout shift on load.
-
 export function LoadingSkeleton() {
   return (
-    <div className="p-4 space-y-3 animate-pulse">
-      {/* Hero card */}
-      <div className="h-24 bg-slate-200 rounded-[10px]" />
-      {/* Stocks / MF cards */}
-      <div className="h-16 bg-slate-200 rounded-[10px]" />
-      <div className="h-16 bg-slate-200 rounded-[10px]" />
-      {/* Toggle row */}
-      <div className="flex gap-2">
-        <div className="h-8 w-20 bg-slate-200 rounded-full" />
-        <div className="h-8 w-20 bg-slate-200 rounded-full" />
+    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-5 px-6">
+      <div className="text-[22px] font-bold bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
+        Portfolio Manager
       </div>
-      {/* Breakdown cards */}
-      <div className="h-12 bg-slate-200 rounded-[10px]" />
-      <div className="h-12 bg-slate-200 rounded-[10px]" />
-      <div className="h-12 bg-slate-200 rounded-[10px]" />
-      <div className="h-12 bg-slate-200 rounded-[10px]" />
+      <div className="flex items-center gap-2 text-slate-400 text-[13px]">
+        <span className="inline-block animate-spin text-emerald-400 text-[18px]">↻</span>
+        Fetching live prices…
+      </div>
+      <p className="text-slate-600 text-[11px] text-center max-w-[220px]">
+        Backend may take up to 60s to wake up on first visit
+      </p>
     </div>
   )
 }
