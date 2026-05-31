@@ -40,6 +40,8 @@
 
 | Item | Completed |
 |------|-----------|
+| HoldingsPage "Light Banking" overhaul — iOS segmented tab bar (colored active pills: teal/sky/violet); Holdings strip (teal-50) with count + funnel sort; SummaryCard white+shadow+highlight prop (green/teal by segment); HoldingCard shadow-sm + very light gain/loss tint; Benchmarking XIRR column truncation fix | 2026-05-31 |
+| Overview 3-color scheme — teal hero card (light, dark text); STOCK_CARD_STYLE green shared across all stock tiles/brokers; MF_CARD_STYLE navy-blue shared across all MF tiles/brokers; Portfolio Manager banner height reduced | 2026-05-31 |
 | Visual design overhaul — Hero card dark gradient; Stocks/MF tiles type-specific color identity; iOS breakdown toggle; colored section labels; TYPE_ACCENT BreakCard borders; XIRR chips on BreakCard/HoldingCard/SummaryCard; SummaryCard 3px gradient top strip; Charts sync inside metrics bar; Benchmarking sync inside date filter row | 2026-05-31 |
 | Sync pill relocations + styling — Charts ↻ inside sky-50 metrics strip (`bg-sky-100`, `text-[9px]`, mid-aligned); Benchmarking ↻ in date filter row (`bg-teal-100`, `ml-auto`, `w-1/3` date column, chevron moved left); both as single button with `flex items-center` | 2026-05-31 |
 | Benchmarking loader indeterminate pulse + Charts/Benchmarking sync timestamps — Charts ↻ moved to tab row with IST timestamp; Benchmarking ↻ gets IST timestamp in violet-50 strip; loader shows animate-pulse bar when queries land simultaneously (was stuck at 0%) | 2026-05-31 |
