@@ -1085,21 +1085,32 @@ export default function HoldingsPage({ currency }: Props) {
             )
           })}
         </div>
+        {/* Charts sync pill */}
         {activeTab === 'charts' && (
-          <div className="flex items-center gap-1.5 shrink-0">
-            {histLastSynced && (
-              <span className="text-[10px] text-slate-400 whitespace-nowrap">{fmtSyncTime(histLastSynced)}</span>
-            )}
+          <div className="flex items-center gap-1 border border-emerald-200 rounded-full px-2 py-0.5 bg-emerald-50 shrink-0">
             <button
-              className="text-slate-400 active:text-emerald-500"
-              onClick={() => {
-                if (syncing) return
-                setSyncing(true)
-                qc.invalidateQueries({ queryKey: ['history'] })
-              }}
+              className="active:opacity-60"
+              onClick={() => { if (syncing) return; setSyncing(true); qc.invalidateQueries({ queryKey: ['history'] }) }}
             >
-              <span className={`text-[14px] inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
+              <span className={`text-[12px] text-emerald-500 inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
             </button>
+            {histLastSynced && (
+              <span className="text-[10px] text-emerald-600 whitespace-nowrap">{fmtSyncTime(histLastSynced)}</span>
+            )}
+          </div>
+        )}
+        {/* Benchmarking sync pill */}
+        {activeTab === 'analysis' && analysisSubTab === 'benchmarking' && (
+          <div className="flex items-center gap-1 border border-sky-200 rounded-full px-2 py-0.5 bg-sky-50 shrink-0">
+            <button
+              className="active:opacity-60"
+              onClick={() => { if (benchSyncing) return; setBenchSyncing(true); qc.invalidateQueries({ queryKey: ['history'] }); qc.invalidateQueries({ queryKey: ['benchmark-hist'] }) }}
+            >
+              <span className={`text-[12px] text-sky-500 inline-block ${benchSyncing ? 'animate-spin' : ''}`}>↻</span>
+            </button>
+            {benchLastSynced && (
+              <span className="text-[10px] text-sky-600 whitespace-nowrap">{fmtSyncTime(benchLastSynced)}</span>
+            )}
           </div>
         )}
       </div>
@@ -1124,10 +1135,10 @@ export default function HoldingsPage({ currency }: Props) {
           </div>
         </div>
       )}
-      {/* Analysis strip — segmented control + sync icon for benchmarking */}
+      {/* Analysis strip — segmented control */}
       {activeTab === 'analysis' && (
-        <div className="flex items-center gap-2 bg-violet-50 border border-violet-100 rounded-xl px-2.5 py-1.5 mt-2">
-          <div className="flex gap-1.5 flex-1">
+        <div className="bg-violet-50 border border-violet-100 rounded-xl px-2.5 py-1.5 mt-2">
+          <div className="flex gap-1.5">
             {(['allocation', 'benchmarking', 'returns'] as const).map(st => (
               <button
                 key={st}
@@ -1144,24 +1155,6 @@ export default function HoldingsPage({ currency }: Props) {
               </button>
             ))}
           </div>
-          {analysisSubTab === 'benchmarking' && (
-            <div className="flex items-center gap-1.5 shrink-0">
-              {benchLastSynced && (
-                <span className="text-[10px] text-slate-400 whitespace-nowrap">{fmtSyncTime(benchLastSynced)}</span>
-              )}
-              <button
-                className="text-slate-400 active:text-sky-500"
-                onClick={() => {
-                  if (benchSyncing) return
-                  setBenchSyncing(true)
-                  qc.invalidateQueries({ queryKey: ['history'] })
-                  qc.invalidateQueries({ queryKey: ['benchmark-hist'] })
-                }}
-              >
-                <span className={`text-[14px] inline-block ${benchSyncing ? 'animate-spin' : ''}`}>↻</span>
-              </button>
-            </div>
-          )}
         </div>
       )}
       <div className="mt-2">
