@@ -39,24 +39,27 @@ const BROKER_GROUPS = [
   { key: 'mf',     label: 'Mutual Funds',  test: (p: string) => p.startsWith('MF_'),                       color: '#8b5cf6' },
 ]
 
+const STOCK_CARD_STYLE = { accent: '#10b981', bg: 'linear-gradient(to right, #a7f3d0, #d1fae5 40%, #f0fdf4)' }
+const MF_CARD_STYLE    = { accent: '#0ea5e9', bg: 'linear-gradient(to right, #7dd3fc, #bae6fd 45%, #f0f9ff)' }
+
 const TYPE_CARD_STYLE: Record<string, { accent: string; bg: string }> = {
-  indian_stock: { accent: '#10b981', bg: 'linear-gradient(to right, #a7f3d0, #d1fae5 45%, #f0fdf4)' },
-  us_stock:     { accent: '#0d9488', bg: 'linear-gradient(to right, #5eead4, #99f6e4 45%, #f0fdfa)' },
-  indian_mf:    { accent: '#6366f1', bg: 'linear-gradient(to right, #a5b4fc, #c7d2fe 45%, #eef2ff)' },
-  us_mf:        { accent: '#0ea5e9', bg: 'linear-gradient(to right, #7dd3fc, #bae6fd 45%, #f0f9ff)' },
+  indian_stock: STOCK_CARD_STYLE,
+  us_stock:     STOCK_CARD_STYLE,
+  indian_mf:    MF_CARD_STYLE,
+  us_mf:        MF_CARD_STYLE,
 }
 
 const PORTFOLIO_CARD_STYLE: Record<string, { accent: string; bg: string }> = {
-  Zerodha:            { accent: '#10b981', bg: 'linear-gradient(to right, #6ee7b7, #a7f3d0 45%, #ecfdf5)' },
-  AngelOne:           { accent: '#22c55e', bg: 'linear-gradient(to right, #86efac, #bbf7d0 45%, #f0fdf4)' },
-  Groww:              { accent: '#14b8a6', bg: 'linear-gradient(to right, #5eead4, #99f6e4 45%, #f0fdfa)' },
-  'IndMoney Ind':     { accent: '#34d399', bg: 'linear-gradient(to right, #a7f3d0, #d1fae5 45%, #f0fdf4)' },
-  Upstox:             { accent: '#06b6d4', bg: 'linear-gradient(to right, #67e8f9, #a5f3fc 45%, #ecfeff)' },
-  Vested:             { accent: '#0ea5e9', bg: 'linear-gradient(to right, #7dd3fc, #bae6fd 45%, #f0f9ff)' },
-  'IndMoney US':      { accent: '#38bdf8', bg: 'linear-gradient(to right, #bae6fd, #e0f2fe 45%, #f0f9ff)' },
-  'IndMoney Mummy':   { accent: '#818cf8', bg: 'linear-gradient(to right, #a5b4fc, #c7d2fe 45%, #eef2ff)' },
-  MF_Vikash:          { accent: '#6366f1', bg: 'linear-gradient(to right, #a5b4fc, #c7d2fe 45%, #eef2ff)' },
-  MF_Mahak:           { accent: '#8b5cf6', bg: 'linear-gradient(to right, #c4b5fd, #ddd6fe 45%, #f5f3ff)' },
+  Zerodha:           STOCK_CARD_STYLE,
+  AngelOne:          STOCK_CARD_STYLE,
+  Groww:             STOCK_CARD_STYLE,
+  'IndMoney Ind':    STOCK_CARD_STYLE,
+  Upstox:            STOCK_CARD_STYLE,
+  Vested:            STOCK_CARD_STYLE,
+  'IndMoney US':     STOCK_CARD_STYLE,
+  'IndMoney Mummy':  STOCK_CARD_STYLE,
+  MF_Vikash:         MF_CARD_STYLE,
+  MF_Mahak:          MF_CARD_STYLE,
 }
 
 const TYPE_ACCENT: Record<string, string> = {
@@ -417,8 +420,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       {/* Stocks + MF summary tiles — side by side */}
       <div className="grid grid-cols-2 gap-2">
         {[
-          { label: 'Stocks',       stats: stk, seg: 'stk', xirr: data.xirr_stk, tileBg: 'linear-gradient(to right, #a7f3d0, #d1fae5 40%, #f0fdf4)', tileAccent: '#10b981' },
-          { label: 'Mutual Funds', stats: mf,  seg: 'mf',  xirr: data.xirr_mf,  tileBg: 'linear-gradient(to right, #a5b4fc, #c7d2fe 40%, #eef2ff)',  tileAccent: '#6366f1' },
+          { label: 'Stocks',       stats: stk, seg: 'stk', xirr: data.xirr_stk, tileBg: STOCK_CARD_STYLE.bg, tileAccent: STOCK_CARD_STYLE.accent },
+          { label: 'Mutual Funds', stats: mf,  seg: 'mf',  xirr: data.xirr_mf,  tileBg: MF_CARD_STYLE.bg,  tileAccent: MF_CARD_STYLE.accent },
         ].map(({ label, stats, seg, xirr, tileBg, tileAccent }) => {
           const pos = isPos(stats.gain)
           const tc  = pos ? '#0a7a42' : '#be1c1c'
