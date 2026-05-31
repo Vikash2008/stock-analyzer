@@ -29,6 +29,10 @@ def _fetch(yf_symbol: str, start: str) -> dict:
     try:
         start_dt = pd.Timestamp(start) - pd.Timedelta(days=30)
         df = yf.download(yf_symbol, start=start_dt, progress=False, auto_adjust=True)
+        # Some yfinance versions return empty for index symbols (^NDX, ^GSPC etc.)
+        # with auto_adjust=True; retry without it as a fallback.
+        if df.empty:
+            df = yf.download(yf_symbol, start=start_dt, progress=False, auto_adjust=False)
         if df.empty:
             return {"dates": [], "prices": []}
         # Flatten multi-level columns (yfinance ≥ 0.2.38)
