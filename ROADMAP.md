@@ -40,6 +40,7 @@
 
 | Item | Completed |
 |------|-----------|
+| Returns pill — histogram border card + bar value labels (year mode ≤8 bars) + multi-select year in month mode (labels `Jan '23`, summary shows range `2023–2025`) | 2026-05-31 |
 | Allocation accordion 4-column layout — Sector/Alloc(%+bar)/Value(XIRR)/Today columns; sectorData+mktCapData include todayGain; sunburst reverted (nivo tooltip crash on undefined datum) | 2026-05-31 |
 | Analysis tab holding rows clickable — Allocation (By Sector + Market Cap expanded rows) + Benchmarking holding rows now navigate to TransactionsPage on tap | 2026-05-31 |
 | HoldingsPage Analysis strip — violet-50 bg (matches tab); gradient active pills (amber/sky/emerald inline styles); tinted inactive pills; benchmarking sync moved into strip with datetime | 2026-05-31 |
