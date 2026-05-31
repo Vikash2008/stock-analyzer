@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react'
+import React, { useMemo, useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   LineChart, Line, BarChart, Bar, ComposedChart,
@@ -198,8 +198,10 @@ export default function HoldingsPage({ currency }: Props) {
   const [sortOpen,    setSortOpen]    = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [showClosed,   setShowClosed]   = useState(false)
-  const [syncing,      setSyncing]      = useState(false)
-  const [benchSyncing, setBenchSyncing] = useState(false)
+  const [syncing,        setSyncing]        = useState(false)
+  const [benchSyncing,   setBenchSyncing]   = useState(false)
+  const [histLastSynced,  setHistLastSynced]  = useState<Date | null>(null)
+  const [benchLastSynced, setBenchLastSynced] = useState<Date | null>(null)
   const [expandedSectors,     setExpandedSectors]     = useState<Set<string>>(new Set())
   const [expandedAllocSectors, setExpandedAllocSectors] = useState<Set<string>>(new Set())
   const [expandedMktCapBuckets, setExpandedMktCapBuckets] = useState<Set<string>>(new Set())
@@ -611,6 +613,24 @@ export default function HoldingsPage({ currency }: Props) {
   useEffect(() => {
     if (benchSyncing && !benchLoading && !benchFetching) setBenchSyncing(false)
   }, [benchSyncing, benchLoading, benchFetching])
+
+  const fmtSyncTime = (d: Date) =>
+    d.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false })
+
+  // Set histLastSynced when histLoading transitions true → false
+  const prevHistLoading = useRef(false)
+  useEffect(() => {
+    if (prevHistLoading.current && !histLoading) setHistLastSynced(new Date())
+    prevHistLoading.current = histLoading
+  }, [histLoading])
+
+  // Set benchLastSynced when benchmark loading/fetching cycle completes
+  const prevBenchActive = useRef(false)
+  useEffect(() => {
+    const active = benchLoading || benchFetching
+    if (prevBenchActive.current && !active) setBenchLastSynced(new Date())
+    prevBenchActive.current = active
+  }, [benchLoading, benchFetching])
 
   const xirrMap = useMemo(() => {
     if (!data) return new Map<string, number | null>()
@@ -1046,29 +1066,48 @@ export default function HoldingsPage({ currency }: Props) {
       />
 
       {/* Tabs */}
-      <div className="flex gap-2">
-        {(['holdings', 'charts', 'analysis'] as const).map(tab => {
-          const colors = {
-            holdings: activeTab === tab ? 'bg-blue-500 text-white' : 'text-slate-400',
-            charts:   activeTab === tab ? 'bg-emerald-500 text-white' : 'text-slate-400',
-            analysis: activeTab === tab ? 'bg-violet-500 text-white' : 'text-slate-400',
-          }
-          return (
+      <div className="flex items-center gap-2">
+        <div className="flex gap-2 flex-1">
+          {(['holdings', 'charts', 'analysis'] as const).map(tab => {
+            const colors = {
+              holdings: activeTab === tab ? 'bg-blue-500 text-white' : 'text-slate-400',
+              charts:   activeTab === tab ? 'bg-emerald-500 text-white' : 'text-slate-400',
+              analysis: activeTab === tab ? 'bg-violet-500 text-white' : 'text-slate-400',
+            }
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`text-[11px] px-3 py-1 rounded-full capitalize font-medium transition-colors relative ${colors[tab]} ${activeTab === tab ? 'mb-[-1px] z-10' : ''}`}
+              >
+                {tab}
+              </button>
+            )
+          })}
+        </div>
+        {activeTab === 'charts' && (
+          <div className="flex items-center gap-1.5 shrink-0">
+            {histLastSynced && (
+              <span className="text-[8px] text-slate-400 whitespace-nowrap">{fmtSyncTime(histLastSynced)}</span>
+            )}
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`text-[11px] px-3 py-1 rounded-full capitalize font-medium transition-colors relative ${colors[tab]} ${activeTab === tab ? 'mb-[-1px] z-10' : ''}`}
+              className="text-slate-400 active:text-emerald-500"
+              onClick={() => {
+                if (syncing) return
+                setSyncing(true)
+                qc.invalidateQueries({ queryKey: ['history'] })
+              }}
             >
-              {tab}
+              <span className={`text-[14px] inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
             </button>
-          )
-        })}
+          </div>
+        )}
       </div>
-      {/* Charts strip — metric pills + sync */}
+      {/* Charts strip — metric pills */}
       {activeTab === 'charts' && (
-        <div className="flex items-center gap-2 bg-sky-50 border border-sky-100 rounded-xl px-2.5 py-1.5 mt-2">
+        <div className="bg-sky-50 border border-sky-100 rounded-xl px-2.5 py-1.5 mt-2">
           <div
-            className="flex gap-1.5 overflow-x-auto flex-1"
+            className="flex gap-1.5 overflow-x-auto"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
           >
             {METRICS.map(m => (
@@ -1083,16 +1122,6 @@ export default function HoldingsPage({ currency }: Props) {
               </button>
             ))}
           </div>
-          <button
-            className="shrink-0 text-slate-400 active:text-[#2563eb]"
-            onClick={() => {
-              if (syncing) return
-              setSyncing(true)
-              qc.invalidateQueries({ queryKey: ['history'] })
-            }}
-          >
-            <span className={`text-[14px] inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
-          </button>
         </div>
       )}
       {/* Analysis strip — segmented control + sync icon for benchmarking */}
@@ -1116,17 +1145,22 @@ export default function HoldingsPage({ currency }: Props) {
             ))}
           </div>
           {analysisSubTab === 'benchmarking' && (
-            <button
-              className="shrink-0 text-slate-400 active:text-sky-500"
-              onClick={() => {
-                if (benchSyncing) return
-                setBenchSyncing(true)
-                qc.invalidateQueries({ queryKey: ['history'] })
-                qc.invalidateQueries({ queryKey: ['benchmark-hist'] })
-              }}
-            >
-              <span className={`text-[14px] inline-block ${benchSyncing ? 'animate-spin' : ''}`}>↻</span>
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {benchLastSynced && (
+                <span className="text-[8px] text-slate-400 whitespace-nowrap">{fmtSyncTime(benchLastSynced)}</span>
+              )}
+              <button
+                className="text-slate-400 active:text-sky-500"
+                onClick={() => {
+                  if (benchSyncing) return
+                  setBenchSyncing(true)
+                  qc.invalidateQueries({ queryKey: ['history'] })
+                  qc.invalidateQueries({ queryKey: ['benchmark-hist'] })
+                }}
+              >
+                <span className={`text-[14px] inline-block ${benchSyncing ? 'animate-spin' : ''}`}>↻</span>
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -1839,15 +1873,19 @@ export default function HoldingsPage({ currency }: Props) {
               </div>
 
               {benchLoading && (() => {
-                const pct = benchTotalCount > 0 ? Math.round(benchLoadedCount / benchTotalCount * 100) : 0
+                const hasProgress = benchLoadedCount > 0 && benchTotalCount > 0
+                const pct = hasProgress ? Math.round(benchLoadedCount / benchTotalCount * 100) : 0
                 return (
                   <div className="py-6">
                     <div className="flex justify-between text-[9px] text-slate-400 mb-1">
-                      <span>Loading benchmarks… {benchLoadedCount} / {benchTotalCount}</span>
-                      <span>{pct}%</span>
+                      <span>Loading benchmark data…{hasProgress ? ` ${benchLoadedCount} / ${benchTotalCount}` : ''}</span>
+                      {hasProgress && <span>{pct}%</span>}
                     </div>
                     <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-sky-400 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+                      {hasProgress
+                        ? <div className="h-full bg-sky-400 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+                        : <div className="h-full bg-sky-400 rounded-full animate-pulse" style={{ width: '100%' }} />
+                      }
                     </div>
                   </div>
                 )
