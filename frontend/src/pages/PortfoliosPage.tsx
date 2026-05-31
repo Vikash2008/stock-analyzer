@@ -152,6 +152,7 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
 
   const valSize  = compact ? 'text-[13px]' : 'text-[15px]'
   const lblSize  = compact ? 'text-[9px]'  : 'text-[10px]'
+  const xirrSize = compact ? 'text-[8px]'  : 'text-[9px]'
   const gainSize = compact ? 'text-[10px]' : 'text-[10px]'
   const gap      = compact ? 'gap-0.5'     : 'gap-1'
 
@@ -178,8 +179,8 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
       </div>
       <div className="flex items-center justify-between mt-0.5">
         {xirr !== null
-          ? <span className={`${lblSize} font-semibold rounded-full px-1.5 py-0.5`} style={{ background: xirr >= 0 ? '#d1fae5' : '#fee2e2', color: xirr >= 0 ? '#065f46' : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
-          : <span className={`${lblSize} text-slate-400`}>{fmtCompact(card.invested, currency)} inv</span>
+          ? <span className={`${xirrSize} font-semibold rounded-full px-1.5 py-0.5 whitespace-nowrap shrink-0`} style={{ background: xirr >= 0 ? '#d1fae5' : '#fee2e2', color: xirr >= 0 ? '#065f46' : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
+          : <span className={`${xirrSize} text-slate-400 whitespace-nowrap shrink-0`}>{fmtCompact(card.invested, currency)} inv</span>
         }
         <span className={`flex items-center ${gap} shrink-0 whitespace-nowrap`}>
           <span className={`${lblSize} text-slate-400`}>Total</span>
@@ -450,8 +451,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               </div>
               <div className="flex items-center justify-between mt-0.5">
                 {xirr !== null && xirr !== undefined
-                  ? <span className="text-[9px] font-semibold" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
-                  : <span className="text-[9px] text-slate-400">XIRR —</span>
+                  ? <span className="text-[8px] font-semibold whitespace-nowrap shrink-0" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
+                  : <span className="text-[8px] text-slate-400 whitespace-nowrap shrink-0">XIRR —</span>
                 }
                 <span className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
                   <span className="text-[9px] text-slate-400">Total</span>
