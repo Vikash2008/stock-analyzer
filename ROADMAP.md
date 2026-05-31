@@ -40,6 +40,8 @@
 
 | Item | Completed |
 |------|-----------|
+| Benchmarking loader indeterminate pulse + Charts/Benchmarking sync timestamps — Charts ↻ moved to tab row with IST timestamp; Benchmarking ↻ gets IST timestamp in violet-50 strip; loader shows animate-pulse bar when queries land simultaneously (was stuck at 0%) | 2026-05-31 |
+| Benchmarking XIRR mobile/localhost mismatch fixed — `useBenchmarkXirr` terminal value now uses `symbolPriceMap` (freshly synced) instead of `filteredHoldings.disp_current` (stale bundle); eliminates 72.9% vs 24.5% gap when bundle is stale but history is freshly fetched | 2026-05-31 |
 | Dark branded loader + 75s progress bar on cold start/empty cache — LoadingSkeleton full-screen slate-900, emerald gradient title, 75s timer bar, "Taking a bit more time…" at 75s | 2026-05-31 |
 | Closed holdings LTP from symbolPriceMap — closedRowsWithLtp memo patches ltp with latest price from usePortfolioHistory symbolPriceMap; was showing last sell price | 2026-05-31 |
 | PriceChart start date fixed to 2000-01-01 — was firstTxDate(transactions); chart now shows full available history; range selector independent of buy dates | 2026-05-31 |
