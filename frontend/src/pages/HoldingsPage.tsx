@@ -1251,7 +1251,7 @@ export default function HoldingsPage({ currency }: Props) {
 
       {/* ── Charts tab ── */}
       {activeTab === 'charts' && (
-        <div className="px-3 pt-1 pb-3">
+        <div className="pt-1 pb-3">
           {/* Progress bar — first load and sync */}
           {histLoading && (() => {
             const isFirst = loadedCount < totalCount
@@ -1381,7 +1381,7 @@ export default function HoldingsPage({ currency }: Props) {
 
       {/* ── Analysis tab ── */}
       {activeTab === 'analysis' && (
-        <div className="p-3">
+        <div className="pt-2">
           {analysisSubTab === 'allocation' && (
             <div>
               {(() => {
