@@ -170,19 +170,28 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const [pullY, setPullY]     = useState(0)
   const [refreshing, setRefreshing] = useState(false)
   const [bannerVisible, setBannerVisible] = useState(false)
+  const [refreshError, setRefreshError] = useState(false)
   const touchStartY           = useRef(0)
   const bannerTimer           = useRef<ReturnType<typeof setTimeout>>()
+  const errorTimer            = useRef<ReturnType<typeof setTimeout>>()
   const PULL_THRESHOLD        = 64
 
   const handleRefresh = () => {
     setRefreshing(true)
+    setRefreshError(false)
     setBannerVisible(true)
     clearTimeout(bannerTimer.current)
     bannerTimer.current = setTimeout(() => setBannerVisible(false), 1500)
-    forceRefresh().finally(() => setRefreshing(false))
+    forceRefresh()
+      .catch(() => {
+        setRefreshError(true)
+        clearTimeout(errorTimer.current)
+        errorTimer.current = setTimeout(() => setRefreshError(false), 5000)
+      })
+      .finally(() => setRefreshing(false))
   }
 
-  useEffect(() => () => clearTimeout(bannerTimer.current), [])
+  useEffect(() => () => { clearTimeout(bannerTimer.current); clearTimeout(errorTimer.current) }, [])
 
   const rmap = useMemo(() => data ? aggRealized(data.realized, data.usd_inr) : new Map(), [data])
 
@@ -338,8 +347,10 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           className={`flex items-center gap-1.5 transition-colors ${refreshing ? 'text-white' : 'text-emerald-100 active:text-white'}`}
         >
           <span className={`text-[14px] leading-none ${refreshing ? 'animate-spin' : ''}`}>↻</span>
-          <span className="text-[9px] uppercase tracking-widest">
-            {new Date(data.as_of).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })} IST
+          <span className={`text-[9px] uppercase tracking-widest ${refreshError ? 'text-red-300' : ''}`}>
+            {refreshError
+              ? 'Sync failed · retry'
+              : `${new Date(data.as_of).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })} IST`}
           </span>
         </button>
       </div>

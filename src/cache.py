@@ -36,6 +36,7 @@ _TTL: dict[str, Optional[float]] = {
     "prev_closes": 43200.0,     # 12 hours — fetched alongside prices
     "info":        86400 * 7,   # 7 days
     "fx":          43200.0,     # 12 hours
+    "quickstats":  None,        # permanent layer — per-symbol TTL managed in router (24h)
 }
 
 # Module-level singleton: loaded from disk once per process lifetime.

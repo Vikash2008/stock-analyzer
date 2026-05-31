@@ -97,7 +97,8 @@ export default function App() {
           shouldDehydrateQuery: (query) =>
             query.queryKey[0] === 'history' ||
             query.queryKey[0] === 'portfolio' ||
-            query.queryKey[0] === 'benchmark-hist',
+            query.queryKey[0] === 'benchmark-hist' ||
+            query.queryKey[0] === 'quickstats',
         },
       }}
     >

@@ -12,6 +12,8 @@ import { TxRow } from '../components/TxRow'
 import { PriceChart } from '../components/PriceChart'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
 import { AnalysisTab } from '../components/AnalysisTab'
+import { ReportTab } from '../components/ReportTab'
+import { useQuickStats } from '../hooks/useQuickStats'
 import { aggRealized } from '../utils/realized'
 import { SKIP_PORTS, USD_PORTS } from '../utils/segments'
 import { computeXIRR } from '../utils/xirr'
@@ -56,12 +58,13 @@ export default function TransactionsPage({ currency }: Props) {
   const { portfolio = '', symbol = '' } = useParams<{ portfolio: string; symbol: string }>()
   const { data, isLoading, error } = usePortfolio(currency)
   const qc = useQueryClient()
-  const [activeTab,   setActiveTab]   = useState<'transactions' | 'charts' | 'notes'>('transactions')
+  const [activeTab,   setActiveTab]   = useState<'transactions' | 'charts' | 'report' | 'notes'>('transactions')
 
   useEffect(() => { window.scrollTo(0, 0) }, [])
   const [chartMetric, setChartMetric] = useState<ChartMetric>('Price')
   const [chartRange,  setChartRange]  = useState<ChartRange>('1y')
-  const [syncing,     setSyncing]     = useState(false)
+  const [syncing,       setSyncing]       = useState(false)
+  const [reportSyncing, setReportSyncing] = useState(false)
 
   const decoded = {
     portfolio: decodeURIComponent(portfolio),
@@ -102,6 +105,18 @@ export default function TransactionsPage({ currency }: Props) {
   }, [data, decoded.symbol, portfolioFilter])
 
   const holdingArr = useMemo(() => holdingList, [holdingList])
+
+  // Pre-compute yf_symbol before early returns so useQuickStats hook order is stable
+  const yf_for_hook = useMemo(() => {
+    if (!data) return decoded.symbol
+    return (
+      data.holdings.find(
+        h => portfolioFilter.includes(h.portfolio) && h.symbol === decoded.symbol && !SKIP_PORTS.has(h.portfolio),
+      )?.yf_symbol ?? decoded.symbol
+    )
+  }, [data, portfolioFilter, decoded.symbol])
+
+  const { data: quickStats, isLoading: qsLoading } = useQuickStats(yf_for_hook, activeTab === 'report')
 
   const symRealized = useMemo(() => {
     if (!data) return []
@@ -353,7 +368,7 @@ export default function TransactionsPage({ currency }: Props) {
 
       {/* Tabs */}
       <div className="flex items-center gap-3 mb-3 border-b border-slate-200">
-        {(['transactions', 'charts', 'notes'] as const).map(tab => (
+        {(['transactions', 'charts', 'report', 'notes'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -377,6 +392,19 @@ export default function TransactionsPage({ currency }: Props) {
             }}
           >
             <span className={`text-[14px] inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
+          </button>
+        )}
+        {activeTab === 'report' && (
+          <button
+            className="ml-auto pb-1.5 text-slate-400 active:text-[#2563eb]"
+            onClick={() => {
+              if (reportSyncing) return
+              setReportSyncing(true)
+              qc.invalidateQueries({ queryKey: ['quickstats', yf] })
+              setTimeout(() => setReportSyncing(false), 1500)
+            }}
+          >
+            <span className={`text-[14px] inline-block ${reportSyncing ? 'animate-spin' : ''}`}>↻</span>
           </button>
         )}
       </div>
@@ -404,6 +432,15 @@ export default function TransactionsPage({ currency }: Props) {
 
       {activeTab === 'notes' && (
         <AnalysisTab portfolio={decoded.portfolio} symbol={decoded.symbol} />
+      )}
+
+      {activeTab === 'report' && (
+        <ReportTab
+          yf_symbol={yf}
+          name={co || decoded.symbol}
+          qs={quickStats}
+          loading={qsLoading}
+        />
       )}
 
       {activeTab === 'charts' && (

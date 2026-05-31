@@ -54,6 +54,25 @@ export interface Realized {
   realized_pnl: number
 }
 
+export interface QuickStats {
+  yf_symbol:            string
+  currency:             'INR' | 'USD'
+  trailing_pe:          number | null
+  forward_pe:           number | null
+  market_cap:           number | null
+  market_cap_display:   string | null
+  week_52_high:         number | null
+  week_52_low:          number | null
+  current_price:        number | null
+  beta:                 number | null
+  dividend_yield:       number | null
+  target_mean_price:    number | null
+  recommendation:       string | null
+  num_analyst_opinions: number | null
+  upside_pct:           number | null
+  partial:              boolean
+}
+
 export interface PortfolioData {
   currency:            'INR' | 'USD'
   usd_inr:             number
