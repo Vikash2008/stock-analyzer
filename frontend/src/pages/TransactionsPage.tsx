@@ -345,10 +345,10 @@ export default function TransactionsPage({ currency }: Props) {
         <div className="px-3 py-2.5">
         {/* Label row */}
         <div className="flex justify-between items-center mb-1">
-          <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider truncate max-w-[75%]">
+          <span className="text-[9px] font-bold text-slate-700 uppercase tracking-wider truncate max-w-[75%]">
             {co || decoded.symbol}
           </span>
-          <span className="text-[10px] text-slate-400 shrink-0">
+          <span className="text-[9px] text-slate-400 shrink-0">
             LTP <span className="text-slate-600 font-semibold">{ltp}</span>
           </span>
         </div>
@@ -359,7 +359,7 @@ export default function TransactionsPage({ currency }: Props) {
             {fmt(cur, dispCur)}
           </span>
           <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-            <span className="text-[10px] text-slate-400">Today</span>
+            <span className="text-[9px] text-slate-400">Today</span>
             <span className="text-[10px]" style={{ color: tgC }}>
               {tg !== null ? fmtCompactGainLine(tg, tp, dispCur) : '—'}
             </span>
@@ -369,11 +369,11 @@ export default function TransactionsPage({ currency }: Props) {
         {/* XIRR | Total G/L */}
         <div className="flex items-baseline justify-between mb-2">
           {holdingXirr !== null
-            ? <span className="text-[10px]" style={{ color: holdingXirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(holdingXirr)}</span>
-            : <span className="text-[10px] text-slate-400">XIRR —</span>
+            ? <span className="text-[9px]" style={{ color: holdingXirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(holdingXirr)}</span>
+            : <span className="text-[9px] text-slate-400">XIRR —</span>
           }
           <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-            <span className="text-[10px] text-slate-400">Total</span>
+            <span className="text-[9px] text-slate-400">Total</span>
             <span className="text-[10px]" style={{ color: tc }}>
               {fmtCompactGainLine(gain + realGain, inv + realCost !== 0 ? (gain + realGain) / (inv + realCost) * 100 : 0, dispCur)}
             </span>
@@ -385,12 +385,12 @@ export default function TransactionsPage({ currency }: Props) {
           className="flex justify-between pt-1.5"
           style={{ borderTop: '1px solid #e2e8f0' }}
         >
-          <span className="text-[10px] text-slate-400">
+          <span className="text-[9px] text-slate-400">
             Invested{' '}
             <span className="text-slate-600 font-semibold">{fmt(inv, dispCur)}</span>
             {holding && <span className="text-slate-400"> · {qty} sh · {avg}/sh</span>}
           </span>
-          <span className="text-[10px] text-slate-400">
+          <span className="text-[9px] text-slate-400">
             Realized{' '}
             <span className="font-semibold" style={{ color: realColor }}>
               {fmtGainLine(realGain, null, dispCur)}
@@ -548,7 +548,7 @@ export default function TransactionsPage({ currency }: Props) {
                 const pct     = txTotal > 0 ? Math.round(done / txTotal * 100) : 0
                 return (
                   <div className="mb-3">
-                    <div className="flex justify-between text-[10px] text-slate-400 mb-1">
+                    <div className="flex justify-between text-[9px] text-slate-400 mb-1">
                       <span>{isFirst ? 'Loading' : 'Syncing'} price history… {done} / {txTotal}</span>
                       <span>{pct}%</span>
                     </div>
@@ -594,7 +594,7 @@ export default function TransactionsPage({ currency }: Props) {
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis
                         dataKey="t"
-                        tick={{ fontSize: 10, fill: '#94a3b8' }}
+                        tick={{ fontSize: 8, fill: '#94a3b8' }}
                         interval={Math.max(0, Math.floor(rechartsData.length / 5) - 1)}
                         tickFormatter={(d: string) => {
                           const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -609,7 +609,7 @@ export default function TransactionsPage({ currency }: Props) {
                         axisLine={false}
                       />
                       <YAxis
-                        tick={{ fontSize: 10, fill: '#94a3b8' }}
+                        tick={{ fontSize: 8, fill: '#94a3b8' }}
                         tickFormatter={yTickFmt}
                         width={48}
                         tickLine={false}
@@ -624,7 +624,7 @@ export default function TransactionsPage({ currency }: Props) {
                           chartMetric,
                         ]}
                         contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #e2e8f0' }}
-                        labelStyle={{ fontSize: 10, color: '#94a3b8' }}
+                        labelStyle={{ fontSize: 9, color: '#94a3b8' }}
                       />
                       {ZERO_LINE_METRICS.has(chartMetric) && (
                         <ReferenceLine y={0} stroke="#cbd5e1" strokeDasharray="3 3" strokeWidth={1} />

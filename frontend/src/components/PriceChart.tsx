@@ -171,7 +171,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceC
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis
             dataKey="date"
-            tick={{ fontSize: 10, fill: '#94a3b8' }}
+            tick={{ fontSize: 8, fill: '#94a3b8' }}
             tickFormatter={d => {
               if (range === '1d') return d  // already "HH:MM" IST
               const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -187,7 +187,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceC
             minTickGap={['1y','2y','3y','5y','All'].includes(range) ? 50 : 40}
           />
           <YAxis
-            tick={{ fontSize: 10, fill: '#94a3b8' }}
+            tick={{ fontSize: 8, fill: '#94a3b8' }}
             tickFormatter={yFmt}
             width={42}
             domain={['auto', 'auto']}

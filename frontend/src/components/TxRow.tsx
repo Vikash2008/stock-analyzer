@@ -117,7 +117,7 @@ export function TxRow({ tx, currency, usdInr, gain }: TxRowProps) {
       {/* Badge — vertically centered, whitespace on all 4 sides */}
       <div className="flex items-center justify-center px-2 shrink-0">
         <span
-          className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-1 rounded"
+          className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-1 rounded"
           style={{ background: badge.bg, color: badge.fg }}
         >
           {tx.type === 'DIVIDEND' ? 'DIV' : tx.type}
@@ -137,10 +137,10 @@ export function TxRow({ tx, currency, usdInr, gain }: TxRowProps) {
         {/* R1M — Unrealised gains (Y sh left) */}
         <div className="overflow-hidden min-w-0">
           {r1midGain
-            ? <p className="text-[10px] font-semibold whitespace-nowrap truncate" style={{ color: r1midColor }}>
+            ? <p className="text-[9px] font-semibold whitespace-nowrap truncate" style={{ color: r1midColor }}>
                 {r1midGain} · {r1midSub}
               </p>
-            : <p className="text-[10px] text-slate-300 whitespace-nowrap">—</p>
+            : <p className="text-[9px] text-slate-300 whitespace-nowrap">—</p>
           }
         </div>
 
@@ -150,7 +150,7 @@ export function TxRow({ tx, currency, usdInr, gain }: TxRowProps) {
         </p>
 
         {/* R2L — Total invested (qty × price) */}
-        <p className="text-[10px] text-slate-400 whitespace-nowrap overflow-hidden truncate">
+        <p className="text-[9px] text-slate-400 whitespace-nowrap overflow-hidden truncate">
           {r2left}
         </p>
 
@@ -160,12 +160,12 @@ export function TxRow({ tx, currency, usdInr, gain }: TxRowProps) {
             ? <p className="text-[9px] font-semibold whitespace-nowrap truncate" style={{ color: r2midColor }}>
                 {r2midGain} · {r2midSub}
               </p>
-            : <p className="text-[10px] text-slate-300 whitespace-nowrap">—</p>
+            : <p className="text-[9px] text-slate-300 whitespace-nowrap">—</p>
           }
         </div>
 
         {/* R2R — Total gains */}
-        <p className="text-[10px] font-semibold whitespace-nowrap overflow-hidden truncate text-right"
+        <p className="text-[9px] font-semibold whitespace-nowrap overflow-hidden truncate text-right"
            style={{ color: r2rightColor }}>
           {r2right}
         </p>

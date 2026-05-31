@@ -151,8 +151,8 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
   const todayPct = card.todayGain !== null && todayPrior !== 0 ? (card.todayGain / todayPrior) * 100 : null
 
   const valSize  = compact ? 'text-[13px]' : 'text-[15px]'
-  const lblSize  = compact ? 'text-[9px]'  : 'text-[10px]'
-  const gainSize = compact ? 'text-[10px]' : 'text-[10px]'
+  const lblSize  = compact ? 'text-[8px]'  : 'text-[9px]'
+  const gainSize = compact ? 'text-[9px]'  : 'text-[10px]'
   const gap      = compact ? 'gap-0.5'     : 'gap-1'
 
   return (
@@ -377,7 +377,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           className={`flex items-center gap-1.5 transition-colors ${refreshing ? 'text-white' : 'text-emerald-100 active:text-white'}`}
         >
           <span className={`text-[14px] leading-none ${refreshing ? 'animate-spin' : ''}`}>↻</span>
-          <span className={`text-[10px] uppercase tracking-widest ${refreshError ? 'text-red-300' : ''}`}>
+          <span className={`text-[9px] uppercase tracking-widest ${refreshError ? 'text-red-300' : ''}`}>
             {refreshError
               ? 'Sync failed · retry'
               : (() => { const d = new Date(data.as_of); const hh = String(d.getHours()).padStart(2,'0'); const mm = String(d.getMinutes()).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); const mon = d.toLocaleString('en-US',{month:'short'}); return `${hh}:${mm} ${dd} ${mon}` })()}
@@ -395,7 +395,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         <div className="flex items-baseline justify-between">
           <span className="text-[24px] font-bold text-slate-800 min-w-0">{fmt(hero.cur, currency)}</span>
           <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-            <span className="text-[10px] text-slate-400">Today</span>
+            <span className="text-[9px] text-slate-400">Today</span>
             <span className="text-[10px]" style={{ color: hero.todayGain >= 0 ? '#0d9488' : '#dc2626' }}>
               {hero.todayGain !== 0 ? fmtCompactGainLine(hero.todayGain, hero.todayPct, currency) : '—'}
             </span>
@@ -403,13 +403,13 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         </div>
         <div className="flex items-center justify-between mt-1">
           {data.xirr_total !== null
-            ? <span className="text-[10px] font-semibold rounded-full px-2 py-0.5" style={{ background: (data.xirr_total ?? 0) >= 0 ? 'rgba(13,148,136,0.15)' : 'rgba(220,38,38,0.12)', color: (data.xirr_total ?? 0) >= 0 ? '#0f766e' : '#b91c1c' }}>
+            ? <span className="text-[9px] font-semibold rounded-full px-2 py-0.5" style={{ background: (data.xirr_total ?? 0) >= 0 ? 'rgba(13,148,136,0.15)' : 'rgba(220,38,38,0.12)', color: (data.xirr_total ?? 0) >= 0 ? '#0f766e' : '#b91c1c' }}>
                 XIRR {fmtPct(data.xirr_total!)}
               </span>
-            : <span className="text-[10px] text-slate-400">XIRR —</span>
+            : <span className="text-[9px] text-slate-400">XIRR —</span>
           }
           <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-            <span className="text-[10px] text-slate-400">Total</span>
+            <span className="text-[9px] text-slate-400">Total</span>
             <span className="text-[10px]" style={{ color: heroPos ? '#0d9488' : '#dc2626' }}>
               {fmtCompactGainLine(hero.totalGain, hero.returnPct, currency)}
             </span>
@@ -438,24 +438,24 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               }}
               onClick={() => navigate(`/holdings/segment/${seg}`)}
             >
-              <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1">{label}</p>
+              <p className="text-[9px] font-bold text-slate-700 uppercase tracking-widest mb-1">{label}</p>
               <div className="flex items-baseline justify-between">
                 <span className="text-[13px] font-bold text-slate-900 min-w-0">{fmt(stats.cur, currency)}</span>
                 <span className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-                  <span className="text-[9px] text-slate-400">Today</span>
-                  <span className="text-[10px]" style={{ color: tgC }}>
+                  <span className="text-[8px] text-slate-400">Today</span>
+                  <span className="text-[9px]" style={{ color: tgC }}>
                     {stats.todayGain !== 0 ? fmtCompactGainLine(stats.todayGain, stats.todayPct, currency) : '—'}
                   </span>
                 </span>
               </div>
               <div className="flex items-center justify-between mt-0.5">
                 {xirr !== null && xirr !== undefined
-                  ? <span className="text-[9px] font-semibold" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
-                  : <span className="text-[9px] text-slate-400">XIRR —</span>
+                  ? <span className="text-[8px] font-semibold" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
+                  : <span className="text-[8px] text-slate-400">XIRR —</span>
                 }
                 <span className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-                  <span className="text-[9px] text-slate-400">Total</span>
-                  <span className="text-[10px]" style={{ color: tc }}>
+                  <span className="text-[8px] text-slate-400">Total</span>
+                  <span className="text-[9px]" style={{ color: tc }}>
                     {fmtCompactGainLine(stats.gain, stats.pct, currency)}
                   </span>
                 </span>
@@ -467,7 +467,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
       {/* Breakdown toggle */}
       <div className="flex items-center justify-between px-0.5">
-        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Breakdown</p>
+        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Breakdown</p>
         <div className="relative flex bg-slate-100 rounded-full p-[2px]">
           <div
             className="absolute top-[2px] bottom-[2px] w-1/2 rounded-full bg-white shadow-sm transition-transform duration-150"
@@ -495,7 +495,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               <div key={group.key}>
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: group.color }} />
-                  <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: group.color }}>{group.label}</span>
+                  <span className="text-[8px] font-semibold uppercase tracking-widest" style={{ color: group.color }}>{group.label}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {gc.map(card => (
@@ -515,7 +515,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               <div key={group.key}>
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: group.color }} />
-                  <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: group.color }}>{group.label}</span>
+                  <span className="text-[8px] font-semibold uppercase tracking-widest" style={{ color: group.color }}>{group.label}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {gc.map(card => (

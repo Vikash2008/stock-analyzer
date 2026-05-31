@@ -63,7 +63,7 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
               { label: 'Beta',    value: qs.beta != null ? qs.beta.toFixed(2) : '—' },
             ].map(({ label, value }) => (
               <div key={label}>
-                <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">{label}</div>
+                <div className="text-[8px] text-slate-400 uppercase tracking-wide mb-0.5">{label}</div>
                 <div className="text-[12px] font-semibold text-slate-800 whitespace-nowrap">{value}</div>
               </div>
             ))}
@@ -82,7 +82,7 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
           {/* 52W range bar */}
           {rangePos !== null && qs.week_52_low != null && qs.week_52_high != null && qs.current_price != null && (
             <div>
-              <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-2">52-Week Range</div>
+              <div className="text-[8px] text-slate-400 uppercase tracking-wide mb-2">52-Week Range</div>
               <div className="relative h-1.5 rounded-full overflow-visible"
                    style={{ background: 'linear-gradient(to right, #fca5a5, #fde68a, #86efac)' }}>
                 <div
@@ -91,10 +91,10 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
                 />
               </div>
               <div className="flex justify-between mt-1.5">
-                <span className="text-[10px] text-slate-400">
+                <span className="text-[9px] text-slate-400">
                   {fmtPrice(qs.week_52_low, qs.currency)}
                 </span>
-                <span className="text-[10px] font-semibold text-[#2563eb]">
+                <span className="text-[9px] font-semibold text-[#2563eb]">
                   {fmtPrice(qs.current_price, qs.currency)}
                 </span>
                 <span className="text-[9px] text-slate-400">
@@ -120,7 +120,7 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
                   </span>
                 )}
                 {qs.num_analyst_opinions != null && (
-                  <span className="text-[10px] text-slate-400">
+                  <span className="text-[9px] text-slate-400">
                     {qs.num_analyst_opinions} analysts
                   </span>
                 )}
@@ -132,7 +132,7 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
                   </span>
                   {qs.upside_pct != null && (
                     <span
-                      className="text-[10px] ml-1"
+                      className="text-[9px] ml-1"
                       style={{ color: qs.upside_pct >= 0 ? '#0a7a42' : '#be1c1c' }}
                     >
                       ({qs.upside_pct >= 0 ? '+' : ''}{qs.upside_pct.toFixed(1)}%)
@@ -150,7 +150,7 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
       )}
 
       {/* ── Analysis sections ───────────────────────────────── */}
-      <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest pt-1">
+      <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest pt-1">
         Analysis
       </div>
 
@@ -184,7 +184,7 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
       </a>
 
       {qs?.partial && (
-        <p className="text-[10px] text-slate-400 text-center pb-1">
+        <p className="text-[9px] text-slate-400 text-center pb-1">
           Some data unavailable for this symbol
         </p>
       )}
