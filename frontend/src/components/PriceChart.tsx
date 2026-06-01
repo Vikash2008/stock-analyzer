@@ -23,6 +23,8 @@ interface ChartPoint {
   price:  number
   buy?:   number
   sell?:  number
+  buyR?:  number
+  sellR?: number
 }
 
 const RANGES = ['1d', '5d', '1m', '3m', '6m', '1y', '2y', '3y', '5y', 'All'] as const
@@ -58,14 +60,25 @@ function buildChartData(
   const data: ChartPoint[] = dates.map((d, i) => ({ date: d, price: prices[i] }))
   const indexMap = new Map(dates.map((d, i) => [d, i]))
 
+  const tradeTxns = txns.filter(t => t.type === 'BUY' || t.type === 'SELL')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const vals = tradeTxns.map(t => Math.abs(((t as any).qty ?? (t as any).quantity ?? 0) * ((t as any).price ?? 0)))
+  const maxVal = Math.max(...vals, 1)
+  const minVal = Math.min(...vals.filter(v => v > 0), maxVal)
+  const R_MIN = 3, R_MAX = 10
+  const toR = (v: number) => R_MIN + ((v - minVal) / (maxVal - minVal || 1)) * (R_MAX - R_MIN)
+
   for (const t of txns) {
     if (t.type !== 'BUY' && t.type !== 'SELL') continue
     const snapped = snapToSeries(dates, t.date.slice(0, 10))
     if (!snapped) continue
     const idx = indexMap.get(snapped)!
     const pt  = data[idx]
-    if (t.type === 'BUY')  pt.buy  = pt.price
-    if (t.type === 'SELL') pt.sell = pt.price
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const val = Math.abs(((t as any).qty ?? (t as any).quantity ?? 0) * ((t as any).price ?? 0))
+    const r   = toR(val)
+    if (t.type === 'BUY')  { pt.buy  = pt.price; pt.buyR  = Math.max(pt.buyR  ?? 0, r) }
+    if (t.type === 'SELL') { pt.sell = pt.price; pt.sellR = Math.max(pt.sellR ?? 0, r) }
   }
   return data
 }
@@ -82,18 +95,20 @@ function CustomTooltip({ active, payload, label, currency }: any) {
   )
 }
 
-// Custom dot: renders a colored circle only for BUY/SELL points
+// Custom dot: renders a colored circle sized by transaction value
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function BuyDot(props: any) {
-  const { cx, cy } = props
+  const { cx, cy, payload } = props
   if (cx == null || cy == null) return <g />
-  return <circle cx={cx} cy={cy} r={5} fill="#10b981" stroke="#fff" strokeWidth={1.5} />
+  const r = payload?.buyR ?? 5
+  return <circle cx={cx} cy={cy} r={r} fill="#10b981" stroke="#fff" strokeWidth={1.5} />
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function SellDot(props: any) {
-  const { cx, cy } = props
+  const { cx, cy, payload } = props
   if (cx == null || cy == null) return <g />
-  return <circle cx={cx} cy={cy} r={5} fill="#f43f5e" stroke="#fff" strokeWidth={1.5} />
+  const r = payload?.sellR ?? 5
+  return <circle cx={cx} cy={cy} r={r} fill="#f43f5e" stroke="#fff" strokeWidth={1.5} />
 }
 
 export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceChartProps) {

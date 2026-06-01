@@ -124,52 +124,57 @@ export function TxRow({ tx, currency, usdInr, gain }: TxRowProps) {
         </span>
       </div>
 
-      {/* 3-col × 2-row grid */}
+      {/* 2-col grid: left = date + invested, right = cur value + gains stacked */}
       <div
         className="flex-1 min-w-0 px-2.5 py-2"
-        style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr 1fr', rowGap: 3, columnGap: 6 }}
+        style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', rowGap: 2, columnGap: 8 }}
       >
         {/* R1L — Date */}
-        <p className="text-[10px] font-semibold text-slate-800 whitespace-nowrap overflow-hidden truncate">
+        <p className="text-[10px] font-semibold text-slate-800 whitespace-nowrap">
           {shortDate(tx.date)}
         </p>
-
-        {/* R1M — Unrealised gains (Y sh left) */}
-        <div className="overflow-hidden min-w-0">
-          {r1midGain
-            ? <p className="text-[10px] font-semibold whitespace-nowrap truncate" style={{ color: r1midColor }}>
-                {r1midGain} · {r1midSub}
-              </p>
-            : <p className="text-[10px] text-slate-300 whitespace-nowrap">—</p>
-          }
-        </div>
-
         {/* R1R — Current value (invested) */}
-        <p className="text-[10px] font-bold text-slate-900 whitespace-nowrap overflow-hidden truncate text-right">
+        <p className="text-[10px] font-bold text-slate-900 text-right whitespace-nowrap truncate">
           {r1right}
         </p>
 
-        {/* R2L — Total invested (qty × price) */}
-        <p className="text-[10px] text-slate-400 whitespace-nowrap overflow-hidden truncate">
+        {/* R2L — Total invested */}
+        <p className="text-[10px] text-slate-400 whitespace-nowrap truncate">
           {r2left}
         </p>
-
-        {/* R2M — Realised gains (X sh sold) */}
-        <div className="overflow-hidden min-w-0">
-          {r2midGain
-            ? <p className="text-[9px] font-semibold whitespace-nowrap truncate" style={{ color: r2midColor }}>
-                {r2midGain} · {r2midSub}
+        {/* R2R — Unrealised gain (or realised for sold) */}
+        <div className="text-right">
+          {r1midGain
+            ? <p className="text-[10px] font-semibold whitespace-nowrap" style={{ color: r1midColor }}>
+                {r1midGain} · {r1midSub}
               </p>
-            : <p className="text-[10px] text-slate-300 whitespace-nowrap">—</p>
+            : r2midGain
+              ? <p className="text-[10px] font-semibold whitespace-nowrap" style={{ color: r2midColor }}>
+                  {r2midGain} · {r2midSub}
+                </p>
+              : <p className="text-[10px] text-slate-300">—</p>
           }
         </div>
 
-        {/* R2R — Total gains */}
-        <p className="text-[10px] font-semibold whitespace-nowrap overflow-hidden truncate text-right"
-           style={{ color: r2rightColor }}>
-          {r2right}
-        </p>
+        {/* R3: partial only — realised gain row */}
+        {r1midGain && r2midGain && (
+          <>
+            <p />
+            <p className="text-[10px] font-semibold whitespace-nowrap text-right" style={{ color: r2midColor }}>
+              {r2midGain} · {r2midSub}
+            </p>
+          </>
+        )}
 
+        {/* R4: partial only — total gain row */}
+        {gain?.status === 'partial' && (
+          <>
+            <p />
+            <p className="text-[10px] font-bold whitespace-nowrap text-right" style={{ color: r2rightColor }}>
+              {r2right}
+            </p>
+          </>
+        )}
       </div>
     </div>
   )
