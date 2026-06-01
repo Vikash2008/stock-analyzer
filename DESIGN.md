@@ -379,6 +379,8 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 | Date | Decision | Reason |
 |------|----------|--------|
+| 2026-06-01 | TxRow 2-column mobile layout — replaced 3-col grid (`1fr 1.3fr 1fr`) with 2-col (`1fr 1.3fr`); left col = Date + Invested, right col = stacked gains (Cur value → Unreal → Real → Total); partial positions get extra rows for realised + total; fixes truncation on 412px screens where each 3-col cell was only ~113px |
+| 2026-06-01 | PriceChart BUY/SELL dot size by transaction value — `buildChartData` computes `qty × price` for each trade txn, scales radius linearly r=3 (smallest) → r=10 (largest) across all trades; `buyR`/`sellR` stored on ChartPoint; multiple same-date trades use max value; `BuyDot`/`SellDot` read `payload.buyR`/`payload.sellR` |
 | 2026-06-01 | Closed holdings charts — `holdingArrForCharts` useMemo in TransactionsPage builds synthetic `Holding[]` (qty=0, avg_cost from BUYs, yf_symbol from first transaction) when no open position; passed to usePortfolioHistory so all 7 historical metrics render; yf_symbol fallback now uses `symTxns[0].yf_symbol` instead of clean symbol |
 | 2026-06-01 | TypeScript cleanup — `BenchmarkOutput` interface gains `loadedCount`/`totalCount`/`fetchingCount`; inner useMemo `Omit<>` extended to exclude `isFetching`; `tsconfig.json` lib `ES2020→ES2022` for `Array.at()` support; zero `tsc --noEmit` errors |
 | 2026-06-01 | Boot context reduction — `DESIGN.md` (607→396 lines), `ROADMAP.md` (185→55 lines), `project_react_fastapi.md` (315→82 lines); old entries archived to `DESIGN_HISTORY.md` + `ROADMAP_ARCHIVE.md`; saves ~574 lines per session boot |
