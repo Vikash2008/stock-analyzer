@@ -40,10 +40,11 @@
 
 | # | Item | Notes | Status |
 |---|------|-------|--------|
-| 1 | Report tab — Section 1 fundamentals grid | 3×4 grid (Valuation/Returns/Context); Screener.in as data source for Indian stocks; 9 new quickstats fields; ↻ sync button; source link | done |
-| 2 | Report tab — Section 2 Research Links | Screener/Trendlyne/NSE pills for Indian; Finviz/Macrotrends/EDGAR for US | pending |
-| 3 | Report tab — Section 3 Perplexity cards redesign | 4 cards (down from 6); Open ↗ + Copy Prompt buttons per card | pending |
-| 4 | Report tab — Phase 2 Claude API | AI-generated qualitative sections | pending |
+| 1 | Report tab — Section 1 fundamentals grid | 4×4 grid (Valuation/Returns/Growth/Context); Screener.in data source; PEG fallback; D/E; Rev 1Y/3Y; EPS 1Y/3Y; ↻ sync + progress bar; PE History chart | done |
+| 2 | Report tab — Revenue Segments Perplexity card | Direct search query (no doc URL); `site:nsearchives.nseindia.com` for Indian; table format instruction; PDF reading limitation noted | done |
+| 3 | Report tab — Section 2 Research Links | Screener/Trendlyne/NSE pills for Indian; Finviz/Macrotrends/EDGAR for US | pending |
+| 4 | Report tab — PDF segment extraction | Fetch NSE filing URL in backend, parse with pdfplumber, serve via `/api/segments`; needed for complex companies (Bajaj Finance etc) | pending |
+| 5 | Report tab — Phase 2 Claude API | AI-generated qualitative sections | pending |
 
 ---
 
@@ -51,6 +52,8 @@
 
 | Item | Completed |
 |------|-----------|
+| Report tab Section 1 — 4×4 fundamentals grid; Screener.in data source; PEG fallback computation; D/E; Rev 1Y/3Y + EPS 1Y/3Y from Screener compounded growth + yfinance 3Y CAGR; loading progress bar; PE History 5Y chart from Macrotrends (US only) | 2026-06-02 |
+| Report tab Revenue Segments card — new 7th Perplexity section; targeted web search query with site: operators; table format; PDF limitation documented | 2026-06-02 |
 | Report tab Section 1 — 3×4 fundamentals grid; Screener.in data source for Indian stocks; 9 new quickstats fields (ROCE, ROE, ROA, margins, EPS, rev growth, P/B, PEG); ↻ sync button + source link | 2026-06-01 |
 | HoldingsPage search/filter — search input (name/symbol) + sector dropdown + sort in single strip row; count in placeholder; `visibleRows` memo; `symbolSectorMap` for open+closed | 2026-06-01 |
 | HoldingsPage Allocation tab rows clickable — By Sector, By Market Cap, Concentration rows navigate to TransactionsPage; matches Benchmarking tab behaviour | 2026-06-01 |
