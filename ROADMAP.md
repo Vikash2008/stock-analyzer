@@ -40,7 +40,10 @@
 
 | # | Item | Notes | Status |
 |---|------|-------|--------|
-| 1 | Report tab redesign | Plan ready: extend quickstats (7 new fields: D/E, ROE, margin, EPS, rev growth, P/B, PEG); Research Links section (Screener/Trendlyne/NSE for Indian, Finviz/Macrotrends/EDGAR for US); 4 Perplexity cards with Copy Prompt; see plan file | pending |
+| 1 | Report tab — Section 1 fundamentals grid | 3×4 grid (Valuation/Returns/Context); Screener.in as data source for Indian stocks; 9 new quickstats fields; ↻ sync button; source link | done |
+| 2 | Report tab — Section 2 Research Links | Screener/Trendlyne/NSE pills for Indian; Finviz/Macrotrends/EDGAR for US | pending |
+| 3 | Report tab — Section 3 Perplexity cards redesign | 4 cards (down from 6); Open ↗ + Copy Prompt buttons per card | pending |
+| 4 | Report tab — Phase 2 Claude API | AI-generated qualitative sections | pending |
 
 ---
 
@@ -48,6 +51,7 @@
 
 | Item | Completed |
 |------|-----------|
+| Report tab Section 1 — 3×4 fundamentals grid; Screener.in data source for Indian stocks; 9 new quickstats fields (ROCE, ROE, ROA, margins, EPS, rev growth, P/B, PEG); ↻ sync button + source link | 2026-06-01 |
 | HoldingsPage search/filter — search input (name/symbol) + sector dropdown + sort in single strip row; count in placeholder; `visibleRows` memo; `symbolSectorMap` for open+closed | 2026-06-01 |
 | HoldingsPage Allocation tab rows clickable — By Sector, By Market Cap, Concentration rows navigate to TransactionsPage; matches Benchmarking tab behaviour | 2026-06-01 |
 | TxRow 2-column mobile layout — 3-col → 2-col grid; left=Date+Invested, right=stacked gains; fixes truncation on 412px | 2026-06-01 |

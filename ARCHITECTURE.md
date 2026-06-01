@@ -30,7 +30,7 @@ backend/
   routers/
     portfolio.py            GET /api/portfolio?currency=INR&force_refresh=false
     history.py              GET /api/history?yf_symbol=INFY.NS&start=YYYY-MM-DD OR ?period=1d (intraday; timestamps in IST; includes prev_close)
-    quickstats.py           GET /api/quickstats?yf_symbol=...&force_refresh=false (P/E, MCap, 52W, analyst; 60s mem + 24h disk per-symbol)
+    quickstats.py           GET /api/quickstats?yf_symbol=...&force_refresh=false (fundamentals + analyst; 60s mem + 24h disk per-symbol); Indian stocks: Screener.in scrape overrides PE/PB/ROCE/ROE/DivYield/MCap/52W; US stocks: yfinance + _compute_roce() from balance sheet; fields: trailing_pe, forward_pe, price_to_book, peg_ratio, return_on_equity, return_on_assets, roce, profit_margins, trailing_eps, revenue_growth, dividend_yield, beta, market_cap, week_52_*, recommendation, target_mean_price, upside_pct
   requirements_backend.txt  Backend-only deps
 
 frontend/
