@@ -40,6 +40,9 @@
 
 | Item | Completed |
 |------|-----------|
+| Closed holdings charts — `holdingArrForCharts` synthetic Holding[] in TransactionsPage; yf_symbol from first transaction; all 7 historical metrics now render for fully exited positions | 2026-06-01 |
+| TypeScript cleanup — `BenchmarkOutput` interface + tsconfig lib ES2022; zero tsc errors | 2026-06-01 |
+| Boot context reduction — archived old design decisions + done items to `DESIGN_HISTORY.md`/`ROADMAP_ARCHIVE.md`; ~574 lines/session saved | 2026-06-01 |
 | US stocks benchmarking ^NDX fix â€” `history.py` retries `yf.download` with `auto_adjust=False` when first call returns empty; newer yfinance on Render silently returns empty for US index symbols; benchmark XIRR and alpha now show correctly on production | 2026-05-31 |
 | Charts + Analysis tab padding fix â€” extra horizontal padding removed from both tab wrappers; content flush with page edges | 2026-05-31 |
 | Returns pill â€” histogram border card + bar value labels (year mode â‰¤8 bars) + multi-select year in month mode (labels `Jan '23`, summary shows range `2023â€“2025`) | 2026-05-31 |
