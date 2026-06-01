@@ -14,6 +14,7 @@
 
 validate.py                 Terminal CLI (independent of backend)
 testcases.md                Manual test cases — Charts tab + Portfolios page invariants
+meta_filings_agent.py       Standalone research tool — fetches SEC EDGAR 10-Q/10-K for any US ticker, downloads HTML→text, uploads to Claude Files API, generates per-filing analysis + cross-quarter trend report; outputs meta_filings/META_Filing_Analysis.md
 
 src/
   engine.py                 build(currency, force_refresh) → PortfolioBundle
