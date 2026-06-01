@@ -8,6 +8,7 @@ import {
 import { usePortfolio } from '../hooks/usePortfolio'
 import { usePortfolioHistory, sliceSeries } from '../hooks/usePortfolioHistory'
 import type { DatedSeries, PortfolioSeries } from '../hooks/usePortfolioHistory'
+import type { Holding } from '../api/types'
 import { TxRow } from '../components/TxRow'
 import { PriceChart } from '../components/PriceChart'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
@@ -137,13 +138,40 @@ export default function TransactionsPage({ currency }: Props) {
 
   const holdingArr = useMemo(() => holdingList, [holdingList])
 
+  // For closed holdings (no open position), build synthetic holding objects so
+  // usePortfolioHistory can fetch price history and compute historical series.
+  const holdingArrForCharts = useMemo((): Holding[] => {
+    if (holdingArr.length > 0 || !symTxns.length || !data) return holdingArr
+    const yfSym = symTxns.find(t => t.yf_symbol)?.yf_symbol ?? decoded.symbol
+    const portSet = new Set(symTxns.map(t => t.portfolio))
+    return [...portSet].map(port => {
+      const portBuys = symTxns.filter(t => t.portfolio === port && t.type === 'BUY')
+      const totalBuyQty  = portBuys.reduce((s, t) => s + t.quantity, 0)
+      const totalBuyCost = portBuys.reduce((s, t) => s + t.quantity * t.price + (t.charges ?? 0), 0)
+      return {
+        portfolio: port, symbol: decoded.symbol, exchange: '', yf_symbol: yfSym,
+        currency: (USD_PORTS.has(port) ? 'USD' : 'INR') as 'USD' | 'INR',
+        quantity: 0, current_price: 0,
+        avg_cost: totalBuyQty > 0 ? totalBuyCost / totalBuyQty : 0,
+        total_invested: 0, current_value: 0, unrealized_pnl: 0, pnl_pct: null,
+        sector: null, company: null, name: null, previous_close: null,
+        disp_invested: 0, disp_current: 0, disp_gain: 0, disp_pnl_pct: null,
+        today_gain: null, today_pct: null, disp_today_gain: null,
+      } as Holding
+    })
+  }, [holdingArr, symTxns, data, decoded.symbol])
+
   // Pre-compute yf_symbol before early returns so useQuickStats hook order is stable
   const yf_for_hook = useMemo(() => {
     if (!data) return decoded.symbol
     return (
       data.holdings.find(
         h => portfolioFilter.includes(h.portfolio) && h.symbol === decoded.symbol && !SKIP_PORTS.has(h.portfolio),
-      )?.yf_symbol ?? decoded.symbol
+      )?.yf_symbol
+      ?? data.transactions.find(
+        t => t.symbol === decoded.symbol && portfolioFilter.includes(t.portfolio),
+      )?.yf_symbol
+      ?? decoded.symbol
     )
   }, [data, portfolioFilter, decoded.symbol])
 
@@ -235,7 +263,7 @@ export default function TransactionsPage({ currency }: Props) {
   }, [symTxns, symRealized, holding, data, decoded.portfolio])
 
   const { series: portSeries, isLoading: histLoading, loadedCount: txLoaded, totalCount: txTotal, fetchingCount: txFetching } = usePortfolioHistory(
-    holdingArr,
+    holdingArrForCharts,
     symTxns,
     symRealized,
     data?.usd_inr ?? 95.5,
@@ -311,7 +339,7 @@ export default function TransactionsPage({ currency }: Props) {
   const qty   = holdingList.length ? aggQty.toFixed(3) : '—'
   const avg   = holdingList.length ? aggAvgCost.toFixed(2) : '—'
   const co    = anyHolding?.company ?? ''
-  const yf    = anyHolding?.yf_symbol ?? decoded.symbol
+  const yf    = anyHolding?.yf_symbol ?? symTxns.find(t => t.yf_symbol)?.yf_symbol ?? decoded.symbol
 
   const isPct       = PCT_METRICS.has(chartMetric)
   const chartLast   = metricSeries?.values[metricSeries.values.length - 1] ?? null

@@ -57,6 +57,9 @@ export interface BenchmarkOutput {
   isLoading:         boolean
   isFetching:        boolean
   hasError:          boolean
+  loadedCount:       number
+  totalCount:        number
+  fetchingCount:     number
 }
 
 export function useBenchmarkXirr(
@@ -115,7 +118,7 @@ export function useBenchmarkXirr(
   const fetchingCount = histResults.filter(r => r.fetchStatus === 'fetching').length
   const totalCount    = uniqueBenchSyms.length
 
-  const output = useMemo((): Omit<BenchmarkOutput, 'isLoading' | 'hasError'> | null => {
+  const output = useMemo((): Omit<BenchmarkOutput, 'isLoading' | 'isFetching' | 'hasError' | 'loadedCount' | 'totalCount' | 'fetchingCount'> | null => {
     if (!enabled || isLoading) return null
     // Period mode requires symbolPriceMap to compute opening balance actual values
     if (periodStart && (!symbolPriceMap || symbolPriceMap.size === 0)) return null

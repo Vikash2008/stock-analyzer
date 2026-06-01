@@ -1,0 +1,137 @@
+﻿# ROADMAP Archive — Completed Items
+
+> Older completed items archived from ROADMAP.md.
+
+| Item | Completed |
+|------|-----------|
+| Benchmarking loader indeterminate pulse + Charts/Benchmarking sync timestamps â€” Charts â†» moved to tab row with IST timestamp; Benchmarking â†» gets IST timestamp in violet-50 strip; loader shows animate-pulse bar when queries land simultaneously (was stuck at 0%) | 2026-05-31 |
+| Benchmarking XIRR mobile/localhost mismatch fixed â€” `useBenchmarkXirr` terminal value now uses `symbolPriceMap` (freshly synced) instead of `filteredHoldings.disp_current` (stale bundle); eliminates 72.9% vs 24.5% gap when bundle is stale but history is freshly fetched | 2026-05-31 |
+| Dark branded loader + 75s progress bar on cold start/empty cache â€” LoadingSkeleton full-screen slate-900, emerald gradient title, 75s timer bar, "Taking a bit more timeâ€¦" at 75s | 2026-05-31 |
+| Closed holdings LTP from symbolPriceMap â€” closedRowsWithLtp memo patches ltp with latest price from usePortfolioHistory symbolPriceMap; was showing last sell price | 2026-05-31 |
+| PriceChart start date fixed to 2000-01-01 â€” was firstTxDate(transactions); chart now shows full available history; range selector independent of buy dates | 2026-05-31 |
+| Report tab on TransactionsPage (between Charts and Notes) â€” Option B: Quick Stats card (P/E, MCap, 52W range, analyst target from yfinance ticker.info) + 6 Perplexity deep-link section cards (Business Overview, Latest Results & Concall, Growth Catalysts, Key Risks, Industry Outlook, Valuation vs Peers) + Full Report button; sync-only â†»; quickstats persisted to localStorage; new backend `/api/quickstats` endpoint with 60s mem + 24h disk cache | 2026-05-31 |
+| Sync error feedback on Overview â†» â€” `refreshError` state shows "Sync failed Â· retry" in red-300 for 5s when fetch fails (Render cold start / network error); `errorTimer` auto-clears | 2026-05-31 |
+| staleTime+gcTime=Infinity for all queries (portfolio/history/benchmark-hist/quickstats/useHistory); localStorage maxAge 1dâ†’3d; zero auto-refresh, manual â†» only | 2026-05-31 |
+| Loading/Syncing X/Y progress bars â€” HoldingsPage Charts: "Loading/Syncing price historyâ€¦ X / Y Â· Z%" on first load AND sync; TransactionsPage Charts: same; Benchmarking: blocking progress bar on first load, non-blocking sync bar above content; usePortfolioHistory+useBenchmarkXirr expose fetchingCount/loadedCount/totalCount | 2026-05-31 |
+| Stock sector reclassifications â€” LAXMIMACH/INDIAMART/DREAMFOLKS/IRCTC/EASEMYTRIP â†’ Growth; TATAINVEST/IBREALEST â†’ Finance; NYKAA â†’ Consumer; both sectors.ts and debug_benchmark.py updated. ET Money.NS (bad data symbol) left unclassified intentionally. | 2026-05-29 |
+| Benchmarking â†» sync icon on Analysis strip â€” same row as sub-tab pills, only visible on Benchmarking; invalidates ['history'] + ['benchmark-hist']; benchSyncing state clears when benchLoading goes false | 2026-05-30 |
+| useIsRestoring loader screen â€” `AppRoutes` gates on `useIsRestoring()`; shows branded `LoadingScreen` (slate-900, emerald gradient title, spinning â†») until localStorage cache hydrated; fixes benchmark "Loadingâ€¦" persisting after hard refresh | 2026-05-30 |
+| Benchmark isFetching sync fix â€” `useBenchmarkXirr` now exposes `isFetching`; `HoldingsPage` `useEffect` waits for `!benchLoading && !benchFetching` before clearing `benchSyncing` â€” icon now spins through full refetch cycle | 2026-05-30 |
+| 1d local cache + no-blank-screen UX â€” maxAge 7dâ†’1d; portfolio staleTime 30minâ†’1d; benchmark-hist queries persisted to localStorage (were never persisted before â€” caused blank screen every app restart); Returns tab shows stale portSeries during sync instead of blank | 2026-05-30 |
+| MF sector classification â€” Global sector added (^GSPC); all 70 MF symbols explicitly classified across Equity/Smallcap/IT/Finance/Healthcare/Global/Other; SBI Contra moved Smallcapâ†’Equity; 0P0001JMZB moved Techâ†’Global; Other sector excluded from Benchmarking pill (By Sector list + overall XIRR computation); debug_benchmark_mf.py created | 2026-05-30 |
+| Charts tab UX â€” cached charts on hard refresh (usePortfolioHistory builds from available queries); sync icon spins until refetch done (useEffect + isFetching); progress bar on first load (X/Y symbols); fixed ReferenceError crash (useEffect moved after histLoading declaration) | 2026-05-30 |
+| Overview UX â€” "Refreshingâ€¦" banner auto-dismisses after 1.5s; bottom â†» keeps spinning until fetch done (split bannerVisible + refreshing states) | 2026-05-30 |
+| Portfolio Manager header â€” emerald-to-teal gradient header at top of OverviewPage; sync â†» + IST timestamp right-aligned on same row; removed old bottom timestamp bar | 2026-05-30 |
+| Benchmarking pill UI: sector cards match Allocation style (border-slate-200 mb-2); sectors + holdings sorted by allocation % (currentValue desc); Sector(XIRR) column flex-[2] for wider name area | 2026-05-29 |
+| Returns sub-tab: Return % toggle removed (Gains-only); chart full width via hidden right Y-axis (width=0); cumulative return % line preserved on hidden axis; gear icon inline with summary | 2026-05-29 |
+| analyze_sectors.py â€” standalone Python script for Tech + Banking sector XIRR analysis including all portfolios (Indian + US); Tech open-only +42.7%, Banking open-only +13.4% | 2026-05-29 |
+| debug_benchmark.py US_ETF_SYMS exclusion fix â€” MON100/MAFANG now excluded from Indian stocks XIRR computation, matching UI's getSegmentType; debug and UI alpha numbers now reconciled (UI 3.1% is correct) | 2026-05-29 |
+| Indian stocks benchmarking full diagnostic â€” debug_benchmark.py overhauled: added Upstox to INDIAN_STOCK_PORTS, synced SYMBOL_SECTOR with sectors.ts, added print_unclassified_summary(); root cause of overall alpha drag identified: Consumer stocks (HINDUNILVR/PAGEIND/ASIANPAINT/DMART etc.) benchmarked against ^NSEI instead of ^CNXFMCG, plus IT sector drag from KPITTECH (-36.42% on 0.70L); overall Indian stocks alpha with final classification: +5.0% (open+closed, inception-to-date) | 2026-05-29 |
+| Consumer sector added to sectors.ts â€” 15 FMCG/durables stocks (HINDUNILVR, ASIANPAINT, DMART, PAGEIND, EMAMILTD, HAVELLS, WHIRLPOOL, BERGEPAINT, MANYAVAR, SYMPHONY, TTKPRESTIG, VGUARD, MARICO, ITC, VOLTAS); benchmark ^CNXFMCG; color #ec4899 (pink-500) | 2026-05-29 |
+| Smallcap sector expanded â€” DELTACORP, TARSONS, GREENPANEL, ORIENTELEC, PVRINOX added (closed positions from Groww); benchmark changed ^NSMCAP250â†’NIFTY_MIDCAP_100.NS (^NSMCAP250 and ^CNXMID both 404 in yfinance) | 2026-05-29 |
+| TECHM.NS classified as IT â€” was defaulting to Other; now correctly benchmarked vs ^CNXIT | 2026-05-29 |
+| NIFTYBEES.NS reclassified Other in SYMBOL_SECTOR â€” removes confusing "Equity" sector from Stocks portfolio benchmarking; benchmark ^NSEI unchanged | 2026-05-29 |
+| Benchmarking period XIRR (Option B) â€” opening balance at T1 from symbolPriceMap (actual) + histMap (bench); cashflows [T1,T2]; terminal at T2; sector rows + overall card update; usePortfolioHistory extraSymbols for closed-position prices; benchTxnsDate replaced with benchPeriodStart/benchPeriodEnd | 2026-05-29 |
+| Benchmarking date range filter â€” collapsible config at top of Benchmarking pill; From/To month+year selects; "Use today as end date" toggle; Apply/Clear; now drives Option B period XIRR instead of BUY-only filter | 2026-05-29 |
+| Benchmarking holding row truncation â€” name truncates with ellipsis; XIRR rendered as separate shrink-0 span so it's always visible regardless of name length | 2026-05-29 |
+| benchTxns Upstox fix â€” fully-closed portfolios (Upstox) now included in benchmarking cashflows; filtPorts previously excluded them since they have no open holdings | 2026-05-29 |
+| Benchmarking sector classification fix â€” 40+ closed Indian symbols (HDFCBANK, KOTAKBANK, INFY, TCS, KPITTECH, DIVISLAB, NIFTYBEES etc.) added to SYMBOL_SECTOR with correct Banking/Finance/Healthcare/IT/Equity sectors; SYMBOL_MARKET_CAP updated; fixes inflated IT alpha and depressed overall alpha caused by all closed positions defaulting to Other (^NSEI) | 2026-05-29 |
+| Benchmarking US closed positions â€” INTC, SOUN, FIG added to Tech sector | 2026-05-29 |
+| Benchmarking "Others" hidden when holdingCount=0 â€” sectors with only closed positions no longer shown in By Sector list | 2026-05-29 |
+| Chart last-point pinned to live prices â€” `usePortfolioHistory` appends/overrides last data point with `h.disp_current`/`h.disp_invested`; eliminates 1â€“2L Unrealized/Total Gains gap between chart and summary card | 2026-05-29 |
+| testcases.md AN-BENCH-* â€” all 12 benchmarking test cases run via Playwright; 10/12 pass, 1 N/A, 1 pending (lazy-load DevTools check); AN-BENCH-3 expectation corrected for FX asymmetry on MON100/MAFANG | 2026-05-29 |
+| Closed holdings TxRow BUY cards â€” removed null guard; fully-sold lots now show realized gain, â‚¹0(â‚¹0) current value | 2026-05-29 |
+| Closed holdings TransactionsPage summary card â€” XIRR from cashflows, anyHolding fallback for LTP, â‚¹0 current/invested, lastSellPrice LTP fallback | 2026-05-29 |
+| Closed holdings HoldingCard LTP â€” priceMap (open portfolio) + lastSellMap (latest SELL tx) fallback chain | 2026-05-29 |
+| Returns sub-tab XIRR metric removed â€” 2-option toggle (Return % / Gains) only | 2026-05-29 |
+| Returns sub-tab ComposedChart â€” bars = period gain/return%, indigo line = cumulative return% (right Y-axis); YTD override from live displayStats matches summary tile | 2026-05-29 |
+| Returns sub-tab summary line â€” Gains mode: total gains; Return % mode: live cumulative return % | 2026-05-29 |
+| Returns summary line text + number fix â€” year mode shows "all sectors Â· by year" + total gains (sum of all bars); month mode shows "sector Â· YEAR" + that year's gains; was showing all-time allocGroupedRows total which excluded closed positions | 2026-05-29 |
+| Returns default metric = Gains â€” initial state changed from returnPct to gains; Gains (INR) more useful as landing view | 2026-05-29 |
+| testcases.md exhaustive rewrite â€” 60+ cases for Overview, Holdings tab, Charts tab, Analysis (Allocation/Benchmarking/Returns incl. SUMLINE-1â€“5), Transactions page, cross-page invariants | 2026-05-29 |
+| Upstox broker card fix â€” portfolioCards seeds agg from rmap for fully-closed portfolios; By Broker stock cards sum now matches Stocks tile (was off by 0.47L) | 2026-05-29 |
+| HoldingsPage filtRealized segment fix â€” Realized Gains chart endpoint matches Summary card for all segments; Upstox 0.47L realized now included | 2026-05-29 |
+| Return % chart formula fix (A6) â€” usePortfolioHistory tracks cumRealCost; returnPct = totalGain/(invested+realizedCost); gap was up to âˆ’53pp for MF | 2026-05-29 |
+| testcases.md â€” 10 manual test cases for Charts tab + Portfolios page broker/type invariants; includes expected values and known limitations | 2026-05-29 |
+| Number correctness audit â€” 21 invariant rules (P1â€“P8, H1â€“H6, T1â€“T3, X1â€“X7, D1â€“D5) defined, audited, and documented in CLAUDE.md; all pass | 2026-05-29 |
+| classifyClean fix â€” PortfoliosPage stk/mf tiles and typeCards now use per-entry (portfolio, cleanSymbol) classification instead of portfolio-level realizedForPorts; fixes 5L double-count in Stocks breakdown (MON100/MAFANG in Zerodha) | 2026-05-29 |
+| Total segment realized = 0 fix â€” HoldingsPage segFilter for segment='total' now covers all 4 segment types; X1 cross-page invariant restored | 2026-05-29 |
+| Returns histogram "all sectors" fix â€” periodData uses portSeries.total (unrealized + cumulative realized); gains = total[end]âˆ’total[start]; sum of all year bars â‰ˆ total P&L â‰ˆ 68L; sector-specific views unchanged | 2026-05-28 |
+| Returns sub-tab on Analysis tab â€” Sector pills (All + per-sector colored), Year/Month toggle, Metric toggle (Return%/Gains/XIRR), year selector for month mode, per-period rows with colored value + bar; usePortfolioHistory now exposes symbolPriceMap for zero-cost sector series | 2026-05-28 |
+| By Holdings Concentration section â€” pie chart, Top 5/10/20 toggle, right-side coverage stat, legend with XIRR; accordion with other sections | 2026-05-28 |
+| Benchmarking UI redesign â€” overall card inline label+value; Sector+XIRR merged column; Benchmark(XIRR) renamed; flex-1 equal columns; coverage stat aligned | 2026-05-28 |
+| Tab strips â€” sky-50 strip for Charts (metric pills + â†»), violet-50 strip for Analysis (sub-pills); outer border removed for all tabs | 2026-05-28 |
+| Chart metric pills unique colors â€” METRIC_COLOR map per metric (blue/violet/teal/amber/emerald/sky/rose) | 2026-05-28 |
+| Section headers colored in Analysis tab â€” By Sector=blue, By Market Cap=orange, By Holdings Concentration=emerald, Benchmarking By Sector=sky | 2026-05-28 |
+| /get_ready slash command â€” reads 6 boot files in parallel, outputs session status | 2026-05-28 |
+| Critical Rules section added to CLAUDE.md â€” 5 session-wide rules | 2026-05-28 |
+| Allocation accordion â€” By Sector open default, By Market Cap collapsed; accordion (open one closes other) | 2026-05-28 |
+| Solid tab colors â€” Holdings/Charts/Analysis solid fill; Allocation=amber, Benchmarking=sky pill buttons; chart pills=emerald | 2026-05-28 |
+| Sector/MktCap XIRR fix â€” pooled cashflows (allocSectorXirrMap + allocMktCapXirrMap); was weighted avg giving inflated ~94% | 2026-05-28 |
+| Tab content border â€” active tab content in subtle rounded border card | 2026-05-28 |
+| Benchmarking sub-tab redesign â€” allocation-style layout; green overall card; bordered collapsible "By Sector" section; columns XIRR / Index (XIRR) / Alpha; centered alpha bar (green right / red left); per-holding alpha computed and displayed | 2026-05-28 |
+| Allocation sub-tab â€” collapsible By Sector / By Market Cap sections with bordered wrappers; section labels aligned to card content; tappable â–²/â–¼ toggle headers | 2026-05-27 |
+| Market cap bucket reclassification â€” ETF/MF bucket removed; 4 buckets (Large/Mid/Small/US); small cap funds + SBI Contra â†’ Small Cap; US-tracking ETFs/MFs â†’ US Stocks; ELSS/ITBEES/digital India â†’ Large Cap | 2026-05-27 |
+| Allocation sub-tab: removed stacked bar; deduplicated holdings via buildRows; 5-column expanded layout (Holding / # / Alloc % / Value / XIRR / Today) | 2026-05-27 |
+| Benchmarking sub-tab: visual redesign to match allocation (name row + colored XIRR bar, vs X% inline, no alpha column in rows); useBenchmarkXirr USD_BENCH_SYMS fix for MON100 alpha; colored tab pills (Holdings/Charts/Analysis + Allocation/Benchmarking) | 2026-05-27 |
+| Analysis tab on HoldingsPage â€” Allocation (stacked bar + sector rows) + Benchmarking (sector XIRR vs transaction-matched composite benchmark; collapsible sector rows; per-holding XIRR vs own-date-simulated benchmark; sectors.ts + useBenchmarkXirr.ts) | 2026-05-27 |
+| Portfolio bundle persisted to localStorage â€” instant reopen after swipe-up, stale-while-revalidate | 2026-05-27 |
+| All charts default range = 1y | 2026-05-27 |
+| PortfoliosPage: Stocks/MF tiles side-by-side; By Type + By Broker grouped sections with section labels; BreakCard compact prop | 2026-05-27 |
+| XIRR By Type fixed to include closed positions (iterates all transactions via yfMap) | 2026-05-27 |
+| PriceChart 5d range added; X-axis weekday labels "Mon"/"Tue" | 2026-05-27 |
+| All chart X-axis tickFormatter fixed (HoldingsPage + TransactionsPage + PriceChart): range-aware labels, ISO date stored in t field | 2026-05-27 |
+| 1d intraday timestamps converted to IST (backend tz_convert); 1d chart % uses prev_close from intraday response (captures gap-up/down) | 2026-05-27 |
+| PriceChart 1d intraday range (5-min bars, HH:MM X-axis); range-aware X-axis format ("12 Oct" for short, "Oct '23" for long) | 2026-05-27 |
+| Charts pre-fetch on page load; no loading bar; history cache preserved on force refresh; â†» sync on HoldingsPage Charts tab | 2026-05-27 |
+| HoldingsPage default filter = All with closed rows hidden (showClosed=false) | 2026-05-27 |
+| XIRR fix â€” closed US stocks in segment view (closedRows tracks all portfolios; xirrMap/filteredSummaryXirr use row.portfolios) | 2026-05-27 |
+| XIRR fix â€” "All" filter mode computes client-side; was returning xirr_stk which mixed Indian+US stocks | 2026-05-27 |
+| TxRow redesign â€” 2-row Ã— 3-col; badge pill; date/unreal/curValue + invested/real/totalGain; green/red card tint | 2026-05-27 |
+| Keep-alive ping â€” GitHub Actions cron every 14 min pings /health; /health endpoint added to backend | 2026-05-27 |
+| Realized P&L bug fix â€” segment summary card now counts fully-exited positions (iterates data.realized directly) | 2026-05-27 |
+| Open/Closed/All toggle on HoldingsPage â€” all views (By Broker, By Type, Stocks, MF, Total) | 2026-05-27 |
+| Grouped/Each + Open/Closed/All as iOS slider controls on one line; Each mode shows company name | 2026-05-27 |
+| Settings gear icon on HoldingsPage â€” popover with Open/Closed/All, Show Closed toggle, Grouped/Standalone | 2026-05-27 |
+| Filter-aware summary card â€” XIRR + realized P&L update for Open/Closed/All; Open+Closed=All exact | 2026-05-27 |
+| Sort fix for closed rows â€” sortFn extracted and applied to both open and closed row arrays | 2026-05-27 |
+| Scroll save/restore â€” sessionStorage keyed by pathname; HoldingsPage restores on back; TransactionsPage always tops | 2026-05-27 |
+| "Analysis" tab renamed "Notes" on TransactionsPage | 2026-05-27 |
+| TxRow redesign â€” left: date + qtyÂ·price = invested; right: current value (invested) + 3-col GainGrid | 2026-05-27 |
+| FIFO same-date BUY lot fix (dateQtyAttributed Map) â€” Axis Bank double-realized bug fixed | 2026-05-27 |
+| PWA skipWaiting + clientsClaim â€” new SW activates immediately on mobile; deploys reflect without closing app | 2026-05-24 |
+| Static data/names.json â€” company names committed to git; Render always shows correct names regardless of yfinance availability | 2026-05-24 |
+| serializers.py inf fix â€” all scalar fields + xirr_by_portfolio sanitized; no more 500 on inf values | 2026-05-24 |
+| Sync icon (â†») on TransactionsPage Charts tab â€” clears history cache for current symbol and re-fetches | 2026-05-24 |
+| PWA auto-reload on SW update â€” controllerchange listener in App.tsx; Vercel deploys immediately visible without manual refresh | 2026-05-24 |
+| PWA service worker (vite-plugin-pwa, Workbox autoUpdate) â€” no white screen on app reopen | 2026-05-24 |
+| Persistent chart cache to localStorage via TanStack Query persister (7-day, ['history'] only) | 2026-05-24 |
+| SummaryCard XIRR layout fix â€” XIRR left / Total right on row 3, matches HoldingCard | 2026-05-24 |
+| TransactionsPage top card font fix â€” XIRR unstyled, Today/Total labels, fmtCompactGainLine | 2026-05-24 |
+| Chart history cache: staleTime+gcTime=Infinity, force refresh clears cache | 2026-05-24 |
+| Multi-portfolio txn fix: segment view passes portfolios[] in nav state; TransactionsPage aggregates across all | 2026-05-24 |
+| HoldingCard shows TICKER Â· Name instead of name only | 2026-05-24 |
+| Chart loading progress â€” HoldingsPage: real % bar (X/Y symbols); TransactionsPage: Step 1/2 bar | 2026-05-24 |
+| Cold Start UX backlog documented â€” keep-alive ping + progressive UI options captured in ROADMAP | 2026-05-24 |
+| Pull-to-refresh UX â€” custom swipe gesture, no white screen, animated sync button, blocked native reload | 2026-05-24 |
+| Analysis tab on TransactionsPage â€” notes with add/edit/delete, IST timestamp, localStorage | 2026-05-24 |
+| Today/Total gain labels on all cards (overview + holdings); compact number format (â‚¹23.4K) | 2026-05-24 |
+| FastAPI backend â€” `/api/portfolio` + `/api/history` | 2026-05-23 |
+| React frontend â€” all 4 pages (Portfolios, Holdings, Transactions, Summary) | 2026-05-23 |
+| Vercel deployment (frontend) | 2026-05-24 |
+| Render deployment (backend) | 2026-05-24 |
+| PWA manifest â€” standalone home screen install | 2026-05-24 |
+| Drop Streamlit â€” React+FastAPI only | 2026-05-24 |
+| Fix P&L double-count (SKIP_PORTS in engine totals + PortfoliosPage) | 2026-05-24 |
+| Stocks + MF tiles with today % and XIRR on PortfoliosPage | 2026-05-24 |
+| By Broker / By Type breakdown toggle on PortfoliosPage | 2026-05-24 |
+| XIRR per portfolio + segment in bundle (xirr_total/stk/mf/by_portfolio) | 2026-05-24 |
+| HoldingsPage Charts tab â€” 7 historical line charts, client-side XIRR trend, segmented range control | 2026-05-24 |
+| PortfoliosPage UI cleanup â€” IST time, bigger labels, Stocks/MF tiles match hero layout | 2026-05-24 |
+| SummaryPage removed (dead/unreachable) | 2026-05-24 |
+| XIRR on HoldingCard + Overview BreakCards (client-side, Ã—100 fix) | 2026-05-24 |
+| TransactionsPage Charts tab â€” 8 metrics (Price + 7 historical series scoped to holding) | 2026-05-24 |
+| PriceChart range selector (1mâ€“All) | 2026-05-24 |
+| HoldingsPage sort control â€” 7 fields, asc/desc | 2026-05-24 |
+| Overview By Type as default breakdown | 2026-05-24 |
+| TransactionsPage back label via nav state; header shows company name only | 2026-05-24 |
