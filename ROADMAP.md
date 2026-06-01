@@ -36,10 +36,20 @@
 
 ---
 
+## Backlog — Report Tab Redesign
+
+| # | Item | Notes | Status |
+|---|------|-------|--------|
+| 1 | Report tab redesign | Plan ready: extend quickstats (7 new fields: D/E, ROE, margin, EPS, rev growth, P/B, PEG); Research Links section (Screener/Trendlyne/NSE for Indian, Finviz/Macrotrends/EDGAR for US); 4 Perplexity cards with Copy Prompt; see plan file | pending |
+
+---
+
 ## Done
 
 | Item | Completed |
 |------|-----------|
+| HoldingsPage search/filter — search input (name/symbol) + sector dropdown + sort in single strip row; count in placeholder; `visibleRows` memo; `symbolSectorMap` for open+closed | 2026-06-01 |
+| HoldingsPage Allocation tab rows clickable — By Sector, By Market Cap, Concentration rows navigate to TransactionsPage; matches Benchmarking tab behaviour | 2026-06-01 |
 | TxRow 2-column mobile layout — 3-col → 2-col grid; left=Date+Invested, right=stacked gains; fixes truncation on 412px | 2026-06-01 |
 | PriceChart BUY/SELL dot size by txn value — radius scales r=3→r=10 based on qty×price; buyR/sellR on ChartPoint | 2026-06-01 |
 | Closed holdings charts — `holdingArrForCharts` synthetic Holding[] in TransactionsPage; yf_symbol from first transaction; all 7 historical metrics now render for fully exited positions | 2026-06-01 |
