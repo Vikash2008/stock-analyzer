@@ -196,6 +196,9 @@ export default function HoldingsPage({ currency }: Props) {
   const [sortField,   setSortField]   = useState<SortField>('current')
   const [sortDir,     setSortDir]     = useState<'desc' | 'asc'>('desc')
   const [sortOpen,    setSortOpen]    = useState(false)
+  const [searchQuery,  setSearchQuery]  = useState('')
+  const [sectorFilter, setSectorFilter] = useState<SectorKey | 'all'>('all')
+  const [sectorOpen,   setSectorOpen]   = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [showClosed,   setShowClosed]   = useState(false)
   const [syncing,        setSyncing]        = useState(false)
@@ -699,6 +702,46 @@ export default function HoldingsPage({ currency }: Props) {
     return open
   }, [rows, closedRowsWithLtp, holdingFilter, showClosed, sortField, sortDir, xirrMap])
 
+  const symbolSectorMap = useMemo(() => {
+    const map = new Map<string, SectorKey>()
+    for (const h of filteredHoldings) map.set(h.symbol, getSectorForHolding(h.yf_symbol))
+    if (data) {
+      const symToYf = new Map<string, string>()
+      for (const tx of data.transactions) symToYf.set(tx.symbol, tx.yf_symbol)
+      for (const r of closedRows) {
+        if (!map.has(r.navSym)) {
+          const yf = symToYf.get(r.navSym) ?? r.navSym
+          map.set(r.navSym, getSectorForHolding(yf))
+        }
+      }
+    }
+    return map
+  }, [filteredHoldings, closedRows, data])
+
+  const availableSectors = useMemo((): SectorKey[] => {
+    const sectors = new Set<SectorKey>()
+    for (const r of sortedRows) {
+      const sec = symbolSectorMap.get(r.navSym)
+      if (sec) sectors.add(sec)
+    }
+    return [...sectors].sort()
+  }, [sortedRows, symbolSectorMap])
+
+  const visibleRows = useMemo(() => {
+    let result = sortedRows
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase()
+      result = result.filter(r =>
+        r.ticker.toLowerCase().includes(q) ||
+        r.subLabel.toLowerCase().includes(q)
+      )
+    }
+    if (sectorFilter !== 'all') {
+      result = result.filter(r => symbolSectorMap.get(r.navSym) === sectorFilter)
+    }
+    return result
+  }, [sortedRows, searchQuery, sectorFilter, symbolSectorMap])
+
   const summaryXirr = useMemo(() => {
     if (!data) return null
     if (portfolio) return data.xirr_by_portfolio[portfolio] ?? null
@@ -1136,18 +1179,65 @@ export default function HoldingsPage({ currency }: Props) {
           </div>
         </div>
       )}
-      {/* Holdings strip — filter + sort */}
+      {/* Holdings strip — search + sector + sort (single row) */}
       {activeTab === 'holdings' && (
         <div className="bg-teal-50 border border-teal-100 rounded-xl px-2.5 py-1.5 mt-2">
-          <div className="flex items-center justify-between gap-2">
-            {/* Count */}
-            <span className="text-[10px] text-green-700">
-              {holdingFilter === 'open'   ? `${rows.length} open` :
-               holdingFilter === 'closed' ? `${closedRows.length} closed` :
-               (rows.length && closedRows.length)
-                 ? `${rows.length} open · ${closedRows.length} closed`
-                 : rows.length ? `${rows.length} open` : `${closedRows.length} closed`}
-            </span>
+          <div className="flex items-center gap-1.5">
+            <div className="flex-1 relative">
+              <svg className="absolute left-2 top-1/2 -translate-y-1/2 text-teal-600 pointer-events-none" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder={`Search name or symbol (${
+                  holdingFilter === 'open'   ? `${rows.length} open` :
+                  holdingFilter === 'closed' ? `${closedRows.length} closed` :
+                  (rows.length && closedRows.length)
+                    ? `${rows.length} open · ${closedRows.length} closed`
+                    : rows.length ? `${rows.length} open` : `${closedRows.length} closed`
+                } holdings)`}
+                className="w-full pl-6 pr-6 py-[3px] text-[10px] bg-white border border-slate-200 rounded-full outline-none focus:border-teal-400 text-slate-700 placeholder-slate-300"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 active:text-slate-500">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
+              )}
+            </div>
+            {/* Sector filter */}
+            <div className="relative shrink-0">
+              <button
+                onClick={() => setSectorOpen(o => !o)}
+                className={`flex items-center gap-0.5 text-[10px] px-2 py-[3px] rounded-full border transition-colors whitespace-nowrap ${sectorFilter !== 'all' ? 'bg-teal-500 text-white border-teal-600' : 'bg-white text-teal-600 font-medium border-slate-200'}`}
+              >
+                <span>{sectorFilter === 'all' ? 'Sector' : sectorFilter}</span>
+                <span className="text-[8px] leading-none">▾</span>
+              </button>
+              {sectorOpen && (
+                <>
+                  <div className="fixed inset-0 z-[9]" onClick={() => setSectorOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-10 py-1 min-w-[120px] max-h-[220px] overflow-y-auto">
+                    <button
+                      onClick={() => { setSectorFilter('all'); setSectorOpen(false) }}
+                      className={`w-full text-left px-3 py-1.5 text-[10px] ${sectorFilter === 'all' ? 'text-teal-600 font-semibold' : 'text-slate-600'}`}
+                    >
+                      All Sectors
+                    </button>
+                    {availableSectors.map(s => (
+                      <button
+                        key={s}
+                        onClick={() => { setSectorFilter(s); setSectorOpen(false) }}
+                        className={`w-full text-left px-3 py-1.5 text-[10px] ${sectorFilter === s ? 'text-teal-600 font-semibold' : 'text-slate-600'}`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
             {/* Sort */}
             <div className="relative shrink-0">
               <button onClick={() => setSortOpen(o => !o)} className="flex items-center gap-1 text-[10px] text-teal-600 font-medium">
@@ -1225,7 +1315,7 @@ export default function HoldingsPage({ currency }: Props) {
       {activeTab === 'holdings' && (
         <div>
           <div className="space-y-2">
-            {sortedRows.map(r => (
+            {visibleRows.map(r => (
               <HoldingCard
                 key={r.key}
                 ticker={r.ticker}
@@ -1457,7 +1547,7 @@ export default function HoldingsPage({ currency }: Props) {
                                   const xirrColor = hXirr !== null ? (hXirr >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
                                   const todayColor = r.todayPct !== null ? (r.todayPct >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
                                   return (
-                                    <div key={r.key} className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-2 py-1.5">
+                                    <button key={r.key} className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-2 py-1.5 w-full text-left active:opacity-60" onClick={() => { sessionStorage.setItem(`holdingsScroll:${location.pathname}`, String(window.scrollY)); navigate(`/transactions/${encodeURIComponent(r.navPort)}/${encodeURIComponent(r.navSym)}`, { state: { from: label, portfolios: r.portfolios } }) }}>
                                       <div className="flex-1 min-w-0">
                                         <span className="text-[10px] text-slate-600 truncate block">{r.subLabel || r.ticker}</span>
                                       </div>
@@ -1469,7 +1559,7 @@ export default function HoldingsPage({ currency }: Props) {
                                         {r.todayGain !== null ? `${fmtTodayGain(r.todayGain)}${r.todayPct !== null ? ` (${r.todayPct >= 0 ? '+' : ''}${r.todayPct.toFixed(1)}%)` : ''}` : '—'}
                                       </span>
                                       <span className="w-[8px]" />
-                                    </div>
+                                    </button>
                                   )
                                 })}
                               </div>
@@ -1545,7 +1635,7 @@ export default function HoldingsPage({ currency }: Props) {
                                   const xirrColor = hXirr !== null ? (hXirr >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
                                   const todayColor = r.todayPct !== null ? (r.todayPct >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
                                   return (
-                                    <div key={r.key} className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-2 py-1.5">
+                                    <button key={r.key} className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-2 py-1.5 w-full text-left active:opacity-60" onClick={() => { sessionStorage.setItem(`holdingsScroll:${location.pathname}`, String(window.scrollY)); navigate(`/transactions/${encodeURIComponent(r.navPort)}/${encodeURIComponent(r.navSym)}`, { state: { from: label, portfolios: r.portfolios } }) }}>
                                       <div className="flex-1 min-w-0">
                                         <span className="text-[10px] text-slate-600 truncate block">{r.subLabel || r.ticker}</span>
                                       </div>
@@ -1557,7 +1647,7 @@ export default function HoldingsPage({ currency }: Props) {
                                         {r.todayGain !== null ? `${fmtTodayGain(r.todayGain)}${r.todayPct !== null ? ` (${r.todayPct >= 0 ? '+' : ''}${r.todayPct.toFixed(1)}%)` : ''}` : '—'}
                                       </span>
                                       <span className="w-[8px]" />
-                                    </div>
+                                    </button>
                                   )
                                 })}
                               </div>
@@ -1618,7 +1708,17 @@ export default function HoldingsPage({ currency }: Props) {
                               const entryXirr = entry.key ? allocXirrMap.get(entry.key) ?? null : null
                               const xirrColor = entryXirr !== null ? (entryXirr >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
                               return (
-                                <div key={i} className="flex items-center gap-2">
+                                <button
+                                  key={i}
+                                  className={`flex items-center gap-2 w-full text-left ${entry.key ? 'active:opacity-60' : ''}`}
+                                  onClick={() => {
+                                    if (!entry.key) return
+                                    const row = allocGroupedRows.find(r => r.key === entry.key)
+                                    if (!row) return
+                                    sessionStorage.setItem(`holdingsScroll:${location.pathname}`, String(window.scrollY))
+                                    navigate(`/transactions/${encodeURIComponent(row.navPort)}/${encodeURIComponent(row.navSym)}`, { state: { from: label, portfolios: row.portfolios } })
+                                  }}
+                                >
                                   <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
                                   <span className="text-[10px] text-slate-600 flex-1 truncate">{entry.name}{entry.ticker ? ` · ${entry.ticker}` : ''}</span>
                                   <span className="text-[10px] font-medium text-slate-700 whitespace-nowrap">
@@ -1626,7 +1726,7 @@ export default function HoldingsPage({ currency }: Props) {
                                     {entryXirr !== null && <span className={`ml-1 ${xirrColor}`}>({entryXirr >= 0 ? '+' : ''}{entryXirr.toFixed(1)}%)</span>}
                                   </span>
                                   <span className="text-[10px] text-slate-400 whitespace-nowrap w-[36px] text-right">{totalValue > 0 ? `${(entry.value / totalValue * 100).toFixed(1)}%` : '—'}</span>
-                                </div>
+                                </button>
                               )
                             })}
                           </div>

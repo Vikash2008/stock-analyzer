@@ -113,11 +113,10 @@ def _get_scrip_code(symbol: str) -> str | None:
     return None
 
 
-def _fetch_from_bse(scrip_code: str) -> dict | None:
+def _bse_rows(scrip_code: str) -> list:
     today = datetime.now()
     start = (today - timedelta(days=180)).strftime("%Y%m%d")
     end   = today.strftime("%Y%m%d")
-
     url = (
         f"https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w"
         f"?strCat=-1&strPrevDate={start}&strScrip={scrip_code}"
@@ -126,35 +125,54 @@ def _fetch_from_bse(scrip_code: str) -> dict | None:
     data = json.loads(urllib.request.urlopen(
         urllib.request.Request(url, headers=_BSE_HDR), timeout=12
     ).read())
-    rows = data.get("Table", [])
+    return data.get("Table", [])
 
-    # Priority: Investor Presentation > Financial Results > Board Meeting with results in headline
-    target = None
-    for check in [
-        lambda r: r.get("SUBCATNAME") == "Investor Presentation",
-        lambda r: r.get("CATEGORYNAME") == "Result",
-        lambda r: "financial results" in (r.get("HEADLINE") or "").lower(),
-    ]:
+
+def _pick_target(rows: list, prefer_text: bool = False) -> dict | None:
+    """Select the best filing row. prefer_text=True picks smaller Financial Results over large PPT."""
+    if prefer_text:
+        priority = [
+            lambda r: r.get("CATEGORYNAME") == "Result",
+            lambda r: "financial results" in (r.get("HEADLINE") or "").lower(),
+            lambda r: r.get("SUBCATNAME") == "Investor Presentation",
+        ]
+    else:
+        priority = [
+            lambda r: r.get("SUBCATNAME") == "Investor Presentation",
+            lambda r: r.get("CATEGORYNAME") == "Result",
+            lambda r: "financial results" in (r.get("HEADLINE") or "").lower(),
+        ]
+    for check in priority:
         for r in rows:
             if check(r) and r.get("ATTACHMENTNAME"):
-                target = r
-                break
-        if target:
-            break
+                return r
+    return None
 
+
+def _download_pdf(attachment: str, max_bytes: int = 15_000_000) -> bytes:
+    """Download PDF from BSE, cap at max_bytes to avoid slow large files."""
+    pdf_url = f"https://www.bseindia.com/xml-data/corpfiling/AttachHis/{attachment}"
+    resp = urllib.request.urlopen(
+        urllib.request.Request(pdf_url, headers=_BSE_HDR), timeout=20
+    )
+    return resp.read(max_bytes)
+
+
+def _fetch_from_bse(scrip_code: str, prefer_text: bool = False) -> dict | None:
+    rows   = _bse_rows(scrip_code)
+    target = _pick_target(rows, prefer_text=prefer_text)
     if not target:
         return None
 
-    pdf_url = f"https://www.bseindia.com/xml-data/corpfiling/AttachHis/{target['ATTACHMENTNAME']}"
-    pdf_bytes = urllib.request.urlopen(
-        urllib.request.Request(pdf_url, headers=_BSE_HDR), timeout=30
-    ).read()
+    pdf_bytes = _download_pdf(target["ATTACHMENTNAME"])
 
-    # Extract plain text from PDF
+    # Extract plain text (first 30 pages to keep it fast)
     text = ""
     try:
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-            text = "\n".join(page.extract_text() or "" for page in pdf.pages).strip()
+            text = "\n".join(
+                page.extract_text() or "" for page in pdf.pages[:30]
+            ).strip()
     except Exception:
         pass
 
@@ -176,7 +194,7 @@ def serve_filing_text(symbol: str):
         scrip = _get_scrip_code(sym)
         if not scrip:
             raise HTTPException(status_code=404, detail=f"BSE scrip code not found for {sym}")
-        result = _fetch_from_bse(scrip)
+        result = _fetch_from_bse(scrip, prefer_text=True)
         if not result:
             raise HTTPException(status_code=404, detail=f"No quarterly filing found for {sym}")
         _cache[sym] = {**result, "ts": time.time()}

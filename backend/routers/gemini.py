@@ -45,21 +45,30 @@ async def gemini_query(req: GeminiRequest):
     if not req.force_refresh and key in _cache and time.time() - _cache[key][1] < _TTL:
         return _cache[key][0]
 
-    api_key = os.environ.get("GEMINI_API_KEY", "")
+    # Always prefer .env value so key rotations take effect without restart
+    api_key = ""
+    try:
+        for _line in (Path(__file__).resolve().parent.parent.parent / ".env").read_text().splitlines():
+            if _line.startswith("GEMINI_API_KEY="):
+                api_key = _line.split("=", 1)[1].strip()
+                break
+    except Exception:
+        pass
     if not api_key:
-        return JSONResponse({"error": "GEMINI_API_KEY not configured"}, status_code=500)
+        api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+        debug = f"checked {env_path} exists={env_path.exists()}"
+        return JSONResponse({"error": f"GEMINI_API_KEY not configured — {debug}"}, status_code=500)
 
     try:
-        client = genai.Client(api_key=api_key)
+        client = genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
         loop = asyncio.get_running_loop()
 
         def _call():
             return client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-3.1-flash-lite",
                 contents=req.prompt,
-                config=genai_types.GenerateContentConfig(
-                    tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
-                ),
             )
 
         resp = await asyncio.wait_for(loop.run_in_executor(None, _call), timeout=25.0)
@@ -81,5 +90,6 @@ async def gemini_query(req: GeminiRequest):
     except Exception as exc:
         msg = str(exc)
         if "429" in msg or "quota" in msg.lower() or "resource_exhausted" in msg.lower():
-            return JSONResponse({"error": "Daily quota exceeded — try again tomorrow or enable billing at aistudio.google.com"}, status_code=429)
-        return JSONResponse({"error": msg[:120]}, status_code=500)
+            hint = "daily limit reached — try tomorrow" if "per_day" in msg.lower() or "perday" in msg.lower() else "rate limit — wait ~1 min and retry"
+            return JSONResponse({"error": f"Gemini quota: {hint}"}, status_code=429)
+        return JSONResponse({"error": msg[:300]}, status_code=500)
