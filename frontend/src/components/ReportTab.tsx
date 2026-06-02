@@ -1,8 +1,11 @@
 import React from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import type { QuickStats } from '../api/types'
-import { SECTIONS, buildPerplexityUrl, buildFullReportUrl } from '../utils/reportLinks'
+import { SECTIONS, buildGeminiPrompt } from '../utils/reportLinks'
+import { fetchGeminiSection, type GeminiResponse } from '../api/gemini'
 
 const API_URL = (import.meta.env.VITE_API_URL ?? '') as string
 
@@ -54,6 +57,48 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
   const displayName = name || yf_symbol
   const qc = useQueryClient()
   const [syncing, setSyncing] = React.useState(false)
+
+  type SectionState = 'idle' | 'loading' | 'error' | { text: string; sources: string[] }
+  const [sectionStates, setSectionStates] = React.useState<Record<string, SectionState>>({})
+  const [elapsed, setElapsed] = React.useState<Record<string, number>>({})
+  const timerRefs = React.useRef<Record<string, ReturnType<typeof setInterval>>>({})
+
+  React.useEffect(() => {
+    const initial: Record<string, SectionState> = {}
+    for (const s of SECTIONS) {
+      const stored = localStorage.getItem(`gemini:${yf_symbol}:${s.id}`)
+      if (stored) {
+        try { initial[s.id] = JSON.parse(stored) } catch {}
+      }
+    }
+    setSectionStates(Object.keys(initial).length ? initial : {})
+  }, [yf_symbol])
+
+  async function handleGenerate(sectionId: string, force = false) {
+    setSectionStates(prev => ({ ...prev, [sectionId]: 'loading' }))
+    setElapsed(prev => ({ ...prev, [sectionId]: 0 }))
+    clearInterval(timerRefs.current[sectionId])
+    timerRefs.current[sectionId] = setInterval(() => {
+      setElapsed(prev => ({ ...prev, [sectionId]: (prev[sectionId] ?? 0) + 1 }))
+    }, 1000)
+
+    // yield to renderer so loading state paints before fetch starts
+    await new Promise(r => setTimeout(r, 50))
+
+    const symbol = yf_symbol.replace(/\.(NS|BO)$/i, '')
+    const prompt = buildGeminiPrompt(displayName, sectionId, isIndian, yf_symbol, API_URL)
+    try {
+      const result: GeminiResponse = await fetchGeminiSection(symbol, sectionId, prompt, force)
+      clearInterval(timerRefs.current[sectionId])
+      if (result.error) throw new Error(result.error)
+      const state = { text: result.text ?? '', sources: result.sources ?? [] }
+      setSectionStates(prev => ({ ...prev, [sectionId]: state }))
+      localStorage.setItem(`gemini:${yf_symbol}:${sectionId}`, JSON.stringify(state))
+    } catch {
+      clearInterval(timerRefs.current[sectionId])
+      setSectionStates(prev => ({ ...prev, [sectionId]: 'error' }))
+    }
+  }
 
   async function handleSync() {
     setSyncing(true)
@@ -300,42 +345,108 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
       </div>
 
       {SECTIONS.map(section => {
-        let href = buildPerplexityUrl(displayName, section.id, isIndian, yf_symbol)
-        if (section.id === 'results' && isIndian) {
-          const cleanSym = yf_symbol.replace(/\.(NS|BO)$/i, '')
-          const filingUrl = `${API_URL}/api/filing/${cleanSym}`
-          const prompt = `${filingUrl}\n\nAnalyze this quarterly earnings filing for ${displayName}. Write as a buy-side analyst — no preamble, output directly:\n- Executive summary (3 lines)\n- Quarter scorecard table: Revenue, Net Profit, EPS, Key Margin — with YoY and QoQ\n- Segment performance\n- What went well (exact numbers)\n- What was weak / concerning (exact numbers)\n- Management guidance\n- Key risks\n- Verdict: Very Strong / Strong / Mixed / Weak`
-          href = `https://www.perplexity.ai/search?q=${encodeURIComponent(prompt)}`
-        }
+        const state = sectionStates[section.id] ?? 'idle'
+        const isDone = typeof state === 'object'
         return (
-        <a
-          key={section.id}
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-start justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5 active:bg-slate-50 no-underline"
-        >
-          <div className="flex items-start gap-2.5 min-w-0">
-            <span className="text-[18px] shrink-0 mt-0.5 leading-none">{section.emoji}</span>
-            <div className="min-w-0">
-              <div className="text-[12px] font-semibold text-slate-800">{section.label}</div>
-              <div className="text-[10px] text-slate-400 mt-0.5">{section.description}</div>
+          <div key={section.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <div className="flex items-start justify-between px-3 py-2.5">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <span className="text-[18px] shrink-0 mt-0.5 leading-none">{section.emoji}</span>
+                <div className="min-w-0">
+                  <div className="text-[12px] font-semibold text-slate-800">{section.label}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">{section.description}</div>
+                </div>
+              </div>
+              {isDone ? (
+                <button
+                  onClick={() => handleGenerate(section.id, true)}
+                  className="text-slate-400 text-[16px] shrink-0 ml-2 active:text-[#2563eb] p-2"
+                  title="Refresh"
+                >↻</button>
+              ) : (
+                <button
+                  onClick={() => handleGenerate(section.id)}
+                  disabled={state === 'loading'}
+                  className={`shrink-0 ml-3 mt-0.5 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+                    state === 'loading'
+                      ? 'text-slate-400 border-slate-200 pointer-events-none'
+                      : state === 'error'
+                      ? 'text-red-500 border-red-200 active:bg-red-50'
+                      : 'text-[#2563eb] border-[#2563eb] active:bg-blue-50'
+                  }`}
+                >
+                  {state === 'loading' ? '…' : state === 'error' ? 'Retry' : 'Generate'}
+                </button>
+              )}
             </div>
+            {state === 'loading' && (
+              <div className="px-3 pb-3 border-t border-slate-100 pt-3 space-y-2">
+                <div className="h-0.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full w-2/5 bg-[#2563eb] rounded-full"
+                       style={{ animation: 'qs-progress 1.2s ease-in-out infinite' }} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-slate-500">🔍 Searching the web with Gemini…</span>
+                  <span className="text-[11px] font-medium text-[#2563eb] tabular-nums">
+                    {elapsed[section.id] ?? 0}s
+                  </span>
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  {(elapsed[section.id] ?? 0) < 5
+                    ? 'Querying live sources…'
+                    : (elapsed[section.id] ?? 0) < 12
+                    ? 'Reading search results…'
+                    : 'Composing answer…'}
+                </div>
+              </div>
+            )}
+            {isDone && (
+              <div className="px-3 pb-3 border-t border-slate-100 pt-2.5">
+                <div className="gemini-md text-[11px] text-slate-700 leading-relaxed">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+                    h1: ({children}) => <h1 className="text-[13px] font-bold text-slate-800 mt-2 mb-1">{children}</h1>,
+                    h2: ({children}) => <h2 className="text-[12px] font-bold text-slate-800 mt-2 mb-1">{children}</h2>,
+                    h3: ({children}) => <h3 className="text-[11px] font-semibold text-slate-700 mt-1.5 mb-0.5">{children}</h3>,
+                    p:  ({children}) => <p className="mb-1.5">{children}</p>,
+                    ul: ({children}) => <ul className="list-disc list-outside pl-4 mb-1.5 space-y-0.5">{children}</ul>,
+                    ol: ({children}) => <ol className="list-decimal list-outside pl-4 mb-1.5 space-y-0.5">{children}</ol>,
+                    li: ({children}) => <li className="text-[11px]">{children}</li>,
+                    strong: ({children}) => <strong className="font-semibold text-slate-800">{children}</strong>,
+                    table: ({children}) => (
+                      <div className="overflow-x-auto my-2">
+                        <table className="w-full border-collapse text-[10px]">{children}</table>
+                      </div>
+                    ),
+                    thead: ({children}) => <thead className="bg-slate-100">{children}</thead>,
+                    tbody: ({children}) => <tbody className="divide-y divide-slate-100">{children}</tbody>,
+                    th: ({children}) => <th className="px-2 py-1 text-left font-semibold text-slate-600 whitespace-nowrap border border-slate-200">{children}</th>,
+                    td: ({children}) => <td className="px-2 py-1 text-slate-700 border border-slate-200">{children}</td>,
+                    hr: () => <hr className="my-2 border-slate-200" />,
+                  }}>
+                    {state.text}
+                  </ReactMarkdown>
+                </div>
+                {state.sources.length > 0 && (
+                  <div className="space-y-1 pt-1">
+                    <div className="text-[9px] text-slate-400 uppercase tracking-wide">Sources</div>
+                    {state.sources.slice(0, 5).map((src, i) => (
+                      <a
+                        key={i}
+                        href={src}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block text-[10px] text-[#2563eb] truncate"
+                      >
+                        {src}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <span className="text-slate-400 text-[14px] mt-0.5 shrink-0 ml-3">↗</span>
-        </a>
         )
       })}
-
-      {/* ── Full Report button ───────────────────────────────── */}
-      <a
-        href={buildFullReportUrl(displayName, isIndian, yf_symbol)}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center justify-center gap-2 w-full rounded-xl border border-[#2563eb] text-[#2563eb] bg-white py-2.5 text-[12px] font-semibold active:bg-blue-50 no-underline mt-1"
-      >
-        Open Full Report in Perplexity ↗
-      </a>
 
       {qs?.partial && (
         <p className="text-[10px] text-slate-400 text-center pb-1">

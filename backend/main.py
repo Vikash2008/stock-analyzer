@@ -18,6 +18,7 @@ from backend.routers.portfolio   import router as portfolio_router
 from backend.routers.history     import router as history_router
 from backend.routers.quickstats  import router as quickstats_router
 from backend.routers.filing      import router as filing_router
+from backend.routers.gemini      import router as gemini_router
 
 _ORIGINS = [
     "http://localhost:3000",
@@ -32,7 +33,7 @@ app = FastAPI(title="Stock Analyzer API", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_ORIGINS,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -40,6 +41,7 @@ app.include_router(portfolio_router)
 app.include_router(history_router)
 app.include_router(quickstats_router)
 app.include_router(filing_router)
+app.include_router(gemini_router)
 
 @app.get("/health")
 def health():

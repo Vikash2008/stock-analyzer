@@ -83,16 +83,24 @@ function buildQuery(template: string, name: string, symbol = ''): string {
   return template.replace(/\{name\}/g, name).replace(/\{symbol\}/g, symbol)
 }
 
-export function buildPerplexityUrl(name: string, sectionId: string, isIndian: boolean, yf_symbol = ''): string {
-  const section = SECTIONS.find(s => s.id === sectionId)
-  if (!section) return 'https://www.perplexity.ai'
-  const template = isIndian ? section.query.indian : section.query.us
-  const symbol = yf_symbol.replace(/\.(NS|BO)$/i, '')
-  return `https://www.perplexity.ai/search?q=${encodeURIComponent(buildQuery(template, name, symbol))}`
-}
+const FORMAT_SUFFIX = '\n\nFormatting rules (strict): use markdown tables with bold column headers for any structured data; use ## bold section headers; bullet points for lists; lead every number with the exact figure. No preamble, no "here is", no verbose prose. Crisp and dense — numbers over words.'
 
-export function buildFullReportUrl(name: string, isIndian: boolean, yf_symbol = ''): string {
-  const ctx = isIndian ? 'FY2025 India' : 'latest fiscal year US'
-  const q = `${name} comprehensive investment analysis ${ctx}: business model and revenue segments with exact figures, latest quarterly results and concall highlights, segment-wise growth rates, growth catalysts, key risks, industry outlook, valuation vs peers — structured bullet points`
-  return `https://www.perplexity.ai/search?q=${encodeURIComponent(q)}`
+export function buildGeminiPrompt(
+  name: string,
+  sectionId: string,
+  isIndian: boolean,
+  yf_symbol = '',
+  apiUrl = ''
+): string {
+  const section = SECTIONS.find(s => s.id === sectionId)
+  if (!section) return name
+  const symbol = yf_symbol.replace(/\.(NS|BO)$/i, '')
+
+  if (sectionId === 'results' && isIndian && apiUrl) {
+    const filingUrl = `${apiUrl}/api/filing/${symbol}/text`
+    return `The following URL contains the plain text of ${name}'s latest quarterly earnings filing:\n${filingUrl}\n\nAnalyze this filing as a buy-side analyst — no preamble, output directly:\n- Executive summary (3 lines)\n- Quarter scorecard table: Revenue, Net Profit, EPS, Key Margins — with YoY% and QoQ% columns\n- Segment performance table\n- What went well (exact numbers)\n- What was weak / concerning (exact numbers)\n- Management guidance\n- Key risks\n- Verdict: Very Strong / Strong / Mixed / Weak${FORMAT_SUFFIX}`
+  }
+
+  const template = isIndian ? section.query.indian : section.query.us
+  return buildQuery(template, name, symbol) + FORMAT_SUFFIX
 }
