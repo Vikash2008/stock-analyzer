@@ -32,7 +32,8 @@ backend/
     portfolio.py            GET /api/portfolio?currency=INR&force_refresh=false
     history.py              GET /api/history?yf_symbol=INFY.NS&start=YYYY-MM-DD OR ?period=1d (intraday; timestamps in IST; includes prev_close)
     quickstats.py           GET /api/quickstats?yf_symbol=...&force_refresh=false (fundamentals + analyst; 60s mem + 24h disk per-symbol); Indian stocks: Screener.in scrape overrides PE/PB/ROCE/ROE/DivYield/MCap/52W + Compounded Sales/Profit Growth 3Y+TTM; US stocks: yfinance + _compute_roce() + _compute_growth_3y() from income_stmt + _fetch_macrotrends_pe() for PE history; PEG fallback = PE/(earningsGrowth×100) when yfinance null; fields: trailing_pe, forward_pe, price_to_book, peg_ratio, debt_to_equity, return_on_equity, return_on_assets, roce, profit_margins, trailing_eps, revenue_growth, revenue_growth_3y, earnings_growth, earnings_growth_3y, dividend_yield, beta, market_cap, week_52_*, recommendation, target_mean_price, upside_pct, pe_history
-    filing.py               GET /api/filing/{symbol} — serves latest quarterly investor presentation PDF from BSE (downloads with proper headers, caches 2h in-memory); GET /api/filing/{symbol}/text — same but returns plain text extracted by pdfplumber (prefers Financial Results PDF over large PPT; first 30 pages; 15MB cap); scrip code from hardcoded map (50+ stocks) or BSE dynamic lookup; used to serve PDF to Perplexity
+    filing.py               GET /api/filing/{symbol} — serves latest quarterly investor presentation PDF from BSE (downloads with proper headers, caches 2h in-memory); GET /api/filing/{symbol}/text — same but returns plain text extracted by pdfplumber (prefers Financial Results PDF over large PPT; first 30 pages; 15MB cap); scrip code from hardcoded map (50+ stocks) or BSE dynamic lookup
+    gemini.py               POST /api/gemini — calls Gemini 2.5 Flash (google-genai SDK) with Google Search grounding; body: {symbol, section_id, prompt, force_refresh?}; returns {text, sources[]}; 1h in-memory cache per (symbol, section_id); GEMINI_API_KEY env var
   requirements_backend.txt  Backend-only deps
 
 frontend/
@@ -49,14 +50,15 @@ frontend/
     utils/realized.ts            _agg_realized() TypeScript port
     utils/xirr.ts                Client-side XIRR (bisection + Newton fallback)
     utils/sectors.ts             SYMBOL_SECTOR (170+ symbols → SectorKey incl. all MF funds + closed positions), SECTOR_COLOR, SECTOR_BENCHMARK, BENCHMARK_LABEL, getSectorForHolding(); 11 sectors: Banking/Finance/Healthcare/IT/Growth/Tech/Smallcap/Equity/Consumer/Global/Other; Global=#6366f1 ^GSPC (S&P 500-themed MFs); Consumer=#ec4899 ^CNXFMCG; Smallcap=NIFTY_MIDCAP_100.NS; all 70 MF symbols classified; MarketCapKey, MARKET_CAP_COLOR, SYMBOL_MARKET_CAP, getMarketCapForHolding()
-    utils/reportLinks.ts         SECTIONS (7 configs incl. Revenue Segments), buildPerplexityUrl(name, sectionId, isIndian, yf_symbol?), buildFullReportUrl(name, isIndian, yf_symbol?)
-    components/             LoadingSkeleton, SummaryCard, HoldingCard, TxRow, PriceChart, AnalysisTab, ReportTab (Quick Stats 4×4 grid + 52W bar + analyst + PE History chart + Revenue Segments card [US only] + 7 Perplexity section links)
+    api/gemini.ts                fetchGeminiSection(symbol, sectionId, prompt, forceRefresh?) → GeminiResponse {text, sources[]}
+    utils/reportLinks.ts         SECTIONS (7 configs), buildGeminiPrompt(name, sectionId, isIndian, yf_symbol?, apiUrl?) — returns raw prompt string with FORMAT_SUFFIX appended; results section on Indian stocks embeds filing text URL
+    components/             LoadingSkeleton, SummaryCard, HoldingCard, TxRow, PriceChart, AnalysisTab, ReportTab (Quick Stats 4×4 grid + 52W bar + analyst + PE History chart + 7 inline Gemini cards with elapsed timer + markdown rendering via react-markdown + remark-gfm)
     pages/                  PortfoliosPage, HoldingsPage, TransactionsPage
     App.tsx                 React Router routes
   public/
     manifest.json           PWA manifest (standalone display mode)
     icon.svg                App icon — dark bg + green chart line
-  package.json              react 18, react-router-dom 6, @tanstack/react-query 5, recharts 2, @nivo/sunburst, @nivo/core, @tanstack/react-query-persist-client, @tanstack/query-sync-storage-persister, vite-plugin-pwa
+  package.json              react 18, react-router-dom 6, @tanstack/react-query 5, recharts 2, @nivo/sunburst, @nivo/core, @tanstack/react-query-persist-client, @tanstack/query-sync-storage-persister, vite-plugin-pwa, react-markdown, remark-gfm
   vite.config.ts            /api proxy → localhost:8000 in dev; VitePWA plugin (autoUpdate, Workbox precache)
   .env.production           VITE_API_URL=https://stock-analyzer-2nqw.onrender.com
   index.html                PWA meta tags + manifest link
@@ -105,6 +107,7 @@ msp_v2.csv
 | GET | `/api/quickstats` | `yf_symbol`, `force_refresh=false` | P/E, MCap, 52W range, analyst target from ticker.info; 60s in-memory + 24h per-symbol disk cache |
 | GET | `/api/filing/{symbol}` | — | Latest quarterly investor presentation PDF from BSE; 2h in-memory cache |
 | GET | `/api/filing/{symbol}/text` | — | Same filing as plain text (pdfplumber); prefers Financial Results PDF; 15MB cap; 30 pages max |
+| POST | `/api/gemini` | body: `{symbol, section_id, prompt, force_refresh?}` | Calls Gemini 2.5 Flash with Google Search grounding; 1h cache per (symbol, section_id); force_refresh bypasses cache; GEMINI_API_KEY env var required |
 | GET | `/health` | — | Returns `{"status":"ok"}`; used by keep-alive cron |
 
 ---

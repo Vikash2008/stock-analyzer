@@ -44,7 +44,7 @@
 | 2 | Report tab — Revenue Segments Perplexity card | Direct search query (no doc URL); `site:nsearchives.nseindia.com` for Indian; table format instruction; PDF reading limitation noted | done |
 | 3 | Report tab — Revenue Segments US stocks (SEC EDGAR) | Abandoned — FilingSummary.xml keyword match worked but parsed garbage numbers; removed from UI and backend | dropped |
 | 4 | Report tab — Revenue Segments Indian stocks (Screener.in) | Screener consolidated page has segment HTML tables; backend scrape similar to existing `_fetch_screener()`; PDF parsing avoided | pending |
-| 7 | Report tab — BSE filing proxy for Latest Results | `/api/filing/{symbol}` (PDF) + `/api/filing/{symbol}/text` (plain text) live; "Latest Results & Concall" for Indian stocks now embeds Render text URL in Perplexity prompt; pre-warming on Report tab open pending | in-progress |
+| 7 | Report tab — Gemini 2.5 Flash inline answers | Perplexity replaced; POST /api/gemini with Google Search grounding; react-markdown rendering; elapsed timer; force-refresh on ↻; localStorage cache per section | done |
 | 5 | Report tab — Section 2 Research Links | Screener/Trendlyne/NSE pills for Indian; Finviz/Macrotrends/EDGAR for US | pending |
 | 6 | Report tab — Phase 2 Claude API | AI-generated qualitative sections | pending |
 | 5 | Report tab — Phase 2 Claude API | AI-generated qualitative sections | pending |
@@ -55,6 +55,7 @@
 
 | Item | Completed |
 |------|-----------|
+| Report tab — Gemini 2.5 Flash inline answers replacing Perplexity; POST /api/gemini (google-genai + Google Search grounding); react-markdown + remark-gfm rendering; elapsed timer; force-refresh ↻; localStorage cache per section | 2026-06-02 |
 | Report tab Section 1 — 4×4 fundamentals grid; Screener.in data source; PEG fallback computation; D/E; Rev 1Y/3Y + EPS 1Y/3Y from Screener compounded growth + yfinance 3Y CAGR; loading progress bar; PE History 5Y chart from Macrotrends (US only) | 2026-06-02 |
 | Report tab Revenue Segments card — new 7th Perplexity section; targeted web search query with site: operators; table format; PDF limitation documented | 2026-06-02 |
 | Report tab Section 1 — 3×4 fundamentals grid; Screener.in data source for Indian stocks; 9 new quickstats fields (ROCE, ROE, ROA, margins, EPS, rev growth, P/B, PEG); ↻ sync button + source link | 2026-06-01 |
