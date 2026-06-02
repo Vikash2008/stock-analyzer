@@ -44,6 +44,13 @@ function colorNum(v: number | null | undefined): string {
   return v >= 0 ? '#0a7a42' : '#be1c1c'
 }
 
+function fmtSavedAt(ts: number | undefined): string {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  return `${d.getDate()} ${months[d.getMonth()]}`
+}
+
 function recColor(rec: string | null): string {
   if (!rec) return '#94a3b8'
   const r = rec.toLowerCase()
@@ -58,8 +65,9 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
   const qc = useQueryClient()
   const [syncing, setSyncing] = React.useState(false)
 
-  type SectionState = 'idle' | 'loading' | 'error' | { text: string; sources: string[] }
+  type SectionState = 'idle' | 'loading' | { error: string } | { text: string; sources: string[]; savedAt?: number }
   const [sectionStates, setSectionStates] = React.useState<Record<string, SectionState>>({})
+  const [expandedSections, setExpandedSections] = React.useState<Record<string, boolean>>({})
   const [elapsed, setElapsed] = React.useState<Record<string, number>>({})
   const timerRefs = React.useRef<Record<string, ReturnType<typeof setInterval>>>({})
 
@@ -68,10 +76,18 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
     for (const s of SECTIONS) {
       const stored = localStorage.getItem(`gemini:${yf_symbol}:${s.id}`)
       if (stored) {
-        try { initial[s.id] = JSON.parse(stored) } catch {}
+        try {
+          const parsed = JSON.parse(stored)
+          if (parsed.savedAt && Date.now() - parsed.savedAt < 7 * 24 * 3600 * 1000) {
+            initial[s.id] = { text: parsed.text, sources: parsed.sources, savedAt: parsed.savedAt }
+          } else {
+            localStorage.removeItem(`gemini:${yf_symbol}:${s.id}`)
+          }
+        } catch {}
       }
     }
     setSectionStates(Object.keys(initial).length ? initial : {})
+    setExpandedSections({})
   }, [yf_symbol])
 
   async function handleGenerate(sectionId: string, force = false) {
@@ -91,12 +107,14 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
       const result: GeminiResponse = await fetchGeminiSection(symbol, sectionId, prompt, force)
       clearInterval(timerRefs.current[sectionId])
       if (result.error) throw new Error(result.error)
-      const state = { text: result.text ?? '', sources: result.sources ?? [] }
+      const savedAt = Date.now()
+      const state = { text: result.text ?? '', sources: result.sources ?? [], savedAt }
       setSectionStates(prev => ({ ...prev, [sectionId]: state }))
       localStorage.setItem(`gemini:${yf_symbol}:${sectionId}`, JSON.stringify(state))
-    } catch {
+    } catch (err) {
       clearInterval(timerRefs.current[sectionId])
-      setSectionStates(prev => ({ ...prev, [sectionId]: 'error' }))
+      const msg = err instanceof Error ? err.message : 'Request failed'
+      setSectionStates(prev => ({ ...prev, [sectionId]: { error: msg } }))
     }
   }
 
@@ -346,37 +364,57 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
 
       {SECTIONS.map(section => {
         const state = sectionStates[section.id] ?? 'idle'
-        const isDone = typeof state === 'object'
+        const isDone = typeof state === 'object' && 'text' in state
+        const isError = typeof state === 'object' && 'error' in state
+        const isExpanded = isDone && (expandedSections[section.id] ?? false)
         return (
           <div key={section.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-            <div className="flex items-start justify-between px-3 py-2.5">
-              <div className="flex items-start gap-2.5 min-w-0">
-                <span className="text-[18px] shrink-0 mt-0.5 leading-none">{section.emoji}</span>
+            <div className="flex items-center justify-between px-3 py-2.5 gap-2">
+              <button
+                className="flex items-center gap-2 min-w-0 flex-1 text-left active:opacity-60"
+                onClick={() => isDone && setExpandedSections(prev => ({ ...prev, [section.id]: !(prev[section.id] ?? false) }))}
+              >
+                <span className="text-[10px] text-slate-400 shrink-0 w-3 text-center">
+                  {isDone ? (isExpanded ? '▼' : '▶') : ''}
+                </span>
+                <span className="text-[18px] shrink-0 leading-none">{section.emoji}</span>
                 <div className="min-w-0">
                   <div className="text-[12px] font-semibold text-slate-800">{section.label}</div>
                   <div className="text-[10px] text-slate-400 mt-0.5">{section.description}</div>
                 </div>
-              </div>
+              </button>
               {isDone ? (
-                <button
-                  onClick={() => handleGenerate(section.id, true)}
-                  className="text-slate-400 text-[16px] shrink-0 ml-2 active:text-[#2563eb] p-2"
-                  title="Refresh"
-                >↻</button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="text-[9px] text-slate-400 whitespace-nowrap">
+                    Updated {fmtSavedAt((state as { savedAt?: number }).savedAt)}
+                  </span>
+                  <button
+                    onClick={() => handleGenerate(section.id, true)}
+                    className="text-slate-400 text-[14px] active:text-[#2563eb] p-2.5"
+                    title="Refresh"
+                  >↻</button>
+                </div>
               ) : (
-                <button
-                  onClick={() => handleGenerate(section.id)}
-                  disabled={state === 'loading'}
-                  className={`shrink-0 ml-3 mt-0.5 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
-                    state === 'loading'
-                      ? 'text-slate-400 border-slate-200 pointer-events-none'
-                      : state === 'error'
-                      ? 'text-red-500 border-red-200 active:bg-red-50'
-                      : 'text-[#2563eb] border-[#2563eb] active:bg-blue-50'
-                  }`}
-                >
-                  {state === 'loading' ? '…' : state === 'error' ? 'Retry' : 'Generate'}
-                </button>
+                <div className="shrink-0 flex flex-col items-end gap-0.5">
+                  <button
+                    onClick={() => handleGenerate(section.id)}
+                    disabled={state === 'loading'}
+                    className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+                      state === 'loading'
+                        ? 'text-slate-400 border-slate-200 pointer-events-none'
+                        : isError
+                        ? 'text-red-500 border-red-200 active:bg-red-50'
+                        : 'text-[#2563eb] border-[#2563eb] active:bg-blue-50'
+                    }`}
+                  >
+                    {state === 'loading' ? '…' : isError ? 'Retry' : 'Generate'}
+                  </button>
+                  {isError && (
+                    <span className="text-[9px] text-red-400 max-w-[130px] text-right leading-tight">
+                      {(state as { error: string }).error}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
             {state === 'loading' && (
@@ -400,27 +438,27 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
                 </div>
               </div>
             )}
-            {isDone && (
+            {isExpanded && (
               <div className="px-3 pb-3 border-t border-slate-100 pt-2.5">
                 <div className="gemini-md text-[11px] text-slate-700 leading-relaxed">
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
-                    h1: ({children}) => <h1 className="text-[13px] font-bold text-slate-800 mt-2 mb-1">{children}</h1>,
-                    h2: ({children}) => <h2 className="text-[12px] font-bold text-slate-800 mt-2 mb-1">{children}</h2>,
-                    h3: ({children}) => <h3 className="text-[11px] font-semibold text-slate-700 mt-1.5 mb-0.5">{children}</h3>,
+                    h1: ({children}) => <h1 className="text-[15px] font-bold text-slate-800 mt-3 mb-1">{children}</h1>,
+                    h2: ({children}) => <h2 className="text-[13px] font-bold text-slate-800 mt-2.5 mb-1">{children}</h2>,
+                    h3: ({children}) => <h3 className="text-[12px] font-semibold text-slate-600 mt-2 mb-0.5">{children}</h3>,
                     p:  ({children}) => <p className="mb-1.5">{children}</p>,
-                    ul: ({children}) => <ul className="list-disc list-outside pl-4 mb-1.5 space-y-0.5">{children}</ul>,
-                    ol: ({children}) => <ol className="list-decimal list-outside pl-4 mb-1.5 space-y-0.5">{children}</ol>,
-                    li: ({children}) => <li className="text-[11px]">{children}</li>,
+                    ul: ({children}) => <ul className="list-disc list-outside pl-5 mb-1.5 space-y-0.5">{children}</ul>,
+                    ol: ({children}) => <ol className="list-decimal list-outside pl-5 mb-1.5 space-y-0.5">{children}</ol>,
+                    li: ({children}) => <li className="text-[11px] leading-snug pl-0.5">{children}</li>,
                     strong: ({children}) => <strong className="font-semibold text-slate-800">{children}</strong>,
                     table: ({children}) => (
                       <div className="overflow-x-auto my-2">
-                        <table className="w-full border-collapse text-[10px]">{children}</table>
+                        <table className="border-collapse text-[10px]">{children}</table>
                       </div>
                     ),
                     thead: ({children}) => <thead className="bg-slate-100">{children}</thead>,
                     tbody: ({children}) => <tbody className="divide-y divide-slate-100">{children}</tbody>,
-                    th: ({children}) => <th className="px-2 py-1 text-left font-semibold text-slate-600 whitespace-nowrap border border-slate-200">{children}</th>,
-                    td: ({children}) => <td className="px-2 py-1 text-slate-700 border border-slate-200">{children}</td>,
+                    th: ({children}) => <th className="px-2 py-1.5 text-left font-semibold text-slate-600 whitespace-nowrap border border-slate-200">{children}</th>,
+                    td: ({children}) => <td className="px-2 py-1.5 text-slate-700 border border-slate-200 whitespace-nowrap align-top">{children}</td>,
                     hr: () => <hr className="my-2 border-slate-200" />,
                   }}>
                     {state.text}

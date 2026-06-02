@@ -17,6 +17,7 @@ export async function fetchGeminiSection(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ symbol, section_id: sectionId, prompt, force_refresh: forceRefresh }),
   })
-  if (!res.ok) throw new Error(`Gemini request failed: ${res.status}`)
-  return res.json()
+  const data = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(data?.error ?? `Request failed (${res.status})`)
+  return data
 }
