@@ -42,8 +42,9 @@
 |---|------|-------|--------|
 | 1 | Report tab — Section 1 fundamentals grid | 4×4 grid (Valuation/Returns/Growth/Context); Screener.in data source; PEG fallback; D/E; Rev 1Y/3Y; EPS 1Y/3Y; ↻ sync + progress bar; PE History chart | done |
 | 2 | Report tab — Revenue Segments Perplexity card | Direct search query (no doc URL); `site:nsearchives.nseindia.com` for Indian; table format instruction; PDF reading limitation noted | done |
-| 3 | Report tab — Revenue Segments US stocks (SEC EDGAR) | `_fetch_sec_segments()` implemented; CIK lookup + 10-K R-file HTML parse; returning null for GOOGL — debug prints added, checking FilingSummary.xml keyword match | in-progress |
+| 3 | Report tab — Revenue Segments US stocks (SEC EDGAR) | Abandoned — FilingSummary.xml keyword match worked but parsed garbage numbers; removed from UI and backend | dropped |
 | 4 | Report tab — Revenue Segments Indian stocks (Screener.in) | Screener consolidated page has segment HTML tables; backend scrape similar to existing `_fetch_screener()`; PDF parsing avoided | pending |
+| 7 | Report tab — BSE filing proxy for Latest Results | `/api/filing/{symbol}` (PDF) + `/api/filing/{symbol}/text` (plain text) live; "Latest Results & Concall" for Indian stocks now embeds Render text URL in Perplexity prompt; pre-warming on Report tab open pending | in-progress |
 | 5 | Report tab — Section 2 Research Links | Screener/Trendlyne/NSE pills for Indian; Finviz/Macrotrends/EDGAR for US | pending |
 | 6 | Report tab — Phase 2 Claude API | AI-generated qualitative sections | pending |
 | 5 | Report tab — Phase 2 Claude API | AI-generated qualitative sections | pending |
