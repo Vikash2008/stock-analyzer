@@ -70,6 +70,19 @@ export interface QuickStats {
   recommendation:       string | null
   num_analyst_opinions: number | null
   upside_pct:           number | null
+  debt_to_equity:       number | null
+  return_on_equity:     number | null
+  return_on_assets:     number | null
+  roce:                 number | null
+  profit_margins:       number | null
+  trailing_eps:         number | null
+  revenue_growth:       number | null
+  price_to_book:        number | null
+  peg_ratio:            number | null
+  earnings_growth:      number | null
+  earnings_growth_3y:   number | null
+  revenue_growth_3y:    number | null
+  pe_history:           Array<{ date: string; pe: number; price: number | null; ttm_eps: number | null }> | null
   partial:              boolean
 }
 

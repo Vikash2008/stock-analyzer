@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.routers.portfolio   import router as portfolio_router
 from backend.routers.history     import router as history_router
 from backend.routers.quickstats  import router as quickstats_router
+from backend.routers.filing      import router as filing_router
 
 _ORIGINS = [
     "http://localhost:3000",
@@ -38,6 +39,7 @@ app.add_middleware(
 app.include_router(portfolio_router)
 app.include_router(history_router)
 app.include_router(quickstats_router)
+app.include_router(filing_router)
 
 @app.get("/health")
 def health():
