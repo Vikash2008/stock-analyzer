@@ -10,11 +10,13 @@ Public URL pattern:  https://stock-analyzer-2nqw.onrender.com/api/filing/AXISBAN
 
 from __future__ import annotations
 
+import io
 import json
 import time
 import urllib.request
 from datetime import datetime, timedelta
 
+import pdfplumber
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
@@ -148,12 +150,47 @@ def _fetch_from_bse(scrip_code: str) -> dict | None:
         urllib.request.Request(pdf_url, headers=_BSE_HDR), timeout=30
     ).read()
 
+    # Extract plain text from PDF
+    text = ""
+    try:
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            text = "\n".join(page.extract_text() or "" for page in pdf.pages).strip()
+    except Exception:
+        pass
+
     return {
         "bytes":       pdf_bytes,
+        "text":        text,
         "filename":    target["ATTACHMENTNAME"],
         "period":      (target.get("DT_TM") or "")[:10],
         "filing_type": target.get("SUBCATNAME", "Financial Results"),
     }
+
+
+@router.get("/api/filing/{symbol}/text")
+def serve_filing_text(symbol: str):
+    sym = symbol.upper().replace(".NS", "").replace(".BO", "")
+
+    cached = _cache.get(sym)
+    if not cached or time.time() - cached["ts"] >= _CACHE_TTL:
+        scrip = _get_scrip_code(sym)
+        if not scrip:
+            raise HTTPException(status_code=404, detail=f"BSE scrip code not found for {sym}")
+        result = _fetch_from_bse(scrip)
+        if not result:
+            raise HTTPException(status_code=404, detail=f"No quarterly filing found for {sym}")
+        _cache[sym] = {**result, "ts": time.time()}
+        cached = _cache[sym]
+
+    text = cached.get("text") or ""
+    if not text:
+        raise HTTPException(status_code=404, detail="PDF text extraction failed")
+
+    return Response(
+        content=text,
+        media_type="text/plain",
+        headers={"X-Filing-Period": cached["period"], "X-Filing-Type": cached["filing_type"]},
+    )
 
 
 @router.get("/api/filing/{symbol}")
