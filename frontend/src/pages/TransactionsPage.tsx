@@ -465,19 +465,19 @@ export default function TransactionsPage({ currency }: Props) {
           <div className="flex items-center bg-violet-100 rounded-lg p-0.5 gap-0.5">
             <button
               onClick={() => setReportSubTab('quickstats')}
-              className={`text-[10px] px-2.5 py-1 rounded-md transition-colors font-medium ${reportSubTab === 'quickstats' ? 'bg-emerald-500 text-white shadow-sm border border-emerald-600' : 'text-violet-400 border border-transparent'}`}
+              className={`text-[10px] px-2.5 py-1 rounded-md transition-colors font-medium ${reportSubTab === 'quickstats' ? 'bg-emerald-500 text-white shadow-sm border border-emerald-600' : 'bg-violet-200 text-violet-600 border border-violet-300'}`}
             >Quick Stats</button>
             <button
               onClick={() => setReportSubTab('deep')}
-              className={`text-[10px] px-2.5 py-1 rounded-md transition-colors font-medium ${reportSubTab === 'deep' ? 'bg-violet-600 text-white shadow-sm border border-violet-700' : 'text-violet-400 border border-transparent'}`}
+              className={`text-[10px] px-2.5 py-1 rounded-md transition-colors font-medium ${reportSubTab === 'deep' ? 'bg-violet-600 text-white shadow-sm border border-violet-700' : 'bg-violet-200 text-violet-600 border border-violet-300'}`}
             >Deep Research</button>
           </div>
           {/* Right controls */}
           {reportSubTab === 'deep' ? (
             <div className="flex items-center gap-1.5">
               <div className="flex items-center bg-violet-100 rounded-lg p-0.5 gap-0.5">
-                <button onClick={() => setReportUseLite(false)} className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md transition-colors ${!reportUseLite ? 'bg-white text-violet-700 font-semibold shadow-sm border border-violet-200' : 'text-violet-400 border border-transparent'}`}><span>🌐</span><span>2.5 Flash</span></button>
-                <button onClick={() => setReportUseLite(true)}  className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md transition-colors ${reportUseLite  ? 'bg-white text-slate-600 font-semibold shadow-sm border border-slate-200' : 'text-violet-400 border border-transparent'}`}><span>⚡</span><span>3.1 Lite</span></button>
+                <button onClick={() => setReportUseLite(false)} className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md transition-colors ${!reportUseLite ? 'bg-white text-violet-700 font-semibold shadow-sm border border-violet-200' : 'bg-violet-200 text-violet-600 border border-violet-300'}`}><span>🌐</span><span>2.5 Flash</span></button>
+                <button onClick={() => setReportUseLite(true)}  className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md transition-colors ${reportUseLite  ? 'bg-white text-slate-600 font-semibold shadow-sm border border-slate-200' : 'bg-violet-200 text-violet-600 border border-violet-300'}`}><span>⚡</span><span>3.1 Lite</span></button>
               </div>
               <div className="relative">
                 <button onClick={() => setReportGearOpen(o => !o)} className="p-1 text-violet-400 active:text-violet-600" title="API key settings">
@@ -530,7 +530,7 @@ export default function TransactionsPage({ currency }: Props) {
                   className="text-[10px] whitespace-nowrap px-2.5 py-1 rounded-md font-medium transition-all"
                   style={chartMetric === m
                     ? { backgroundColor: METRIC_HEX[m].pillActiveBorder, color: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.15)', border: `1px solid ${METRIC_HEX[m].pillActiveBorder}` }
-                    : { color: METRIC_HEX[m].pillInactiveColor, border: '1px solid transparent' }
+                    : { backgroundColor: METRIC_HEX[m].pillInactiveBg, color: METRIC_HEX[m].pillInactiveColor, border: `1px solid ${METRIC_HEX[m].pillInactiveBorder}` }
                   }
                 >
                   {m}

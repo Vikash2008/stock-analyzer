@@ -19,7 +19,6 @@ import time
 import urllib.request
 from datetime import datetime
 
-import requests as _req
 import yfinance as yf
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
@@ -27,18 +26,8 @@ from fastapi.responses import JSONResponse
 from src.cache import Cache
 
 
-class _TimeoutAdapter(_req.adapters.HTTPAdapter):
-    """Force a per-request timeout so yfinance HTTP calls never hang on Render."""
-    def send(self, *args, **kwargs):
-        kwargs.setdefault('timeout', 10)
-        return super().send(*args, **kwargs)
-
-
 def _yf_ticker(symbol: str) -> yf.Ticker:
-    sess = _req.Session()
-    sess.mount('https://', _TimeoutAdapter())
-    sess.mount('http://',  _TimeoutAdapter())
-    return yf.Ticker(symbol, session=sess)
+    return yf.Ticker(symbol)
 
 router = APIRouter()
 
@@ -450,7 +439,8 @@ def _fetch(yf_symbol: str) -> dict:
     try:
         ticker = _yf_ticker(yf_symbol)
         info = ticker.info or {}
-    except Exception:
+    except Exception as e:
+        print(f"[quickstats] {yf_symbol} info exception: {type(e).__name__}: {e}")
         info = {}
 
     current = _clean(info.get("currentPrice") or info.get("regularMarketPrice"))

@@ -63,13 +63,13 @@ const PIE_COLORS = [
 ]
 
 const METRIC_STYLE: Record<ChartMetric, { active: string; inactive: string; line: string; strip: string; sync: string; trackBg: string }> = {
-  'Portfolio Value':  { active: 'bg-blue-600 text-white shadow-sm border border-blue-700',           inactive: 'text-blue-600 border border-transparent',    line: '#3b82f6', strip: 'bg-blue-50 border-blue-100',    sync: 'bg-gradient-to-br from-blue-600 to-blue-800 border-blue-700',    trackBg: '#bfdbfe88' },
-  'Invested':         { active: 'bg-violet-600 text-white shadow-sm border border-violet-700',        inactive: 'text-violet-600 border border-transparent',  line: '#8b5cf6', strip: 'bg-violet-50 border-violet-100', sync: 'bg-gradient-to-br from-violet-600 to-purple-800 border-violet-700', trackBg: '#ddd6fe88' },
-  'Unrealized Gains': { active: 'bg-teal-500 text-white shadow-sm border border-teal-600',            inactive: 'text-teal-700 border border-transparent',    line: '#14b8a6', strip: 'bg-teal-50 border-teal-100',    sync: 'bg-gradient-to-br from-teal-600 to-emerald-700 border-teal-700',  trackBg: '#99f6e488' },
-  'Realized Gains':   { active: 'bg-pink-600 text-white shadow-sm border border-pink-700',            inactive: 'text-pink-600 border border-transparent',    line: '#ec4899', strip: 'bg-pink-50 border-pink-100',    sync: 'bg-gradient-to-br from-pink-600 to-rose-700 border-pink-700',     trackBg: '#fbcfe888' },
-  'Total Gains':      { active: 'bg-emerald-600 text-white shadow-sm border border-emerald-700',      inactive: 'text-emerald-700 border border-transparent', line: '#10b981', strip: 'bg-emerald-50 border-emerald-100', sync: 'bg-gradient-to-br from-emerald-600 to-green-800 border-emerald-700', trackBg: '#bbf7d088' },
-  'Return %':         { active: 'bg-sky-500 text-white shadow-sm border border-sky-600',              inactive: 'text-sky-600 border border-transparent',     line: '#0ea5e9', strip: 'bg-sky-50 border-sky-100',      sync: 'bg-gradient-to-br from-sky-600 to-cyan-700 border-sky-700',       trackBg: '#bae6fd88' },
-  'XIRR Trend':       { active: 'bg-rose-500 text-white shadow-sm border border-rose-600',            inactive: 'text-rose-600 border border-transparent',    line: '#f43f5e', strip: 'bg-rose-50 border-rose-100',    sync: 'bg-gradient-to-br from-rose-600 to-pink-800 border-rose-700',     trackBg: '#fecdd388' },
+  'Portfolio Value':  { active: 'bg-blue-600 text-white shadow-sm border border-blue-700',           inactive: 'bg-blue-100 text-blue-600 border border-blue-200',    line: '#3b82f6', strip: 'bg-blue-50 border-blue-100',    sync: 'bg-gradient-to-br from-blue-600 to-blue-800 border-blue-700',    trackBg: '#bfdbfe88' },
+  'Invested':         { active: 'bg-violet-600 text-white shadow-sm border border-violet-700',        inactive: 'bg-violet-100 text-violet-600 border border-violet-200',  line: '#8b5cf6', strip: 'bg-violet-50 border-violet-100', sync: 'bg-gradient-to-br from-violet-600 to-purple-800 border-violet-700', trackBg: '#ddd6fe88' },
+  'Unrealized Gains': { active: 'bg-teal-500 text-white shadow-sm border border-teal-600',            inactive: 'bg-teal-100 text-teal-700 border border-teal-200',    line: '#14b8a6', strip: 'bg-teal-50 border-teal-100',    sync: 'bg-gradient-to-br from-teal-600 to-emerald-700 border-teal-700',  trackBg: '#99f6e488' },
+  'Realized Gains':   { active: 'bg-pink-600 text-white shadow-sm border border-pink-700',            inactive: 'bg-pink-100 text-pink-600 border border-pink-200',    line: '#ec4899', strip: 'bg-pink-50 border-pink-100',    sync: 'bg-gradient-to-br from-pink-600 to-rose-700 border-pink-700',     trackBg: '#fbcfe888' },
+  'Total Gains':      { active: 'bg-emerald-600 text-white shadow-sm border border-emerald-700',      inactive: 'bg-emerald-100 text-emerald-700 border border-emerald-200', line: '#10b981', strip: 'bg-emerald-50 border-emerald-100', sync: 'bg-gradient-to-br from-emerald-600 to-green-800 border-emerald-700', trackBg: '#bbf7d088' },
+  'Return %':         { active: 'bg-sky-500 text-white shadow-sm border border-sky-600',              inactive: 'bg-sky-100 text-sky-600 border border-sky-200',     line: '#0ea5e9', strip: 'bg-sky-50 border-sky-100',      sync: 'bg-gradient-to-br from-sky-600 to-cyan-700 border-sky-700',       trackBg: '#bae6fd88' },
+  'XIRR Trend':       { active: 'bg-rose-500 text-white shadow-sm border border-rose-600',            inactive: 'bg-rose-100 text-rose-600 border border-rose-200',    line: '#f43f5e', strip: 'bg-rose-50 border-rose-100',    sync: 'bg-gradient-to-br from-rose-600 to-pink-800 border-rose-700',     trackBg: '#fecdd388' },
 }
 
 type SortField = 'current' | 'invested' | 'todayGain' | 'todayPct' | 'totalGain' | 'totalPct' | 'xirr'
@@ -1283,9 +1283,9 @@ export default function HoldingsPage({ currency }: Props) {
                       ? st === 'allocation'   ? 'bg-orange-500 text-white shadow-sm border border-orange-600'
                       : st === 'benchmarking' ? 'bg-sky-500 text-white shadow-sm border border-sky-600'
                       :                         'bg-emerald-500 text-white shadow-sm border border-emerald-600'
-                      : st === 'allocation'   ? 'text-orange-600 border border-transparent'
-                      : st === 'benchmarking' ? 'text-sky-600 border border-transparent'
-                      :                         'text-emerald-600 border border-transparent'
+                      : st === 'allocation'   ? 'bg-orange-100 text-orange-600 border border-orange-200'
+                      : st === 'benchmarking' ? 'bg-sky-100 text-sky-600 border border-sky-200'
+                      :                         'bg-emerald-100 text-emerald-600 border border-emerald-200'
                   }`}
                 >
                   {st === 'allocation' ? 'Allocation' : st === 'benchmarking' ? 'Benchmarking' : 'Returns'}

@@ -176,7 +176,7 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
             Loading stats…
           </div>
         </div>
-      ) : qs ? (
+      ) : (qs && !qs.partial) ? (
         <div className="rounded-xl border border-emerald-200 bg-white overflow-hidden">
           {/* Green top strip */}
           <div className="h-[3px]" style={{ background: 'linear-gradient(to right, #10b981, #34d39955)' }} />
