@@ -67,7 +67,7 @@ const METRIC_HEX: Record<ChartMetric, { stripBg: string; stripBorder: string; sy
   'Portfolio Value':  { stripBg: '#eff6ff', stripBorder: '#dbeafe', syncFrom: '#2563eb', syncTo: '#1e40af', syncBorder: '#1d4ed8', line: '#3b82f6', pillActiveBg: 'linear-gradient(to right,#3b82f6,#2563eb)', pillActiveBorder: '#1d4ed8', pillInactiveBg: '#eff6ff', pillInactiveBorder: '#bfdbfe', pillInactiveColor: '#2563eb' },
   'Invested':         { stripBg: '#f5f3ff', stripBorder: '#ede9fe', syncFrom: '#7c3aed', syncTo: '#4c1d95', syncBorder: '#6d28d9', line: '#8b5cf6', pillActiveBg: 'linear-gradient(to right,#8b5cf6,#7c3aed)', pillActiveBorder: '#6d28d9', pillInactiveBg: '#f5f3ff', pillInactiveBorder: '#ddd6fe', pillInactiveColor: '#7c3aed' },
   'Unrealized Gains': { stripBg: '#f0fdfa', stripBorder: '#ccfbf1', syncFrom: '#0d9488', syncTo: '#064e3b', syncBorder: '#0f766e', line: '#14b8a6', pillActiveBg: 'linear-gradient(to right,#2dd4bf,#10b981)', pillActiveBorder: '#0f766e', pillInactiveBg: '#f0fdfa', pillInactiveBorder: '#99f6e4', pillInactiveColor: '#0d9488' },
-  'Realized Gains':   { stripBg: '#fffbeb', stripBorder: '#fef3c7', syncFrom: '#d97706', syncTo: '#92400e', syncBorder: '#b45309', line: '#f59e0b', pillActiveBg: 'linear-gradient(to right,#fbbf24,#f97316)', pillActiveBorder: '#b45309', pillInactiveBg: '#fffbeb', pillInactiveBorder: '#fde68a', pillInactiveColor: '#b45309' },
+  'Realized Gains':   { stripBg: '#fdf2f8', stripBorder: '#fbcfe8', syncFrom: '#be185d', syncTo: '#9d174d', syncBorder: '#9d174d', line: '#ec4899', pillActiveBg: 'linear-gradient(to right,#ec4899,#db2777)', pillActiveBorder: '#be185d', pillInactiveBg: '#fdf2f8', pillInactiveBorder: '#fbcfe8', pillInactiveColor: '#be185d' },
   'Total Gains':      { stripBg: '#f0fdf4', stripBorder: '#dcfce7', syncFrom: '#16a34a', syncTo: '#14532d', syncBorder: '#15803d', line: '#10b981', pillActiveBg: 'linear-gradient(to right,#10b981,#16a34a)', pillActiveBorder: '#15803d', pillInactiveBg: '#f0fdf4', pillInactiveBorder: '#bbf7d0', pillInactiveColor: '#15803d' },
   'Return %':         { stripBg: '#f0f9ff', stripBorder: '#e0f2fe', syncFrom: '#0284c7', syncTo: '#0c4a6e', syncBorder: '#0369a1', line: '#0ea5e9', pillActiveBg: 'linear-gradient(to right,#38bdf8,#0ea5e9)', pillActiveBorder: '#0369a1', pillInactiveBg: '#f0f9ff', pillInactiveBorder: '#bae6fd', pillInactiveColor: '#0369a1' },
   'XIRR Trend':       { stripBg: '#fff1f2', stripBorder: '#ffe4e6', syncFrom: '#e11d48', syncTo: '#881337', syncBorder: '#be123c', line: '#f43f5e', pillActiveBg: 'linear-gradient(to right,#fb7185,#e11d48)', pillActiveBorder: '#be123c', pillInactiveBg: '#fff1f2', pillInactiveBorder: '#fecdd3', pillInactiveColor: '#be123c' },
@@ -97,6 +97,10 @@ export default function TransactionsPage({ currency }: Props) {
   const [syncing,       setSyncing]       = useState(false)
   const [reportSyncing, setReportSyncing] = useState(false)
   const [syncedAt,      setSyncedAt]      = useState<Date | null>(null)
+  const [reportSubTab,  setReportSubTab]  = useState<'deep' | 'quickstats'>('quickstats')
+  const [reportUseLite, setReportUseLite] = useState(false)
+  const [reportUseKey,  setReportUseKey]  = useState<0 | 1>(() => (localStorage.getItem('gemini:key_index') === '1' ? 1 : 0))
+  const [reportGearOpen, setReportGearOpen] = useState(false)
 
   const decoded = {
     portfolio: decodeURIComponent(portfolio),
@@ -175,7 +179,7 @@ export default function TransactionsPage({ currency }: Props) {
     )
   }, [data, portfolioFilter, decoded.symbol])
 
-  const { data: quickStats, isLoading: qsLoading } = useQuickStats(yf_for_hook, activeTab === 'report')
+  const { data: quickStats, isLoading: qsLoading, isFetching: qsFetching } = useQuickStats(yf_for_hook, activeTab === 'report' && !!data)
 
   const symRealized = useMemo(() => {
     if (!data) return []
@@ -430,16 +434,16 @@ export default function TransactionsPage({ currency }: Props) {
 
       {/* Tabs — iOS segmented control */}
       <div className="flex bg-slate-100 rounded-full p-0.5 gap-0.5 mb-2">
-        {([['transactions','Txns'],['charts','Charts'],['report','Report'],['notes','Notes']] as const).map(([tab, label]) => (
+        {([['transactions','Txns'],['charts','Charts'],['report','Research'],['notes','Notes']] as const).map(([tab, label]) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`flex-1 text-[10px] py-1 rounded-full font-medium transition-all ${
               activeTab === tab
-                ? tab === 'transactions' ? 'bg-teal-100 text-teal-700 shadow-sm'
-                : tab === 'charts'       ? 'bg-sky-100 text-sky-700 shadow-sm'
-                : tab === 'report'       ? 'bg-violet-100 text-violet-700 shadow-sm'
-                : 'bg-amber-100 text-amber-700 shadow-sm'
+                ? tab === 'transactions' ? 'bg-teal-200 text-teal-800 shadow-sm'
+                : tab === 'charts'       ? 'bg-sky-200 text-sky-800 shadow-sm'
+                : tab === 'report'       ? 'bg-violet-200 text-violet-800 shadow-sm'
+                : 'bg-rose-200 text-rose-800 shadow-sm'
                 : 'text-slate-400'
             }`}
           >
@@ -454,43 +458,79 @@ export default function TransactionsPage({ currency }: Props) {
           <span className="text-[10px] text-teal-700">{symTxns.length} transactions</span>
         </div>
       )}
-      {/* Report strip */}
+      {/* Report strip — sub-tab bar */}
       {activeTab === 'report' && (
         <div className="bg-violet-50 border border-violet-100 rounded-xl px-2.5 py-1.5 mb-2 flex items-center justify-between">
-          <span className="text-[10px] text-violet-700">Quick Stats &amp; Research</span>
-          <button
-            className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 border active:opacity-60 bg-gradient-to-br from-violet-600 to-purple-800 border-violet-700"
-            onClick={() => { if (reportSyncing) return; setReportSyncing(true); qc.invalidateQueries({ queryKey: ['quickstats', yf] }); setTimeout(() => setReportSyncing(false), 1500) }}
-          >
-            <span className={`text-[9px] text-white leading-none inline-block ${reportSyncing ? 'animate-spin' : ''}`}>↻</span>
-          </button>
+          {/* Sub-tabs */}
+          <div className="flex items-center bg-violet-100 rounded-lg p-0.5 gap-0.5">
+            <button
+              onClick={() => setReportSubTab('quickstats')}
+              className={`text-[10px] px-2.5 py-1 rounded-md transition-colors font-medium ${reportSubTab === 'quickstats' ? 'bg-emerald-500 text-white shadow-sm border border-emerald-600' : 'text-violet-400 border border-transparent'}`}
+            >Quick Stats</button>
+            <button
+              onClick={() => setReportSubTab('deep')}
+              className={`text-[10px] px-2.5 py-1 rounded-md transition-colors font-medium ${reportSubTab === 'deep' ? 'bg-violet-600 text-white shadow-sm border border-violet-700' : 'text-violet-400 border border-transparent'}`}
+            >Deep Research</button>
+          </div>
+          {/* Right controls */}
+          {reportSubTab === 'deep' ? (
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center bg-violet-100 rounded-lg p-0.5 gap-0.5">
+                <button onClick={() => setReportUseLite(false)} className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md transition-colors ${!reportUseLite ? 'bg-white text-violet-700 font-semibold shadow-sm border border-violet-200' : 'text-violet-400 border border-transparent'}`}><span>🌐</span><span>2.5 Flash</span></button>
+                <button onClick={() => setReportUseLite(true)}  className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md transition-colors ${reportUseLite  ? 'bg-white text-slate-600 font-semibold shadow-sm border border-slate-200' : 'text-violet-400 border border-transparent'}`}><span>⚡</span><span>3.1 Lite</span></button>
+              </div>
+              <div className="relative">
+                <button onClick={() => setReportGearOpen(o => !o)} className="p-1 text-violet-400 active:text-violet-600" title="API key settings">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+                  </svg>
+                </button>
+                {reportGearOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-10 px-3 py-2.5 flex items-center gap-3 whitespace-nowrap">
+                    <span className="text-[11px] text-slate-600">Backup Key</span>
+                    <button
+                      onClick={() => { const next = (reportUseKey === 0 ? 1 : 0) as 0 | 1; setReportUseKey(next); localStorage.setItem('gemini:key_index', String(next)) }}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${reportUseKey === 1 ? 'bg-blue-500' : 'bg-slate-200'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${reportUseKey === 1 ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <button
+              className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 border active:opacity-60 bg-gradient-to-br from-violet-600 to-purple-800 border-violet-700"
+              onClick={() => { if (reportSyncing) return; setReportSyncing(true); qc.resetQueries({ queryKey: ['quickstats', yf] }); setTimeout(() => setReportSyncing(false), 1500) }}
+            >
+              <span className={`text-[9px] text-white leading-none inline-block ${reportSyncing ? 'animate-spin' : ''}`}>↻</span>
+            </button>
+          )}
         </div>
       )}
       {/* Notes strip */}
       {activeTab === 'notes' && (
-        <div className="bg-amber-50 border border-amber-100 rounded-xl px-2.5 py-1.5 mb-2">
-          <span className="text-[10px] text-amber-700">Personal notes</span>
+        <div className="bg-rose-50 border border-rose-200 rounded-xl px-2.5 py-1.5 mb-2">
+          <span className="text-[10px] text-rose-700">Personal notes</span>
         </div>
       )}
       {/* Charts strip — metric pills + sync */}
       {activeTab === 'charts' && (
-        <div
-          className="border rounded-xl px-2.5 py-1.5 mb-2"
-          style={{ backgroundColor: METRIC_HEX[chartMetric].stripBg, borderColor: METRIC_HEX[chartMetric].stripBorder }}
-        >
+        <div className="border rounded-xl px-2.5 py-1.5 mb-2 bg-sky-50 border-sky-200">
           <div className="flex items-center gap-2">
             <div
-              className="flex gap-1.5 overflow-x-auto flex-1"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+              className="flex gap-0.5 overflow-x-auto flex-1 rounded-lg p-0.5"
+              style={{ backgroundColor: '#bae6fd44', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
             >
               {METRICS.map(m => (
                 <button
                   key={m}
                   onClick={() => setChartMetric(m)}
-                  className="text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-all"
+                  className="text-[10px] whitespace-nowrap px-2.5 py-1 rounded-md font-medium transition-all"
                   style={chartMetric === m
-                    ? { background: METRIC_HEX[m].pillActiveBg, borderColor: METRIC_HEX[m].pillActiveBorder, color: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.15)' }
-                    : { backgroundColor: METRIC_HEX[m].pillInactiveBg, borderColor: METRIC_HEX[m].pillInactiveBorder, color: METRIC_HEX[m].pillInactiveColor }
+                    ? { backgroundColor: METRIC_HEX[m].pillActiveBorder, color: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.15)', border: `1px solid ${METRIC_HEX[m].pillActiveBorder}` }
+                    : { color: METRIC_HEX[m].pillInactiveColor, border: '1px solid transparent' }
                   }
                 >
                   {m}
@@ -498,8 +538,7 @@ export default function TransactionsPage({ currency }: Props) {
               ))}
             </div>
             <button
-              className="flex items-center gap-0.5 shrink-0 rounded-full px-1.5 py-0.5 border active:opacity-60"
-              style={{ background: `linear-gradient(135deg,${METRIC_HEX[chartMetric].syncFrom},${METRIC_HEX[chartMetric].syncTo})`, borderColor: METRIC_HEX[chartMetric].syncBorder }}
+              className="flex items-center gap-0.5 shrink-0 rounded-full px-1.5 py-0.5 border active:opacity-60 bg-gradient-to-br from-sky-600 to-cyan-700 border-sky-700"
               onClick={() => {
                 if (syncing) return
                 setSyncing(true)
@@ -543,7 +582,10 @@ export default function TransactionsPage({ currency }: Props) {
           yf_symbol={yf}
           name={co || decoded.symbol}
           qs={quickStats}
-          loading={qsLoading}
+          loading={qsLoading || qsFetching}
+          reportTab={reportSubTab}
+          useLite={reportUseLite}
+          useKey={reportUseKey}
         />
       )}
 

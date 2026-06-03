@@ -19,11 +19,26 @@ import time
 import urllib.request
 from datetime import datetime
 
+import requests as _req
 import yfinance as yf
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
 from src.cache import Cache
+
+
+class _TimeoutAdapter(_req.adapters.HTTPAdapter):
+    """Force a per-request timeout so yfinance HTTP calls never hang on Render."""
+    def send(self, *args, **kwargs):
+        kwargs.setdefault('timeout', 10)
+        return super().send(*args, **kwargs)
+
+
+def _yf_ticker(symbol: str) -> yf.Ticker:
+    sess = _req.Session()
+    sess.mount('https://', _TimeoutAdapter())
+    sess.mount('http://',  _TimeoutAdapter())
+    return yf.Ticker(symbol, session=sess)
 
 router = APIRouter()
 
@@ -433,7 +448,7 @@ def _fetch(yf_symbol: str) -> dict:
     currency = "INR" if is_indian else "USD"
     ticker = None
     try:
-        ticker = yf.Ticker(yf_symbol)
+        ticker = _yf_ticker(yf_symbol)
         info = ticker.info or {}
     except Exception:
         info = {}
@@ -455,7 +470,7 @@ def _fetch(yf_symbol: str) -> dict:
         "underperform": "Underperform",
         "sell":         "Sell",
     }
-    rec_label = rec_map.get(rec_key) or (rec_key or None)
+    rec_label = rec_map.get(rec_key) or ("Neutral" if rec_key == "none" else (rec_key or None))
 
     result = {
         "yf_symbol":            yf_symbol,
@@ -520,32 +535,45 @@ def get_quickstats(
     yf_symbol:     str  = Query(...),
     force_refresh: bool = Query(False),
 ):
-    key = yf_symbol.upper()
-    now = time.monotonic()
+    try:
+        key = yf_symbol.upper()
+        now = time.monotonic()
 
-    # In-memory burst cache
-    if not force_refresh and key in _mem:
-        cached_data, ts = _mem[key]
-        if now - ts < _MEM_TTL:
-            return JSONResponse(content=cached_data)
+        # In-memory burst cache
+        if not force_refresh and key in _mem:
+            cached_data, ts = _mem[key]
+            if now - ts < _MEM_TTL:
+                return JSONResponse(content=cached_data)
 
-    # Disk cache — per-symbol TTL check inside the stored dict
-    disk = Cache()
-    if not force_refresh:
-        store = disk.get("quickstats") or {}
-        entry = store.get(key)
-        if entry and (time.time() - entry.get("ts", 0)) < _DISK_TTL:
-            result = entry["data"]
-            _mem[key] = (result, now)
-            return JSONResponse(content=result)
+        # Disk cache — per-symbol TTL check inside the stored dict
+        try:
+            disk = Cache()
+            if not force_refresh:
+                store = disk.get("quickstats") or {}
+                entry = store.get(key)
+                if entry and (time.time() - entry.get("ts", 0)) < _DISK_TTL:
+                    result = entry["data"]
+                    _mem[key] = (result, now)
+                    return JSONResponse(content=result)
+        except Exception as e:
+            print(f"[quickstats] disk cache read error for {yf_symbol}: {e}")
+            disk = None
 
-    # Fetch fresh from yfinance
-    result = _fetch(yf_symbol)
+        # Fetch fresh
+        result = _fetch(yf_symbol)
 
-    # Merge into disk cache store
-    store = disk.get("quickstats") or {}
-    store[key] = {"data": result, "ts": time.time()}
-    disk.set("quickstats", store)
+        # Persist to disk cache
+        try:
+            if disk is not None:
+                store = disk.get("quickstats") or {}
+                store[key] = {"data": result, "ts": time.time()}
+                disk.set("quickstats", store)
+        except Exception as e:
+            print(f"[quickstats] disk cache write error for {yf_symbol}: {e}")
 
-    _mem[key] = (result, now)
-    return JSONResponse(content=result)
+        _mem[key] = (result, now)
+        return JSONResponse(content=result)
+
+    except Exception as exc:
+        print(f"[quickstats] unhandled error for {yf_symbol}: {type(exc).__name__}: {exc}")
+        return JSONResponse(content={"yf_symbol": yf_symbol, "partial": True})

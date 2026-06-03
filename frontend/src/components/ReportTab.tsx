@@ -14,6 +14,9 @@ interface Props {
   name:      string
   qs:        QuickStats | undefined
   loading:   boolean
+  reportTab: 'deep' | 'quickstats'
+  useLite:   boolean
+  useKey:    0 | 1
 }
 
 function fmtPe(v: number | null | undefined): string {
@@ -51,21 +54,27 @@ function fmtSavedAt(ts: number | undefined): string {
   return `${d.getDate()} ${months[d.getMonth()]}`
 }
 
+function normalizeRec(rec: string | null | undefined): string | null {
+  if (!rec) return null
+  return rec.toLowerCase() === 'none' ? 'Neutral' : rec
+}
+
 function recColor(rec: string | null): string {
   if (!rec) return '#94a3b8'
   const r = rec.toLowerCase()
   if (r.includes('buy')) return '#0a7a42'
   if (r.includes('sell') || r.includes('underperform')) return '#be1c1c'
+  if (r === 'neutral') return '#64748b'
   return '#b45309'
 }
 
-export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
+export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, useKey }: Props) {
   const isIndian = yf_symbol.endsWith('.NS') || yf_symbol.endsWith('.BO')
   const displayName = name || yf_symbol
   const qc = useQueryClient()
   const [syncing, setSyncing] = React.useState(false)
 
-  type SectionState = 'idle' | 'loading' | { error: string } | { text: string; sources: string[]; savedAt?: number }
+  type SectionState = 'idle' | 'loading' | { error: string } | { text: string; sources: string[]; savedAt?: number; grounded?: boolean; model?: string }
   const [sectionStates, setSectionStates] = React.useState<Record<string, SectionState>>({})
   const [expandedSections, setExpandedSections] = React.useState<Record<string, boolean>>({})
   const [elapsed, setElapsed] = React.useState<Record<string, number>>({})
@@ -79,7 +88,7 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
         try {
           const parsed = JSON.parse(stored)
           if (parsed.savedAt && Date.now() - parsed.savedAt < 7 * 24 * 3600 * 1000) {
-            initial[s.id] = { text: parsed.text, sources: parsed.sources, savedAt: parsed.savedAt }
+            initial[s.id] = { text: parsed.text, sources: parsed.sources, savedAt: parsed.savedAt, grounded: parsed.grounded, model: parsed.model }
           } else {
             localStorage.removeItem(`gemini:${yf_symbol}:${s.id}`)
           }
@@ -104,13 +113,20 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
     const symbol = yf_symbol.replace(/\.(NS|BO)$/i, '')
     const prompt = buildGeminiPrompt(displayName, sectionId, isIndian, yf_symbol, API_URL)
     try {
-      const result: GeminiResponse = await fetchGeminiSection(symbol, sectionId, prompt, force)
+      const result: GeminiResponse = await fetchGeminiSection(symbol, sectionId, prompt, force, useLite, useKey)
       clearInterval(timerRefs.current[sectionId])
       if (result.error) throw new Error(result.error)
       const savedAt = Date.now()
-      const state = { text: result.text ?? '', sources: result.sources ?? [], savedAt }
+      const state = { text: result.text ?? '', sources: result.sources ?? [], savedAt, grounded: result.grounded ?? false, model: result.model }
       setSectionStates(prev => ({ ...prev, [sectionId]: state }))
       localStorage.setItem(`gemini:${yf_symbol}:${sectionId}`, JSON.stringify(state))
+      // auto-expand this card, collapse all others
+      setExpandedSections(() => {
+        const next: Record<string, boolean> = {}
+        for (const s of SECTIONS) next[s.id] = false
+        next[sectionId] = true
+        return next
+      })
     } catch (err) {
       clearInterval(timerRefs.current[sectionId])
       const msg = err instanceof Error ? err.message : 'Request failed'
@@ -118,11 +134,13 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
     }
   }
 
-  async function handleSync() {
+  async function handleSync(forceBackend = false) {
     setSyncing(true)
     try {
-      await fetch(`${API_URL}/api/quickstats?yf_symbol=${encodeURIComponent(yf_symbol)}&force_refresh=true`)
-      await qc.invalidateQueries({ queryKey: ['quickstats', yf_symbol] })
+      if (forceBackend) {
+        await fetch(`${API_URL}/api/quickstats?yf_symbol=${encodeURIComponent(yf_symbol)}&force_refresh=true`)
+      }
+      await qc.resetQueries({ queryKey: ['quickstats', yf_symbol] })
     } finally {
       setSyncing(false)
     }
@@ -145,53 +163,31 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
         }
       `}</style>
 
-      {/* ── Quick Stats ─────────────────────────────────────── */}
-      {loading ? (
-        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-          <div className="h-0.5 bg-slate-100">
-            <div className="h-full w-2/5 bg-blue-500 rounded-full"
+
+      {/* ── Quick Stats tab ──────────────────────────────────── */}
+      {reportTab === 'quickstats' && (loading ? (
+        <div className="rounded-xl border border-emerald-200 bg-white overflow-hidden">
+          <div className="h-[3px]" style={{ background: 'linear-gradient(to right, #10b981, #34d39955)' }} />
+          <div className="h-0.5 bg-emerald-50">
+            <div className="h-full w-2/5 bg-emerald-500 rounded-full"
                  style={{ animation: 'qs-progress 1.2s ease-in-out infinite' }} />
           </div>
-          <div className="px-3 py-5 flex items-center justify-center gap-2 text-slate-400 text-[12px]">
+          <div className="px-3 py-5 flex items-center justify-center gap-2 text-emerald-600 text-[12px]">
             Loading stats…
           </div>
         </div>
       ) : qs ? (
-        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <div className="rounded-xl border border-emerald-200 bg-white overflow-hidden">
+          {/* Green top strip */}
+          <div className="h-[3px]" style={{ background: 'linear-gradient(to right, #10b981, #34d39955)' }} />
           {/* Progress bar — shown during sync */}
-          <div className="h-0.5 bg-slate-100">
+          <div className="h-0.5 bg-emerald-50">
             {syncing && (
-              <div className="h-full w-2/5 bg-blue-500 rounded-full"
+              <div className="h-full w-2/5 bg-emerald-500 rounded-full"
                    style={{ animation: 'qs-progress 1.2s ease-in-out infinite' }} />
             )}
           </div>
           <div className="px-3 py-3 space-y-3">
-
-          {/* Source link + sync */}
-          <div className="flex items-center justify-between -mb-1">
-            <button
-              onClick={handleSync}
-              className={`text-[10px] text-slate-400 px-1.5 py-0.5 rounded active:bg-slate-100 ${syncing ? 'animate-spin pointer-events-none' : ''}`}
-              title="Force refresh from source"
-            >
-              ↻
-            </button>
-            <a
-              href={isIndian
-                ? `https://www.screener.in/company/${yf_symbol.replace(/\.(NS|BO)$/i, '')}/`
-                : `https://finance.yahoo.com/quote/${encodeURIComponent(yf_symbol)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-[10px] text-slate-400 active:text-slate-600"
-            >
-              <span>{isIndian ? 'Screener' : 'Yahoo Finance'}</span>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
-                <polyline points="15 3 21 3 21 9"/>
-                <line x1="10" y1="14" x2="21" y2="3"/>
-              </svg>
-            </a>
-          </div>
 
           {/* Fundamentals grid — 4 rows × 4 cols */}
           <div className="grid grid-cols-4 gap-1.5">
@@ -217,8 +213,8 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
               { label: 'MCap',    value: qs.market_cap_display ?? '—',           color: null },
               { label: 'Beta',    value: fmtRatio(qs.beta),                      color: null },
             ].map(({ label, value, color }) => (
-              <div key={label} className="bg-slate-50 rounded-lg p-1.5">
-                <div className="text-[9px] text-slate-400 uppercase tracking-wide mb-0.5 truncate">{label}</div>
+              <div key={label} className="bg-emerald-50 rounded-lg p-1.5">
+                <div className="text-[9px] text-emerald-600/70 uppercase tracking-wide mb-0.5 truncate">{label}</div>
                 <div
                   className="text-[11px] font-semibold whitespace-nowrap"
                   style={{ color: color ?? '#1e293b' }}
@@ -232,11 +228,11 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
           {/* 52W range bar */}
           {rangePos !== null && qs.week_52_low != null && qs.week_52_high != null && qs.current_price != null && (
             <div>
-              <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-2">52-Week Range</div>
+              <div className="text-[10px] text-emerald-600/80 uppercase tracking-wide mb-2">52-Week Range</div>
               <div className="relative h-1.5 rounded-full overflow-visible"
                    style={{ background: 'linear-gradient(to right, #fca5a5, #fde68a, #86efac)' }}>
                 <div
-                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white border-2 border-[#2563eb] shadow-sm"
+                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white border-2 border-emerald-500 shadow-sm"
                   style={{ left: `calc(${rangePos * 100}% - 6px)` }}
                 />
               </div>
@@ -244,7 +240,7 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
                 <span className="text-[10px] text-slate-400">
                   {fmtPrice(qs.week_52_low, qs.currency)}
                 </span>
-                <span className="text-[10px] font-semibold text-[#2563eb]">
+                <span className="text-[10px] font-semibold text-emerald-600">
                   {fmtPrice(qs.current_price, qs.currency)}
                 </span>
                 <span className="text-[9px] text-slate-400">
@@ -256,17 +252,17 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
 
           {/* Analyst row */}
           {(qs.recommendation || qs.num_analyst_opinions || qs.target_mean_price) && (
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between pt-2 border-t border-emerald-100">
               <div className="flex items-center gap-2">
-                {qs.recommendation && (
+                {normalizeRec(qs.recommendation) && (
                   <span
                     className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
                     style={{
-                      color:      recColor(qs.recommendation),
-                      background: recColor(qs.recommendation) + '18',
+                      color:      recColor(normalizeRec(qs.recommendation)),
+                      background: recColor(normalizeRec(qs.recommendation)) + '18',
                     }}
                   >
-                    {qs.recommendation}
+                    {normalizeRec(qs.recommendation)}
                   </span>
                 )}
                 {qs.num_analyst_opinions != null && (
@@ -292,16 +288,56 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
               )}
             </div>
           )}
+          {/* Footer — source link + analyst ratings */}
+          <div className="flex items-center justify-between pt-2 border-t border-emerald-100">
+            <a
+              href={isIndian
+                ? `https://www.screener.in/company/${yf_symbol.replace(/\.(NS|BO)$/i, '')}/`
+                : `https://finance.yahoo.com/quote/${encodeURIComponent(yf_symbol)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-[10px] font-medium text-sky-600 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-100 active:bg-sky-100"
+            >
+              <span>{isIndian ? 'Screener.in' : 'Yahoo Finance'}</span>
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+            </a>
+            <a
+              href={`https://finance.yahoo.com/quote/${encodeURIComponent(yf_symbol)}/analysis/`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 active:bg-emerald-100"
+            >
+              <span>Analyst Ratings</span>
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+            </a>
+          </div>
+
           </div>{/* inner px-3 */}
         </div>
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 text-center text-slate-400 text-[11px]">
-          Stats unavailable for this symbol
+        <div className="rounded-xl border border-emerald-200 bg-white p-4 flex flex-col items-center gap-2">
+          <span className="text-[11px] text-slate-400">Stats unavailable for this symbol</span>
+          <button
+            onClick={() => handleSync(true)}
+            disabled={syncing}
+            className="flex items-center gap-1.5 text-[10px] font-medium text-sky-600 bg-sky-50 px-3 py-1.5 rounded-full border border-sky-100 active:bg-sky-100 disabled:opacity-50"
+          >
+            <span className={`inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
+            <span>Retry</span>
+          </button>
         </div>
-      )}
+      ))}
 
-      {/* ── PE History chart ────────────────────────────────── */}
-      {qs?.pe_history && qs.pe_history.length > 0 && (
+      {/* PE History chart */}
+      {reportTab === 'quickstats' && qs?.pe_history && qs.pe_history.length > 0 && (
         <div className="rounded-xl border border-slate-200 bg-white px-3 py-3">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] text-slate-400 uppercase tracking-wide">P/E History (5Y)</span>
@@ -357,12 +393,8 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
         </div>
       )}
 
-      {/* ── Analysis sections ───────────────────────────────── */}
-      <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest pt-1">
-        Analysis
-      </div>
-
-      {SECTIONS.map(section => {
+      {/* ── Deep Research tab ────────────────────────────────── */}
+      {reportTab === 'deep' && SECTIONS.map(section => {
         const state = sectionStates[section.id] ?? 'idle'
         const isDone = typeof state === 'object' && 'text' in state
         const isError = typeof state === 'object' && 'error' in state
@@ -372,7 +404,16 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
             <div className="flex items-center justify-between px-3 py-2.5 gap-2">
               <button
                 className="flex items-center gap-2 min-w-0 flex-1 text-left active:opacity-60"
-                onClick={() => isDone && setExpandedSections(prev => ({ ...prev, [section.id]: !(prev[section.id] ?? false) }))}
+                onClick={() => {
+                  if (!isDone) return
+                  const isOpen = expandedSections[section.id] ?? false
+                  setExpandedSections(() => {
+                    const next: Record<string, boolean> = {}
+                    for (const s of SECTIONS) next[s.id] = false
+                    if (!isOpen) next[section.id] = true
+                    return next
+                  })
+                }}
               >
                 <span className="text-[10px] text-slate-400 shrink-0 w-3 text-center">
                   {isDone ? (isExpanded ? '▼' : '▶') : ''}
@@ -384,9 +425,13 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
                 </div>
               </button>
               {isDone ? (
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-[9px] font-medium whitespace-nowrap"
+                    style={{ color: (state as { model?: string }).model === 'gemini-2.5-flash' ? '#2563eb' : '#64748b' }}>
+                    {(state as { model?: string }).model === 'gemini-2.5-flash' ? '🌐 2.5 Flash' : '⚡ 3.1 Lite'}
+                  </span>
                   <span className="text-[9px] text-slate-400 whitespace-nowrap">
-                    Updated {fmtSavedAt((state as { savedAt?: number }).savedAt)}
+                    {fmtSavedAt((state as { savedAt?: number }).savedAt)}
                   </span>
                   <button
                     onClick={() => handleGenerate(section.id, true)}
@@ -486,11 +531,23 @@ export function ReportTab({ yf_symbol, name, qs, loading }: Props) {
         )
       })}
 
-      {qs?.partial && (
+      {reportTab === 'quickstats' && qs?.partial && (
         <p className="text-[10px] text-slate-400 text-center pb-1">
           Some data unavailable for this symbol
         </p>
       )}
+
+      {/* ── AI model footnote (Deep Research only) ──────────── */}
+      {reportTab === 'deep' && <div className="pt-1 pb-2 border-t border-slate-100 space-y-0.5">
+        <div className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+          <span className="text-[9px] text-slate-400">Gemini 2.5 Flash + Google Search (live data)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0" />
+          <span className="text-[9px] text-slate-400">Gemini 3.1 Flash Lite (training data · fallback when search quota exhausted)</span>
+        </div>
+      </div>}
     </div>
   )
 }

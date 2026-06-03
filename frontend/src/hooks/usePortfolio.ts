@@ -8,6 +8,8 @@ export function usePortfolio(currency: 'INR' | 'USD' = 'INR') {
     staleTime: Infinity,
     gcTime:    Infinity,
     retry: 1,
+    refetchInterval: 30 * 60 * 1000,
+    refetchIntervalInBackground: false,
   })
 }
 

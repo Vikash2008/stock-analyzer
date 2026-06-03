@@ -42,12 +42,9 @@
 |---|------|-------|--------|
 | 1 | Report tab — Section 1 fundamentals grid | 4×4 grid (Valuation/Returns/Growth/Context); Screener.in data source; PEG fallback; D/E; Rev 1Y/3Y; EPS 1Y/3Y; ↻ sync + progress bar; PE History chart | done |
 | 2 | Report tab — Revenue Segments Perplexity card | Direct search query (no doc URL); `site:nsearchives.nseindia.com` for Indian; table format instruction; PDF reading limitation noted | done |
-| 3 | Report tab — Revenue Segments US stocks (SEC EDGAR) | Abandoned — FilingSummary.xml keyword match worked but parsed garbage numbers; removed from UI and backend | dropped |
-| 4 | Report tab — Revenue Segments Indian stocks (Screener.in) | Screener consolidated page has segment HTML tables; backend scrape similar to existing `_fetch_screener()`; PDF parsing avoided | pending |
 | 7 | Report tab — Gemini 2.5 Flash inline answers | Perplexity replaced; POST /api/gemini with Google Search grounding; react-markdown rendering; elapsed timer; force-refresh on ↻; localStorage cache per section | done |
 | 5 | Report tab — Section 2 Research Links | Screener/Trendlyne/NSE pills for Indian; Finviz/Macrotrends/EDGAR for US | pending |
 | 6 | Report tab — Phase 2 Claude API | AI-generated qualitative sections | pending |
-| 5 | Report tab — Phase 2 Claude API | AI-generated qualitative sections | pending |
 
 ---
 
@@ -55,6 +52,13 @@
 
 | Item | Completed |
 |------|-----------|
+| Tab UI overhaul — active tabs darkened (100→200 shades), Notes tab amber→rose; Charts strip fixed sky color (not metric-dependent); inner bar buttons (metric pills, sub-tabs, model toggle) get visible border on active; Realized Gains amber→pink; both HoldingsPage + TransactionsPage updated | 2026-06-03 |
+| quickstats reliability — `_TimeoutAdapter` 10s per-call timeout on all yfinance HTTP calls; top-level try/except in `get_quickstats` returns partial JSON instead of 503; disk cache errors caught separately; `isFetching` used in loading prop to avoid "Stats unavailable" flash during retry gap | 2026-06-03 |
+| Research tab — renamed from Report; Quick Stats default sub-tab; emerald design language on Quick Stats card; pill style (rounded-md, solid active, track container) unified across all chart/analysis strips; 30-min auto portfolio refresh; resetQueries fix for stuck quickstats; "none"→"Neutral" analyst rec; Analyst Ratings link to Yahoo Finance /analysis/ | 2026-06-03 |
+| Report tab — Deep Research / Quick Stats sub-tabs; violet strip in TransactionsPage; model toggle + gear (Deep Research) or ↻ sync (Quick Stats) in strip; reportTab/useLite/useKey lifted to TransactionsPage as props | 2026-06-03 |
+| Report tab — API key toggle: gear icon popover (iOS toggle "Backup Key"), hardcoded _KEYS[Main, Backup] in gemini.py, key_index in POST body + cache key, _read_api_key simplified to use _KEYS directly; localStorage persist; quickstats 503 fix: retry 1×10s + gated on !!data | 2026-06-03 |
+| Report tab — model toggle (2.5 Flash / 3.1 Lite); force_lite param; accordion + auto-expand; card header shows 🌐/⚡ model icon+name; footer legend; _is_fatal_error fallback (catches 503/timeout); attempt 2 retries once; gemini-2.5-flash grounding confirmed working | 2026-06-03 |
+| Report tab — Gemini model stabilised: gemini-3.1-flash-lite (500 RPD, 15 RPM); Google Search grounding removed (Gemini 3.x has 0/0 free grounding quota; account-level quota exhausted); .env key read at request time (no restart needed for key rotation); retry loop removed (caused timeout cascades) | 2026-06-02 |
 | Report tab — Gemini card UX: collapsible by default (▶/▼ left), "Updated DD Mon + ↻" right, 7-day localStorage cache with savedAt, error reason shown under Retry, markdown headings/bullets/tables fixed, gemini-2.0-flash (200 RPD), async endpoint with 25s timeout, .env local fallback | 2026-06-02 |
 | Report tab — Gemini 2.5 Flash inline answers replacing Perplexity; POST /api/gemini (google-genai + Google Search grounding); react-markdown + remark-gfm rendering; elapsed timer; force-refresh ↻; localStorage cache per section | 2026-06-02 |
 | Report tab Section 1 — 4×4 fundamentals grid; Screener.in data source; PEG fallback computation; D/E; Rev 1Y/3Y + EPS 1Y/3Y from Screener compounded growth + yfinance 3Y CAGR; loading progress bar; PE History 5Y chart from Macrotrends (US only) | 2026-06-02 |

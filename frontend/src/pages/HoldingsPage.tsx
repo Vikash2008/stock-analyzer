@@ -62,14 +62,14 @@ const PIE_COLORS = [
   '#0ea5e9','#d946ef','#4ade80','#fb923c','#818cf8',
 ]
 
-const METRIC_STYLE: Record<ChartMetric, { active: string; inactive: string; line: string; strip: string; sync: string }> = {
-  'Portfolio Value':  { active: 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-600 shadow-sm',    inactive: 'bg-blue-50 text-blue-600 border-blue-200',    line: '#3b82f6', strip: 'bg-blue-50 border-blue-100',    sync: 'bg-gradient-to-br from-blue-600 to-blue-800 border-blue-700' },
-  'Invested':         { active: 'bg-gradient-to-r from-violet-500 to-purple-600 text-white border-violet-600 shadow-sm', inactive: 'bg-violet-50 text-violet-600 border-violet-200', line: '#8b5cf6', strip: 'bg-violet-50 border-violet-100', sync: 'bg-gradient-to-br from-violet-600 to-purple-800 border-violet-700' },
-  'Unrealized Gains': { active: 'bg-gradient-to-r from-teal-400 to-emerald-500 text-white border-teal-500 shadow-sm',  inactive: 'bg-teal-50 text-green-700 border-teal-200',    line: '#14b8a6', strip: 'bg-teal-50 border-teal-100',    sync: 'bg-gradient-to-br from-teal-600 to-emerald-700 border-teal-700' },
-  'Realized Gains':   { active: 'bg-gradient-to-r from-amber-400 to-orange-500 text-white border-amber-500 shadow-sm', inactive: 'bg-amber-50 text-amber-700 border-amber-200',  line: '#f59e0b', strip: 'bg-amber-50 border-amber-100',   sync: 'bg-gradient-to-br from-amber-500 to-orange-700 border-amber-600' },
-  'Total Gains':      { active: 'bg-gradient-to-r from-emerald-500 to-green-600 text-white border-emerald-600 shadow-sm', inactive: 'bg-emerald-50 text-emerald-700 border-emerald-200', line: '#10b981', strip: 'bg-emerald-50 border-emerald-100', sync: 'bg-gradient-to-br from-emerald-600 to-green-800 border-emerald-700' },
-  'Return %':         { active: 'bg-gradient-to-r from-sky-400 to-cyan-500 text-white border-sky-500 shadow-sm',       inactive: 'bg-sky-50 text-sky-600 border-sky-200',       line: '#0ea5e9', strip: 'bg-sky-50 border-sky-100',      sync: 'bg-gradient-to-br from-sky-600 to-cyan-700 border-sky-700' },
-  'XIRR Trend':       { active: 'bg-gradient-to-r from-rose-500 to-pink-600 text-white border-rose-500 shadow-sm',    inactive: 'bg-rose-50 text-rose-600 border-rose-200',    line: '#f43f5e', strip: 'bg-rose-50 border-rose-100',    sync: 'bg-gradient-to-br from-rose-600 to-pink-800 border-rose-700' },
+const METRIC_STYLE: Record<ChartMetric, { active: string; inactive: string; line: string; strip: string; sync: string; trackBg: string }> = {
+  'Portfolio Value':  { active: 'bg-blue-600 text-white shadow-sm border border-blue-700',           inactive: 'text-blue-600 border border-transparent',    line: '#3b82f6', strip: 'bg-blue-50 border-blue-100',    sync: 'bg-gradient-to-br from-blue-600 to-blue-800 border-blue-700',    trackBg: '#bfdbfe88' },
+  'Invested':         { active: 'bg-violet-600 text-white shadow-sm border border-violet-700',        inactive: 'text-violet-600 border border-transparent',  line: '#8b5cf6', strip: 'bg-violet-50 border-violet-100', sync: 'bg-gradient-to-br from-violet-600 to-purple-800 border-violet-700', trackBg: '#ddd6fe88' },
+  'Unrealized Gains': { active: 'bg-teal-500 text-white shadow-sm border border-teal-600',            inactive: 'text-teal-700 border border-transparent',    line: '#14b8a6', strip: 'bg-teal-50 border-teal-100',    sync: 'bg-gradient-to-br from-teal-600 to-emerald-700 border-teal-700',  trackBg: '#99f6e488' },
+  'Realized Gains':   { active: 'bg-pink-600 text-white shadow-sm border border-pink-700',            inactive: 'text-pink-600 border border-transparent',    line: '#ec4899', strip: 'bg-pink-50 border-pink-100',    sync: 'bg-gradient-to-br from-pink-600 to-rose-700 border-pink-700',     trackBg: '#fbcfe888' },
+  'Total Gains':      { active: 'bg-emerald-600 text-white shadow-sm border border-emerald-700',      inactive: 'text-emerald-700 border border-transparent', line: '#10b981', strip: 'bg-emerald-50 border-emerald-100', sync: 'bg-gradient-to-br from-emerald-600 to-green-800 border-emerald-700', trackBg: '#bbf7d088' },
+  'Return %':         { active: 'bg-sky-500 text-white shadow-sm border border-sky-600',              inactive: 'text-sky-600 border border-transparent',     line: '#0ea5e9', strip: 'bg-sky-50 border-sky-100',      sync: 'bg-gradient-to-br from-sky-600 to-cyan-700 border-sky-700',       trackBg: '#bae6fd88' },
+  'XIRR Trend':       { active: 'bg-rose-500 text-white shadow-sm border border-rose-600',            inactive: 'text-rose-600 border border-transparent',    line: '#f43f5e', strip: 'bg-rose-50 border-rose-100',    sync: 'bg-gradient-to-br from-rose-600 to-pink-800 border-rose-700',     trackBg: '#fecdd388' },
 }
 
 type SortField = 'current' | 'invested' | 'todayGain' | 'todayPct' | 'totalGain' | 'totalPct' | 'xirr'
@@ -1127,12 +1127,12 @@ export default function HoldingsPage({ currency }: Props) {
       />
 
       {/* Tabs */}
-      <div className="flex bg-slate-100 rounded-full p-0.5">
+      <div className="flex bg-slate-100 rounded-full p-0.5 gap-0.5 mb-2">
         {(['holdings', 'charts', 'analysis'] as const).map(tab => {
           const activeClass = {
-            holdings: 'bg-teal-100 text-green-700',
-            charts:   'bg-sky-100 text-sky-700',
-            analysis: 'bg-violet-100 text-violet-700',
+            holdings: 'bg-teal-200 text-teal-800',
+            charts:   'bg-sky-200 text-sky-800',
+            analysis: 'bg-violet-200 text-violet-800',
           }[tab]
           return (
             <button
@@ -1149,17 +1149,17 @@ export default function HoldingsPage({ currency }: Props) {
       </div>
       {/* Charts strip — metric pills + sync */}
       {activeTab === 'charts' && (
-        <div className={`${METRIC_STYLE[chartMetric].strip} border rounded-xl px-2.5 py-1.5 mt-2`}>
+        <div className="bg-sky-50 border border-sky-200 rounded-xl px-2.5 py-1.5 mt-2">
           <div className="flex items-center gap-2">
             <div
-              className="flex gap-1.5 overflow-x-auto flex-1"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+              className="flex gap-0.5 overflow-x-auto flex-1 rounded-lg p-0.5"
+              style={{ backgroundColor: '#bae6fd44', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
             >
               {METRICS.map(m => (
                 <button
                   key={m}
                   onClick={() => setChartMetric(m)}
-                  className={`text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-all ${
+                  className={`text-[10px] whitespace-nowrap px-2.5 py-1 rounded-md font-medium transition-all ${
                     chartMetric === m ? METRIC_STYLE[m].active : METRIC_STYLE[m].inactive
                   }`}
                 >
@@ -1168,7 +1168,7 @@ export default function HoldingsPage({ currency }: Props) {
               ))}
             </div>
             <button
-              className={`flex items-center gap-0.5 shrink-0 rounded-full px-1.5 py-0.5 border active:opacity-60 ${METRIC_STYLE[chartMetric].sync}`}
+              className="flex items-center gap-0.5 shrink-0 rounded-full px-1.5 py-0.5 border active:opacity-60 bg-gradient-to-br from-sky-600 to-cyan-700 border-sky-700"
               onClick={() => { if (syncing) return; setSyncing(true); qc.invalidateQueries({ queryKey: ['history'] }) }}
             >
               <span className={`text-[9px] text-white leading-none inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
@@ -1273,24 +1273,20 @@ export default function HoldingsPage({ currency }: Props) {
       {activeTab === 'analysis' && (
         <div className="bg-violet-50 border border-violet-100 rounded-xl px-2.5 py-1.5 mt-2">
           <div className="flex items-center gap-2">
-            <div className="flex gap-1.5 flex-1">
+            <div className="flex gap-0.5 flex-1 bg-violet-100 rounded-lg p-0.5">
               {(['allocation', 'benchmarking', 'returns'] as const).map(st => (
                 <button
                   key={st}
                   onClick={() => setAnalysisSubTab(st)}
-                  className="text-[10px] whitespace-nowrap px-2.5 py-0.5 rounded-full border transition-all"
-                  style={analysisSubTab === st
-                    ? st === 'allocation'
-                      ? { background: 'linear-gradient(to right,#fb923c,#f97316)', borderColor: '#ea580c', color: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.15)' }
-                      : st === 'benchmarking'
-                      ? { background: 'linear-gradient(to right,#38bdf8,#0ea5e9)', borderColor: '#0369a1', color: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.15)' }
-                      : { background: 'linear-gradient(to right,#10b981,#16a34a)', borderColor: '#15803d', color: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.15)' }
-                    : st === 'allocation'
-                      ? { backgroundColor: '#fff7ed', borderColor: '#fed7aa', color: '#c2410c' }
-                      : st === 'benchmarking'
-                      ? { backgroundColor: '#f0f9ff', borderColor: '#bae6fd', color: '#0369a1' }
-                      : { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', color: '#15803d' }
-                  }
+                  className={`text-[10px] whitespace-nowrap px-2.5 py-1 rounded-md font-medium transition-all ${
+                    analysisSubTab === st
+                      ? st === 'allocation'   ? 'bg-orange-500 text-white shadow-sm border border-orange-600'
+                      : st === 'benchmarking' ? 'bg-sky-500 text-white shadow-sm border border-sky-600'
+                      :                         'bg-emerald-500 text-white shadow-sm border border-emerald-600'
+                      : st === 'allocation'   ? 'text-orange-600 border border-transparent'
+                      : st === 'benchmarking' ? 'text-sky-600 border border-transparent'
+                      :                         'text-emerald-600 border border-transparent'
+                  }`}
                 >
                   {st === 'allocation' ? 'Allocation' : st === 'benchmarking' ? 'Benchmarking' : 'Returns'}
                 </button>

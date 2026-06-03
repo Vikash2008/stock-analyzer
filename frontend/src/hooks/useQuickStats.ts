@@ -11,10 +11,12 @@ async function fetchQuickStats(yf_symbol: string): Promise<QuickStats> {
 
 export function useQuickStats(yf_symbol: string, enabled: boolean) {
   return useQuery<QuickStats>({
-    queryKey:  ['quickstats', yf_symbol],
-    queryFn:   () => fetchQuickStats(yf_symbol),
-    enabled:   enabled && !!yf_symbol,
-    staleTime: Infinity,
-    gcTime:    Infinity,
+    queryKey:   ['quickstats', yf_symbol],
+    queryFn:    () => fetchQuickStats(yf_symbol),
+    enabled:    enabled && !!yf_symbol,
+    staleTime:  Infinity,
+    gcTime:     Infinity,
+    retry:      1,
+    retryDelay: 10000,
   })
 }
