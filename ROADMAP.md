@@ -45,7 +45,7 @@
 | 7 | Report tab — Gemini 2.5 Flash inline answers | Perplexity replaced; POST /api/gemini with Google Search grounding; react-markdown rendering; elapsed timer; force-refresh on ↻; localStorage cache per section | done |
 | 5 | Report tab — Section 2 Research Links | Screener/Trendlyne/NSE pills for Indian; Finviz/Macrotrends/EDGAR for US | pending |
 | 6 | Report tab — Phase 2 Claude API | AI-generated qualitative sections | pending |
-| 8 | Deep Research — 8-card redesign | Card 1: Business Overview & Moat; Card 2: Industry Outlook & Macro; Card 3: Latest Earnings & Guidance; Card 4: Valuation Metrics; Card 5: Peer Comparison Matrix; Card 6: Financial Health & Trends; Card 7: News, Sentiment & Red Flags; Card 8: Technical Analysis Setup | pending |
+| 8 | Deep Research — 8-card redesign | Card 1: Business Overview & Moat; Card 2: Industry Outlook & Macro; Card 3: Latest Earnings & Guidance; Card 4: Valuation Metrics; Card 5: Peer Comparison Matrix; Card 6: Financial Health & Trends; Card 7: News, Sentiment & Red Flags; Card 8: Technical Analysis Setup | done |
 
 ---
 
@@ -53,6 +53,9 @@
 
 | Item | Completed |
 |------|-----------|
+| Deep Research 8-card redesign — 7→8 sections; new prompts (Indian+US variants); per-card color system (blue/green/grey palette, accentHex hex value for inline border); card wrapper borderLeftWidth=4+borderTopWidth=2 (SummaryCard pattern); header right: Research/Show Results/Refresh button + attribution text "Results fetched by X on D Mon HH:MM"; fmtSavedAt includes HH:MM; footer legend removed | 2026-06-03 |
+| 30-min auto-refresh fix — refetchInterval removed from usePortfolio (called backend without force_refresh, returned stale as_of); replaced with setInterval in PortfoliosPage calling handleRefresh() every 30 min via ref (force_refresh=true guaranteed) | 2026-06-03 |
+| Research tab Quick Stats button color — inactive state changed to emerald tones (distinct from Deep Research violet) | 2026-06-03 |
 | Gemini API keys moved to env vars — GEMINI_KEY_MAIN / GEMINI_KEY_BACKUP; _load_keys() reads os.environ at request time; local .env for dev; Render env vars for prod; git history squashed to remove keys from all commits | 2026-06-03 |
 | Tab UI overhaul — active tabs darkened (100→200 shades), Notes tab amber→rose; Charts strip fixed sky color (not metric-dependent); inner bar buttons (metric pills, sub-tabs, model toggle) get visible border on active; Realized Gains amber→pink; both HoldingsPage + TransactionsPage updated | 2026-06-03 |
 | quickstats reliability — `_TimeoutAdapter` 10s per-call timeout on all yfinance HTTP calls; top-level try/except in `get_quickstats` returns partial JSON instead of 503; disk cache errors caught separately; `isFetching` used in loading prop to avoid "Stats unavailable" flash during retry gap | 2026-06-03 |
