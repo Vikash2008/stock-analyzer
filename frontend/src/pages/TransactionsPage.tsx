@@ -362,7 +362,8 @@ export default function TransactionsPage({ currency }: Props) {
   }
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-4">
+    <div className="max-w-xl mx-auto flex flex-col h-[100dvh]">
+      <div className="shrink-0 px-4 pt-3 bg-white">
       {/* Back */}
       <button onClick={() => navigate(-1)} className="text-[11px] text-[#2563eb] mb-3">
         {backLabel}
@@ -487,6 +488,8 @@ export default function TransactionsPage({ currency }: Props) {
                   </svg>
                 </button>
                 {reportGearOpen && (
+                  <>
+                  <div className="fixed inset-0 z-[9]" onClick={() => setReportGearOpen(false)} />
                   <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-10 px-3 py-2.5 flex items-center gap-3 whitespace-nowrap">
                     <span className="text-[11px] text-slate-600">Backup Key</span>
                     <button
@@ -496,6 +499,7 @@ export default function TransactionsPage({ currency }: Props) {
                       <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${reportUseKey === 1 ? 'translate-x-6' : 'translate-x-1'}`} />
                     </button>
                   </div>
+                  </>
                 )}
               </div>
             </div>
@@ -552,6 +556,8 @@ export default function TransactionsPage({ currency }: Props) {
           </div>
         </div>
       )}
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 pb-4">
 
       {activeTab === 'transactions' && (
         <>
@@ -732,6 +738,7 @@ export default function TransactionsPage({ currency }: Props) {
           )}
         </div>
       )}
+      </div>
     </div>
   )
 }

@@ -1032,7 +1032,8 @@ export default function HoldingsPage({ currency }: Props) {
   }
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-4">
+    <div className="max-w-xl mx-auto flex flex-col h-[100dvh]">
+      <div className="shrink-0 px-4 pt-4 bg-white">
       {/* Back + Settings */}
       <div className="flex items-center justify-between mb-3">
         <button onClick={() => navigate('/')} className="text-[11px] text-[#2563eb]">
@@ -1305,7 +1306,8 @@ export default function HoldingsPage({ currency }: Props) {
           </div>
         </div>
       )}
-      <div className="mt-2">
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 pt-2 pb-4">
 
       {/* ── Holdings tab ── */}
       {activeTab === 'holdings' && (
