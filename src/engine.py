@@ -13,6 +13,8 @@ disk cache. Only layers whose TTL has expired are re-fetched:
 
 from __future__ import annotations
 
+import hashlib
+import io
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -21,7 +23,7 @@ import pandas as pd
 
 from src.cache import Cache
 
-_DATA_FILE  = Path("data/msp_v2.csv")
+_DATA_FILE  = Path("data/demo_msp_v2.csv")
 _USD_PORTS  = {"Vested", "IndMoney US", "IndMoney Mummy"}
 _SKIP_PORTS = {"Equity", "MF_Portfolio"}   # aggregate duplicates — excluded from totals
 
@@ -69,11 +71,11 @@ def build(
     selected_portfolios: Optional[List[str]] = None,
     currency: str = "INR",
     force_refresh_prices: bool = False,
+    csv_content: Optional[str] = None,
 ) -> PortfolioBundle:
     """
     Load data from cache, re-fetch only what is stale, return a bundle.
-    Safe to call on every Streamlit re-render — expensive work is skipped
-    when the cache is warm.
+    csv_content: raw CSV text from an uploaded file; if None, uses demo_msp_v2.csv.
     """
     from src.data_loader import load_transactions
     from src.portfolio import calculate_holdings, enrich_holdings
@@ -81,12 +83,20 @@ def build(
 
     cache = Cache()
 
-    # ── Layer 1: FIFO (permanent, mtime-gated) ────────────────────────────────
-    if not cache.fifo_is_fresh(_DATA_FILE):
-        print("[engine] FIFO stale — recomputing from", _DATA_FILE)
-        txns = load_transactions(_DATA_FILE)
+    # ── Layer 1: FIFO (permanent, mtime/hash-gated) ───────────────────────────
+    if csv_content is not None:
+        csv_hash  = hashlib.md5(csv_content.encode()).hexdigest()
+        fifo_key  = csv_hash
+        source    = io.StringIO(csv_content)
+    else:
+        fifo_key  = _DATA_FILE
+        source    = _DATA_FILE
+
+    if not cache.fifo_is_fresh(fifo_key):
+        print("[engine] FIFO stale — recomputing")
+        txns = load_transactions(source)
         holdings_raw, realized_all = calculate_holdings(txns)
-        cache.set_fifo(_DATA_FILE, txns, holdings_raw, realized_all)
+        cache.set_fifo(fifo_key, txns, holdings_raw, realized_all)
         force_refresh_prices = True   # symbol list may have changed
     else:
         txns, holdings_raw, realized_all = cache.get_fifo()

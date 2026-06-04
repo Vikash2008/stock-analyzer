@@ -1,5 +1,6 @@
-import { useMemo, useRef, useState, useEffect } from 'react'
+import { useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { usePortfolio, useForceRefresh } from '../hooks/usePortfolio'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
 import { fmt, fmtCompact, fmtCompactGainLine, fmtPct } from '../utils/fmt'
@@ -192,8 +193,24 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
   )
 }
 
+interface CsvMeta { name: string; size: number; importedAt: number }
+
+function getCsvMeta(): CsvMeta | null {
+  try { return JSON.parse(localStorage.getItem('portfolio:csv:meta') || 'null') } catch { return null }
+}
+function fmtBytes(b: number) { return b < 1024 * 1024 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB` }
+function fmtImportDate(ts: number) {
+  const d = new Date(ts)
+  const dd = String(d.getDate()).padStart(2,'0')
+  const mon = d.toLocaleString('en-US',{month:'short'})
+  const hh = String(d.getHours()).padStart(2,'0')
+  const mm = String(d.getMinutes()).padStart(2,'0')
+  return `${dd} ${mon} ${d.getFullYear()}, ${hh}:${mm}`
+}
+
 export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const navigate     = useNavigate()
+  const qc           = useQueryClient()
   const { data, isLoading, error } = usePortfolio(currency)
   const forceRefresh  = useForceRefresh(currency)
   const [mode, setMode]       = useState<BreakdownMode>('type')
@@ -201,6 +218,75 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const [refreshing, setRefreshing] = useState(false)
   const [bannerVisible, setBannerVisible] = useState(false)
   const [refreshError, setRefreshError] = useState(false)
+
+  // Settings panel
+  const [settingsOpen, setSettingsOpen]     = useState(false)
+  const [importProgress, setImportProgress] = useState<number | null>(null)
+  const [importDone, setImportDone]         = useState(false)
+  const [csvMeta, setCsvMeta]               = useState<CsvMeta | null>(getCsvMeta)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const progressTimer = useRef<ReturnType<typeof setInterval>>()
+  const API_URL_SETTINGS = (import.meta.env.VITE_API_URL ?? '') as string
+
+  const handleImport = useCallback((file: File) => {
+    setImportProgress(0)
+    setImportDone(false)
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      const text = e.target?.result as string
+      setImportProgress(20)
+      const meta: CsvMeta = { name: file.name, size: file.size, importedAt: Date.now() }
+      localStorage.setItem('portfolio:csv', text)
+      localStorage.setItem('portfolio:csv:meta', JSON.stringify(meta))
+      setCsvMeta(meta)
+      setImportProgress(40)
+
+      // Animate 40→85 over ~5s while POST is in flight
+      let pct = 40
+      clearInterval(progressTimer.current)
+      progressTimer.current = setInterval(() => {
+        pct = Math.min(pct + 3, 85)
+        setImportProgress(pct)
+      }, 180)
+
+      try {
+        const params = new URLSearchParams({ currency, force_refresh: 'true' })
+        const res = await fetch(`${API_URL_SETTINGS}/api/portfolio?${params}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: text,
+        })
+        clearInterval(progressTimer.current)
+        if (res.ok) {
+          const newData = await res.json()
+          qc.setQueryData(['portfolio', currency], newData)
+        }
+      } catch { /* keep stale data */ }
+      finally {
+        clearInterval(progressTimer.current)
+        setImportProgress(100)
+        setImportDone(true)
+        setTimeout(() => { setImportProgress(null); setImportDone(false); setSettingsOpen(false) }, 1200)
+      }
+    }
+    reader.readAsText(file)
+  }, [currency, qc, API_URL_SETTINGS])
+
+  const handleDownload = useCallback(() => {
+    const csv = localStorage.getItem('portfolio:csv')
+    if (csv) {
+      const blob = new Blob([csv], { type: 'text/csv' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = csvMeta?.name ?? 'portfolio.csv'
+      a.click()
+      URL.revokeObjectURL(url)
+    } else {
+      // Download demo CSV from backend
+      window.open(`${API_URL_SETTINGS}/api/demo-csv`, '_blank')
+    }
+  }, [csvMeta, API_URL_SETTINGS])
 
   // Explore New Holdings
   const API_URL = (import.meta.env.VITE_API_URL ?? '') as string
@@ -426,18 +512,91 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       {/* Page header */}
       <div className="flex items-center justify-between bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl px-4 py-1.5">
         <p className="text-[18px] font-bold text-white tracking-tight">Portfolio Manager</p>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className={`flex items-center gap-1.5 transition-colors ${refreshing ? 'text-white' : 'text-emerald-100 active:text-white'}`}
-        >
-          <span className={`text-[14px] leading-none ${refreshing ? 'animate-spin' : ''}`}>↻</span>
-          <span className={`text-[9px] uppercase tracking-widest ${refreshError ? 'text-red-300' : ''}`}>
-            {refreshError
-              ? 'Sync failed · retry'
-              : (() => { const d = new Date(data.as_of); const hh = String(d.getHours()).padStart(2,'0'); const mm = String(d.getMinutes()).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); const mon = d.toLocaleString('en-US',{month:'short'}); return `${hh}:${mm} ${dd} ${mon}` })()}
-          </span>
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className={`flex items-center gap-1.5 transition-colors ${refreshing ? 'text-white' : 'text-emerald-100 active:text-white'}`}
+          >
+            <span className={`text-[14px] leading-none ${refreshing ? 'animate-spin' : ''}`}>↻</span>
+            <span className={`text-[9px] uppercase tracking-widest ${refreshError ? 'text-red-300' : ''}`}>
+              {refreshError
+                ? 'Sync failed · retry'
+                : (() => { const d = new Date(data.as_of); const hh = String(d.getHours()).padStart(2,'0'); const mm = String(d.getMinutes()).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); const mon = d.toLocaleString('en-US',{month:'short'}); return `${hh}:${mm} ${dd} ${mon}` })()}
+            </span>
+          </button>
+          <div className="relative">
+            <button
+              onClick={() => setSettingsOpen(v => !v)}
+              className="text-emerald-100 active:text-white p-1 -mr-1 min-h-[44px] flex items-center"
+              aria-label="Portfolio settings"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                <path fillRule="evenodd" d="M11.078 2.25c-.917 0-1.699.663-1.85 1.567L9.05 4.889c-.02.12-.115.26-.297.348a7.493 7.493 0 0 0-.986.57c-.166.115-.334.126-.45.083L6.3 5.508a1.875 1.875 0 0 0-2.282.819l-.922 1.597a1.875 1.875 0 0 0 .432 2.385l.84.692c.095.078.17.229.154.43a7.598 7.598 0 0 0 0 1.139c.015.2-.059.352-.153.43l-.841.692a1.875 1.875 0 0 0-.432 2.385l.922 1.597a1.875 1.875 0 0 0 2.282.818l1.019-.382c.115-.043.283-.031.45.082.312.214.641.405.985.57.182.088.277.228.297.35l.178 1.071c.151.904.933 1.567 1.85 1.567h1.844c.916 0 1.699-.663 1.85-1.567l.178-1.072c.02-.12.114-.26.297-.349.344-.165.673-.356.985-.57.167-.114.335-.125.45-.082l1.02.382a1.875 1.875 0 0 0 2.28-.819l.923-1.597a1.875 1.875 0 0 0-.432-2.385l-.84-.692c-.095-.078-.17-.229-.154-.43a7.614 7.614 0 0 0 0-1.139c-.016-.2.059-.352.153-.43l.84-.692c.708-.582.891-1.59.433-2.385l-.922-1.597a1.875 1.875 0 0 0-2.282-.818l-1.02.382c-.114.043-.282.031-.449-.083a7.49 7.49 0 0 0-.985-.57c-.183-.087-.277-.227-.297-.348l-.179-1.072a1.875 1.875 0 0 0-1.85-1.567h-1.843ZM12 15.75a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Z" clipRule="evenodd" />
+              </svg>
+            </button>
+
+            {/* Settings popover — anchored below gear icon */}
+            {settingsOpen && (
+              <>
+                <div className="fixed inset-0 z-[9]" onClick={() => { if (importProgress === null) setSettingsOpen(false) }} />
+                <div className="absolute top-full right-0 z-10 mt-1 w-56 rounded-xl bg-white shadow-lg border border-slate-100">
+                  <div className="px-3 pt-3 pb-4">
+                    {/* Current file */}
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-2">Current File</p>
+                    {csvMeta ? (
+                      <div className="mb-1">
+                        <p className="text-[13px] font-medium text-slate-700">{csvMeta.name} · {fmtBytes(csvMeta.size)}</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Imported {fmtImportDate(csvMeta.importedAt)}</p>
+                      </div>
+                    ) : (
+                      <p className="text-[13px] font-medium text-slate-700 mb-1">Demo Data</p>
+                    )}
+                    <button
+                      onClick={handleDownload}
+                      className="w-full mt-2 py-2 rounded-lg border border-slate-200 text-[12px] font-medium text-slate-600 flex items-center justify-center gap-1.5"
+                    >
+                      <span>↓</span> Download {csvMeta ? 'CSV' : 'Demo CSV'}
+                    </button>
+
+                    <div className="border-t border-slate-100 my-4" />
+
+                    {/* Import new file */}
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-3">Import New File</p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv"
+                      className="hidden"
+                      onChange={e => { const f = e.target.files?.[0]; if (f) handleImport(f); e.target.value = '' }}
+                    />
+                    {importProgress === null ? (
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full py-2 rounded-lg bg-emerald-600 text-white text-[12px] font-semibold flex items-center justify-center gap-1.5"
+                      >
+                        <span>📂</span> Browse &amp; Import…
+                      </button>
+                    ) : (
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <p className="text-[12px] text-slate-600">{importDone ? '✓ Portfolio updated' : 'Importing…'}</p>
+                          <p className="text-[12px] font-medium text-emerald-600">{importProgress}%</p>
+                        </div>
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-emerald-500 rounded-full transition-all duration-200"
+                            style={{ width: `${importProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Hero card — Total Portfolio */}

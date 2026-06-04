@@ -1,28 +1,25 @@
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { fetchPortfolio } from '../api/portfolio'
 import type { PortfolioData } from '../api/types'
-import demoPortfolio from '../demo/portfolio.json'
 
-const DEMO = import.meta.env.VITE_DEMO_MODE === 'true'
+function getCsvContent(): string | undefined {
+  return localStorage.getItem('portfolio:csv') ?? undefined
+}
 
 export function usePortfolio(currency: 'INR' | 'USD' = 'INR') {
   return useQuery({
     queryKey: ['portfolio', currency],
-    queryFn: DEMO
-      ? () => Promise.resolve(demoPortfolio as unknown as PortfolioData)
-      : () => fetchPortfolio(currency),
+    queryFn: () => fetchPortfolio(currency, false, getCsvContent()),
     staleTime: Infinity,
     gcTime:    Infinity,
-    retry: DEMO ? 0 : 1,
+    retry: 1,
   })
 }
 
 export function useForceRefresh(currency: 'INR' | 'USD') {
   const qc = useQueryClient()
-  return () => {
-    if (DEMO) return Promise.resolve()
-    return fetchPortfolio(currency, true).then(data =>
+  return () =>
+    fetchPortfolio(currency, true, getCsvContent()).then(data =>
       qc.setQueryData(['portfolio', currency], data)
     )
-  }
 }

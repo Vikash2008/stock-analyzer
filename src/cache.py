@@ -101,14 +101,22 @@ class Cache:
         self._data.pop(f"{layer}:ts", None)
         self.save()
 
-    # ── FIFO mtime gate ───────────────────────────────────────────────────────
+    # ── FIFO mtime / hash gate ────────────────────────────────────────────────
+    # source is either a Path (keyed by mtime) or a str MD5 hash (uploaded CSV)
 
-    def fifo_is_fresh(self, source_path: Path) -> bool:
+    def fifo_is_fresh(self, source: "Path | str") -> bool:
+        if isinstance(source, str):
+            return self._data.get("fifo:csv_hash") == source
         stored = self._data.get("fifo:mtime")
-        return stored == source_path.stat().st_mtime
+        return stored == source.stat().st_mtime
 
-    def set_fifo(self, source_path: Path, txns, holdings_raw, realized) -> None:
-        self._data["fifo:mtime"]        = source_path.stat().st_mtime
+    def set_fifo(self, source: "Path | str", txns, holdings_raw, realized) -> None:
+        if isinstance(source, str):
+            self._data["fifo:csv_hash"] = source
+            self._data.pop("fifo:mtime", None)
+        else:
+            self._data["fifo:mtime"] = source.stat().st_mtime
+            self._data.pop("fifo:csv_hash", None)
         self._data["fifo:value:txns"]   = txns
         self._data["fifo:value:raw"]    = holdings_raw
         self._data["fifo:value:real"]   = realized

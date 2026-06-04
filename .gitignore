@@ -1,6 +1,9 @@
 # Cache
 data/.cache.pkl
 
+# Real portfolio CSV — never commit; use demo_msp_v2.csv for public default
+data/msp_v2.csv
+
 # Python
 __pycache__/
 *.py[cod]
