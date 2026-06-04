@@ -72,7 +72,23 @@ export default function App() {
     if (!('serviceWorker' in navigator)) return
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      window.location.reload()
+      const d = new Date(__BUILD_TIME__)
+      const label = d.toLocaleString('en-GB', {
+        day: 'numeric', month: 'short',
+        hour: '2-digit', minute: '2-digit', hour12: false,
+        timeZone: 'Asia/Kolkata',
+      })
+      const el = document.createElement('div')
+      el.style.cssText = [
+        'position:fixed', 'bottom:80px', 'left:50%', 'transform:translateX(-50%)',
+        'background:#0f172a', 'color:#4ade80', 'font-size:13px', 'font-weight:600',
+        'padding:10px 18px', 'border-radius:999px', 'z-index:9999',
+        'box-shadow:0 4px 16px rgba(0,0,0,0.4)', 'white-space:nowrap',
+        'border:1px solid #334155',
+      ].join(';')
+      el.textContent = `✓ App updated · Built ${label}`
+      document.body.appendChild(el)
+      setTimeout(() => window.location.reload(), 2500)
     })
 
     const checkForUpdate = () => {
