@@ -52,6 +52,10 @@
 
 | Item | Completed |
 |------|-----------|
+| Explore New Holdings — PortfoliosPage search section (debounced autocomplete via /api/search Yahoo Finance proxy, recent search pills, navigates to /research/:symbol) + ResearchPage (Quick Stats + Deep Research + Notes tabs; reuses ReportTab + AnalysisTab; indigo overview card) | 2026-06-04 |
+| PWA update toast — __BUILD_TIME__ injected at Vite build time; on controllerchange (new SW), green pill toast "✓ App updated · Built D Mon HH:MM IST" shows 2.5s before reload | 2026-06-04 |
+| Quick Stats cold-start fix — useQuickStats throws on partial:true (TanStack Query auto-retries 2×15s); backend no longer caches partial results; curl_cffi added to requirements | 2026-06-04 |
+| Gemini API keys — moved to Render env vars GEMINI_KEY_MAIN / GEMINI_KEY_BACKUP; local .env for dev | 2026-06-03 |
 | Deep Research 8-card redesign — 7→8 sections; new prompts (Indian+US variants); per-card color system (blue/green/grey palette, accentHex hex value for inline border); card wrapper borderLeftWidth=4+borderTopWidth=2 (SummaryCard pattern); header right: Research/Show Results/Refresh button + attribution text "Results fetched by X on D Mon HH:MM"; fmtSavedAt includes HH:MM; footer legend removed | 2026-06-03 |
 | 30-min auto-refresh fix — refetchInterval removed from usePortfolio (called backend without force_refresh, returned stale as_of); replaced with setInterval in PortfoliosPage calling handleRefresh() every 30 min via ref (force_refresh=true guaranteed) | 2026-06-03 |
 | Research tab Quick Stats button color — inactive state changed to emerald tones (distinct from Deep Research violet) | 2026-06-03 |

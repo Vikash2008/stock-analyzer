@@ -31,7 +31,8 @@ backend/
   routers/
     portfolio.py            GET /api/portfolio?currency=INR&force_refresh=false
     history.py              GET /api/history?yf_symbol=INFY.NS&start=YYYY-MM-DD OR ?period=1d (intraday; timestamps in IST; includes prev_close)
-    quickstats.py           GET /api/quickstats?yf_symbol=...&force_refresh=false (fundamentals + analyst; 60s mem + 24h disk per-symbol); rec_label normalizes yfinance "none" → "Neutral"; Indian stocks: Screener.in scrape overrides PE/PB/ROCE/ROE/DivYield/MCap/52W + Compounded Sales/Profit Growth 3Y+TTM; US stocks: yfinance + _compute_roce() + _compute_growth_3y() from income_stmt + _fetch_macrotrends_pe() for PE history; PEG fallback = PE/(earningsGrowth×100) when yfinance null; _yf_ticker() returns plain yf.Ticker(symbol) — no custom session (yfinance now requires curl_cffi, not requests.Session); top-level try/except returns {"partial":True} instead of 503; fields: trailing_pe, forward_pe, price_to_book, peg_ratio, debt_to_equity, return_on_equity, return_on_assets, roce, profit_margins, trailing_eps, revenue_growth, revenue_growth_3y, earnings_growth, earnings_growth_3y, dividend_yield, beta, market_cap, week_52_*, recommendation, target_mean_price, upside_pct, pe_history
+    quickstats.py           GET /api/quickstats?yf_symbol=...&force_refresh=false (fundamentals + analyst; 60s mem + 24h disk per-symbol); rec_label normalizes yfinance "none" → "Neutral"; Indian stocks: Screener.in scrape overrides PE/PB/ROCE/ROE/DivYield/MCap/52W + Compounded Sales/Profit Growth 3Y+TTM; if Screener succeeds, partial=False even when yfinance info empty; US stocks: yfinance + _compute_roce() + _compute_growth_3y() from income_stmt + _fetch_macrotrends_pe() for PE history; PEG fallback = PE/(earningsGrowth×100) when yfinance null; _yf_ticker() returns plain yf.Ticker(symbol) — requires curl_cffi installed; top-level try/except returns {"partial":True} instead of 503; partial results NOT cached to disk or memory (so retries always hit yfinance fresh); fields: trailing_pe, forward_pe, price_to_book, peg_ratio, debt_to_equity, return_on_equity, return_on_assets, roce, profit_margins, trailing_eps, revenue_growth, revenue_growth_3y, earnings_growth, earnings_growth_3y, dividend_yield, beta, market_cap, week_52_*, recommendation, target_mean_price, upside_pct, pe_history
+    search.py               GET /api/search?q=... — proxies Yahoo Finance v1/finance/search; returns EQUITY+ETF results [{symbol, name, exchange}]; max 6 results; 8s timeout; used by PortfoliosPage Explore section autocomplete
     filing.py               GET /api/filing/{symbol} — serves latest quarterly investor presentation PDF from BSE (downloads with proper headers, caches 2h in-memory); GET /api/filing/{symbol}/text — same but returns plain text extracted by pdfplumber (prefers Financial Results PDF over large PPT; first 30 pages; 15MB cap); scrip code from hardcoded map (50+ stocks) or BSE dynamic lookup
     gemini.py               POST /api/gemini — async; attempt 1a: gemini-2.5-flash + grounding + thinking, 45s timeout; attempt 1b on timeout: same model + grounding, thinking_budget=0, 55s timeout; attempt 2 fallback: gemini-3.1-flash-lite plain (500 RPD), retries once; any non-auth error on attempt 1 falls through to attempt 2; body: {symbol, section_id, prompt, force_refresh?, force_lite?, key_index?}; returns {text, sources[], grounded, model}; 1h in-memory cache per (symbol, section_id, force_lite, key_index); keys read from env vars GEMINI_KEY_MAIN / GEMINI_KEY_BACKUP via _load_keys() at request time; local .env loaded at module start for dev
   requirements_backend.txt  Backend-only deps
@@ -44,7 +45,7 @@ frontend/
     hooks/useHistory.ts          TanStack Query for price history, staleTime+gcTime=Infinity
     hooks/usePortfolioHistory.ts useQueries per-symbol history → value/invested/P&L/return/xirr series; exposes loadedCount+totalCount+fetchingCount+symbolPriceMap (Map<yf_symbol,Map<dateStr,price>>); extraSymbols? param fetches closed-symbol prices into symbolPriceMap
     hooks/useBenchmarkXirr.ts    useQueries benchmark histories in parallel; Option B period XIRR (opening balance at T1, terminal at T2); sector + per-holding XIRR vs benchmark; exports holdingBenchXirr Map + loadedCount+totalCount+fetchingCount; params: periodStart/periodEnd/symbolPriceMap; Other sector excluded from overallActual/overallBench cashflows
-    hooks/useQuickStats.ts       TanStack Query ['quickstats', yf_symbol]; staleTime=Infinity; enabled when Report tab active AND portfolio data loaded (!!data); retry 1×10s delay
+    hooks/useQuickStats.ts       TanStack Query ['quickstats', yf_symbol]; staleTime=Infinity; enabled when Report tab active; throws on partial:true response so TanStack Query auto-retries; retry 2×15s delay; partial results never cached
     utils/fmt.ts                 fmtINR/fmtUSD/fmtPct/fmtGainLine
     utils/segments.ts            classify.py TypeScript port
     utils/realized.ts            _agg_realized() TypeScript port
@@ -53,13 +54,14 @@ frontend/
     api/gemini.ts                fetchGeminiSection(symbol, sectionId, prompt, forceRefresh?, forceLite?, keyIndex?) → GeminiResponse {text, sources[], grounded, model}
     utils/reportLinks.ts         SECTIONS (8 configs: business/industry/results/valuation/peers/financial/news/technical), SectionConfig interface includes color{bg,border,accentHex,btnSolid,btnOutline}; buildGeminiPrompt(name, sectionId, isIndian, yf_symbol?, apiUrl?) — returns prompt string with FORMAT_SUFFIX; results section on Indian stocks embeds filing text URL; accentHex used for inline border styling (borderLeftWidth:4 borderTopWidth:2)
     components/             LoadingSkeleton, SummaryCard, HoldingCard, TxRow, PriceChart, AnalysisTab, ReportTab (accepts reportTab/useLite/useKey props from TransactionsPage; Deep Research tab: 7 Gemini cards accordion+auto-expand, elapsed timer, react-markdown+remark-gfm; Quick Stats tab: 4×4 grid + 52W bar + analyst + PE History; sub-tab bar + model toggle + gear + sync in TransactionsPage violet strip)
-    pages/                  PortfoliosPage, HoldingsPage, TransactionsPage
+    pages/                  PortfoliosPage, HoldingsPage, TransactionsPage, ResearchPage (/research/:symbol — Explore any stock; Quick Stats + Deep Research + Notes; reuses ReportTab + AnalysisTab; overview card from quickStats; no portfolio data dependency)
     App.tsx                 React Router routes
+    vite-env.d.ts           declare const __BUILD_TIME__: string (injected by vite.config.ts define)
   public/
     manifest.json           PWA manifest (standalone display mode)
     icon.svg                App icon — dark bg + green chart line
   package.json              react 18, react-router-dom 6, @tanstack/react-query 5, recharts 2, @nivo/sunburst, @nivo/core, @tanstack/react-query-persist-client, @tanstack/query-sync-storage-persister, vite-plugin-pwa, react-markdown, remark-gfm
-  vite.config.ts            /api proxy → localhost:8000 in dev; VitePWA plugin (autoUpdate, Workbox precache)
+  vite.config.ts            /api proxy → localhost:8000 in dev; VitePWA plugin (autoUpdate, Workbox precache); define: {__BUILD_TIME__} injected at build time for update toast
   .env.production           VITE_API_URL=https://stock-analyzer-2nqw.onrender.com
   index.html                PWA meta tags + manifest link
 
@@ -74,9 +76,10 @@ data/
 ## Navigation Flow (React Router)
 
 ```
-/                            PortfoliosPage — hero + per-portfolio cards, By Type (default) / By Broker toggle
+/                            PortfoliosPage — hero + per-portfolio cards, By Type (default) / By Broker toggle + Explore New Holdings search section
 /holdings/portfolio/:name    HoldingsPage — holdings list + Charts tab + sort control
 /holdings/segment/:key       HoldingsPage — holdings for a segment (Stocks/MF/US)
+/research/:symbol            ResearchPage — research any stock (not just held); Quick Stats + Deep Research + Notes tabs
 /transactions/:port/:sym     TransactionsPage — tx list + 8-metric Charts tab (Price + 7 historical)
 ```
 
@@ -108,6 +111,7 @@ msp_v2.csv
 | GET | `/api/filing/{symbol}` | — | Latest quarterly investor presentation PDF from BSE; 2h in-memory cache |
 | GET | `/api/filing/{symbol}/text` | — | Same filing as plain text (pdfplumber); prefers Financial Results PDF; 15MB cap; 30 pages max |
 | POST | `/api/gemini` | body: `{symbol, section_id, prompt, force_refresh?, force_lite?, key_index?}` | Attempt 1: gemini-2.5-flash + Google Search grounding; attempt 2 fallback: gemini-3.1-flash-lite plain; returns {text, sources[], grounded, model}; 1h cache per (symbol, section_id, force_lite); key_index selects Main(0) or Backup(1) API key |
+| GET | `/api/search` | `q` | Yahoo Finance symbol search; returns [{symbol, name, exchange}] for EQUITY+ETF; used by Explore New Holdings autocomplete |
 | GET | `/health` | — | Returns `{"status":"ok"}`; used by keep-alive cron |
 
 ---
