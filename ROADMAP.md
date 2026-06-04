@@ -71,6 +71,8 @@
 
 | Item | Completed |
 |------|-----------|
+| Explore page Charts tab — 3-tab bar (Research \| Charts \| Notes); sky-50 strip with Price pill + sync ↻; PriceChart in card; hideLegend hides BUY/SELL; showZoom shows ⤢ button + ZoomChartOverlay (lightweight-charts v5: pinch zoom, pan, crosshair H+V dashed lines, Range mode 2-tap % gain); allChartData passed to overlay for full history | 2026-06-04 |
+| Explore page overview card — CAGR 1Y text-[14px] right of price; CAGR 5Y bottom-right; 52W bottom-left; sector top-right; ago price removed; backend: _compute_1y_data uses daily history + returns current_from_history as current_price fallback; partial=False when current_price available from history | 2026-06-04 |
 | Explore page UI improvements — banner renamed "Explore New Opportunities" (emerald gradient), light green search input, green autocomplete dropdown, mt-8 gap; overview card: company name (locName→qs.company_name→yf_symbol), sector/5Y CAGR on right, price + 1Y return % + 1Y ago price on same row, 52W below; back button text-[#2563eb]; max-w-xl mx-auto; quickstats adds company_name/sector/industry/one_year_return/price_1y_ago/five_year_cagr | 2026-06-04 |
 | Explore New Holdings — PortfoliosPage search section (debounced autocomplete via /api/search Yahoo Finance proxy, recent search pills, navigates to /research/:symbol) + ResearchPage (Quick Stats + Deep Research + Notes tabs; reuses ReportTab + AnalysisTab; indigo overview card) | 2026-06-04 |
 | PWA update toast — __BUILD_TIME__ injected at Vite build time; on controllerchange (new SW), green pill toast "✓ App updated · Built D Mon HH:MM IST" shows 2.5s before reload | 2026-06-04 |
