@@ -6,6 +6,7 @@ import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persist
 import PortfoliosPage   from './pages/PortfoliosPage'
 import HoldingsPage     from './pages/HoldingsPage'
 import TransactionsPage from './pages/TransactionsPage'
+import ResearchPage     from './pages/ResearchPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -59,6 +60,10 @@ function AppRoutes({ currency, onCurrencyChange }: { currency: Currency; onCurre
         <Route
           path="/transactions/:portfolio/:symbol"
           element={<TransactionsPage currency={currency} />}
+        />
+        <Route
+          path="/research/:symbol"
+          element={<ResearchPage />}
         />
       </Routes>
     </BrowserRouter>

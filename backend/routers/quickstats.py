@@ -199,6 +199,38 @@ def _compute_growth_3y(ticker) -> dict:
     return result
 
 
+def _compute_5y_cagr(ticker) -> float | None:
+    """5-year annualised price return from monthly history."""
+    try:
+        h = ticker.history(period='5y', interval='1mo')
+        if h is None or h.empty or len(h) < 12:
+            return None
+        start = float(h['Close'].iloc[0])
+        end   = float(h['Close'].iloc[-1])
+        if start <= 0:
+            return None
+        years = len(h) / 12.0
+        return round((end / start) ** (1.0 / years) - 1, 4)
+    except Exception:
+        return None
+
+
+def _compute_1y_data(ticker, info: dict) -> tuple[float | None, float | None]:
+    """Returns (one_year_return, price_1y_ago) from 1Y monthly history."""
+    try:
+        h = ticker.history(period='1y', interval='1mo')
+        if h is not None and not h.empty and len(h) >= 2:
+            start = float(h['Close'].iloc[0])
+            end   = float(h['Close'].iloc[-1])
+            if start > 0:
+                return round(end / start - 1, 4), round(start, 2)
+    except Exception:
+        pass
+    # Fallback: use 52WeekChange from info (no price_1y_ago available)
+    v = _clean(info.get("52WeekChange"))
+    return v, None
+
+
 def _fetch_macrotrends_pe(ticker_sym: str) -> list[dict] | None:
     """Fetch quarterly PE history from Macrotrends. US stocks only."""
     try:
@@ -462,6 +494,8 @@ def _fetch(yf_symbol: str) -> dict:
     }
     rec_label = rec_map.get(rec_key) or ("Neutral" if rec_key == "none" else (rec_key or None))
 
+    _1y_return, _1y_ago = _compute_1y_data(ticker, info)
+
     result = {
         "yf_symbol":            yf_symbol,
         "currency":             currency,
@@ -491,6 +525,12 @@ def _fetch(yf_symbol: str) -> dict:
         "earnings_growth_3y":   None,
         "revenue_growth_3y":    None,
         "pe_history":           None if is_indian else _fetch_macrotrends_pe(yf_symbol),
+        "company_name":         info.get("longName") or info.get("shortName"),
+        "sector":               info.get("sector"),
+        "industry":             info.get("industry"),
+        "one_year_return":      _1y_return,
+        "price_1y_ago":         _1y_ago,
+        "five_year_cagr":       _compute_5y_cagr(ticker),
         "partial":              not bool(info),
     }
 
@@ -554,16 +594,16 @@ def get_quickstats(
         # Fetch fresh
         result = _fetch(yf_symbol)
 
-        # Persist to disk cache
-        try:
-            if disk is not None:
-                store = disk.get("quickstats") or {}
-                store[key] = {"data": result, "ts": time.time()}
-                disk.set("quickstats", store)
-        except Exception as e:
-            print(f"[quickstats] disk cache write error for {yf_symbol}: {e}")
-
-        _mem[key] = (result, now)
+        # Persist to disk/memory cache only when we have real data
+        if not result.get("partial"):
+            try:
+                if disk is not None:
+                    store = disk.get("quickstats") or {}
+                    store[key] = {"data": result, "ts": time.time()}
+                    disk.set("quickstats", store)
+            except Exception as e:
+                print(f"[quickstats] disk cache write error for {yf_symbol}: {e}")
+            _mem[key] = (result, now)
         return JSONResponse(content=result)
 
     except Exception as exc:

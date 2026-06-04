@@ -83,6 +83,12 @@ export interface QuickStats {
   earnings_growth_3y:   number | null
   revenue_growth_3y:    number | null
   pe_history:           Array<{ date: string; pe: number; price: number | null; ttm_eps: number | null }> | null
+  company_name:         string | null
+  sector:               string | null
+  industry:             string | null
+  one_year_return:      number | null
+  price_1y_ago:         number | null
+  five_year_cagr:       number | null
   partial:              boolean
 }
 

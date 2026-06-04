@@ -201,6 +201,40 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const [refreshing, setRefreshing] = useState(false)
   const [bannerVisible, setBannerVisible] = useState(false)
   const [refreshError, setRefreshError] = useState(false)
+
+  // Explore New Holdings
+  const API_URL = (import.meta.env.VITE_API_URL ?? '') as string
+  const [exploreInput,    setExploreInput]    = useState('')
+  const [recentSearches,  setRecentSearches]  = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('research:recent') || '[]') } catch { return [] }
+  })
+  const [suggestions,     setSuggestions]     = useState<{ symbol: string; name: string; exchange: string }[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+
+  useEffect(() => {
+    const q = exploreInput.trim()
+    if (q.length < 1) { setSuggestions([]); return }
+    const id = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/search?q=${encodeURIComponent(q)}`)
+        if (res.ok) { setSuggestions(await res.json()); setShowSuggestions(true) }
+      } catch { /* ignore */ }
+    }, 300)
+    return () => clearTimeout(id)
+  }, [exploreInput])
+
+  function navigateToResearch(sym: string, name?: string) {
+    const trimmed = sym.trim().toUpperCase()
+    if (!trimmed) return
+    const updated = [trimmed, ...recentSearches.filter(s => s !== trimmed)].slice(0, 5)
+    setRecentSearches(updated)
+    localStorage.setItem('research:recent', JSON.stringify(updated))
+    setSuggestions([])
+    setShowSuggestions(false)
+    setExploreInput('')
+    navigate(`/research/${encodeURIComponent(trimmed)}`, { state: name ? { name } : undefined })
+  }
+
   const touchStartY           = useRef(0)
   const bannerTimer           = useRef<ReturnType<typeof setTimeout>>()
   const errorTimer            = useRef<ReturnType<typeof setTimeout>>()
@@ -548,6 +582,70 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           })}
         </div>
       )}
+
+      {/* ── Explore New Opportunities ────────────────────────── */}
+      <div className="mt-32">
+        {/* Banner — matches Portfolio Manager header */}
+        <div className="flex items-center bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl px-4 py-1.5 mb-3">
+          <p className="text-[14px] font-bold text-white tracking-tight">Explore New Opportunities</p>
+        </div>
+
+        {/* Search strip */}
+        <div className="relative">
+          <div className="flex gap-2">
+            <input
+              value={exploreInput}
+              onChange={e => { setExploreInput(e.target.value); setShowSuggestions(true) }}
+              onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+              onKeyDown={e => e.key === 'Enter' && navigateToResearch(exploreInput)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              placeholder="e.g. AMZN, RELIANCE, HDFC Bank…"
+              className="flex-1 bg-green-50 text-slate-800 text-[12px] rounded-xl px-3 py-2.5 border border-green-200 placeholder-emerald-400 outline-none focus:border-emerald-400"
+            />
+            <button
+              onClick={() => navigateToResearch(exploreInput)}
+              disabled={!exploreInput.trim()}
+              className="bg-emerald-600 text-white text-[12px] font-semibold px-4 rounded-xl disabled:opacity-40 active:opacity-80"
+            >
+              Go
+            </button>
+          </div>
+
+          {/* Autocomplete dropdown */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-green-200 rounded-xl shadow-xl z-50 overflow-hidden">
+              {suggestions.map((s, i) => (
+                <button
+                  key={s.symbol}
+                  onMouseDown={() => navigateToResearch(s.symbol, s.name)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 text-left active:bg-green-50 ${i > 0 ? 'border-t border-green-100' : ''}`}
+                >
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-semibold text-slate-800 truncate">{s.symbol}</p>
+                    <p className="text-[10px] text-slate-500 truncate">{s.name}</p>
+                  </div>
+                  <span className="text-[9px] text-emerald-600 shrink-0 ml-2">{s.exchange}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Recent searches */}
+        {recentSearches.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {recentSearches.map(sym => (
+              <button
+                key={sym}
+                onClick={() => navigateToResearch(sym)}
+                className="text-[11px] bg-green-50 text-emerald-700 border border-green-200 rounded-full px-2.5 py-1 active:opacity-70"
+              >
+                {sym}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
     </div>
   )
