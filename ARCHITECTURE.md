@@ -108,7 +108,9 @@ msp_v2.csv
 
 | Method | Path | Params | Notes |
 |--------|------|--------|-------|
-| GET | `/api/portfolio` | `currency=INR\|USD`, `force_refresh=false` | Full bundle; 60s in-memory cache on top of disk cache |
+| GET | `/api/portfolio` | `currency=INR\|USD`, `force_refresh=false` | Returns demo bundle from `data/demo_msp_v2.csv`; 60s in-memory cache keyed `{currency}:demo` |
+| POST | `/api/portfolio` | `currency=INR\|USD`, `force_refresh=false`; body: raw CSV text | Processes uploaded CSV (max 5MB); cache key `{currency}:{md5[:12]}`; passes csv_content to engine.build() |
+| GET | `/api/demo-csv` | — | Serves `data/demo_msp_v2.csv` as downloadable file; used by settings popover |
 | GET | `/api/history` | `yf_symbol`, `start=YYYY-MM-DD` OR `period=1d` | Daily price history (1hr cache) or intraday 5-min bars (5min cache); intraday response includes `prev_close` (yesterday's daily close) and timestamps in IST |
 | GET | `/api/quickstats` | `yf_symbol`, `force_refresh=false` | P/E, MCap, 52W range, analyst target from ticker.info; 60s in-memory + 24h per-symbol disk cache |
 | GET | `/api/filing/{symbol}` | — | Latest quarterly investor presentation PDF from BSE; 2h in-memory cache |

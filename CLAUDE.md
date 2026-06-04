@@ -38,8 +38,9 @@
 ## Project Goal
 
 Multi-portfolio stock analyzer — Indian (NSE/BSE) and US stocks.
-Reads transactions from `data/msp_v2.csv`, computes FIFO holdings and realized P&L
-per portfolio, fetches live prices via yfinance, displays results in a React PWA.
+Default demo data from `data/demo_msp_v2.csv` (committed). User uploads real `data/msp_v2.csv`
+(gitignored) via ⚙ settings popover → stored in localStorage → auto-POSTed on every portfolio fetch.
+Computes FIFO holdings and realized P&L per portfolio, fetches live prices via yfinance, displays in React PWA.
 
 ---
 
