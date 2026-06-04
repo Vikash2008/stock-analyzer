@@ -173,7 +173,7 @@ export function ZoomChartOverlay({ data, isIndian, onClose }: Props) {
     : null
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', padding: '14px 16px', boxSizing: 'border-box' }}>
 
       {/* ── Toolbar ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexShrink: 0 }}>

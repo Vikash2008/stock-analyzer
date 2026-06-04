@@ -117,6 +117,22 @@ function SellDot(props: any) {
 export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLegend = false, showZoom = false }: PriceChartProps) {
   const [range,  setRange]  = useState<ChartRange>('1y')
   const [zoomed, setZoomed] = useState(false)
+
+  const handleOpenZoom = () => {
+    setZoomed(true)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(screen.orientation as any).lock('landscape').catch(() => {})
+    } catch (_) {}
+  }
+
+  const handleCloseZoom = () => {
+    setZoomed(false)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(screen.orientation as any).unlock()
+    } catch (_) {}
+  }
   const start = '2000-01-01'
   const { data: history, isLoading: dailyLoading }      = useHistory(yf_symbol, start)
   const { data: intradayHistory, isLoading: intLoading } = useHistory(yf_symbol, null, '1d')
@@ -186,7 +202,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
             )}
           </div>
           {showZoom && (
-            <button onClick={() => setZoomed(true)} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 active:opacity-70">
+            <button onClick={handleOpenZoom} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 active:opacity-70">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
             </button>
           )}
@@ -284,17 +300,12 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
 
       {/* Zoom overlay — ZoomChartOverlay (lightweight-charts) */}
       {showZoom && zoomed && (
-        <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center">
-          <div
-            style={{ transform: 'rotate(90deg)', width: '100dvh', height: '100dvw', transformOrigin: 'center center', background: '#0f172a', display: 'flex', flexDirection: 'column', padding: '14px 16px', boxSizing: 'border-box' }}
-            onClick={e => e.stopPropagation()}
-          >
-            <ZoomChartOverlay
-              data={allChartData}
-              isIndian={currency === 'INR'}
-              onClose={() => setZoomed(false)}
-            />
-          </div>
+        <div className="fixed inset-0 z-[200]" style={{ background: '#0f172a' }}>
+          <ZoomChartOverlay
+            data={allChartData}
+            isIndian={currency === 'INR'}
+            onClose={handleCloseZoom}
+          />
         </div>
       )}
     </div>
