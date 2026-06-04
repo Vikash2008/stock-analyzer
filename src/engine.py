@@ -165,7 +165,7 @@ def build(
 
     def _xirr(tx, hd):
         try:
-            if tx.empty or hd.empty:
+            if tx.empty:
                 return None
             v = _px(tx, hd, prices, usd_inr, currency)
             return round(v * 100, 2) if v is not None else None

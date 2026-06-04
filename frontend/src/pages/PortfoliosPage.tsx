@@ -142,7 +142,7 @@ function typeCards(holdings: Holding[], rmap: RealizedMap): CardStats[] {
 
 function isPos(v: number) { return v >= 0 }
 
-function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor, cardBg }: { card: CardStats; currency: Currency; xirr: number | null; onClick: () => void; compact?: boolean; accentColor?: string; cardBg?: string }) {
+function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor, cardBg, pillBlue = false }: { card: CardStats; currency: Currency; xirr: number | null; onClick: () => void; compact?: boolean; accentColor?: string; cardBg?: string; pillBlue?: boolean }) {
   const totalGain = (card.current - card.invested) + card.realGain
   const totalCost = card.invested + card.realCost
   const pct = totalCost !== 0 ? (totalGain / totalCost) * 100 : 0
@@ -178,7 +178,7 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
       </div>
       <div className="flex items-center justify-between mt-0.5">
         {xirr !== null
-          ? <span className={`${lblSize} font-semibold rounded-full px-1.5 py-0.5`} style={{ background: xirr >= 0 ? '#d1fae5' : '#fee2e2', color: xirr >= 0 ? '#065f46' : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
+          ? <span className={`${lblSize} font-semibold rounded-full px-1.5 py-0.5 shrink-0`} style={{ background: xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
           : <span className={`${lblSize} text-slate-400`}>{fmtCompact(card.invested, currency)} inv</span>
         }
         <span className={`flex items-center ${gap} shrink-0 whitespace-nowrap`}>
@@ -222,6 +222,27 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   }
 
   useEffect(() => () => { clearTimeout(bannerTimer.current); clearTimeout(errorTimer.current) }, [])
+
+  const handleRefreshRef   = useRef(handleRefresh)
+  const lastRefreshedAt    = useRef(Date.now())
+  useEffect(() => { handleRefreshRef.current = handleRefresh })
+  useEffect(() => {
+    const id = setInterval(() => {
+      lastRefreshedAt.current = Date.now()
+      handleRefreshRef.current()
+    }, 30 * 60 * 1000)
+    return () => clearInterval(id)
+  }, [])
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastRefreshedAt.current >= 30 * 60 * 1000) {
+        lastRefreshedAt.current = Date.now()
+        handleRefreshRef.current()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
 
   const rmap = useMemo(() => data ? aggRealized(data.realized, data.usd_inr) : new Map(), [data])
 
@@ -450,7 +471,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               </div>
               <div className="flex items-center justify-between mt-0.5">
                 {xirr !== null && xirr !== undefined
-                  ? <span className="text-[8px] font-semibold" style={{ color: xirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(xirr)}</span>
+                  ? <span className="text-[8px] font-semibold rounded-full px-1.5 py-0.5 shrink-0" style={{ background: xirr >= 0 ? (seg === 'mf' ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (seg === 'mf' ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
                   : <span className="text-[8px] text-slate-400">XIRR —</span>
                 }
                 <span className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
@@ -499,7 +520,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {gc.map(card => (
-                    <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={TYPE_CARD_STYLE[card.key]?.accent} cardBg={TYPE_CARD_STYLE[card.key]?.bg} />
+                    <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={TYPE_CARD_STYLE[card.key]?.accent} cardBg={TYPE_CARD_STYLE[card.key]?.bg} pillBlue={card.key === 'indian_mf' || card.key === 'us_mf'} />
                   ))}
                 </div>
               </div>
@@ -519,7 +540,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {gc.map(card => (
-                    <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={PORTFOLIO_CARD_STYLE[card.key]?.accent} cardBg={PORTFOLIO_CARD_STYLE[card.key]?.bg} />
+                    <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={PORTFOLIO_CARD_STYLE[card.key]?.accent} cardBg={PORTFOLIO_CARD_STYLE[card.key]?.bg} pillBlue={card.key.startsWith('MF_')} />
                   ))}
                 </div>
               </div>

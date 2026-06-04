@@ -52,21 +52,31 @@ def _read_api_key(index: int = 0) -> str:
     return keys[index] if 0 <= index < len(keys) else keys[0]
 
 
-def _extract_text(resp) -> str:
+def _extract_text(resp) -> tuple[str, str]:
+    """Return (text, debug_reason). Filters thinking parts for gemini-2.5-flash."""
+    # Primary: .text property (SDK should exclude thought parts)
     try:
         t = resp.text
-        if t:
-            return t
-    except Exception:
+        if t and t.strip():
+            return t.strip(), "resp.text"
+    except Exception as exc:
         pass
+
+    # Fallback: iterate parts, skip thought=True parts (thinking model artefacts)
     try:
         parts = resp.candidates[0].content.parts
-        texts = [p.text for p in parts if hasattr(p, "text") and p.text]
-        if texts:
-            return "\n".join(texts)
-    except Exception:
-        pass
-    return ""
+        answer = [p.text for p in parts
+                  if getattr(p, "text", None) and not getattr(p, "thought", False)]
+        if answer:
+            return "\n".join(answer).strip(), "parts_no_thought"
+        # Last resort: any text parts at all
+        all_t = [p.text for p in parts if getattr(p, "text", None)]
+        if all_t:
+            return "\n".join(all_t).strip(), "parts_all"
+        n_parts = len(parts)
+        return "", f"empty_parts(n={n_parts})"
+    except Exception as exc2:
+        return "", f"parts_error({exc2!r})"
 
 
 def _is_fatal_error(msg: str) -> bool:
@@ -88,32 +98,41 @@ async def gemini_query(req: GeminiRequest):
     loop = asyncio.get_running_loop()
 
     # ── Attempt 1: gemini-2.5-flash with Google Search grounding ─────────
+    # 1a: with thinking (45s); 1b: no-thinking retry if 1a times out (55s)
     grounded_resp = None
     if not req.force_lite:
-        try:
-            grounded_resp = await asyncio.wait_for(
-                loop.run_in_executor(
-                    None,
-                    lambda: client.models.generate_content(
-                        model="gemini-2.5-flash",
-                        contents=req.prompt,
-                        config=genai_types.GenerateContentConfig(
-                            tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
+        for _thinking in (True, False):
+            try:
+                cfg = genai_types.GenerateContentConfig(
+                    tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
+                    **({"thinking_config": genai_types.ThinkingConfig(thinking_budget=0)} if not _thinking else {}),
+                )
+                grounded_resp = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        None,
+                        lambda cfg=cfg: client.models.generate_content(
+                            model="gemini-2.5-flash",
+                            contents=req.prompt,
+                            config=cfg,
                         ),
                     ),
-                ),
-                timeout=25.0,
-            )
-        except asyncio.TimeoutError:
-            pass  # fall through to attempt 2
-        except Exception as exc:
-            err = str(exc)
-            if _is_fatal_error(err):
-                return JSONResponse({"error": err[:400]}, status_code=500)
-            # 503 overload, 429 grounding/RPM quota, or any transient error → fall through to attempt 2
+                    timeout=45.0 if _thinking else 55.0,
+                )
+                break  # success — stop retrying
+            except asyncio.TimeoutError:
+                label = "with thinking" if _thinking else "no-thinking retry"
+                print(f"[gemini] 2.5-flash TIMEOUT ({label}) — symbol={req.symbol!r} section={req.section_id!r}")
+                if not _thinking:
+                    grounded_resp = None  # both attempts failed
+            except Exception as exc:
+                err = str(exc)
+                if _is_fatal_error(err):
+                    return JSONResponse({"error": err[:400]}, status_code=500)
+                print(f"[gemini] 2.5-flash EXCEPTION — symbol={req.symbol!r} section={req.section_id!r} err={err[:200]!r}")
+                break  # non-timeout error — no point retrying with no-thinking
 
     if grounded_resp is not None:
-        text = _extract_text(grounded_resp)
+        text, extract_reason = _extract_text(grounded_resp)
         sources: list[str] = []
         try:
             chunks = grounded_resp.candidates[0].grounding_metadata.grounding_chunks or []
@@ -124,6 +143,9 @@ async def gemini_query(req: GeminiRequest):
             result = {"text": text, "sources": sources, "grounded": True, "model": "gemini-2.5-flash"}
             _cache[key] = (result, time.time())
             return result
+        # 2.5 Flash returned empty text — log reason and fall through to 3.1 Lite
+        print(f"[gemini] 2.5-flash empty text, extract_reason={extract_reason!r}, "
+              f"candidates={len(getattr(grounded_resp, 'candidates', []))}")
 
     # ── Attempt 2: gemini-3.1-flash-lite without grounding ───────────────
     # (500 RPD on free tier — reliable fallback when grounding quota exhausted)
@@ -151,7 +173,7 @@ async def gemini_query(req: GeminiRequest):
     if plain_resp is None:
         return JSONResponse({"error": "Gemini unavailable — try again"}, status_code=503)
 
-    text = _extract_text(plain_resp)
+    text, _ = _extract_text(plain_resp)
     if not text:
         return JSONResponse({"error": "Gemini returned an empty response — try again"}, status_code=500)
 

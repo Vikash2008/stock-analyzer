@@ -51,7 +51,13 @@ function fmtSavedAt(ts: number | undefined): string {
   if (!ts) return ''
   const d = new Date(ts)
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-  return `${d.getDate()} ${months[d.getMonth()]}`
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  return `${d.getDate()} ${months[d.getMonth()]} ${hh}:${mm}`
+}
+
+function fmtModelName(model: string | undefined): string {
+  return model === 'gemini-2.5-flash' ? '2.5 Flash' : '3.1 Lite'
 }
 
 function normalizeRec(rec: string | null | undefined): string | null {
@@ -74,32 +80,73 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
   const qc = useQueryClient()
   const [syncing, setSyncing] = React.useState(false)
 
-  type SectionState = 'idle' | 'loading' | { error: string } | { text: string; sources: string[]; savedAt?: number; grounded?: boolean; model?: string }
+  type SectionResult = { text: string; sources: string[]; savedAt?: number; grounded?: boolean; model?: string; requestedLite?: boolean }
+  type SectionState = 'idle' | 'loading' | { error: string } | SectionResult
   const [sectionStates, setSectionStates] = React.useState<Record<string, SectionState>>({})
+  const [altStates,     setAltStates]     = React.useState<Record<string, SectionResult>>({})
   const [expandedSections, setExpandedSections] = React.useState<Record<string, boolean>>({})
+  const [showUnavailable, setShowUnavailable] = React.useState<Record<string, boolean>>({})
   const [elapsed, setElapsed] = React.useState<Record<string, number>>({})
   const timerRefs = React.useRef<Record<string, ReturnType<typeof setInterval>>>({})
 
   React.useEffect(() => {
-    const initial: Record<string, SectionState> = {}
+    const initial:    Record<string, SectionState>  = {}
+    const initialAlt: Record<string, SectionResult> = {}
+    const TTL = 7 * 24 * 3600 * 1000
     for (const s of SECTIONS) {
-      const stored = localStorage.getItem(`gemini:${yf_symbol}:${s.id}`)
-      if (stored) {
+      for (const [suffix, target] of [['', initial], [':alt', initialAlt]] as const) {
+        const raw = localStorage.getItem(`gemini:${yf_symbol}:${s.id}${suffix}`)
+        if (!raw) continue
         try {
-          const parsed = JSON.parse(stored)
-          if (parsed.savedAt && Date.now() - parsed.savedAt < 7 * 24 * 3600 * 1000) {
-            initial[s.id] = { text: parsed.text, sources: parsed.sources, savedAt: parsed.savedAt, grounded: parsed.grounded, model: parsed.model }
+          const p = JSON.parse(raw)
+          if (p.savedAt && Date.now() - p.savedAt < TTL) {
+            (target as Record<string, SectionResult>)[s.id] = { text: p.text, sources: p.sources, savedAt: p.savedAt, grounded: p.grounded, model: p.model, requestedLite: p.requestedLite }
           } else {
-            localStorage.removeItem(`gemini:${yf_symbol}:${s.id}`)
+            localStorage.removeItem(`gemini:${yf_symbol}:${s.id}${suffix}`)
           }
         } catch {}
       }
     }
     setSectionStates(Object.keys(initial).length ? initial : {})
+    setAltStates(Object.keys(initialAlt).length ? initialAlt : {})
     setExpandedSections({})
+    setShowUnavailable({})
   }, [yf_symbol])
 
+  function handleAltSwap(sectionId: string) {
+    const current = sectionStates[sectionId]
+    if (typeof current !== 'object' || !('text' in current)) return
+    const cur = current as SectionResult
+    const isFallback = cur.requestedLite === false && cur.model === 'gemini-3.1-flash-lite'
+    if (isFallback) {
+      const isUnavailableNow = showUnavailable[sectionId] ?? false
+      setShowUnavailable(prev => ({ ...prev, [sectionId]: !isUnavailableNow }))
+      if (!isUnavailableNow) {
+        setExpandedSections(() => {
+          const next: Record<string, boolean> = {}
+          for (const s of SECTIONS) next[s.id] = false
+          next[sectionId] = true
+          return next
+        })
+      }
+      return
+    }
+    const alt = altStates[sectionId]
+    if (!alt) return
+    setSectionStates(prev => ({ ...prev, [sectionId]: alt }))
+    setAltStates(prev => ({ ...prev, [sectionId]: cur }))
+    localStorage.setItem(`gemini:${yf_symbol}:${sectionId}`,     JSON.stringify(alt))
+    localStorage.setItem(`gemini:${yf_symbol}:${sectionId}:alt`, JSON.stringify(cur))
+  }
+
   async function handleGenerate(sectionId: string, force = false) {
+    // Save current result as alt before overwriting
+    const cur = sectionStates[sectionId]
+    if (typeof cur === 'object' && cur !== null && 'text' in cur) {
+      const toSave = cur as SectionResult
+      setAltStates(prev => ({ ...prev, [sectionId]: toSave }))
+      localStorage.setItem(`gemini:${yf_symbol}:${sectionId}:alt`, JSON.stringify(toSave))
+    }
     setSectionStates(prev => ({ ...prev, [sectionId]: 'loading' }))
     setElapsed(prev => ({ ...prev, [sectionId]: 0 }))
     clearInterval(timerRefs.current[sectionId])
@@ -117,8 +164,9 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
       clearInterval(timerRefs.current[sectionId])
       if (result.error) throw new Error(result.error)
       const savedAt = Date.now()
-      const state = { text: result.text ?? '', sources: result.sources ?? [], savedAt, grounded: result.grounded ?? false, model: result.model }
+      const state = { text: result.text ?? '', sources: result.sources ?? [], savedAt, grounded: result.grounded ?? false, model: result.model, requestedLite: useLite }
       setSectionStates(prev => ({ ...prev, [sectionId]: state }))
+      setShowUnavailable(prev => ({ ...prev, [sectionId]: false }))
       localStorage.setItem(`gemini:${yf_symbol}:${sectionId}`, JSON.stringify(state))
       // auto-expand this card, collapse all others
       setExpandedSections(() => {
@@ -398,22 +446,34 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
         const state = sectionStates[section.id] ?? 'idle'
         const isDone = typeof state === 'object' && 'text' in state
         const isError = typeof state === 'object' && 'error' in state
-        const isExpanded = isDone && (expandedSections[section.id] ?? false)
+        const isUnavailable = showUnavailable[section.id] ?? false
+        const isExpanded = isDone && ((expandedSections[section.id] ?? false) || isUnavailable)
+
+        const toggleExpanded = () => {
+          if (!isDone) return
+          const isOpen = (expandedSections[section.id] ?? false) || isUnavailable
+          if (isUnavailable && isOpen) {
+            setShowUnavailable(prev => ({ ...prev, [section.id]: false }))
+          }
+          setExpandedSections(() => {
+            const next: Record<string, boolean> = {}
+            for (const s of SECTIONS) next[s.id] = false
+            if (!isOpen) next[section.id] = true
+            return next
+          })
+        }
+
         return (
-          <div key={section.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+          <div key={section.id}
+            className={`rounded-xl overflow-hidden border ${section.color.bg} ${section.color.border}`}
+            style={{ borderLeftWidth: 4, borderLeftColor: section.color.accentHex, borderTopWidth: 2, borderTopColor: section.color.accentHex }}
+          >
+            {/* Card header */}
             <div className="flex items-center justify-between px-3 py-2.5 gap-2">
+              {/* Left: chevron + emoji + title (tappable toggle) */}
               <button
                 className="flex items-center gap-2 min-w-0 flex-1 text-left active:opacity-60"
-                onClick={() => {
-                  if (!isDone) return
-                  const isOpen = expandedSections[section.id] ?? false
-                  setExpandedSections(() => {
-                    const next: Record<string, boolean> = {}
-                    for (const s of SECTIONS) next[s.id] = false
-                    if (!isOpen) next[section.id] = true
-                    return next
-                  })
-                }}
+                onClick={toggleExpanded}
               >
                 <span className="text-[10px] text-slate-400 shrink-0 w-3 text-center">
                   {isDone ? (isExpanded ? '▼' : '▶') : ''}
@@ -424,53 +484,71 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                   <div className="text-[10px] text-slate-400 mt-0.5">{section.description}</div>
                 </div>
               </button>
-              {isDone ? (
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-[9px] font-medium whitespace-nowrap"
-                    style={{ color: (state as { model?: string }).model === 'gemini-2.5-flash' ? '#2563eb' : '#64748b' }}>
-                    {(state as { model?: string }).model === 'gemini-2.5-flash' ? '🌐 2.5 Flash' : '⚡ 3.1 Lite'}
+
+              {/* Right: action button + attribution */}
+              <div className="shrink-0 flex flex-col items-end gap-0.5">
+                {state === 'loading' ? (
+                  <span className={`text-[10px] font-medium px-2.5 py-1 rounded-md border opacity-60 ${section.color.btnOutline}`}>
+                    …
                   </span>
-                  <span className="text-[9px] text-slate-400 whitespace-nowrap">
-                    {fmtSavedAt((state as { savedAt?: number }).savedAt)}
-                  </span>
+                ) : isDone ? (
                   <button
-                    onClick={() => handleGenerate(section.id, true)}
-                    className="text-slate-400 text-[14px] active:text-[#2563eb] p-2.5"
-                    title="Refresh"
-                  >↻</button>
-                </div>
-              ) : (
-                <div className="shrink-0 flex flex-col items-end gap-0.5">
+                    onClick={isUnavailable ? () => handleGenerate(section.id, true) : (isExpanded ? () => handleGenerate(section.id, true) : toggleExpanded)}
+                    className={`text-[10px] font-medium px-2.5 py-1 rounded-md ${section.color.btnSolid}`}
+                  >
+                    {isExpanded ? 'Refresh' : 'Show Results'}
+                  </button>
+                ) : (
                   <button
                     onClick={() => handleGenerate(section.id)}
-                    disabled={state === 'loading'}
-                    className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${
-                      state === 'loading'
-                        ? 'text-slate-400 border-slate-200 pointer-events-none'
-                        : isError
-                        ? 'text-red-500 border-red-200 active:bg-red-50'
-                        : 'text-[#2563eb] border-[#2563eb] active:bg-blue-50'
+                    className={`text-[10px] font-medium px-2.5 py-1 rounded-md border ${
+                      isError ? 'bg-red-100 text-red-700 border-red-300' : section.color.btnOutline
                     }`}
                   >
-                    {state === 'loading' ? '…' : isError ? 'Retry' : 'Generate'}
+                    {isError ? 'Retry' : 'Research'}
                   </button>
-                  {isError && (
-                    <span className="text-[9px] text-red-400 max-w-[130px] text-right leading-tight">
-                      {(state as { error: string }).error}
+                )}
+                {isDone && (() => {
+                  const s   = state as SectionResult
+                  const alt = altStates[section.id]
+                  const fallback = s.requestedLite === false && s.model === 'gemini-3.1-flash-lite'
+                  return (
+                    <span className="flex items-center gap-1 whitespace-nowrap leading-tight">
+                      {(alt || fallback) && (
+                        <button
+                          onClick={e => { e.stopPropagation(); handleAltSwap(section.id) }}
+                          className="text-[11px] text-sky-400 active:opacity-50 shrink-0 leading-none"
+                          title={isUnavailable ? 'Back to 3.1 Lite result' : (fallback ? 'View 2.5 Flash (unavailable)' : `Switch to ${fmtModelName(alt?.model)} · ${fmtSavedAt(alt?.savedAt)}`)}
+                        >⇄</button>
+                      )}
+                      <span className="text-[8px] text-right leading-tight">
+                        {isUnavailable ? (
+                          <><span className="text-amber-500">⚠ · </span><span className="text-slate-400">2.5 Flash · unavailable</span></>
+                        ) : (
+                          <span className="text-slate-400">{fmtModelName(s.model)} · {fmtSavedAt(s.savedAt)}</span>
+                        )}
+                      </span>
                     </span>
-                  )}
-                </div>
-              )}
+                  )
+                })()}
+                {isError && (
+                  <span className="text-[9px] text-red-400 max-w-[120px] text-right leading-tight">
+                    {(state as { error: string }).error}
+                  </span>
+                )}
+              </div>
             </div>
+
+            {/* Loading panel */}
             {state === 'loading' && (
-              <div className="px-3 pb-3 border-t border-slate-100 pt-3 space-y-2">
-                <div className="h-0.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full w-2/5 bg-[#2563eb] rounded-full"
+              <div className={`px-3 pb-3 border-t ${section.color.border} pt-3 space-y-2`}>
+                <div className="h-0.5 bg-white/70 rounded-full overflow-hidden">
+                  <div className="h-full w-2/5 bg-slate-400 rounded-full"
                        style={{ animation: 'qs-progress 1.2s ease-in-out infinite' }} />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] text-slate-500">🔍 Searching the web with Gemini…</span>
-                  <span className="text-[11px] font-medium text-[#2563eb] tabular-nums">
+                  <span className="text-[11px] font-medium text-slate-600 tabular-nums">
                     {elapsed[section.id] ?? 0}s
                   </span>
                 </div>
@@ -479,51 +557,73 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                     ? 'Querying live sources…'
                     : (elapsed[section.id] ?? 0) < 12
                     ? 'Reading search results…'
-                    : 'Composing answer…'}
+                    : (elapsed[section.id] ?? 0) < 45
+                    ? 'Composing answer…'
+                    : 'Retrying without extended thinking…'}
                 </div>
               </div>
             )}
+
+            {/* Expanded content */}
             {isExpanded && (
-              <div className="px-3 pb-3 border-t border-slate-100 pt-2.5">
-                <div className="gemini-md text-[11px] text-slate-700 leading-relaxed">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
-                    h1: ({children}) => <h1 className="text-[15px] font-bold text-slate-800 mt-3 mb-1">{children}</h1>,
-                    h2: ({children}) => <h2 className="text-[13px] font-bold text-slate-800 mt-2.5 mb-1">{children}</h2>,
-                    h3: ({children}) => <h3 className="text-[12px] font-semibold text-slate-600 mt-2 mb-0.5">{children}</h3>,
-                    p:  ({children}) => <p className="mb-1.5">{children}</p>,
-                    ul: ({children}) => <ul className="list-disc list-outside pl-5 mb-1.5 space-y-0.5">{children}</ul>,
-                    ol: ({children}) => <ol className="list-decimal list-outside pl-5 mb-1.5 space-y-0.5">{children}</ol>,
-                    li: ({children}) => <li className="text-[11px] leading-snug pl-0.5">{children}</li>,
-                    strong: ({children}) => <strong className="font-semibold text-slate-800">{children}</strong>,
-                    table: ({children}) => (
-                      <div className="overflow-x-auto my-2">
-                        <table className="border-collapse text-[10px]">{children}</table>
-                      </div>
-                    ),
-                    thead: ({children}) => <thead className="bg-slate-100">{children}</thead>,
-                    tbody: ({children}) => <tbody className="divide-y divide-slate-100">{children}</tbody>,
-                    th: ({children}) => <th className="px-2 py-1.5 text-left font-semibold text-slate-600 whitespace-nowrap border border-slate-200">{children}</th>,
-                    td: ({children}) => <td className="px-2 py-1.5 text-slate-700 border border-slate-200 whitespace-nowrap align-top">{children}</td>,
-                    hr: () => <hr className="my-2 border-slate-200" />,
-                  }}>
-                    {state.text}
-                  </ReactMarkdown>
-                </div>
-                {state.sources.length > 0 && (
-                  <div className="space-y-1 pt-1">
-                    <div className="text-[9px] text-slate-400 uppercase tracking-wide">Sources</div>
-                    {state.sources.slice(0, 5).map((src, i) => (
-                      <a
-                        key={i}
-                        href={src}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block text-[10px] text-[#2563eb] truncate"
-                      >
-                        {src}
-                      </a>
-                    ))}
+              <div className={`px-3 pb-3 border-t ${section.color.border} pt-2.5`}>
+                {isUnavailable ? (
+                  <div className="flex flex-col items-center gap-2 py-6 text-center">
+                    <span className="text-2xl">⚠️</span>
+                    <span className="text-[12px] font-semibold text-amber-700">Results not available</span>
+                    <span className="text-[11px] text-slate-400 leading-snug">Please try with other model</span>
                   </div>
+                ) : (
+                <div className="gemini-md text-[11px] text-slate-700 leading-relaxed">
+                  {(() => {
+                    const sr = state as SectionResult
+                    const hIdx = { n: 0 }
+                    const srcIcon = (url: string | undefined) => !url ? null : (
+                      <a href={url} target="_blank" rel="noopener noreferrer"
+                         className="inline-flex items-center ml-1.5 text-slate-400 active:text-blue-600"
+                         onClick={e => e.stopPropagation()}>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+                          <polyline points="15 3 21 3 21 9"/>
+                          <line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>
+                      </a>
+                    )
+                    return (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+                        h1: ({children}) => {
+                          const src = sr.sources[hIdx.n++]
+                          return <h1 className="text-[15px] font-bold text-slate-800 mt-3 mb-1 flex items-center">{children}{srcIcon(src)}</h1>
+                        },
+                        h2: ({children}) => {
+                          const src = sr.sources[hIdx.n++]
+                          return <h2 className="text-[13px] font-bold text-slate-800 mt-2.5 mb-1 flex items-center">{children}{srcIcon(src)}</h2>
+                        },
+                        h3: ({children}) => {
+                          const src = sr.sources[hIdx.n++]
+                          return <h3 className="text-[12px] font-semibold text-slate-600 mt-2 mb-0.5 flex items-center">{children}{srcIcon(src)}</h3>
+                        },
+                        p:  ({children}) => <p className="mb-1.5">{children}</p>,
+                        ul: ({children}) => <ul className="list-disc list-outside pl-5 mb-1.5 space-y-0.5">{children}</ul>,
+                        ol: ({children}) => <ol className="list-decimal list-outside pl-5 mb-1.5 space-y-0.5">{children}</ol>,
+                        li: ({children}) => <li className="text-[11px] leading-snug pl-0.5">{children}</li>,
+                        strong: ({children}) => <strong className="font-semibold text-slate-800">{children}</strong>,
+                        table: ({children}) => (
+                          <div className="overflow-x-auto my-2">
+                            <table className="border-collapse text-[10px]">{children}</table>
+                          </div>
+                        ),
+                        thead: ({children}) => <thead className="bg-white/60">{children}</thead>,
+                        tbody: ({children}) => <tbody className="divide-y divide-slate-100">{children}</tbody>,
+                        th: ({children}) => <th className="px-2 py-1.5 text-left font-semibold text-slate-600 whitespace-nowrap border border-slate-200">{children}</th>,
+                        td: ({children}) => <td className="px-2 py-1.5 text-slate-700 border border-slate-200 whitespace-nowrap align-top">{children}</td>,
+                        hr: () => <hr className="my-2 border-slate-200" />,
+                      }}>
+                        {sr.text}
+                      </ReactMarkdown>
+                    )
+                  })()}
+                </div>
                 )}
               </div>
             )}
@@ -537,17 +637,6 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
         </p>
       )}
 
-      {/* ── AI model footnote (Deep Research only) ──────────── */}
-      {reportTab === 'deep' && <div className="pt-1 pb-2 border-t border-slate-100 space-y-0.5">
-        <div className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
-          <span className="text-[9px] text-slate-400">Gemini 2.5 Flash + Google Search (live data)</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0" />
-          <span className="text-[9px] text-slate-400">Gemini 3.1 Flash Lite (training data · fallback when search quota exhausted)</span>
-        </div>
-      </div>}
     </div>
   )
 }

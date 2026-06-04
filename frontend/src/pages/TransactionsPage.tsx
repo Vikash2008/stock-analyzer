@@ -101,6 +101,7 @@ export default function TransactionsPage({ currency }: Props) {
   const [reportUseLite, setReportUseLite] = useState(false)
   const [reportUseKey,  setReportUseKey]  = useState<0 | 1>(() => (localStorage.getItem('gemini:key_index') === '1' ? 1 : 0))
   const [reportGearOpen, setReportGearOpen] = useState(false)
+  const [chartZoomed,    setChartZoomed]    = useState(false)
 
   const decoded = {
     portfolio: decodeURIComponent(portfolio),
@@ -466,7 +467,7 @@ export default function TransactionsPage({ currency }: Props) {
           <div className="flex items-center bg-violet-100 rounded-lg p-0.5 gap-0.5">
             <button
               onClick={() => setReportSubTab('quickstats')}
-              className={`text-[10px] px-2.5 py-1 rounded-md transition-colors font-medium ${reportSubTab === 'quickstats' ? 'bg-emerald-500 text-white shadow-sm border border-emerald-600' : 'bg-violet-200 text-violet-600 border border-violet-300'}`}
+              className={`text-[10px] px-2.5 py-1 rounded-md transition-colors font-medium ${reportSubTab === 'quickstats' ? 'bg-emerald-500 text-white shadow-sm border border-emerald-600' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'}`}
             >Quick Stats</button>
             <button
               onClick={() => setReportSubTab('deep')}
@@ -476,10 +477,13 @@ export default function TransactionsPage({ currency }: Props) {
           {/* Right controls */}
           {reportSubTab === 'deep' ? (
             <div className="flex items-center gap-1.5">
-              <div className="flex items-center bg-violet-100 rounded-lg p-0.5 gap-0.5">
-                <button onClick={() => setReportUseLite(false)} className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md transition-colors ${!reportUseLite ? 'bg-white text-violet-700 font-semibold shadow-sm border border-violet-200' : 'bg-violet-200 text-violet-600 border border-violet-300'}`}><span>🌐</span><span>2.5 Flash</span></button>
-                <button onClick={() => setReportUseLite(true)}  className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md transition-colors ${reportUseLite  ? 'bg-white text-slate-600 font-semibold shadow-sm border border-slate-200' : 'bg-violet-200 text-violet-600 border border-violet-300'}`}><span>⚡</span><span>3.1 Lite</span></button>
-              </div>
+              <button
+                onClick={() => setReportUseLite(v => !v)}
+                className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium border transition-colors ${reportUseLite ? 'bg-slate-100 text-slate-500 border-slate-300' : 'bg-violet-100 text-violet-700 border-violet-300'}`}
+              >
+                <span>{reportUseLite ? '⚡' : '🌐'}</span>
+                <span>{reportUseLite ? '3.1 Lite' : '2.5 Pro'}</span>
+              </button>
               <div className="relative">
                 <button onClick={() => setReportGearOpen(o => !o)} className="p-1 text-violet-400 active:text-violet-600" title="API key settings">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -515,7 +519,7 @@ export default function TransactionsPage({ currency }: Props) {
       )}
       {/* Notes strip */}
       {activeTab === 'notes' && (
-        <div className="bg-rose-50 border border-rose-200 rounded-xl px-2.5 py-1.5 mb-2">
+        <div className="bg-rose-50 border border-rose-200 rounded-xl px-2.5 py-1.5 mb-2 flex items-center">
           <span className="text-[10px] text-rose-700">Personal notes</span>
         </div>
       )}
@@ -600,6 +604,11 @@ export default function TransactionsPage({ currency }: Props) {
           {/* Price chart */}
           {chartMetric === 'Price' && (
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3">
+              <div className="flex justify-end mb-1">
+                <button onClick={() => setChartZoomed(true)} className="w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 active:opacity-70">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                </button>
+              </div>
               <PriceChart
                 transactions={symTxns}
                 yf_symbol={yf}
@@ -642,8 +651,9 @@ export default function TransactionsPage({ currency }: Props) {
 
               {metricSeries && rechartsData.length > 0 && (
                 <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3">
-                  {/* Stat line */}
-                  <div className="flex items-baseline gap-2 mb-2">
+                  {/* Stat line + zoom */}
+                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-baseline gap-2 min-w-0">
                     <span className="text-[15px] font-bold" style={{ color: lastColor }}>
                       {chartLast !== null
                         ? isPct
@@ -662,6 +672,10 @@ export default function TransactionsPage({ currency }: Props) {
                         {chartChange >= 0 ? '+' : ''}{chartChange.toFixed(2)}pp in period
                       </span>
                     )}
+                  </div>
+                  <button onClick={() => setChartZoomed(true)} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 active:opacity-70">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                  </button>
                   </div>
 
                   {/* Line chart */}
@@ -739,6 +753,48 @@ export default function TransactionsPage({ currency }: Props) {
         </div>
       )}
       </div>
+
+      {/* Landscape zoom overlay */}
+      {chartZoomed && (
+        <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center" onClick={() => setChartZoomed(false)}>
+          <div
+            style={{ transform: 'rotate(90deg)', width: '100dvh', height: '100dvw', transformOrigin: 'center center', background: '#0f172a', display: 'flex', flexDirection: 'column', padding: '14px 16px', boxSizing: 'border-box' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{chartMetric}</span>
+              <button onClick={() => setChartZoomed(false)} style={{ color: '#94a3b8', fontSize: 22, lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+            </div>
+            {chartMetric === 'Price' ? (
+              <div style={{ flex: 1, minHeight: 0, background: '#fff', borderRadius: 12, padding: 10, overflow: 'hidden' }}>
+                <PriceChart transactions={symTxns} yf_symbol={yf} currency={dispCur} usdInr={data.usd_inr} />
+              </div>
+            ) : metricSeries && rechartsData.length > 0 ? (
+              <>
+                <div style={{ flex: 1, minHeight: 0 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={rechartsData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="t" tick={{ fontSize: 10, fill: '#94a3b8' }} interval={Math.max(0, Math.floor(rechartsData.length / 8) - 1)} tickFormatter={(d: string) => { const ms = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const [yr, mo] = d.split('-'); return `${ms[parseInt(mo,10)-1]}'${yr.slice(2)}` }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={yTickFmt} width={52} tickLine={false} axisLine={false} domain={yDomain} />
+                      <Tooltip formatter={(v: number) => [isPct ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%` : fmt(v, currency), chartMetric]} contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #334155', background: '#1e293b', color: '#e2e8f0' }} labelStyle={{ fontSize: 10, color: '#94a3b8' }} />
+                      {ZERO_LINE_METRICS.has(chartMetric) && <ReferenceLine y={0} stroke="#475569" strokeDasharray="3 3" strokeWidth={1} />}
+                      <Line type="monotone" dataKey="v" stroke={lineColor} strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div style={{ display: 'flex', background: '#1e293b', borderRadius: 8, padding: 2, marginTop: 10, flexShrink: 0 }}>
+                  {RANGES.map(r => (
+                    <button key={r} onClick={() => setChartRange(r)} style={{ flex: 1, fontSize: 10, padding: '5px 0', borderRadius: 6, fontWeight: 500, background: chartRange === r ? '#fff' : 'transparent', color: chartRange === r ? '#2563eb' : '#94a3b8', border: 'none', cursor: 'pointer' }}>{r}</button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 13 }}>No data available</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

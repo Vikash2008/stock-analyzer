@@ -219,6 +219,7 @@ export default function HoldingsPage({ currency }: Props) {
   const [returnsSector, setReturnsSector] = useState<SectorKey | 'all'>('all')
   const [returnsConfigOpen, setReturnsConfigOpen] = useState(false)
   const [benchConfigOpen,  setBenchConfigOpen]  = useState(false)
+  const [chartZoomed,      setChartZoomed]      = useState(false)
   const [benchDateEnabled, setBenchDateEnabled] = useState(false)
   const [benchStartMonth,  setBenchStartMonth]  = useState(1)
   const [benchStartYear,   setBenchStartYear]   = useState(new Date().getFullYear() - 1)
@@ -1372,26 +1373,31 @@ export default function HoldingsPage({ currency }: Props) {
 
           {metricSeries && rechartsData.length > 0 && (
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3 mt-1">
-              {/* Stat line */}
-              <div className="flex items-baseline gap-2 mb-2">
-                <span className="text-[15px] font-bold" style={{ color: lastColor }}>
-                  {chartLast !== null
-                    ? isPct
-                      ? `${chartLast >= 0 ? '+' : ''}${chartLast.toFixed(2)}%`
-                      : fmt(chartLast, currency)
-                    : '—'
-                  }
-                </span>
-                {chartChange !== null && !isPct && (
-                  <span className="text-[10px]" style={{ color: chartChange >= 0 ? '#0a7a42' : '#be1c1c' }}>
-                    {fmtGainLine(chartChange, null, currency)} in period
+              {/* Stat line + zoom */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-baseline gap-2 min-w-0">
+                  <span className="text-[15px] font-bold" style={{ color: lastColor }}>
+                    {chartLast !== null
+                      ? isPct
+                        ? `${chartLast >= 0 ? '+' : ''}${chartLast.toFixed(2)}%`
+                        : fmt(chartLast, currency)
+                      : '—'
+                    }
                   </span>
-                )}
-                {chartChange !== null && isPct && (
-                  <span className="text-[10px] text-slate-400">
-                    {chartChange >= 0 ? '+' : ''}{chartChange.toFixed(2)}pp in period
-                  </span>
-                )}
+                  {chartChange !== null && !isPct && (
+                    <span className="text-[10px]" style={{ color: chartChange >= 0 ? '#0a7a42' : '#be1c1c' }}>
+                      {fmtGainLine(chartChange, null, currency)} in period
+                    </span>
+                  )}
+                  {chartChange !== null && isPct && (
+                    <span className="text-[10px] text-slate-400">
+                      {chartChange >= 0 ? '+' : ''}{chartChange.toFixed(2)}pp in period
+                    </span>
+                  )}
+                </div>
+                <button onClick={() => setChartZoomed(true)} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 active:opacity-70">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                </button>
               </div>
 
               {/* Line chart */}
@@ -2141,6 +2147,44 @@ export default function HoldingsPage({ currency }: Props) {
         </div>
       )}
       </div>
+
+      {/* Landscape zoom overlay */}
+      {chartZoomed && (
+        <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center" onClick={() => setChartZoomed(false)}>
+          <div
+            style={{ transform: 'rotate(90deg)', width: '100dvh', height: '100dvw', transformOrigin: 'center center', background: '#0f172a', display: 'flex', flexDirection: 'column', padding: '14px 16px', boxSizing: 'border-box' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{chartMetric}</span>
+              <button onClick={() => setChartZoomed(false)} style={{ color: '#94a3b8', fontSize: 22, lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+            </div>
+            {metricSeries && rechartsData.length > 0 ? (
+              <>
+                <div style={{ flex: 1, minHeight: 0 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={rechartsData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="t" tick={{ fontSize: 10, fill: '#94a3b8' }} interval={Math.max(0, Math.floor(rechartsData.length / 8) - 1)} tickFormatter={(d: string) => { const ms = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const [yr, mo] = d.split('-'); return `${ms[parseInt(mo,10)-1]}'${yr.slice(2)}` }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={yTickFmt} width={52} tickLine={false} axisLine={false} domain={['auto','auto']} />
+                      <Tooltip formatter={(v: number) => [isPct ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%` : fmt(v, currency), chartMetric]} contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #334155', background: '#1e293b', color: '#e2e8f0' }} labelStyle={{ fontSize: 10, color: '#94a3b8' }} />
+                      {ZERO_LINE_METRICS.has(chartMetric) && <ReferenceLine y={0} stroke="#475569" strokeDasharray="3 3" strokeWidth={1} />}
+                      <Line type="monotone" dataKey="v" stroke={lineColor} strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div style={{ display: 'flex', background: '#1e293b', borderRadius: 8, padding: 2, marginTop: 10, flexShrink: 0 }}>
+                  {RANGES.map(r => (
+                    <button key={r} onClick={() => setChartRange(r)} style={{ flex: 1, fontSize: 10, padding: '5px 0', borderRadius: 6, fontWeight: 500, background: chartRange === r ? '#fff' : 'transparent', color: chartRange === r ? '#2563eb' : '#94a3b8', border: 'none', cursor: 'pointer' }}>{r}</button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 13 }}>No data available</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
