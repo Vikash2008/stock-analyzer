@@ -28,8 +28,8 @@ export default function ResearchPage() {
   const [reportSyncing,  setReportSyncing]  = useState(false)
   const [chartSyncing,   setChartSyncing]   = useState(false)
 
-  const { data: qs, isLoading: qsLoading, isFetching: qsFetching } =
-    useQuickStats(yf_symbol, activeTab === 'report')
+  const { data: qs, isPending: qsPending, isFetching: qsFetching } =
+    useQuickStats(yf_symbol, true)
 
   const name    = locName ?? yf_symbol
   const cur     = qs?.current_price ?? null
@@ -69,7 +69,7 @@ export default function ResearchPage() {
           </div>
 
           {/* Price + 1Y return + 52W + 5Y CAGR */}
-          {qs && !qsLoading ? (
+          {qs ? (
             <>
               <div className="flex items-center justify-between">
                 <span className="text-[20px] font-bold text-slate-900">
@@ -99,7 +99,9 @@ export default function ResearchPage() {
               </div>
             </>
           ) : (
-            <p className="text-[13px] text-slate-400 animate-pulse">Loading…</p>
+            <p className="text-[13px] text-slate-400 animate-pulse">
+              {qsPending || qsFetching ? 'Loading…' : 'Stats unavailable'}
+            </p>
           )}
         </div>
 
@@ -247,7 +249,7 @@ export default function ResearchPage() {
             yf_symbol={yf_symbol}
             name={name}
             qs={qs}
-            loading={qsLoading || qsFetching}
+            loading={qsPending || qsFetching}
             reportTab={reportSubTab}
             useLite={reportUseLite}
             useKey={reportUseKey}

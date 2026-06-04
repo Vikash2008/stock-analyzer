@@ -19,7 +19,9 @@ export function usePortfolio(currency: 'INR' | 'USD' = 'INR') {
 export function useForceRefresh(currency: 'INR' | 'USD') {
   const qc = useQueryClient()
   return () =>
-    fetchPortfolio(currency, true, getCsvContent()).then(data =>
-      qc.setQueryData(['portfolio', currency], data)
-    )
+    qc.fetchQuery({
+      queryKey: ['portfolio', currency],
+      queryFn: () => fetchPortfolio(currency, true, getCsvContent()),
+      staleTime: 0,
+    })
 }

@@ -211,7 +211,7 @@ function fmtImportDate(ts: number) {
 export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const navigate     = useNavigate()
   const qc           = useQueryClient()
-  const { data, isLoading, error } = usePortfolio(currency)
+  const { data, isLoading, error, isFetching } = usePortfolio(currency)
   const forceRefresh  = useForceRefresh(currency)
   const [mode, setMode]       = useState<BreakdownMode>('type')
   const [pullY, setPullY]     = useState(0)
@@ -364,6 +364,17 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [])
 
+  // Auto-refresh on mount if cached data is older than 30 min
+  useEffect(() => {
+    if (!data?.as_of) return
+    const dataAge = Date.now() - new Date(data.as_of).getTime()
+    if (dataAge > 30 * 60 * 1000) {
+      lastRefreshedAt.current = Date.now()
+      handleRefreshRef.current()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.as_of])
+
   const rmap = useMemo(() => data ? aggRealized(data.realized, data.usd_inr) : new Map(), [data])
 
   // All holdings excluding aggregate-duplicate portfolios
@@ -515,10 +526,10 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         <div className="flex items-center gap-3">
           <button
             onClick={handleRefresh}
-            disabled={refreshing}
-            className={`flex items-center gap-1.5 transition-colors ${refreshing ? 'text-white' : 'text-emerald-100 active:text-white'}`}
+            disabled={refreshing || isFetching}
+            className={`flex items-center gap-1.5 transition-colors ${(refreshing || isFetching) ? 'text-white' : 'text-emerald-100 active:text-white'}`}
           >
-            <span className={`text-[14px] leading-none ${refreshing ? 'animate-spin' : ''}`}>↻</span>
+            <span className={`text-[14px] leading-none ${(refreshing || isFetching) ? 'animate-spin' : ''}`}>↻</span>
             <span className={`text-[9px] uppercase tracking-widest ${refreshError ? 'text-red-300' : ''}`}>
               {refreshError
                 ? 'Sync failed · retry'
