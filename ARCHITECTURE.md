@@ -41,7 +41,7 @@ frontend/
   src/
     api/types.ts            TypeScript interfaces matching backend JSON
     api/portfolio.ts        fetch wrapper (uses VITE_API_URL env var)
-    hooks/usePortfolio.ts        TanStack Query, staleTime+gcTime=Infinity, refetchInterval=30min (foreground only), useForceRefresh() (clears ['history'] cache)
+    hooks/usePortfolio.ts        TanStack Query, staleTime+gcTime=Infinity, refetchInterval=30min (foreground only), useForceRefresh() (clears ['history'] cache); DEMO mode: if VITE_DEMO_MODE=true, returns static demo/portfolio.json instead of calling /api/portfolio; useForceRefresh is a no-op in demo mode
     hooks/useHistory.ts          TanStack Query for price history, staleTime+gcTime=Infinity
     hooks/usePortfolioHistory.ts useQueries per-symbol history → value/invested/P&L/return/xirr series; exposes loadedCount+totalCount+fetchingCount+symbolPriceMap (Map<yf_symbol,Map<dateStr,price>>); extraSymbols? param fetches closed-symbol prices into symbolPriceMap
     hooks/useBenchmarkXirr.ts    useQueries benchmark histories in parallel; Option B period XIRR (opening balance at T1, terminal at T2); sector + per-holding XIRR vs benchmark; exports holdingBenchXirr Map + loadedCount+totalCount+fetchingCount; params: periodStart/periodEnd/symbolPriceMap; Other sector excluded from overallActual/overallBench cashflows
@@ -56,6 +56,7 @@ frontend/
     components/             LoadingSkeleton, SummaryCard, HoldingCard, TxRow, AnalysisTab, ReportTab (accepts reportTab/useLite/useKey props from TransactionsPage; Deep Research tab: 8 Gemini cards accordion+auto-expand, elapsed timer, react-markdown+remark-gfm; Quick Stats tab: 4×4 grid + 52W bar + analyst + PE History; sub-tab bar + model toggle + gear + sync in TransactionsPage violet strip)
     components/PriceChart.tsx  Price line chart (Recharts); props: transactions, yf_symbol, currency, usdInr, hideLegend? (hides BUY/SELL lines+Legend — used on Explore page), showZoom? (shows ⤢ button + ZoomChartOverlay); self-fetches via useHistory; range selector built-in
     components/ZoomChartOverlay.tsx  Landscape zoom overlay using lightweight-charts v5; pinch zoom+pan+crosshair built-in; Crosshair mode (default) shows dashed H+V lines with axis labels; Range mode: tap 2 points → % gain + abs move displayed; takes allChartData (full unfiltered history)
+    demo/portfolio.json     Static fake PortfolioData bundle — 12 holdings across Zerodha/AngelOne/MF_Groww/Vested/IndMoney US; ~₹40L portfolio; used when VITE_DEMO_MODE=true; all stocks have real yfinance history (charts work); sectors properly mapped in sectors.ts
     pages/                  PortfoliosPage, HoldingsPage, TransactionsPage, ResearchPage (/research/:symbol — officially called "Explore page"; explore any stock; 3 tabs: Research (Quick Stats+Deep Research) | Charts | Notes; overview card: company_name/sector (top-right)/CAGR 1Y text-[14px] right of price/CAGR 5Y + 52W range bottom row; max-w-xl mx-auto; no portfolio data dependency)
     App.tsx                 React Router routes
     vite-env.d.ts           declare const __BUILD_TIME__: string (injected by vite.config.ts define)
