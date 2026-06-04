@@ -44,7 +44,6 @@
 | 2 | Report tab — Revenue Segments Perplexity card | Direct search query (no doc URL); `site:nsearchives.nseindia.com` for Indian; table format instruction; PDF reading limitation noted | done |
 | 7 | Report tab — Gemini 2.5 Flash inline answers | Perplexity replaced; POST /api/gemini with Google Search grounding; react-markdown rendering; elapsed timer; force-refresh on ↻; localStorage cache per section | done |
 | 5 | Report tab — Section 2 Research Links | Screener/Trendlyne/NSE pills for Indian; Finviz/Macrotrends/EDGAR for US | pending |
-| 6 | Report tab — Phase 2 Claude API | AI-generated qualitative sections | pending |
 | 8 | Deep Research — 8-card redesign | Card 1: Business Overview & Moat; Card 2: Industry Outlook & Macro; Card 3: Latest Earnings & Guidance; Card 4: Valuation Metrics; Card 5: Peer Comparison Matrix; Card 6: Financial Health & Trends; Card 7: News, Sentiment & Red Flags; Card 8: Technical Analysis Setup | done |
 
 ---
