@@ -68,7 +68,8 @@ export function ZoomChartOverlay({ data, isIndian, onClose }: Props) {
           labelVisible:         true,
         },
       },
-      rightPriceScale: { borderColor: '#1e293b' },
+      leftPriceScale:  { borderColor: '#1e293b', visible: true },
+      rightPriceScale: { visible: false },
       timeScale: {
         borderColor:     '#1e293b',
         timeVisible:     false,
@@ -95,6 +96,7 @@ export function ZoomChartOverlay({ data, isIndian, onClose }: Props) {
       crosshairMarkerRadius:  5,
       lastValueVisible:       true,
       priceLineVisible:       false,
+      priceScaleId:           'left',
     })
 
     const lwData = data

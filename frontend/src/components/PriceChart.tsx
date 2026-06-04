@@ -120,18 +120,20 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
 
   const handleOpenZoom = () => {
     setZoomed(true)
-    try {
+    // Request fullscreen first (needed for orientation lock in browser context),
+    // then lock to landscape. Both wrapped so either can fail silently.
+    ;(async () => {
+      try { await (document.documentElement as any).requestFullscreen?.({ navigationUI: 'hide' }) } catch (_) {}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(screen.orientation as any).lock('landscape').catch(() => {})
-    } catch (_) {}
+      try { await (screen.orientation as any).lock?.('landscape') } catch (_) {}
+    })()
   }
 
   const handleCloseZoom = () => {
     setZoomed(false)
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(screen.orientation as any).unlock()
-    } catch (_) {}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    try { (screen.orientation as any).unlock?.() } catch (_) {}
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
   }
   const start = '2000-01-01'
   const { data: history, isLoading: dailyLoading }      = useHistory(yf_symbol, start)

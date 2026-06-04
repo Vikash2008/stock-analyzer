@@ -600,15 +600,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               onKeyDown={e => e.key === 'Enter' && navigateToResearch(exploreInput)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
               placeholder="e.g. AMZN, RELIANCE, HDFC Bank…"
-              className="flex-1 bg-green-50 text-slate-800 text-[12px] rounded-xl px-3 py-2.5 border border-green-200 placeholder-emerald-400 outline-none focus:border-emerald-400"
+              className="w-full bg-green-50 text-slate-800 text-[12px] rounded-xl px-3 py-2.5 border border-green-200 placeholder-emerald-400 outline-none focus:border-emerald-400"
             />
-            <button
-              onClick={() => navigateToResearch(exploreInput)}
-              disabled={!exploreInput.trim()}
-              className="bg-emerald-600 text-white text-[12px] font-semibold px-4 rounded-xl disabled:opacity-40 active:opacity-80"
-            >
-              Go
-            </button>
           </div>
 
           {/* Autocomplete dropdown */}
