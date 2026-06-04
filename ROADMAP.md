@@ -48,6 +48,25 @@
 
 ---
 
+## Backlog — Explore & Deep Research
+
+| # | Item | Notes | Status |
+|---|------|-------|--------|
+| 1 | Report tab Section 2 — Research Links | Indian: Screener / Trendlyne / NSE pills; US: Finviz / Macrotrends / EDGAR pills | pending |
+| 2 | Summary card on Explore page | Show portfolio summary (invested, current value, total gain, XIRR) if the searched stock is already held; visible above the overview card on ResearchPage | pending |
+| 3 | Better prompts for Deep Research cards | Audit and improve all 8 section prompts (Indian + US variants) for depth, specificity, and output quality | pending |
+| 4 | Custom search on Deep Research | Free-form question input in the Deep Research tab; user types any question, Gemini answers via Google Search grounding; optional: pre-fill context from selected card results; works independently of the 8 section cards | pending |
+
+---
+
+## Backlog — Demo Mode
+
+| # | Item | Notes | Status |
+|---|------|-------|--------|
+| 1 | Dummy data / demo mode | Add a sanitized demo dataset so the app can be shown to others without exposing real portfolio; toggle between real and demo mode; demo data should cover Indian stocks, US stocks, and MFs across multiple portfolios | pending |
+
+---
+
 ## Done
 
 | Item | Completed |
