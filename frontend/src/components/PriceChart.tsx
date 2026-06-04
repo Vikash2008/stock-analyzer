@@ -2,6 +2,7 @@
 // Mirrors charts.py using Recharts ComposedChart.
 
 import { useMemo, useState } from 'react'
+import { ZoomChartOverlay } from './ZoomChartOverlay'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
@@ -16,6 +17,8 @@ interface PriceChartProps {
   yf_symbol:    string
   currency:     Currency
   usdInr:       number
+  hideLegend?:  boolean
+  showZoom?:    boolean
 }
 
 interface ChartPoint {
@@ -111,8 +114,9 @@ function SellDot(props: any) {
   return <circle cx={cx} cy={cy} r={r} fill="#f43f5e" stroke="#fff" strokeWidth={1.5} />
 }
 
-export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceChartProps) {
-  const [range, setRange] = useState<ChartRange>('1y')
+export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLegend = false, showZoom = false }: PriceChartProps) {
+  const [range,  setRange]  = useState<ChartRange>('1y')
+  const [zoomed, setZoomed] = useState(false)
   const start = '2000-01-01'
   const { data: history, isLoading: dailyLoading }      = useHistory(yf_symbol, start)
   const { data: intradayHistory, isLoading: intLoading } = useHistory(yf_symbol, null, '1d')
@@ -170,14 +174,21 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceC
   return (
     <div className="mt-2">
       {lastPrice !== null && (
-        <div className="flex items-baseline gap-2 mb-2">
-          <span className="text-[15px] font-bold" style={{ color: priceColor }}>
-            {fmt(lastPrice, currency)}
-          </span>
-          {pctChange !== null && (
-            <span className="text-[10px]" style={{ color: priceColor }}>
-              {pctChange >= 0 ? '+' : ''}{pctChange.toFixed(2)}% in period
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[15px] font-bold" style={{ color: priceColor }}>
+              {fmt(lastPrice, currency)}
             </span>
+            {pctChange !== null && (
+              <span className="text-[10px]" style={{ color: priceColor }}>
+                {pctChange >= 0 ? '+' : ''}{pctChange.toFixed(2)}% in period
+              </span>
+            )}
+          </div>
+          {showZoom && (
+            <button onClick={() => setZoomed(true)} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 active:opacity-70">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
           )}
         </div>
       )}
@@ -220,7 +231,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceC
           />
 
           {/* BUY markers — invisible line, colored dots only where defined */}
-          <Line
+          {!hideLegend && <Line
             dataKey="buy"
             stroke="none"
             strokeWidth={0}
@@ -229,10 +240,10 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceC
             connectNulls={false}
             name="BUY"
             legendType="circle"
-          />
+          />}
 
           {/* SELL markers */}
-          <Line
+          {!hideLegend && <Line
             dataKey="sell"
             stroke="none"
             strokeWidth={0}
@@ -241,16 +252,16 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceC
             connectNulls={false}
             name="SELL"
             legendType="circle"
-          />
+          />}
 
-          <Legend
+          {!hideLegend && <Legend
             wrapperStyle={{ fontSize: 9, paddingTop: 4 }}
-            formatter={(v, entry) => (
+            formatter={(v) => (
               <span style={{ color: v === 'BUY' ? '#10b981' : v === 'SELL' ? '#f43f5e' : '#3b82f6', fontSize: 9 }}>
                 {v}
               </span>
             )}
-          />
+          />}
         </LineChart>
       </ResponsiveContainer>
 
@@ -270,6 +281,22 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr }: PriceC
           </button>
         ))}
       </div>
+
+      {/* Zoom overlay — ZoomChartOverlay (lightweight-charts) */}
+      {showZoom && zoomed && (
+        <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center">
+          <div
+            style={{ transform: 'rotate(90deg)', width: '100dvh', height: '100dvw', transformOrigin: 'center center', background: '#0f172a', display: 'flex', flexDirection: 'column', padding: '14px 16px', boxSizing: 'border-box' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <ZoomChartOverlay
+              data={allChartData}
+              isIndian={currency === 'INR'}
+              onClose={() => setZoomed(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

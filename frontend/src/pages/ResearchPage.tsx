@@ -4,8 +4,9 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useQuickStats } from '../hooks/useQuickStats'
 import { ReportTab } from '../components/ReportTab'
 import { AnalysisTab } from '../components/AnalysisTab'
+import { PriceChart } from '../components/PriceChart'
 
-type ActiveTab    = 'report' | 'notes'
+type ActiveTab    = 'report' | 'charts' | 'notes'
 type ReportSubTab = 'quickstats' | 'deep'
 
 export default function ResearchPage() {
@@ -25,6 +26,7 @@ export default function ResearchPage() {
     localStorage.getItem('gemini:key_index') === '1' ? 1 : 0)
   const [reportGearOpen, setReportGearOpen] = useState(false)
   const [reportSyncing,  setReportSyncing]  = useState(false)
+  const [chartSyncing,   setChartSyncing]   = useState(false)
 
   const { data: qs, isLoading: qsLoading, isFetching: qsFetching } =
     useQuickStats(yf_symbol, activeTab === 'report')
@@ -56,48 +58,45 @@ export default function ResearchPage() {
           className="rounded-xl border bg-slate-50 px-4 py-3 mb-3 shadow-sm"
           style={{ borderColor: '#e0e7ff', borderLeftWidth: 4, borderLeftColor: '#6366f1' }}
         >
-          {/* Name row + right column */}
+          {/* Name row + sector */}
           <div className="flex items-start justify-between mb-1.5">
             <div className="min-w-0 flex-1">
               <p className="text-[13px] font-bold text-slate-800 leading-tight truncate">{locName ?? qs?.company_name ?? yf_symbol}</p>
             </div>
-            {qs && (qs.sector ?? qs.industry ?? qs.five_year_cagr) && (
-              <div className="text-right shrink-0 ml-3">
-                {(qs.sector ?? qs.industry) && (
-                  <p className="text-[10px] text-slate-500 truncate max-w-[110px]">{qs.sector ?? qs.industry}</p>
-                )}
-                {qs.five_year_cagr != null && (
-                  <p className="text-[10px] font-semibold" style={{ color: qs.five_year_cagr >= 0 ? '#0a7a42' : '#be1c1c' }}>
-                    5Y {qs.five_year_cagr >= 0 ? '+' : ''}{(qs.five_year_cagr * 100).toFixed(1)}%
-                  </p>
-                )}
-              </div>
+            {qs && (qs.sector ?? qs.industry) && (
+              <p className="text-[10px] text-slate-500 truncate max-w-[110px] ml-3 shrink-0 text-right">{qs.sector ?? qs.industry}</p>
             )}
           </div>
 
-          {/* Price + 1Y return + 52W */}
+          {/* Price + 1Y return + 52W + 5Y CAGR */}
           {qs && !qsLoading ? (
             <>
               <div className="flex items-center justify-between">
                 <span className="text-[20px] font-bold text-slate-900">
                   {cur != null ? fmtPx(cur) : '—'}
                 </span>
-                {qs.one_year_return != null && (
-                  <div className="text-right shrink-0 ml-2">
-                    <p className="text-[10px] font-semibold" style={{ color: qs.one_year_return >= 0 ? '#0a7a42' : '#be1c1c' }}>
-                      {qs.one_year_return >= 0 ? '+' : ''}{(qs.one_year_return * 100).toFixed(1)}% 1Y
+                <div className="text-right shrink-0 ml-2">
+                  {qs.one_year_return != null ? (
+                    <p className="text-[14px] font-semibold" style={{ color: qs.one_year_return >= 0 ? '#0a7a42' : '#be1c1c' }}>
+                      CAGR 1Y: {qs.one_year_return >= 0 ? '+' : ''}{(qs.one_year_return * 100).toFixed(1)}%
                     </p>
-                    {qs.price_1y_ago != null && (
-                      <p className="text-[10px] text-slate-400">{fmtPx(qs.price_1y_ago)} ago</p>
-                    )}
-                  </div>
+                  ) : (
+                    <p className="text-[14px] text-slate-400">CAGR 1Y: —</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center justify-between mt-0.5">
+                {hi != null && lo != null ? (
+                  <p className="text-[10px] text-slate-400">52W {fmtPx(lo)} – {fmtPx(hi)}</p>
+                ) : (
+                  <span />
+                )}
+                {qs.five_year_cagr != null && (
+                  <p className="text-[10px] font-semibold shrink-0 ml-2" style={{ color: qs.five_year_cagr >= 0 ? '#0a7a42' : '#be1c1c' }}>
+                    CAGR 5Y: {qs.five_year_cagr >= 0 ? '+' : ''}{(qs.five_year_cagr * 100).toFixed(1)}%
+                  </p>
                 )}
               </div>
-              {hi != null && lo != null && (
-                <p className="text-[10px] text-slate-400 mt-0.5">
-                  52W {fmtPx(lo)} – {fmtPx(hi)}
-                </p>
-              )}
             </>
           ) : (
             <p className="text-[13px] text-slate-400 animate-pulse">Loading…</p>
@@ -106,7 +105,7 @@ export default function ResearchPage() {
 
         {/* Tab bar */}
         <div className="flex bg-slate-100 rounded-full p-0.5 gap-0.5 mb-2">
-          {([['report', 'Research'], ['notes', 'Notes']] as const).map(([tab, label]) => (
+          {([['report', 'Research'], ['charts', 'Charts'], ['notes', 'Notes']] as const).map(([tab, label]) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -114,6 +113,8 @@ export default function ResearchPage() {
                 activeTab === tab
                   ? tab === 'report'
                     ? 'bg-violet-200 text-violet-800 shadow-sm'
+                    : tab === 'charts'
+                    ? 'bg-sky-200 text-sky-800 shadow-sm'
                     : 'bg-rose-200 text-rose-800 shadow-sm'
                   : 'text-slate-400'
               }`}
@@ -123,7 +124,7 @@ export default function ResearchPage() {
           ))}
         </div>
 
-        {/* Report strip */}
+        {/* Research strip */}
         {activeTab === 'report' && (
           <div className="bg-violet-50 border border-violet-100 rounded-xl px-2.5 py-1.5 mb-2 flex items-center justify-between">
             <div className="flex items-center bg-violet-100 rounded-lg p-0.5 gap-0.5">
@@ -204,6 +205,33 @@ export default function ResearchPage() {
           </div>
         )}
 
+        {/* Charts strip */}
+        {activeTab === 'charts' && (
+          <div className="bg-sky-50 border border-sky-200 rounded-xl px-2.5 py-1.5 mb-2">
+            <div className="flex items-center gap-2">
+              <div
+                className="flex gap-0.5 overflow-x-auto flex-1 rounded-lg p-0.5"
+                style={{ backgroundColor: '#bae6fd44', scrollbarWidth: 'none' } as React.CSSProperties}
+              >
+                <button className="text-[10px] whitespace-nowrap px-2.5 py-1 rounded-md font-medium transition-all bg-sky-500 text-white shadow-sm border border-sky-600">
+                  Price
+                </button>
+              </div>
+              <button
+                className="flex items-center gap-0.5 shrink-0 rounded-full px-1.5 py-0.5 border active:opacity-60 bg-gradient-to-br from-sky-600 to-cyan-700 border-sky-700"
+                onClick={() => {
+                  if (chartSyncing) return
+                  setChartSyncing(true)
+                  qc.invalidateQueries({ queryKey: ['history', yf_symbol] })
+                  setTimeout(() => setChartSyncing(false), 1500)
+                }}
+              >
+                <span className={`text-[9px] text-white leading-none inline-block ${chartSyncing ? 'animate-spin' : ''}`}>↻</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Notes strip */}
         {activeTab === 'notes' && (
           <div className="bg-rose-50 border border-rose-200 rounded-xl px-2.5 py-1.5 mb-2 flex items-center">
@@ -224,6 +252,18 @@ export default function ResearchPage() {
             useLite={reportUseLite}
             useKey={reportUseKey}
           />
+        )}
+        {activeTab === 'charts' && (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3 mt-1">
+            <PriceChart
+              transactions={[]}
+              yf_symbol={yf_symbol}
+              currency={isIndian ? 'INR' : 'USD'}
+              usdInr={95.5}
+              hideLegend
+              showZoom
+            />
+          </div>
         )}
         {activeTab === 'notes' && (
           <AnalysisTab portfolio="research" symbol={yf_symbol} />

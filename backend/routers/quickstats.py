@@ -215,20 +215,20 @@ def _compute_5y_cagr(ticker) -> float | None:
         return None
 
 
-def _compute_1y_data(ticker, info: dict) -> tuple[float | None, float | None]:
-    """Returns (one_year_return, price_1y_ago) from 1Y monthly history."""
+def _compute_1y_data(ticker, info: dict) -> tuple[float | None, float | None, float | None]:
+    """Returns (one_year_return, price_1y_ago, current_from_history) from 1Y daily history."""
     try:
-        h = ticker.history(period='1y', interval='1mo')
+        h = ticker.history(period='1y', interval='1d')
         if h is not None and not h.empty and len(h) >= 2:
             start = float(h['Close'].iloc[0])
             end   = float(h['Close'].iloc[-1])
             if start > 0:
-                return round(end / start - 1, 4), round(start, 2)
+                return round(end / start - 1, 4), round(start, 2), round(end, 2)
     except Exception:
         pass
-    # Fallback: use 52WeekChange from info (no price_1y_ago available)
+    # Fallback: use 52WeekChange from info (no price_1y_ago or current available)
     v = _clean(info.get("52WeekChange"))
-    return v, None
+    return v, None, None
 
 
 def _fetch_macrotrends_pe(ticker_sym: str) -> list[dict] | None:
@@ -477,11 +477,6 @@ def _fetch(yf_symbol: str) -> dict:
 
     current = _clean(info.get("currentPrice") or info.get("regularMarketPrice"))
     target  = _clean(info.get("targetMeanPrice"))
-    upside  = (
-        round((target - current) / current * 100, 1)
-        if target and current
-        else None
-    )
     mkt_cap = _clean(info.get("marketCap"))
 
     rec_key = (info.get("recommendationKey") or "").lower()
@@ -494,7 +489,17 @@ def _fetch(yf_symbol: str) -> dict:
     }
     rec_label = rec_map.get(rec_key) or ("Neutral" if rec_key == "none" else (rec_key or None))
 
-    _1y_return, _1y_ago = _compute_1y_data(ticker, info)
+    _1y_return, _1y_ago, _hist_cur = _compute_1y_data(ticker, info)
+
+    # Use history-derived price as fallback when yfinance info is empty
+    if current is None:
+        current = _hist_cur
+
+    upside  = (
+        round((target - current) / current * 100, 1)
+        if target and current
+        else None
+    )
 
     result = {
         "yf_symbol":            yf_symbol,
@@ -531,7 +536,7 @@ def _fetch(yf_symbol: str) -> dict:
         "one_year_return":      _1y_return,
         "price_1y_ago":         _1y_ago,
         "five_year_cagr":       _compute_5y_cagr(ticker),
-        "partial":              not bool(info),
+        "partial":              not bool(info) and current is None,
     }
 
     # US stocks: compute 3Y growth from annual income_stmt
