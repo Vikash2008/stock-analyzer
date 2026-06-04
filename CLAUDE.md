@@ -89,7 +89,7 @@ python validate.py -r   # force price refresh
 2. **Equity is a duplicate** — aggregate of stock portfolios (Zerodha + AngelOne + Groww + IndMoney Ind + USD_PORTS); exclude from XIRR via `SKIP_PORTS`. Difference from sum ≤ 0.2 L (FX rounding).
 3. **MF_Portfolio is a duplicate** — aggregate of MF portfolios (MF_Vikash + MF_Mahak + others); also in `SKIP_PORTS`.
 4. **USD portfolios** — `Vested`, `IndMoney US`, `IndMoney Mummy`; FX fallback ~95.5 (never 84.0 or 85.5).
-5. **Indian stock portfolios** — `Zerodha`, `AngelOne`, `Groww`, `IndMoney Ind`; not in `USD_PORTS`; classify as `indian_stock`.
+5. **Indian stock portfolios** — `Zerodha`, `AngelOne`, `Groww`, `IndMoney Ind`, `Upstox`; not in `USD_PORTS`; classify as `indian_stock`.
 6. **classify.py** — single source of truth for `USD_PORTS`, `SKIP_PORTS`, `segment()`. Also ported to `frontend/src/utils/segments.ts`.
 7. **yf_symbol** — NSE: `.NS`, BSE: `.BO`, US: uppercase (e.g. `META` not `Meta`).
 8. **Realized records use clean symbol** — `portfolio.py` stores `tx["symbol"]` (no `.NS`/`.BO`) in realized records; rmap keys are `portfolio:cleanSymbol`.

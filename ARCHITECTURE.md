@@ -213,6 +213,10 @@ Keep-alive: GitHub Actions cron pings `/health` every 14 min to reduce cold star
 
 ---
 
+## Key Bug Fixes
+
+- `src/engine.py` `_xirr()`: removed `or hd.empty` from early-return guard — fully-closed portfolios (e.g. Upstox, all positions sold) now compute XIRR from BUY/SELL cashflows; previously returned None and showed "inv" instead of XIRR on broker tile
+
 ## Pending
 
 - Nothing critical; see ROADMAP.md for Phase 5/6 backlog
