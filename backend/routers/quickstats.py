@@ -504,6 +504,8 @@ def _fetch(yf_symbol: str) -> dict:
         clean = re.sub(r'\.(NS|BO)$', '', yf_symbol, flags=re.IGNORECASE)
         screener = _fetch_screener(clean)
         result.update(screener)
+        if screener:  # Screener succeeded — enough data to show the grid
+            result["partial"] = False
         # Recompute upside_pct against Screener's current price
         if screener.get("current_price") and result.get("target_mean_price"):
             cp = screener["current_price"]
