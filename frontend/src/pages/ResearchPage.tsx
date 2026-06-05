@@ -159,17 +159,6 @@ export default function ResearchPage() {
                   </svg>
                   <span>AI Assistant</span>
                 </button>
-                <button
-                  onClick={() => setReportUseLite(v => !v)}
-                  className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium border transition-colors ${
-                    reportUseLite
-                      ? 'bg-slate-100 text-slate-500 border-slate-300'
-                      : 'bg-violet-100 text-violet-700 border-violet-300'
-                  }`}
-                >
-                  <span>{reportUseLite ? '⚡' : '🌐'}</span>
-                  <span>{reportUseLite ? '3.1 Lite' : '2.5 Pro'}</span>
-                </button>
                 <div className="relative">
                   <button
                     onClick={() => setReportGearOpen(o => !o)}
@@ -183,15 +172,29 @@ export default function ResearchPage() {
                   {reportGearOpen && (
                     <>
                       <div className="fixed inset-0 z-[9]" onClick={() => setReportGearOpen(false)} />
-                      <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-10 px-3 py-2.5 flex items-center gap-2 whitespace-nowrap">
-                        <span className="text-[11px] text-slate-500">API Key</span>
-                        {([0, 1, 2] as const).map(i => (
+                      <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-10 px-3 py-2.5 flex flex-col gap-2.5 whitespace-nowrap">
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-[11px] text-slate-500">Model</span>
                           <button
-                            key={i}
-                            onClick={() => { setReportUseKey(i); localStorage.setItem('gemini:key_index', String(i)) }}
-                            className={`w-7 h-7 rounded-full text-[11px] font-semibold transition-colors duration-150 ${reportUseKey === i ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-500 active:bg-slate-200'}`}
-                          >{i + 1}</button>
-                        ))}
+                            onClick={() => setReportUseLite(v => !v)}
+                            className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-full font-medium border transition-colors ${reportUseLite ? 'bg-slate-100 text-slate-500 border-slate-300' : 'bg-violet-100 text-violet-700 border-violet-300'}`}
+                          >
+                            <span>{reportUseLite ? '⚡' : '🌐'}</span>
+                            <span>{reportUseLite ? '3.1 Lite' : '2.5 Pro'}</span>
+                          </button>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-[11px] text-slate-500">API Key</span>
+                          <div className="flex bg-slate-100 rounded-full p-0.5">
+                            {([0, 1, 2] as const).map(i => (
+                              <button
+                                key={i}
+                                onClick={() => { setReportUseKey(i); localStorage.setItem('gemini:key_index', String(i)) }}
+                                className={`flex-1 text-[10px] px-3 py-1 rounded-full font-medium transition-all duration-150 ${reportUseKey === i ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 active:bg-white/60'}`}
+                              >Key {i + 1}</button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </>
                   )}
