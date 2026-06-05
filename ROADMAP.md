@@ -54,7 +54,7 @@
 |---|------|-------|--------|
 | 1 | Report tab Section 2 — Research Links | Indian: Screener / Trendlyne / NSE pills; US: Finviz / Macrotrends / EDGAR pills | pending |
 | 3 | Better prompts for Deep Research cards | Audit and improve all 8 section prompts (Indian + US variants) for depth, specificity, and output quality | pending |
-| 4 | Custom search on Deep Research | Free-form question input in the Deep Research tab; user types any question, Gemini answers via Google Search grounding; optional: pre-fill context from selected card results; works independently of the 8 section cards | pending |
+| 4 | Custom search on Deep Research | Free-form question input in the Deep Research tab; user types any question, Gemini answers via Google Search grounding; optional: pre-fill context from selected card results; works independently of the 8 section cards | done |
 
 ---
 
@@ -62,6 +62,7 @@
 
 | Item | Completed |
 |------|-----------|
+| Deep Research Chat — bottom-sheet modal per stock; per-card 💬 Ask button + global Ask about [Name] button; context selector (All Cards or per-card); thread with react-markdown, source links, 🌐 Live badge; Google Search grounding (same cascade as section cards); prompt forces web search beyond context for historical data; localStorage 7-day persistence per yf_symbol; both TransactionsPage + ResearchPage supported via ReportTab | 2026-06-05 |
 | Demo mode (CSV upload) — backend defaults to data/demo_msp_v2.csv (committed fake transactions); user uploads real msp_v2.csv once via ⚙ settings popover → stored in localStorage → auto-POSTed to /api/portfolio on every fetch; GET /api/portfolio → demo data; POST /api/portfolio with CSV body → real portfolio; GET /api/demo-csv → download demo CSV; settings popover: current file info, download, browse & import with % progress bar; data/msp_v2.csv gitignored | 2026-06-05 |
 | Explore page Charts tab — 3-tab bar (Research \| Charts \| Notes); sky-50 strip with Price pill + sync ↻; PriceChart in card; hideLegend hides BUY/SELL; showZoom shows ⤢ button + ZoomChartOverlay (lightweight-charts v5: pinch zoom, pan, crosshair H+V dashed lines, Range mode 2-tap % gain); allChartData passed to overlay for full history | 2026-06-04 |
 | Explore page overview card — CAGR 1Y text-[14px] right of price; CAGR 5Y bottom-right; 52W bottom-left; sector top-right; ago price removed; backend: _compute_1y_data uses daily history + returns current_from_history as current_price fallback; partial=False when current_price available from history | 2026-06-04 |
