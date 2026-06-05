@@ -12,6 +12,10 @@
   workflows/
     keepalive.yml           GitHub Actions cron (*/14 * * * *) — pings /health to prevent Render cold start
 
+CLAUDE.md                   Session rules, trigger table, prompt contract, boot protocol (65 lines)
+QUICK_REF.md                Always-loaded compact reference — URLs, portfolio config, invariants, validated numbers, dev commands
+FEATURE_MAP.md              Feature-to-file lookup — 28 features mapped to exact frontend + backend files; use instead of exploration
+
 validate.py                 Terminal CLI (independent of backend)
 testcases.md                Manual test cases — Charts tab + Portfolios page invariants
 meta_filings_agent.py       Standalone research tool — fetches SEC EDGAR 10-Q/10-K for any US ticker, downloads HTML→text, uploads to Claude Files API, generates per-filing analysis + cross-quarter trend report; outputs meta_filings/META_Filing_Analysis.md
