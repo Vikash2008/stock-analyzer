@@ -207,7 +207,7 @@ def _compute_5y_cagr(ticker) -> float | None:
             return None
         start = float(h['Close'].iloc[0])
         end   = float(h['Close'].iloc[-1])
-        if start <= 0:
+        if start <= 0 or math.isnan(start) or math.isnan(end):
             return None
         years = len(h) / 12.0
         return round((end / start) ** (1.0 / years) - 1, 4)
@@ -222,7 +222,7 @@ def _compute_1y_data(ticker, info: dict) -> tuple[float | None, float | None, fl
         if h is not None and not h.empty and len(h) >= 2:
             start = float(h['Close'].iloc[0])
             end   = float(h['Close'].iloc[-1])
-            if start > 0:
+            if start > 0 and not math.isnan(start) and not math.isnan(end):
                 return round(end / start - 1, 4), round(start, 2), round(end, 2)
     except Exception:
         pass
@@ -533,9 +533,9 @@ def _fetch(yf_symbol: str) -> dict:
         "company_name":         info.get("longName") or info.get("shortName"),
         "sector":               info.get("sector"),
         "industry":             info.get("industry"),
-        "one_year_return":      _1y_return,
-        "price_1y_ago":         _1y_ago,
-        "five_year_cagr":       _compute_5y_cagr(ticker),
+        "one_year_return":      _clean(_1y_return),
+        "price_1y_ago":         _clean(_1y_ago),
+        "five_year_cagr":       _clean(_compute_5y_cagr(ticker)),
         "partial":              not bool(info) and current is None,
     }
 

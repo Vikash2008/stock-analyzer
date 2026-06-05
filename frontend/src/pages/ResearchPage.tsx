@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useQuickStats } from '../hooks/useQuickStats'
@@ -22,11 +22,11 @@ export default function ResearchPage() {
   const [activeTab,      setActiveTab]      = useState<ActiveTab>('report')
   const [reportSubTab,   setReportSubTab]   = useState<ReportSubTab>('quickstats')
   const [reportUseLite,  setReportUseLite]  = useState(false)
-  const [reportUseKey,   setReportUseKey]   = useState<0 | 1>(() =>
-    localStorage.getItem('gemini:key_index') === '1' ? 1 : 0)
+  const [reportUseKey,   setReportUseKey]   = useState<0 | 1 | 2>(() => { const v = localStorage.getItem('gemini:key_index'); return (v === '1' ? 1 : v === '2' ? 2 : 0) })
   const [reportGearOpen, setReportGearOpen] = useState(false)
   const [reportSyncing,  setReportSyncing]  = useState(false)
   const [chartSyncing,   setChartSyncing]   = useState(false)
+  const chatOpenerRef = useRef<{ open: (contextId?: string) => void } | null>(null)
 
   const { data: qs, isPending: qsPending, isFetching: qsFetching } =
     useQuickStats(yf_symbol, true)
@@ -151,6 +151,15 @@ export default function ResearchPage() {
             {reportSubTab === 'deep' ? (
               <div className="flex items-center gap-1.5">
                 <button
+                  onClick={() => chatOpenerRef.current?.open()}
+                  className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium border bg-violet-600 text-white border-violet-700 active:bg-violet-700 shrink-0"
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2c-.5 4-4 7.5-10 10 6 2.5 9.5 6 10 10 .5-4 4-7.5 10-10-6-2.5-9.5-6-10-10z"/>
+                  </svg>
+                  <span>AI Assistant</span>
+                </button>
+                <button
                   onClick={() => setReportUseLite(v => !v)}
                   className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium border transition-colors ${
                     reportUseLite
@@ -174,18 +183,15 @@ export default function ResearchPage() {
                   {reportGearOpen && (
                     <>
                       <div className="fixed inset-0 z-[9]" onClick={() => setReportGearOpen(false)} />
-                      <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-10 px-3 py-2.5 flex items-center gap-3 whitespace-nowrap">
-                        <span className="text-[11px] text-slate-600">Backup Key</span>
-                        <button
-                          onClick={() => {
-                            const next = (reportUseKey === 0 ? 1 : 0) as 0 | 1
-                            setReportUseKey(next)
-                            localStorage.setItem('gemini:key_index', String(next))
-                          }}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${reportUseKey === 1 ? 'bg-blue-500' : 'bg-slate-200'}`}
-                        >
-                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${reportUseKey === 1 ? 'translate-x-6' : 'translate-x-1'}`} />
-                        </button>
+                      <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-10 px-3 py-2.5 flex items-center gap-2 whitespace-nowrap">
+                        <span className="text-[11px] text-slate-500">API Key</span>
+                        {([0, 1, 2] as const).map(i => (
+                          <button
+                            key={i}
+                            onClick={() => { setReportUseKey(i); localStorage.setItem('gemini:key_index', String(i)) }}
+                            className={`w-7 h-7 rounded-full text-[11px] font-semibold transition-colors duration-150 ${reportUseKey === i ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-500 active:bg-slate-200'}`}
+                          >{i + 1}</button>
+                        ))}
                       </div>
                     </>
                   )}
@@ -253,6 +259,7 @@ export default function ResearchPage() {
             reportTab={reportSubTab}
             useLite={reportUseLite}
             useKey={reportUseKey}
+            chatOpenerRef={chatOpenerRef}
           />
         )}
         {activeTab === 'charts' && (

@@ -25,3 +25,20 @@ export async function fetchGeminiSection(
   if (!res.ok) throw new Error(data?.error ?? data?.detail ?? `Request failed (${res.status})`)
   return data
 }
+
+export async function fetchGeminiChat(
+  symbol: string,
+  question: string,
+  contextText: string,
+  forceLite = false,
+  keyIndex = 0,
+): Promise<GeminiResponse> {
+  const res = await fetch(`${API_URL}/api/gemini/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ symbol, question, context_text: contextText, force_lite: forceLite, key_index: keyIndex }),
+  })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(data?.error ?? data?.detail ?? `Request failed (${res.status})`)
+  return data
+}

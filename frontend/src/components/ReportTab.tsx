@@ -6,17 +6,19 @@ import remarkGfm from 'remark-gfm'
 import type { QuickStats } from '../api/types'
 import { SECTIONS, buildGeminiPrompt } from '../utils/reportLinks'
 import { fetchGeminiSection, type GeminiResponse } from '../api/gemini'
+import { DeepResearchChat } from './DeepResearchChat'
 
 const API_URL = (import.meta.env.VITE_API_URL ?? '') as string
 
 interface Props {
-  yf_symbol: string
-  name:      string
-  qs:        QuickStats | undefined
-  loading:   boolean
-  reportTab: 'deep' | 'quickstats'
-  useLite:   boolean
-  useKey:    0 | 1
+  yf_symbol:      string
+  name:           string
+  qs:             QuickStats | undefined
+  loading:        boolean
+  reportTab:      'deep' | 'quickstats'
+  useLite:        boolean
+  useKey:         0 | 1 | 2
+  chatOpenerRef?: React.MutableRefObject<{ open: (contextId?: string) => void } | null>
 }
 
 function fmtPe(v: number | null | undefined): string {
@@ -74,7 +76,7 @@ function recColor(rec: string | null): string {
   return '#b45309'
 }
 
-export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, useKey }: Props) {
+export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, useKey, chatOpenerRef }: Props) {
   const isIndian = yf_symbol.endsWith('.NS') || yf_symbol.endsWith('.BO')
   const displayName = name || yf_symbol
   const qc = useQueryClient()
@@ -88,6 +90,15 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
   const [showUnavailable, setShowUnavailable] = React.useState<Record<string, boolean>>({})
   const [elapsed, setElapsed] = React.useState<Record<string, number>>({})
   const timerRefs = React.useRef<Record<string, ReturnType<typeof setInterval>>>({})
+  const [showChat, setShowChat] = React.useState(false)
+  const [chatInitialContext, setChatInitialContext] = React.useState<string>('all')
+
+  // Register chat opener with parent strip
+  React.useEffect(() => {
+    if (!chatOpenerRef) return
+    chatOpenerRef.current = { open: (contextId = 'all') => { setChatInitialContext(contextId); setShowChat(true) } }
+    return () => { if (chatOpenerRef) chatOpenerRef.current = null }
+  }, [chatOpenerRef])
 
   React.useEffect(() => {
     const initial:    Record<string, SectionState>  = {}
@@ -485,29 +496,47 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                 </div>
               </button>
 
-              {/* Right: action button + attribution */}
+              {/* Right: gemini icon + action button + attribution */}
               <div className="shrink-0 flex flex-col items-end gap-0.5">
-                {state === 'loading' ? (
-                  <span className={`text-[10px] font-medium px-2.5 py-1 rounded-md border opacity-60 ${section.color.btnOutline}`}>
-                    …
-                  </span>
-                ) : isDone ? (
+                <div className="flex items-center gap-1.5">
+                  {/* Gemini icon — opens AI Assistant chat for this card */}
                   <button
-                    onClick={isUnavailable ? () => handleGenerate(section.id, true) : (isExpanded ? () => handleGenerate(section.id, true) : toggleExpanded)}
-                    className={`text-[10px] font-medium px-2.5 py-1 rounded-md ${section.color.btnSolid}`}
+                    onClick={() => { setChatInitialContext(section.id); setShowChat(true) }}
+                    className="p-0.5 shrink-0 active:opacity-70"
+                    title="AI Assistant"
                   >
-                    {isExpanded ? 'Refresh' : 'Show Results'}
+                    <svg width="16" height="16" viewBox="0 0 24 24">
+                      <defs>
+                        <linearGradient id={`gg-${section.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor="#4285f4"/>
+                          <stop offset="100%" stopColor="#9334e9"/>
+                        </linearGradient>
+                      </defs>
+                      <path fill={`url(#gg-${section.id})`} d="M12 2c-.5 4-4 7.5-10 10 6 2.5 9.5 6 10 10 .5-4 4-7.5 10-10-6-2.5-9.5-6-10-10z"/>
+                    </svg>
                   </button>
-                ) : (
-                  <button
-                    onClick={() => handleGenerate(section.id)}
-                    className={`text-[10px] font-medium px-2.5 py-1 rounded-md border ${
-                      isError ? 'bg-red-100 text-red-700 border-red-300' : section.color.btnOutline
-                    }`}
-                  >
-                    {isError ? 'Retry' : 'Research'}
-                  </button>
-                )}
+                  {state === 'loading' ? (
+                    <span className={`text-[10px] font-medium px-2.5 py-1 rounded-md border opacity-60 ${section.color.btnOutline}`}>
+                      …
+                    </span>
+                  ) : isDone ? (
+                    <button
+                      onClick={isUnavailable ? () => handleGenerate(section.id, true) : (isExpanded ? () => handleGenerate(section.id, true) : toggleExpanded)}
+                      className={`text-[10px] font-medium px-2.5 py-1 rounded-md ${section.color.btnSolid}`}
+                    >
+                      {isExpanded ? 'Refresh' : 'Show Results'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleGenerate(section.id)}
+                      className={`text-[10px] font-medium px-2.5 py-1 rounded-md border ${
+                        isError ? 'bg-red-100 text-red-700 border-red-300' : section.color.btnOutline
+                      }`}
+                    >
+                      {isError ? 'Retry' : 'Research'}
+                    </button>
+                  )}
+                </div>
                 {isDone && (() => {
                   const s   = state as SectionResult
                   const alt = altStates[section.id]
@@ -536,7 +565,7 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                     {(state as { error: string }).error}
                   </span>
                 )}
-              </div>
+              </div>{/* end right col */}
             </div>
 
             {/* Loading panel */}
@@ -574,6 +603,7 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                     <span className="text-[11px] text-slate-400 leading-snug">Please try with other model</span>
                   </div>
                 ) : (
+                <>
                 <div className="gemini-md text-[11px] text-slate-700 leading-relaxed">
                   {(() => {
                     const sr = state as SectionResult
@@ -624,6 +654,7 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                     )
                   })()}
                 </div>
+                </>
                 )}
               </div>
             )}
@@ -636,6 +667,26 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
           Some data unavailable for this symbol
         </p>
       )}
+
+
+      <DeepResearchChat
+        isOpen={showChat}
+        onClose={() => setShowChat(false)}
+        yf_symbol={yf_symbol}
+        stockName={displayName}
+        initialContextId={chatInitialContext}
+        sections={SECTIONS.map(s => {
+          const st = sectionStates[s.id]
+          return {
+            id: s.id,
+            label: s.label,
+            emoji: s.emoji,
+            text: (typeof st === 'object' && st !== null && 'text' in st) ? (st as { text: string }).text : null,
+          }
+        })}
+        useLite={useLite}
+        useKey={useKey}
+      />
 
     </div>
   )

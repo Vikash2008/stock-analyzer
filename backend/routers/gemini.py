@@ -35,6 +35,7 @@ def _load_keys() -> list[str]:
     return [
         os.environ.get("GEMINI_KEY_MAIN", ""),
         os.environ.get("GEMINI_KEY_BACKUP", ""),
+        os.environ.get("GEMINI_KEY_3", ""),
     ]
 
 
@@ -43,6 +44,14 @@ class GeminiRequest(BaseModel):
     section_id: str
     prompt: str
     force_refresh: bool = False
+    force_lite: bool = False
+    key_index: int = 0
+
+
+class ChatRequest(BaseModel):
+    symbol: str
+    question: str
+    context_text: str
     force_lite: bool = False
     key_index: int = 0
 
@@ -98,7 +107,8 @@ async def gemini_query(req: GeminiRequest):
     loop = asyncio.get_running_loop()
 
     # ── Attempt 1: gemini-2.5-flash with Google Search grounding ─────────
-    # 1a: with thinking (45s); 1b: no-thinking retry if 1a times out (55s)
+    # 1a: with thinking (45s / 70s for peers); 1b: no-thinking retry (55s / 85s for peers)
+    _heavy = req.section_id in ("peers",)
     grounded_resp = None
     if not req.force_lite:
         for _thinking in (True, False):
@@ -116,7 +126,7 @@ async def gemini_query(req: GeminiRequest):
                             config=cfg,
                         ),
                     ),
-                    timeout=45.0 if _thinking else 55.0,
+                    timeout=(70.0 if _thinking else 85.0) if _heavy else (45.0 if _thinking else 55.0),
                 )
                 break  # success — stop retrying
             except asyncio.TimeoutError:
@@ -149,7 +159,6 @@ async def gemini_query(req: GeminiRequest):
 
     # ── Attempt 2: gemini-3.1-flash-lite without grounding ───────────────
     # (500 RPD on free tier — reliable fallback when grounding quota exhausted)
-    plain_resp = None
     for _attempt in range(2):
         try:
             plain_resp = await asyncio.wait_for(
@@ -162,7 +171,15 @@ async def gemini_query(req: GeminiRequest):
                 ),
                 timeout=25.0,
             )
-            break
+            text, extract_reason = _extract_text(plain_resp)
+            if text:
+                result = {"text": text, "sources": [], "grounded": False, "model": "gemini-3.1-flash-lite"}
+                _cache[key] = (result, time.time())
+                return result
+            print(f"[gemini] 3.1-lite empty text (attempt {_attempt}), extract_reason={extract_reason!r}, "
+                  f"candidates={len(getattr(plain_resp, 'candidates', []))}")
+            if _attempt == 0:
+                await asyncio.sleep(2)
         except asyncio.TimeoutError:
             if _attempt == 1:
                 return JSONResponse({"error": "Gemini timed out — try again"}, status_code=504)
@@ -170,13 +187,114 @@ async def gemini_query(req: GeminiRequest):
             if _attempt == 1:
                 return JSONResponse({"error": str(exc)[:400]}, status_code=500)
             await asyncio.sleep(3)
-    if plain_resp is None:
-        return JSONResponse({"error": "Gemini unavailable — try again"}, status_code=503)
 
-    text, _ = _extract_text(plain_resp)
-    if not text:
-        return JSONResponse({"error": "Gemini returned an empty response — try again"}, status_code=500)
+    return JSONResponse({"error": "Gemini returned an empty response — try again"}, status_code=500)
 
-    result = {"text": text, "sources": [], "grounded": False, "model": "gemini-3.1-flash-lite"}
-    _cache[key] = (result, time.time())
-    return result
+
+@router.post("/api/gemini/chat")
+async def gemini_chat(req: ChatRequest):
+    """Free-form Q&A using card context + Google Search grounding. No caching."""
+    api_key = _read_api_key(req.key_index)
+    if not api_key:
+        return JSONResponse({"error": "GEMINI_API_KEY not configured"}, status_code=500)
+
+    if req.force_lite:
+        prompt = (
+            f"You are a financial research assistant.\n\n"
+            f"Background research on {req.symbol} (for reference):\n"
+            f"--- CONTEXT ---\n{req.context_text[:4000]}\n--- END CONTEXT ---\n\n"
+            f"User question: {req.question}\n\n"
+            f"Answer using the context and your knowledge. Use markdown formatting. "
+            f"Lead with specific numbers and figures. No preamble."
+        )
+    else:
+        prompt = (
+            f"You are a financial research assistant with access to Google Search.\n\n"
+            f"Background research on {req.symbol} (for reference only):\n"
+            f"--- CONTEXT ---\n{req.context_text}\n--- END CONTEXT ---\n\n"
+            f"User question: {req.question}\n\n"
+            f"Instructions:\n"
+            f"- The context above is background only. Do NOT limit your answer to what is already in the context.\n"
+            f"- Actively use Google Search to find data that directly answers the question, especially historical figures, year-on-year trends, and recent data not present in the context.\n"
+            f"- If the context lacks specific figures requested (e.g. 3-year growth data, quarterly numbers), search annual reports, investor presentations, or news to find them.\n"
+            f"- Use markdown formatting. Lead with specific numbers and figures. No preamble."
+        )
+
+    client = genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
+    loop = asyncio.get_running_loop()
+
+    # Attempt 1: gemini-2.5-flash with Google Search grounding (1a: thinking, 1b: no-thinking)
+    grounded_resp = None
+    if not req.force_lite:
+        for _thinking in (True, False):
+            try:
+                cfg = genai_types.GenerateContentConfig(
+                    tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
+                    **({"thinking_config": genai_types.ThinkingConfig(thinking_budget=0)} if not _thinking else {}),
+                )
+                grounded_resp = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        None,
+                        lambda cfg=cfg: client.models.generate_content(
+                            model="gemini-2.5-flash",
+                            contents=prompt,
+                            config=cfg,
+                        ),
+                    ),
+                    timeout=45.0 if _thinking else 55.0,
+                )
+                break
+            except asyncio.TimeoutError:
+                label = "with thinking" if _thinking else "no-thinking retry"
+                print(f"[gemini/chat] 2.5-flash TIMEOUT ({label}) — symbol={req.symbol!r}")
+                if not _thinking:
+                    grounded_resp = None
+            except Exception as exc:
+                err = str(exc)
+                if _is_fatal_error(err):
+                    return JSONResponse({"error": err[:400]}, status_code=500)
+                print(f"[gemini/chat] 2.5-flash EXCEPTION — symbol={req.symbol!r} err={err[:200]!r}")
+                break
+
+    if grounded_resp is not None:
+        text, extract_reason = _extract_text(grounded_resp)
+        sources: list[str] = []
+        try:
+            chunks = grounded_resp.candidates[0].grounding_metadata.grounding_chunks or []
+            sources = [c.web.uri for c in chunks if hasattr(c, "web") and c.web.uri]
+        except Exception:
+            pass
+        if text:
+            return {"text": text, "sources": sources, "grounded": True, "model": "gemini-2.5-flash"}
+        print(f"[gemini/chat] 2.5-flash empty text, extract_reason={extract_reason!r}")
+
+    # Fallback: gemini-3.1-flash-lite (no grounding — 500 RPD free tier)
+    for _attempt in range(2):
+        try:
+            resp = await asyncio.wait_for(
+                loop.run_in_executor(
+                    None,
+                    lambda: client.models.generate_content(
+                        model="gemini-3.1-flash-lite",
+                        contents=prompt,
+                    ),
+                ),
+                timeout=25.0,
+            )
+            text, extract_reason = _extract_text(resp)
+            if text:
+                return {"text": text, "sources": [], "grounded": False, "model": "gemini-3.1-flash-lite"}
+            # Empty text — log and retry on first attempt
+            print(f"[gemini/chat] 3.1-lite empty text (attempt {_attempt}), extract_reason={extract_reason!r}, "
+                  f"candidates={len(getattr(resp, 'candidates', []))}")
+            if _attempt == 0:
+                await asyncio.sleep(2)
+        except asyncio.TimeoutError:
+            if _attempt == 1:
+                return JSONResponse({"error": "Gemini timed out — try again"}, status_code=504)
+        except Exception as exc:
+            if _attempt == 1:
+                return JSONResponse({"error": str(exc)[:400]}, status_code=500)
+            await asyncio.sleep(3)
+
+    return JSONResponse({"error": "Gemini returned an empty response — try again"}, status_code=500)
