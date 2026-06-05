@@ -225,6 +225,7 @@ Keep-alive: GitHub Actions cron pings `/health` every 14 min to reduce cold star
 ## Key Bug Fixes
 
 - `src/engine.py` `_xirr()`: removed `or hd.empty` from early-return guard — fully-closed portfolios (e.g. Upstox, all positions sold) now compute XIRR from BUY/SELL cashflows; previously returned None and showed "inv" instead of XIRR on broker tile
+- `backend/routers/quickstats.py` `_compute_1y_data()` / `_compute_5y_cagr()`: added `math.isnan()` guards before returning computed floats — yfinance history sometimes appends a NaN Close bar; without the guard, `one_year_return = float('nan')` slipped into the result dict and caused `JSONResponse` to throw `ValueError: Out of range float values are not JSON compliant: nan`, triggering the outer except and returning `{partial: True}`. Also wrapped `one_year_return`, `price_1y_ago`, `five_year_cagr` in `_clean()` in the result dict as a final safety net.
 
 ## Pending
 
