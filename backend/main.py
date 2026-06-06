@@ -28,9 +28,10 @@ from backend.routers.search      import router as search_router
 _ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5173",
+    "https://stock-analyzer-blush.vercel.app",
 ]
 _prod = os.environ.get("ALLOWED_ORIGIN", "").strip()
-if _prod:
+if _prod and _prod not in _ORIGINS:
     _ORIGINS.append(_prod)
 
 app = FastAPI(title="Stock Analyzer API", version="1.0.0")
