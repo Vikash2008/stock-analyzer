@@ -12,7 +12,8 @@ export function usePortfolio(currency: 'INR' | 'USD' = 'INR') {
     queryFn: () => fetchPortfolio(currency, false, getCsvContent()),
     staleTime: Infinity,
     gcTime:    Infinity,
-    retry: 1,
+    retry: 3,
+    retryDelay: 20_000,
   })
 }
 
