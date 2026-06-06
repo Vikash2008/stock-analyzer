@@ -377,3 +377,12 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 ## Design Decisions Log
 
 > Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-06-05
+
+### 2026-06-06
+
+**Deep Research top bar — model toggle moved into gear, iOS key selector**
+- Model toggle (⚡/🌐 Lite/Pro pill) removed from top bar strip; moved into gear popover as first row ("Model" label + pill button)
+- API Key selector redesigned from 3 circular `w-7 h-7` numbered pills → iOS segmented control: `bg-slate-100 rounded-full p-0.5` container with `flex-1 rounded-full` segments; active = `bg-white shadow-sm text-slate-700`; inactive = `text-slate-400`; labels "Key 1" / "Key 2" / "Key 3"
+- Top bar strip now shows only: [AI Assistant pill] [gear icon] — two items instead of four
+- AI Assistant button: kept as text pill (`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full`) — icon-only version was tried and reverted (looked bad)
+- Gear popover layout: `flex flex-col gap-2.5`; Model row `flex items-center justify-between gap-4`; API Key section `flex flex-col gap-1.5` with segmented row below label
