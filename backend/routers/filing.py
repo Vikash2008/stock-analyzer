@@ -125,7 +125,9 @@ def _bse_rows(scrip_code: str) -> list:
     data = json.loads(urllib.request.urlopen(
         urllib.request.Request(url, headers=_BSE_HDR), timeout=12
     ).read())
-    return data.get("Table", [])
+    rows = data.get("Table", [])
+    # Sort newest-first so _pick_target always selects the most recent filing
+    return sorted(rows, key=lambda r: (r.get("DT_TM") or ""), reverse=True)
 
 
 def _pick_target(rows: list, prefer_text: bool = False) -> dict | None:

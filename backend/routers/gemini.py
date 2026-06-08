@@ -107,7 +107,7 @@ async def gemini_query(req: GeminiRequest):
     loop = asyncio.get_running_loop()
 
     # ── Attempt 1: gemini-2.5-flash with Google Search grounding ─────────
-    # 1a: with thinking (45s / 70s for peers); 1b: no-thinking retry (55s / 85s for peers)
+    # 1a: bounded thinking (budget=8192, ~15-20s); 1b: no-thinking retry (budget=0)
     _heavy = req.section_id in ("peers",)
     grounded_resp = None
     if not req.force_lite:
@@ -115,7 +115,9 @@ async def gemini_query(req: GeminiRequest):
             try:
                 cfg = genai_types.GenerateContentConfig(
                     tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
-                    **({"thinking_config": genai_types.ThinkingConfig(thinking_budget=0)} if not _thinking else {}),
+                    thinking_config=genai_types.ThinkingConfig(
+                        thinking_budget=8192 if _thinking else 0
+                    ),
                 )
                 grounded_resp = await asyncio.wait_for(
                     loop.run_in_executor(
@@ -223,14 +225,16 @@ async def gemini_chat(req: ChatRequest):
     client = genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
     loop = asyncio.get_running_loop()
 
-    # Attempt 1: gemini-2.5-flash with Google Search grounding (1a: thinking, 1b: no-thinking)
+    # Attempt 1: gemini-2.5-flash with Google Search grounding (1a: budget=8192, 1b: budget=0)
     grounded_resp = None
     if not req.force_lite:
         for _thinking in (True, False):
             try:
                 cfg = genai_types.GenerateContentConfig(
                     tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
-                    **({"thinking_config": genai_types.ThinkingConfig(thinking_budget=0)} if not _thinking else {}),
+                    thinking_config=genai_types.ThinkingConfig(
+                        thinking_budget=8192 if _thinking else 0
+                    ),
                 )
                 grounded_resp = await asyncio.wait_for(
                     loop.run_in_executor(
