@@ -30,7 +30,7 @@ src/
   xirr.py                   XIRR calculation
 
 backend/
-  main.py                   FastAPI app; CORS reads ALLOWED_ORIGIN env var; load_dotenv() reads .env for local dev (python-dotenv)
+  main.py                   FastAPI app; CORS hardcodes https://stock-analyzer-blush.vercel.app + reads ALLOWED_ORIGIN env var (additional origin); load_dotenv() reads .env for local dev (python-dotenv)
   serializers.py            PortfolioBundle → JSON-safe dict (NaN/Timestamp/numpy handling)
   routers/
     portfolio.py            GET /api/portfolio?currency=INR&force_refresh=false
@@ -45,7 +45,7 @@ frontend/
   src/
     api/types.ts            TypeScript interfaces matching backend JSON
     api/portfolio.ts        fetch wrapper (uses VITE_API_URL env var)
-    hooks/usePortfolio.ts        TanStack Query, staleTime+gcTime=Infinity, retry 1; useForceRefresh() uses qc.fetchQuery({staleTime:0}) so isFetching is tracked globally during force refresh — spinner persists across navigation; CSV upload mode: reads portfolio:csv from localStorage and POSTs to /api/portfolio if present, else GET returns demo data from demo_msp_v2.csv; PortfoliosPage auto-refreshes on mount if data.as_of > 30 min old
+    hooks/usePortfolio.ts        TanStack Query, staleTime+gcTime=Infinity, retry 3 retryDelay 20s (covers Render 60–90s cold start); useForceRefresh() uses qc.fetchQuery({staleTime:0}) so isFetching is tracked globally during force refresh — spinner persists across navigation; CSV upload mode: reads portfolio:csv from localStorage and POSTs to /api/portfolio if present, else GET returns demo data from demo_msp_v2.csv; PortfoliosPage auto-refreshes on mount if data.as_of > 30 min old
     hooks/useHistory.ts          TanStack Query for price history, staleTime+gcTime=Infinity
     hooks/usePortfolioHistory.ts useQueries per-symbol history → value/invested/P&L/return/xirr series; exposes loadedCount+totalCount+fetchingCount+symbolPriceMap (Map<yf_symbol,Map<dateStr,price>>); extraSymbols? param fetches closed-symbol prices into symbolPriceMap
     hooks/useBenchmarkXirr.ts    useQueries benchmark histories in parallel; Option B period XIRR (opening balance at T1, terminal at T2); sector + per-holding XIRR vs benchmark; exports holdingBenchXirr Map + loadedCount+totalCount+fetchingCount; params: periodStart/periodEnd/symbolPriceMap; Other sector excluded from overallActual/overallBench cashflows
