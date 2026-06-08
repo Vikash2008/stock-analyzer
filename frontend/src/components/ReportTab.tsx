@@ -604,7 +604,7 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                   </div>
                 ) : (
                 <>
-                <div className="gemini-md text-[11px] text-slate-700 leading-relaxed">
+                <div className="gemini-md text-[12px] text-slate-700 leading-relaxed">
                   {(() => {
                     const sr = state as SectionResult
                     const hIdx = { n: 0 }

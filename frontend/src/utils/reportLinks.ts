@@ -27,8 +27,8 @@ export const SECTIONS: SectionConfig[] = [
       btnOutline: 'bg-blue-100 text-blue-800 border border-blue-300',
     },
     query: {
-      indian: `Explain {name}'s core business model and how it makes money. Cover: main revenue streams and their mix (%), key products or services, primary customer segments, and geographic footprint. Then assess the competitive moat — is it brand, cost structure, switching costs, network effects, regulatory licence, or IP? Include current market share estimates and recent strategic direction (last 12 months). Use a table for revenue segment mix if available.`,
-      us:     `Explain {name}'s core business model and how it makes money. Cover: main revenue streams and their mix (%), key products or services, primary customer segments, and global geographic footprint. Then assess the competitive moat — is it brand, cost structure, switching costs, network effects, regulatory licence, or IP? Include current market share estimates, recent strategic direction (last 12 months), and any key platform or ecosystem advantages. Use a table for revenue segment mix if available.`,
+      indian: `Explain {name}'s core business model and how it makes money. Cover: main revenue streams and their mix (%), key products or services, primary customer segments, and geographic footprint. Then assess the competitive moat — is it brand, cost structure, switching costs, network effects, regulatory licence, or IP? Include current market share estimates and recent strategic direction (last 12 months). Use a table for revenue segment mix if available. Also note: (1) promoter holding % and any recent changes; (2) top customer or geographic concentration if any single segment exceeds 15% of revenue; (3) any recent key management changes in the last 12 months.`,
+      us:     `Explain {name}'s core business model and how it makes money. Cover: main revenue streams and their mix (%), key products or services, primary customer segments, and global geographic footprint. Then assess the competitive moat — is it brand, cost structure, switching costs, network effects, regulatory licence, or IP? Include current market share estimates, recent strategic direction (last 12 months), and any key platform or ecosystem advantages. Use a table for revenue segment mix if available. Also note: (1) whether founder-led or professionally managed and any recent C-suite changes; (2) top customer concentration risk if any single customer exceeds 10% of revenue; (3) platform lock-in or ecosystem dependency risks.`,
     },
   },
   {
@@ -44,8 +44,8 @@ export const SECTIONS: SectionConfig[] = [
       btnOutline: 'bg-sky-100 text-sky-700 border border-sky-300',
     },
     query: {
-      indian: `What is the 3-5 year outlook for the industry {name} ({symbol}) operates in? Cover: total addressable market size and projected CAGR, key structural tailwinds, headwinds or disruption risks, India-specific regulatory environment (SEBI, RBI, sector regulator), and how macro factors (interest rates, inflation, INR/USD) affect this sector. Name 2-3 trends that will define the sector over the next 3 years.`,
-      us:     `What is the 3-5 year outlook for the industry {name} ({symbol}) operates in? Cover: total addressable market size and projected CAGR, key structural tailwinds, headwinds or disruption risks, US/global regulatory environment (FTC, SEC, sector-specific), and how macro factors (Fed rates, USD strength, inflation) affect this sector. Name 2-3 trends that will define the sector over the next 3 years.`,
+      indian: `What is the 3-5 year outlook for the industry {name} ({symbol}) operates in? Cover: total addressable market size and projected CAGR, key structural tailwinds, headwinds or disruption risks, India-specific regulatory environment (SEBI, RBI, sector regulator), and how macro factors (interest rates, inflation, INR/USD) affect this sector. Name 2-3 trends that will define the sector over the next 3 years. Also cover: whether the sector is in early-growth, maturing, or consolidating phase; and competitive structure — fragmented or concentrated (estimate top-3 players' combined market share).`,
+      us:     `What is the 3-5 year outlook for the industry {name} ({symbol}) operates in? Cover: total addressable market size and projected CAGR, key structural tailwinds, headwinds or disruption risks, US/global regulatory environment (FTC, SEC, sector-specific), and how macro factors (Fed rates, USD strength, inflation) affect this sector. Name 2-3 trends that will define the sector over the next 3 years. Also cover: whether the sector is in early-growth, maturing, or consolidating phase; and competitive structure — fragmented or concentrated (estimate top-3 players' combined market share).`,
     },
   },
   {
@@ -61,8 +61,54 @@ export const SECTIONS: SectionConfig[] = [
       btnOutline: 'bg-teal-100 text-teal-700 border border-teal-300',
     },
     query: {
-      indian: `{name} {symbol} latest quarter earnings results: revenue PAT NIM margins EPS YoY QoQ segment performance management guidance key risks analyst verdict`,
-      us:     `Summarize {name}'s ({symbol}) most recent quarterly earnings (state the quarter). Include: revenue (actual vs analyst estimate and YoY growth), net income, operating margin, EPS (actual vs estimate), segment performance breakdown, management guidance for next quarter and full year, and notable analyst reactions post-earnings. Flag any major beats, misses, or guidance cuts. Use a table for the key metrics.`,
+      indian: `Summarize {name}'s ({symbol}) most recent quarterly results — state the exact quarter and fiscal year (e.g. Q3 FY25). Use the company's official BSE/NSE filing or earnings press release as the primary source; cite which filing you used.
+
+## Metrics Scorecard
+Table with columns: **Metric** | **Actual** | **Analyst Est.** | **YoY%** | **QoQ%**
+Rows: Revenue (₹ Cr), EBITDA (₹ Cr), PAT (₹ Cr), EPS (diluted ₹), Gross Margin%, EBITDA Margin%, PAT Margin%
+For banks/NBFCs: replace EBITDA with NIM%; add rows for GNPA%, NNPA%, PCR%
+
+## Segment Performance
+Table with columns: **Segment** | **Revenue (₹ Cr)** | **YoY%** | **Margin%**
+
+## What Went Well
+2–3 specific positives with exact figures and the period they relate to.
+
+## What Was Weak or Concerning
+2–3 specific negatives or misses with exact figures.
+
+## Management Guidance
+Next quarter and full-year outlook. Explicitly flag any changes vs previous guidance.
+
+## Analyst Reactions
+For each post-results change: Firm | Old Rating → New Rating | Old Target → New Target (₹) | Date
+
+## Verdict
+One line: Very Strong / Strong / Mixed / Weak — and the single most important reason.`,
+      us:     `Summarize {name}'s ({symbol}) most recent quarterly earnings — state the exact quarter (e.g. Q2 FY2025 / fiscal Q3 2025). Use the company's SEC 10-Q or official earnings press release as the primary source; cite which filing you used.
+
+## Metrics Scorecard
+Table with columns: **Metric** | **Actual** | **Analyst Est.** | **YoY%** | **QoQ%**
+Rows: Revenue ($M), Operating Income ($M), Net Income ($M), EPS (diluted $), Gross Margin%, Operating Margin%, Net Margin%
+Distinguish GAAP from non-GAAP figures where both are reported. For tech companies, include stock-based compensation as % of revenue.
+
+## Segment Performance
+Table with columns: **Segment** | **Revenue ($M)** | **YoY%** | **Margin%**
+
+## What Went Well
+2–3 specific positives with exact figures and the period they relate to.
+
+## What Was Weak or Concerning
+2–3 specific negatives or misses with exact figures.
+
+## Management Guidance
+Next quarter and full-year outlook. Explicitly flag any changes vs previous guidance.
+
+## Analyst Reactions
+For each post-results change: Firm | Old Rating → New Rating | Old Target → New Target ($) | Date
+
+## Verdict
+One line: Very Strong / Strong / Mixed / Weak — and the single most important reason.`,
     },
   },
   {
@@ -78,8 +124,8 @@ export const SECTIONS: SectionConfig[] = [
       btnOutline: 'bg-indigo-100 text-indigo-700 border border-indigo-300',
     },
     query: {
-      indian: `Analyze {name}'s ({symbol}) current valuation on the NSE/BSE. Provide: trailing PE, forward PE, Price/Book, EV/EBITDA, and Price/Sales — each compared against (1) its own 5-year historical average, (2) sector median for Indian peers, and (3) Nifty 50 benchmark. Is the stock at a premium or discount and why? Provide a bull/base/bear target price range with the key assumption driving each scenario.`,
-      us:     `Analyze {name}'s ({symbol}) current valuation. Provide: trailing PE, forward PE, Price/Book, EV/EBITDA, EV/Revenue, and PEG ratio — each compared against (1) its own 5-year historical average, (2) direct sector peers, and (3) S&P 500 median. Is the stock at a premium or discount and why? Provide a bull/base/bear target price range (12-month) with the key assumption driving each scenario.`,
+      indian: `Analyze {name}'s ({symbol}) current valuation on the NSE/BSE. Provide: trailing PE, forward PE, Price/Book, EV/EBITDA, and Price/Sales — each compared against (1) its own 5-year historical average, (2) sector median for Indian peers, and (3) Nifty 50 benchmark. Ensure all multiples reference the same reporting period (state it explicitly). Is the stock at a premium or discount and why? Provide a bull/base/bear target price range (12-month) with the key assumption driving each scenario. State the current CMP and your base-case intrinsic value estimate using at least one method (PE-based target or earnings yield), with the implied upside/downside %.`,
+      us:     `Analyze {name}'s ({symbol}) current valuation. Provide: trailing PE, forward PE, Price/Book, EV/EBITDA, EV/Revenue, and PEG ratio — each compared against (1) its own 5-year historical average, (2) direct sector peers, and (3) S&P 500 median. Ensure all multiples reference the same reporting period (state it explicitly). Is the stock at a premium or discount and why? Provide a bull/base/bear target price range (12-month) with the key assumption driving each scenario. State the current price and your base-case intrinsic value estimate using at least one method (DCF, PE-based, or EV/EBITDA comps), with the implied upside/downside %.`,
     },
   },
   {
@@ -95,8 +141,8 @@ export const SECTIONS: SectionConfig[] = [
       btnOutline: 'bg-cyan-100 text-cyan-700 border border-cyan-300',
     },
     query: {
-      indian: `Create a peer comparison table for {name} ({symbol}) vs its 4-5 closest Indian-listed competitors. Table columns: Company | MCap (₹Cr) | Rev Growth 1Y | Operating Margin | PE (TTM) | ROE | Debt/Equity | Div Yield. Below the table, write 3-4 bullet points summarizing where {name} leads, where it lags, and the single most important differentiator vs the peer group.`,
-      us:     `Create a peer comparison table for {name} ({symbol}) vs its 4-5 closest competitors. Table columns: Company | MCap ($B) | Rev Growth 1Y | Operating Margin | PE (TTM) | EV/EBITDA | ROE | Net Cash/Debt. Below the table, write 3-4 bullet points summarizing where {name} leads, where it lags, and the single most important differentiator vs the peer group.`,
+      indian: `Create a peer comparison table for {name} ({symbol}) vs its 4-5 closest Indian-listed competitors. Table columns: **Company** | **MCap (₹Cr)** | **Rev Growth 1Y** | **Operating Margin** | **PE (TTM)** | **ROE** | **Debt/Equity** | **Div Yield**. All figures must reference the same reporting period — state which period you are using. Below the table, write 3-4 bullet points summarizing where {name} leads, where it lags, and the single most important differentiator vs the peer group. Add one final bullet: which peer is gaining market share fastest and why, and which is losing ground.`,
+      us:     `Create a peer comparison table for {name} ({symbol}) vs its 4-5 closest competitors. Table columns: **Company** | **MCap ($B)** | **Rev Growth 1Y** | **Operating Margin** | **PE (TTM)** | **EV/EBITDA** | **ROIC** | **Net Cash/Debt**. All figures must reference the same reporting period — state which period you are using. Below the table, write 3-4 bullet points summarizing where {name} leads, where it lags, and the single most important differentiator vs the peer group. Add one final bullet: which peer is gaining market share fastest and why, and which is losing ground.`,
     },
   },
   {
@@ -112,15 +158,15 @@ export const SECTIONS: SectionConfig[] = [
       btnOutline: 'bg-emerald-100 text-emerald-700 border border-emerald-300',
     },
     query: {
-      indian: `Analyze {name}'s financial health and trends over the last 3 years. Cover: revenue CAGR, gross and operating margin trajectory, net profit CAGR, free cash flow (FCF) generation and FCF margin, debt-to-equity trend, interest coverage ratio, working capital days (debtor/inventory/creditor), and return on capital employed (ROCE) trend. Flag any deterioration or improvement. Use a 3-year trend table for key metrics.`,
-      us:     `Analyze {name}'s financial health and trends over the last 3 years. Cover: revenue CAGR, gross and operating margin trajectory, net income CAGR, free cash flow generation and FCF yield, net debt or net cash position, debt-to-equity trend, interest coverage ratio, and return on equity (ROE) and return on invested capital (ROIC) trends. Flag any deterioration or improvement. Use a 3-year trend table for key metrics.`,
+      indian: `Analyze {name}'s financial health and trends over the most recent 3 fiscal years (use the latest available — if FY25 data is out, use FY23–FY25; do not default to older periods). Use the company's annual report or Screener.in as the primary source. Cover: revenue CAGR, gross and operating margin trajectory, net profit (PAT) CAGR, free cash flow (FCF) generation and FCF margin, debt-to-equity trend, interest coverage ratio, working capital days (debtor/inventory/creditor), return on capital employed (ROCE) trend, and capex as % of revenue (3-year trend). Flag if FCF materially diverges from PAT (signals accrual quality concerns). Use a 3-year trend table for key metrics.`,
+      us:     `Analyze {name}'s financial health and trends over the most recent 3 fiscal years (use the latest available — if FY25 data is out, use FY23–FY25; do not default to older periods). Use SEC 10-K filings as the primary source. Cover: revenue CAGR, gross and operating margin trajectory, net income CAGR, free cash flow generation and FCF yield, net debt or net cash position, debt-to-equity trend, interest coverage ratio, return on equity (ROE) and return on invested capital (ROIC) trends, capex as % of revenue (3-year trend), and buyback yield (TTM). Flag if FCF materially diverges from net income (accrual quality concern). Use a 3-year trend table for key metrics.`,
     },
   },
   {
     id:          'news',
     emoji:       '🚨',
     label:       'News, Sentiment & Red Flags',
-    description: 'Last 90 days — events, risks, insider activity',
+    description: 'Last 90 days — highlights, events, risks, insider activity',
     color: {
       bg:         'bg-green-100',
       border:     'border-green-300',
@@ -129,8 +175,38 @@ export const SECTIONS: SectionConfig[] = [
       btnOutline: 'bg-green-100 text-green-700 border border-green-300',
     },
     query: {
-      indian: `Summarize the most significant news and events for {name} ({symbol}) over the last 90 days. Cover: major corporate announcements, management changes, SEBI/regulatory actions, promoter buying or pledging activity, analyst rating changes (upgrades/downgrades), and any emerging risks or red flags (litigation, governance, accounting concerns, order cancellations). Rate overall sentiment as Positive, Neutral, Cautious, or Negative with a one-line reason.`,
-      us:     `Summarize the most significant news and events for {name} ({symbol}) over the last 90 days. Cover: major corporate announcements, management changes, SEC/regulatory actions, insider buying or selling activity, analyst rating changes (upgrades/downgrades with target price moves), and any emerging risks or red flags (litigation, governance, accounting concerns, product recalls, antitrust). Rate overall sentiment as Positive, Neutral, Cautious, or Negative with a one-line reason.`,
+      indian: `Summarize {name} ({symbol}) over the last 90 days. Use BSE/NSE exchange announcements, company press releases, Economic Times Markets, and Moneycontrol as primary sources — do not use random blogs or unverified aggregators.
+
+## Key Business Highlights (Last 3 Months)
+Product launches, new partnerships, geographic expansions, major order wins or losses, capacity additions, joint ventures — with dates.
+
+## Corporate & Regulatory Events
+Major corporate announcements, management changes, SEBI or regulatory actions, promoter stake changes or pledging activity — with dates.
+
+## Analyst Activity
+For each rating change in the period: **Firm** | **Old Rating → New Rating** | **Old Target → New Target (₹)** | **Date**
+
+## Red Flags
+Any litigation, governance concerns, accounting irregularities, order cancellations, or significant insider selling worth monitoring.
+
+## Sentiment Rating
+Overall: Positive / Neutral / Cautious / Negative — one sentence reason.`,
+      us:     `Summarize {name} ({symbol}) over the last 90 days. Use SEC filings, company press releases, Reuters, Bloomberg, and WSJ as primary sources — do not use random blogs or unverified aggregators.
+
+## Key Business Highlights (Last 3 Months)
+Product launches, new partnerships, geographic expansions, major contract wins or losses, M&A activity — with dates.
+
+## Corporate & Regulatory Events
+Major corporate announcements, management changes, SEC/FTC/regulatory actions, insider buying or selling (Form 4 filings) — with dates.
+
+## Analyst Activity
+For each rating change in the period: **Firm** | **Old Rating → New Rating** | **Old Target → New Target ($)** | **Date**
+
+## Red Flags
+Any litigation, governance concerns, accounting irregularities, product recalls, antitrust risk, or large insider selling worth monitoring.
+
+## Sentiment Rating
+Overall: Positive / Neutral / Cautious / Negative — one sentence reason.`,
     },
   },
   {
@@ -146,8 +222,8 @@ export const SECTIONS: SectionConfig[] = [
       btnOutline: 'bg-blue-50 text-blue-700 border border-blue-200',
     },
     query: {
-      indian: `Provide a technical analysis overview for {name} ({symbol} on NSE). Include: current trend (uptrend/downtrend/sideways with timeframe), key support levels (2-3), key resistance levels (2-3), 50-day and 200-day moving average positioning (price vs MA, golden or death cross status), RSI (14-day) reading and interpretation, recent volume trend, and your overall setup assessment — favorable entry, exit, or wait zone? State the invalidation level for any bullish thesis.`,
-      us:     `Provide a technical analysis overview for {name} ({symbol}). Include: current trend (uptrend/downtrend/sideways with timeframe), key support levels (2-3), key resistance levels (2-3), 50-day and 200-day moving average positioning (price vs MA, golden or death cross status), RSI (14-day) reading and interpretation, recent volume trend and any notable patterns (breakout, consolidation, distribution), and your overall setup assessment — favorable entry, exit, or wait. State the invalidation level for any bullish thesis.`,
+      indian: `Provide a technical analysis overview for {name} ({symbol} on NSE). Include: current trend (uptrend/downtrend/sideways with timeframe), key support levels (2-3), key resistance levels (2-3), 50-day and 200-day moving average positioning (price vs MA, golden or death cross status), RSI (14-day) reading and interpretation, MACD status (bullish or bearish cross, histogram expanding or contracting), Bollinger Band positioning (near upper band, lower band, or mid-band), recent volume trend, proximity to 52-week high/low or all-time high, and your overall setup assessment. Provide a specific actionable setup: entry zone, stop-loss level, target price, and risk:reward ratio (e.g. 1:2.5). State the invalidation level for any bullish thesis.`,
+      us:     `Provide a technical analysis overview for {name} ({symbol}). Include: current trend (uptrend/downtrend/sideways with timeframe), key support levels (2-3), key resistance levels (2-3), 50-day and 200-day moving average positioning (price vs MA, golden or death cross status), RSI (14-day) reading and interpretation, MACD status (bullish or bearish cross, histogram expanding or contracting), Bollinger Band positioning (near upper band, lower band, or mid-band), recent volume trend and any notable patterns (breakout, consolidation, distribution), proximity to 52-week high/low or all-time high, and your overall setup assessment. Provide a specific actionable setup: entry zone, stop-loss level, target price, and risk:reward ratio (e.g. 1:2.5). State the invalidation level for any bullish thesis.`,
     },
   },
 ]
@@ -156,7 +232,26 @@ function buildQuery(template: string, name: string, symbol = ''): string {
   return template.replace(/\{name\}/g, name).replace(/\{symbol\}/g, symbol)
 }
 
-const FORMAT_SUFFIX = '\n\nFormatting rules (strict): use markdown tables with bold column headers for any structured data; use ## bold section headers to organize content; bullet points for lists, numbered lists for rankings; lead every data point with the exact figure before explanation; no preamble ("Here is...", "Based on..."); crisp and dense — numbers over words; for Indian stocks use ₹ crores as the unit, for US stocks use $ millions or billions; round all figures to 1 decimal place.'
+const FORMAT_SUFFIX = `
+
+Formatting rules (strict):
+- Use markdown tables with **bold column headers** for any structured data — prefer tables over bullet lists for 3+ data points
+- Use ## section headers to organize content
+- Lead every data point with the exact figure before any explanation
+- No preamble or filler phrases ("Here is…", "Based on…", "It is worth noting…", "To summarize…", "In conclusion…")
+- Numbers over words; round all figures to 1 decimal place
+- For Indian stocks: use ₹ crores as the unit; for US stocks: use $ millions or billions
+
+Data integrity rules (strict):
+- Always state the source period for every figure (e.g. FY24, Q3 FY25, TTM as of Mar 2025) — never leave a number without its period
+- Always use the most recently available data as of today — if FY25 results are published, use FY25 as the base year; do NOT default to older periods when newer data exists
+- If a data point is unavailable, write "N/A — not disclosed" rather than omitting it
+- When multiple figures for the same metric appear across different sources, use the company's official filing as the authoritative source and state which filing you used
+
+Source rules (strict):
+- For Indian stocks: use only BSE/NSE exchange filings, company annual reports and investor presentations, SEBI disclosures, Screener.in, Moneycontrol, Economic Times Markets, RBI data
+- For US stocks: use only SEC EDGAR filings, company IR pages, Yahoo Finance, Bloomberg, Reuters, WSJ
+- Do NOT use random blogs, opinion aggregators, or unverified third-party sites for financial figures`
 
 export function buildGeminiPrompt(
   name: string,
