@@ -43,7 +43,7 @@
 | 1 | Report tab — Section 1 fundamentals grid | 4×4 grid (Valuation/Returns/Growth/Context); Screener.in data source; PEG fallback; D/E; Rev 1Y/3Y; EPS 1Y/3Y; ↻ sync + progress bar; PE History chart | done |
 | 2 | Report tab — Revenue Segments Perplexity card | Direct search query (no doc URL); `site:nsearchives.nseindia.com` for Indian; table format instruction; PDF reading limitation noted | done |
 | 7 | Report tab — Gemini 2.5 Flash inline answers | Perplexity replaced; POST /api/gemini with Google Search grounding; react-markdown rendering; elapsed timer; force-refresh on ↻; localStorage cache per section | done |
-| 5 | Report tab — Section 2 Research Links | Screener/Trendlyne/NSE pills for Indian; Finviz/Macrotrends/EDGAR for US | pending |
+| 5 | Report tab — Section 2 Research Links | Screener/Trendlyne/NSE pills for Indian; Finviz/Macrotrends/EDGAR for US | done |
 | 8 | Deep Research — 8-card redesign | Card 1: Business Overview & Moat; Card 2: Industry Outlook & Macro; Card 3: Latest Earnings & Guidance; Card 4: Valuation Metrics; Card 5: Peer Comparison Matrix; Card 6: Financial Health & Trends; Card 7: News, Sentiment & Red Flags; Card 8: Technical Analysis Setup | done |
 
 ---
@@ -52,7 +52,7 @@
 
 | # | Item | Notes | Status |
 |---|------|-------|--------|
-| 1 | Report tab Section 2 — Research Links | Indian: Screener / Trendlyne / NSE pills; US: Finviz / Macrotrends / EDGAR pills | pending |
+| 1 | Report tab Section 2 — Research Links | Indian: Screener / Trendlyne / NSE pills; US: Finviz / Macrotrends / EDGAR pills | done |
 | 3 | Better prompts for Deep Research cards | Audit and improve all 8 section prompts (Indian + US variants) for depth, specificity, and output quality | done |
 | 4 | Custom search on Deep Research | Free-form question input in the Deep Research tab; user types any question, Gemini answers via Google Search grounding; optional: pre-fill context from selected card results; works independently of the 8 section cards | done |
 

@@ -21,6 +21,7 @@
 | Trigger | Action |
 |---|---|
 | "UI fix" / "UI only" / "quick fix" | Max 2 tool calls. Edit reported file only. No analysis. No adjacent code. |
+| "Debug" / "bug" / "not working" | Read ONLY the reported file. Fix what's visible. No reading adjacent files to "understand context". No edge case analysis. Max 3 tool calls total. |
 | Any code edit made | NEVER ship unless user explicitly says `/ship` |
 | Task ambiguous OR failed once | STOP. Ask exactly 1 focused question. |
 | File path unknown | Check `FEATURE_MAP.md` first. If unclear after 1 speculative read → ask. |
