@@ -130,6 +130,11 @@ def build(
         name_map = txns.groupby("yf_symbol")["name"].first()
         holdings_all["name"] = holdings_all["yf_symbol"].map(name_map).fillna("")
 
+    # Fill null company names from transaction names (MF symbols often missing from yfinance)
+    if "name" in holdings_all.columns:
+        null_mask = holdings_all["company"].isna()
+        holdings_all.loc[null_mask, "company"] = holdings_all.loc[null_mask, "name"].replace("", None)
+
     # ── Portfolio list ────────────────────────────────────────────────────────
     all_portfolios = sorted(txns["portfolio"].unique().tolist()) \
         if "portfolio" in txns.columns else []
