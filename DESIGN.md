@@ -386,3 +386,19 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 - Top bar strip now shows only: [AI Assistant pill] [gear icon] — two items instead of four
 - AI Assistant button: kept as text pill (`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full`) — icon-only version was tried and reverted (looked bad)
 - Gear popover layout: `flex flex-col gap-2.5`; Model row `flex items-center justify-between gap-4`; API Key section `flex flex-col gap-1.5` with segmented row below label
+
+### 2026-06-09
+
+**File import progress bar — asymptotic easing to 99%**
+- Previous: hard cap at 85% via `Math.min(pct + 3, 85)` caused visible freeze while POST was in-flight
+- Fix: `pct += (99 - pct) * 0.05` per 180ms tick — asymptotic approach, bar keeps moving, never stalls; jumps to 100% on response
+
+**Toggle/filter state persistence across navigation — localStorage**
+- HoldingsPage: `holdingFilter`, `showClosed`, `activeTab`, `viewMode`, `sortField`, `sortDir`, `sectorFilter` persisted under `hp:*` keys
+- PortfoliosPage: `mode` (By Type / By Broker) persisted under `pp:mode`
+- Pattern: lazy `useState(() => localStorage.getItem(key) ?? default)` + single `useEffect` write-back
+
+**Closed-position summary card gain color fix — TransactionsPage**
+- Bug: `gainPos = gain >= 0` used unrealized gain only; for closed positions `cur=0, inv=0 → gain=0 → always green`
+- Fix: `gainPos = (gain + realGain) >= 0` — matches the displayed total (`gain + realGain` on line 413)
+- Applies to both open positions (unrealized + partial-sell realized) and fully closed positions

@@ -45,7 +45,7 @@ frontend/
   src/
     api/types.ts            TypeScript interfaces matching backend JSON
     api/portfolio.ts        fetch wrapper (uses VITE_API_URL env var)
-    hooks/usePortfolio.ts        TanStack Query, staleTime+gcTime=Infinity, retry 3 retryDelay 20s (covers Render 60–90s cold start); useForceRefresh() uses qc.fetchQuery({staleTime:0}) so isFetching is tracked globally during force refresh — spinner persists across navigation; CSV upload mode: reads portfolio:csv from localStorage and POSTs to /api/portfolio if present, else GET returns demo data from demo_msp_v2.csv; PortfoliosPage auto-refreshes on mount if data.as_of > 30 min old
+    hooks/usePortfolio.ts        TanStack Query, staleTime=30min, gcTime=Infinity, refetchInterval=30min, refetchIntervalInBackground=true, refetchOnWindowFocus=true, retry 3 retryDelay 20s; auto-refresh persists across page navigation and tab minimise (all 3 pages subscribe → query always has active observer); useForceRefresh() uses qc.fetchQuery({staleTime:0,force_refresh:true}) for on-demand fresh prices; CSV upload mode: reads portfolio:csv from localStorage and POSTs to /api/portfolio if present, else GET returns demo data from demo_msp_v2.csv
     hooks/useHistory.ts          TanStack Query for price history, staleTime+gcTime=Infinity
     hooks/usePortfolioHistory.ts useQueries per-symbol history → value/invested/P&L/return/xirr series; exposes loadedCount+totalCount+fetchingCount+symbolPriceMap (Map<yf_symbol,Map<dateStr,price>>); extraSymbols? param fetches closed-symbol prices into symbolPriceMap
     hooks/useBenchmarkXirr.ts    useQueries benchmark histories in parallel; Option B period XIRR (opening balance at T1, terminal at T2); sector + per-holding XIRR vs benchmark; exports holdingBenchXirr Map + loadedCount+totalCount+fetchingCount; params: periodStart/periodEnd/symbolPriceMap; Other sector excluded from overallActual/overallBench cashflows
@@ -199,7 +199,7 @@ msp_v2.csv
 |------|-----|-------|
 | price history queries (`['history', ...]`) | 3 days | scoped via `shouldDehydrateQuery` |
 | benchmark histories (`['benchmark-hist', ...]`) | 3 days | persisted via `shouldDehydrateQuery`; eliminates blank Benchmarking tab on restart |
-| portfolio bundle (`['portfolio', currency]`) | 3 days | restores on reopen; staleTime=Infinity so no auto background-refetch; ↻ only trigger |
+| portfolio bundle (`['portfolio', currency]`) | 3 days | restores on reopen; staleTime=30min + refetchInterval=30min drives auto-refresh; ↻ button forces fresh yfinance hit |
 | quickstats (`['quickstats', yf_symbol]`) | 3 days | persisted via `shouldDehydrateQuery` |
 
 ---
