@@ -213,7 +213,10 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const qc           = useQueryClient()
   const { data, isLoading, error, isFetching } = usePortfolio(currency)
   const forceRefresh  = useForceRefresh(currency)
-  const [mode, setMode]       = useState<BreakdownMode>('type')
+  const [mode, setMode]       = useState<BreakdownMode>(
+    () => (localStorage.getItem('pp:mode') as BreakdownMode) ?? 'type'
+  )
+  useEffect(() => { localStorage.setItem('pp:mode', mode) }, [mode])
   const [pullY, setPullY]     = useState(0)
   const [refreshing, setRefreshing] = useState(false)
   const [bannerVisible, setBannerVisible] = useState(false)
@@ -241,12 +244,12 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       setCsvMeta(meta)
       setImportProgress(40)
 
-      // Animate 40→85 over ~5s while POST is in flight
+      // Asymptotic approach to 99% — keeps moving throughout POST, never stalls
       let pct = 40
       clearInterval(progressTimer.current)
       progressTimer.current = setInterval(() => {
-        pct = Math.min(pct + 3, 85)
-        setImportProgress(pct)
+        pct += (99 - pct) * 0.05
+        setImportProgress(Math.round(pct))
       }, 180)
 
       try {
@@ -343,37 +346,6 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
   useEffect(() => () => { clearTimeout(bannerTimer.current); clearTimeout(errorTimer.current) }, [])
 
-  const handleRefreshRef   = useRef(handleRefresh)
-  const lastRefreshedAt    = useRef(Date.now())
-  useEffect(() => { handleRefreshRef.current = handleRefresh })
-  useEffect(() => {
-    const id = setInterval(() => {
-      lastRefreshedAt.current = Date.now()
-      handleRefreshRef.current()
-    }, 30 * 60 * 1000)
-    return () => clearInterval(id)
-  }, [])
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState === 'visible' && Date.now() - lastRefreshedAt.current >= 30 * 60 * 1000) {
-        lastRefreshedAt.current = Date.now()
-        handleRefreshRef.current()
-      }
-    }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [])
-
-  // Auto-refresh on mount if cached data is older than 30 min
-  useEffect(() => {
-    if (!data?.as_of) return
-    const dataAge = Date.now() - new Date(data.as_of).getTime()
-    if (dataAge > 30 * 60 * 1000) {
-      lastRefreshedAt.current = Date.now()
-      handleRefreshRef.current()
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data?.as_of])
 
   const rmap = useMemo(() => data ? aggRealized(data.realized, data.usd_inr) : new Map(), [data])
 

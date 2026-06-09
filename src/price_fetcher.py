@@ -115,4 +115,4 @@ def get_usd_inr_rate() -> float:
                     return rate
         except Exception:
             pass
-    return 85.5
+    return 95.5

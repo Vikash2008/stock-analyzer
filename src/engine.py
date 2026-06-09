@@ -113,7 +113,7 @@ def build(
     else:
         prices      = cache.get("prices")
         prev_closes = cache.get("prev_closes") or {}
-        usd_inr     = cache.get("fx") or 85.5
+        usd_inr     = cache.get("fx") or 95.5
 
     # ── Layer 3: Sector / company info (7-day TTL) ────────────────────────────
     if not cache.is_fresh("info"):

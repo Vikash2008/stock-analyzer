@@ -10,8 +10,11 @@ export function usePortfolio(currency: 'INR' | 'USD' = 'INR') {
   return useQuery({
     queryKey: ['portfolio', currency],
     queryFn: () => fetchPortfolio(currency, false, getCsvContent()),
-    staleTime: Infinity,
-    gcTime:    Infinity,
+    staleTime:                  30 * 60 * 1000,  // 30 min
+    gcTime:                     Infinity,
+    refetchInterval:            30 * 60 * 1000,  // auto-refresh every 30 min
+    refetchIntervalInBackground: true,            // continues when tab is minimized or backgrounded
+    refetchOnWindowFocus:       true,
     retry: 3,
     retryDelay: 20_000,
   })

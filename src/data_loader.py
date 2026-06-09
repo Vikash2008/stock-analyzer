@@ -44,15 +44,25 @@ def _transform_msp(df: pd.DataFrame) -> pd.DataFrame:
     raw_symbol = df["symbol"].str.strip()
     out["currency"] = df["currency"].fillna("INR").str.strip()
 
+    # Some MSP exports (e.g. IndMoney US) put a company name in Symbol and the
+    # actual ticker in Display Symbol.  Prefer Display Symbol when it is present,
+    # non-empty, and looks like a ticker (no spaces).
+    display_col = df.get("display symbol", pd.Series("", index=df.index))
+    display_raw = display_col.fillna("").str.strip()
+    effective_symbol = [
+        d if (d and " " not in d) else s
+        for d, s in zip(display_raw, raw_symbol)
+    ]
+
     out["exchange"] = [
         _exchange_from_symbol(sym, cur)
-        for sym, cur in zip(raw_symbol, out["currency"])
+        for sym, cur in zip(effective_symbol, out["currency"])
     ]
 
     # US symbols must be uppercase for yfinance; Indian symbols keep their suffix as-is
     out["yf_symbol"] = [
         s.upper() if not (s.endswith(".NS") or s.endswith(".BO")) else s
-        for s in raw_symbol
+        for s in effective_symbol
     ]
 
     # Strip suffix to get a clean display symbol

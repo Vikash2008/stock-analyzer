@@ -323,7 +323,7 @@ export default function TransactionsPage({ currency }: Props) {
   const inv     = holdingList.reduce((s, h) => s + h.disp_invested, 0)
   const gain    = cur - inv
   const pct     = inv !== 0 ? (gain / inv) * 100 : 0
-  const gainPos = gain >= 0
+  const gainPos = (gain + realGain) >= 0
   const border  = gainPos ? '#10b981' : '#f43f5e'
   const bg      = gainPos ? '#f0fdf8' : '#fff5f5'
   const tc      = gainPos ? '#0a7a42' : '#be1c1c'

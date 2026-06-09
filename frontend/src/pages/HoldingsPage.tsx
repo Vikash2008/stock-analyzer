@@ -187,20 +187,43 @@ export default function HoldingsPage({ currency }: Props) {
   const location = useLocation()
   const { portfolio, segment } = useParams<{ portfolio?: string; segment?: string }>()
   const { data, isLoading, error } = usePortfolio(currency)
-  const [viewMode,    setViewMode]    = useState<'cumulative' | 'standalone'>('cumulative')
-  const [holdingFilter, setHoldingFilter] = useState<'open' | 'closed' | 'all'>('all')
-  const [activeTab,   setActiveTab]   = useState<'holdings' | 'charts' | 'analysis'>('holdings')
+  const [viewMode,    setViewMode]    = useState<'cumulative' | 'standalone'>(
+    () => (localStorage.getItem('hp:viewMode') as 'cumulative' | 'standalone') ?? 'cumulative'
+  )
+  const [holdingFilter, setHoldingFilter] = useState<'open' | 'closed' | 'all'>(
+    () => (localStorage.getItem('hp:holdingFilter') as 'open' | 'closed' | 'all') ?? 'all'
+  )
+  const [activeTab,   setActiveTab]   = useState<'holdings' | 'charts' | 'analysis'>(
+    () => (localStorage.getItem('hp:activeTab') as 'holdings' | 'charts' | 'analysis') ?? 'holdings'
+  )
   const [analysisSubTab, setAnalysisSubTab] = useState<'allocation' | 'benchmarking' | 'returns'>('allocation')
   const [chartMetric, setChartMetric] = useState<ChartMetric>('Portfolio Value')
   const [chartRange,  setChartRange]  = useState<ChartRange>('1y')
-  const [sortField,   setSortField]   = useState<SortField>('current')
-  const [sortDir,     setSortDir]     = useState<'desc' | 'asc'>('desc')
+  const [sortField,   setSortField]   = useState<SortField>(
+    () => (localStorage.getItem('hp:sortField') as SortField) ?? 'current'
+  )
+  const [sortDir,     setSortDir]     = useState<'desc' | 'asc'>(
+    () => (localStorage.getItem('hp:sortDir') as 'desc' | 'asc') ?? 'desc'
+  )
   const [sortOpen,    setSortOpen]    = useState(false)
   const [searchQuery,  setSearchQuery]  = useState('')
-  const [sectorFilter, setSectorFilter] = useState<SectorKey | 'all'>('all')
+  const [sectorFilter, setSectorFilter] = useState<SectorKey | 'all'>(
+    () => (localStorage.getItem('hp:sectorFilter') as SectorKey | 'all') ?? 'all'
+  )
   const [sectorOpen,   setSectorOpen]   = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [showClosed,   setShowClosed]   = useState(false)
+  const [showClosed,   setShowClosed]   = useState(
+    () => localStorage.getItem('hp:showClosed') === 'true'
+  )
+  useEffect(() => {
+    localStorage.setItem('hp:holdingFilter', holdingFilter)
+    localStorage.setItem('hp:showClosed',    String(showClosed))
+    localStorage.setItem('hp:activeTab',     activeTab)
+    localStorage.setItem('hp:viewMode',      viewMode)
+    localStorage.setItem('hp:sortField',     sortField)
+    localStorage.setItem('hp:sortDir',       sortDir)
+    localStorage.setItem('hp:sectorFilter',  sectorFilter)
+  }, [holdingFilter, showClosed, activeTab, viewMode, sortField, sortDir, sectorFilter])
   const [syncing,        setSyncing]        = useState(false)
   const [benchSyncing,   setBenchSyncing]   = useState(false)
   const [histLastSynced,  setHistLastSynced]  = useState<Date | null>(null)
