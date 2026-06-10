@@ -17,6 +17,7 @@ interface Props {
   loading:        boolean
   reportTab:      'deep' | 'quickstats'
   useLite:        boolean
+  use31:          boolean
   useKey:         0 | 1 | 2
   chatOpenerRef?: React.MutableRefObject<{ open: (contextId?: string) => void } | null>
 }
@@ -59,7 +60,9 @@ function fmtSavedAt(ts: number | undefined): string {
 }
 
 function fmtModelName(model: string | undefined): string {
-  return model === 'gemini-2.5-flash' ? '2.5 Flash' : '3.1 Lite'
+  if (model === 'gemini-2.5-flash') return '2.5 Flash'
+  if (model === 'gemini-2.5-flash-lite') return '2.5 Lite'
+  return '3.1 Lite'
 }
 
 function normalizeRec(rec: string | null | undefined): string | null {
@@ -76,7 +79,7 @@ function recColor(rec: string | null): string {
   return '#b45309'
 }
 
-export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, useKey, chatOpenerRef }: Props) {
+export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, use31, useKey, chatOpenerRef }: Props) {
   const isIndian = yf_symbol.endsWith('.NS') || yf_symbol.endsWith('.BO')
   const displayName = name || yf_symbol
   const qc = useQueryClient()
@@ -172,10 +175,12 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
     const symbol = yf_symbol.replace(/\.(NS|BO)$/i, '')
     const prompt = buildGeminiPrompt(displayName, sectionId, isIndian, yf_symbol, API_URL)
     try {
-      const result: GeminiResponse = await fetchGeminiSection(symbol, sectionId, prompt, force, effectiveLite, useKey)
+      const effectiveForce31 = forceLite !== undefined ? false : use31
+      const result: GeminiResponse = await fetchGeminiSection(symbol, sectionId, prompt, force, effectiveLite, useKey, effectiveForce31)
       clearInterval(timerRefs.current[sectionId])
-      if (result.error === 'gemini25_unavailable') {
-        setSectionStates(prev => ({ ...prev, [sectionId]: { error: 'gemini25_unavailable' } }))
+      if (result.error?.startsWith('gemini25_')) {
+        const detail = (result as any).detail || ''
+        setSectionStates(prev => ({ ...prev, [sectionId]: { error: result.error!, detail } }))
         return
       }
       if (result.error) throw new Error(result.error)
@@ -462,7 +467,9 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
         const state = sectionStates[section.id] ?? 'idle'
         const isDone = typeof state === 'object' && 'text' in state
         const isError = typeof state === 'object' && 'error' in state
-        const isGemini25Unavailable = isError && (state as { error: string }).error === 'gemini25_unavailable'
+        const _errCode = isError ? (state as { error: string }).error : ''
+        const isGemini25Unavailable = _errCode.startsWith('gemini25_')
+        const gemini25Label = _errCode === 'gemini25_quota' ? 'Quota exceeded' : _errCode === 'gemini25_timeout' ? 'Timed out' : _errCode === 'gemini25_empty' ? 'Empty response' : _errCode === 'gemini25_overloaded' ? 'Model overloaded — try 3.1' : '2.5 Flash unavailable'
         const isUnavailable = showUnavailable[section.id] ?? false
         const isExpanded = isDone && ((expandedSections[section.id] ?? false) || isUnavailable)
 
@@ -546,7 +553,7 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                             : section.color.btnOutline
                       }`}
                     >
-                      {isGemini25Unavailable ? 'Try 3.1 Lite' : isError ? 'Retry' : 'Research'}
+                      {isGemini25Unavailable ? 'Try 2.5 Lite' : isError ? 'Retry' : 'Research'}
                     </button>
                   )}
                 </div>
@@ -574,9 +581,16 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                   )
                 })()}
                 {isError && (
-                  <span className={`text-[9px] max-w-[120px] text-right leading-tight ${isGemini25Unavailable ? 'text-purple-400' : 'text-red-400'}`}>
-                    {isGemini25Unavailable ? '2.5 Flash unavailable' : (state as { error: string }).error}
-                  </span>
+                  <div className="flex flex-col items-end gap-0.5 max-w-[140px]">
+                    <span className={`text-[9px] text-right leading-tight ${isGemini25Unavailable ? 'text-purple-400' : 'text-red-400'}`}>
+                      {isGemini25Unavailable ? gemini25Label : (state as { error: string }).error}
+                    </span>
+                    {isGemini25Unavailable && (state as any).detail && (
+                      <span className="text-[8px] text-slate-400 text-right leading-tight line-clamp-2">
+                        {(state as any).detail}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>{/* end right col */}
             </div>
@@ -698,6 +712,7 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
           }
         })}
         useLite={useLite}
+        use31={use31}
         useKey={useKey}
       />
 

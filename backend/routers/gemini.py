@@ -45,6 +45,7 @@ class GeminiRequest(BaseModel):
     prompt: str
     force_refresh: bool = False
     force_lite: bool = False
+    force_31: bool = False
     key_index: int = 0
 
 
@@ -53,6 +54,7 @@ class ChatRequest(BaseModel):
     question: str
     context_text: str
     force_lite: bool = False
+    force_31: bool = False
     key_index: int = 0
 
 
@@ -95,7 +97,7 @@ def _is_fatal_error(msg: str) -> bool:
 
 @router.post("/api/gemini")
 async def gemini_query(req: GeminiRequest):
-    key = (req.symbol, req.section_id, req.force_lite, req.key_index)
+    key = (req.symbol, req.section_id, req.force_lite, req.force_31, req.key_index)
     if not req.force_refresh and key in _cache and time.time() - _cache[key][1] < _TTL:
         return _cache[key][0]
 
@@ -106,11 +108,39 @@ async def gemini_query(req: GeminiRequest):
     client = genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
     loop = asyncio.get_running_loop()
 
+    # ── force_31=True: jump directly to gemini-3.1-flash-lite ─────────────
+    if req.force_31:
+        for _attempt in range(2):
+            try:
+                plain_resp = await asyncio.wait_for(
+                    loop.run_in_executor(None, lambda: client.models.generate_content(
+                        model="gemini-3.1-flash-lite", contents=req.prompt,
+                    )),
+                    timeout=25.0,
+                )
+                text, _ = _extract_text(plain_resp)
+                if text:
+                    result = {"text": text, "sources": [], "grounded": False, "model": "gemini-3.1-flash-lite"}
+                    _cache[key] = (result, time.time())
+                    return result
+                if _attempt == 0:
+                    await asyncio.sleep(2)
+            except asyncio.TimeoutError:
+                if _attempt == 1:
+                    return JSONResponse({"error": "Gemini timed out — try again"}, status_code=504)
+            except Exception as exc:
+                if _attempt == 1:
+                    return JSONResponse({"error": str(exc)[:400]}, status_code=500)
+                await asyncio.sleep(3)
+        return JSONResponse({"error": "Gemini returned an empty response — try again"}, status_code=500)
+
     # ── Attempt 1: gemini-2.5-flash with Google Search grounding ─────────
     # Only when force_lite=False. No auto-fallback — frontend offers 3.1 Lite explicitly.
     if not req.force_lite:
         _heavy = req.section_id in ("peers",)
         grounded_resp = None
+        _fail_reason = "unavailable"
+        _fail_detail = ""
         for _thinking in (True, False):
             try:
                 cfg = genai_types.GenerateContentConfig(
@@ -134,13 +164,21 @@ async def gemini_query(req: GeminiRequest):
             except asyncio.TimeoutError:
                 label = "with thinking" if _thinking else "no-thinking retry"
                 print(f"[gemini] 2.5-flash TIMEOUT ({label}) — symbol={req.symbol!r} section={req.section_id!r}")
+                _fail_reason = "timeout"
                 if not _thinking:
                     grounded_resp = None
             except Exception as exc:
                 err = str(exc)
                 if _is_fatal_error(err):
                     return JSONResponse({"error": err[:400]}, status_code=500)
-                print(f"[gemini] 2.5-flash EXCEPTION — symbol={req.symbol!r} section={req.section_id!r} err={err[:200]!r}")
+                if "429" in err or "quota" in err.lower() or "resource_exhausted" in err.lower():
+                    _fail_reason = "quota"
+                elif "503" in err or "unavailable" in err.lower() or "overloaded" in err.lower():
+                    _fail_reason = "overloaded"
+                else:
+                    _fail_reason = "error"
+                _fail_detail = err[:300]
+                print(f"[gemini] 2.5-flash EXCEPTION ({_fail_reason}) — symbol={req.symbol!r} section={req.section_id!r} err={err[:300]!r}")
                 break
 
         if grounded_resp is not None:
@@ -155,13 +193,49 @@ async def gemini_query(req: GeminiRequest):
                 result = {"text": text, "sources": sources, "grounded": True, "model": "gemini-2.5-flash"}
                 _cache[key] = (result, time.time())
                 return result
+            _fail_reason = "empty"
             print(f"[gemini] 2.5-flash empty text, extract_reason={extract_reason!r}, "
                   f"candidates={len(getattr(grounded_resp, 'candidates', []))}")
 
-        # 2.5 Flash failed or returned empty — signal frontend to offer 3.1 Lite
-        return {"error": "gemini25_unavailable", "text": "", "sources": [], "grounded": False}
+        # 2.5 Flash failed — signal frontend with specific reason so user knows why
+        return {"error": f"gemini25_{_fail_reason}", "detail": _fail_detail, "text": "", "sources": [], "grounded": False}
 
-    # ── force_lite=True: gemini-3.1-flash-lite without grounding ─────────
+    # ── force_lite=True: gemini-2.5-flash-lite WITH grounding ────────────
+    # Better fallback than 3.1-lite — supports Google Search grounding.
+    # If 2.5-flash-lite also fails → silent auto-fallback to 3.1-flash-lite (no grounding).
+    lite_resp = None
+    try:
+        lite_cfg = genai_types.GenerateContentConfig(
+            tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
+        )
+        lite_resp = await asyncio.wait_for(
+            loop.run_in_executor(
+                None,
+                lambda: client.models.generate_content(
+                    model="gemini-2.5-flash-lite",
+                    contents=req.prompt,
+                    config=lite_cfg,
+                ),
+            ),
+            timeout=40.0,
+        )
+    except Exception as exc:
+        print(f"[gemini] 2.5-flash-lite EXCEPTION — symbol={req.symbol!r} section={req.section_id!r} err={str(exc)[:200]!r}")
+
+    if lite_resp is not None:
+        text, _ = _extract_text(lite_resp)
+        lite_sources: list[str] = []
+        try:
+            chunks = lite_resp.candidates[0].grounding_metadata.grounding_chunks or []
+            lite_sources = [c.web.uri for c in chunks if hasattr(c, "web") and c.web.uri]
+        except Exception:
+            pass
+        if text:
+            result = {"text": text, "sources": lite_sources, "grounded": True, "model": "gemini-2.5-flash-lite"}
+            _cache[key] = (result, time.time())
+            return result
+
+    # Last resort: gemini-3.1-flash-lite without grounding
     for _attempt in range(2):
         try:
             plain_resp = await asyncio.wait_for(
@@ -226,6 +300,30 @@ async def gemini_chat(req: ChatRequest):
     client = genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
     loop = asyncio.get_running_loop()
 
+    # ── force_31=True: jump directly to gemini-3.1-flash-lite ─────────────
+    if req.force_31:
+        for _attempt in range(2):
+            try:
+                plain_resp = await asyncio.wait_for(
+                    loop.run_in_executor(None, lambda: client.models.generate_content(
+                        model="gemini-3.1-flash-lite", contents=prompt,
+                    )),
+                    timeout=25.0,
+                )
+                text, _ = _extract_text(plain_resp)
+                if text:
+                    return {"text": text, "sources": [], "grounded": False, "model": "gemini-3.1-flash-lite"}
+                if _attempt == 0:
+                    await asyncio.sleep(2)
+            except asyncio.TimeoutError:
+                if _attempt == 1:
+                    return JSONResponse({"error": "Gemini timed out — try again"}, status_code=504)
+            except Exception as exc:
+                if _attempt == 1:
+                    return JSONResponse({"error": str(exc)[:400]}, status_code=500)
+                await asyncio.sleep(3)
+        return JSONResponse({"error": "Gemini returned an empty response — try again"}, status_code=500)
+
     # Attempt 1: gemini-2.5-flash with Google Search grounding (1a: budget=8192, 1b: budget=0)
     # No auto-fallback — if 2.5 fails, return gemini25_unavailable so caller can retry with force_lite.
     if not req.force_lite:
@@ -276,7 +374,38 @@ async def gemini_chat(req: ChatRequest):
 
         return {"error": "gemini25_unavailable", "text": "", "sources": [], "grounded": False}
 
-    # force_lite=True: gemini-3.1-flash-lite (no grounding)
+    # force_lite=True: gemini-2.5-flash-lite WITH grounding → fallback to 3.1-flash-lite
+    chat_lite_resp = None
+    try:
+        chat_lite_cfg = genai_types.GenerateContentConfig(
+            tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
+        )
+        chat_lite_resp = await asyncio.wait_for(
+            loop.run_in_executor(
+                None,
+                lambda: client.models.generate_content(
+                    model="gemini-2.5-flash-lite",
+                    contents=prompt,
+                    config=chat_lite_cfg,
+                ),
+            ),
+            timeout=40.0,
+        )
+    except Exception as exc:
+        print(f"[gemini/chat] 2.5-flash-lite EXCEPTION — symbol={req.symbol!r} err={str(exc)[:200]!r}")
+
+    if chat_lite_resp is not None:
+        text, _ = _extract_text(chat_lite_resp)
+        chat_lite_sources: list[str] = []
+        try:
+            chunks = chat_lite_resp.candidates[0].grounding_metadata.grounding_chunks or []
+            chat_lite_sources = [c.web.uri for c in chunks if hasattr(c, "web") and c.web.uri]
+        except Exception:
+            pass
+        if text:
+            return {"text": text, "sources": chat_lite_sources, "grounded": True, "model": "gemini-2.5-flash-lite"}
+
+    # Last resort: gemini-3.1-flash-lite without grounding
     for _attempt in range(2):
         try:
             resp = await asyncio.wait_for(

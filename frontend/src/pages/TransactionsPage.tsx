@@ -99,6 +99,7 @@ export default function TransactionsPage({ currency }: Props) {
   const [syncedAt,      setSyncedAt]      = useState<Date | null>(null)
   const [reportSubTab,  setReportSubTab]  = useState<'deep' | 'quickstats' | 'links'>('quickstats')
   const [reportUseLite, setReportUseLite] = useState(false)
+  const [reportUse31,   setReportUse31]   = useState(false)
   const [reportUseKey,  setReportUseKey]  = useState<0 | 1 | 2>(() => { const v = localStorage.getItem('gemini:key_index'); return (v === '1' ? 1 : v === '2' ? 2 : 0) })
   const chatOpenerRef = React.useRef<{ open: (contextId?: string) => void } | null>(null)
   const [reportGearOpen, setReportGearOpen] = useState(false)
@@ -507,13 +508,21 @@ export default function TransactionsPage({ currency }: Props) {
                   <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-10 px-3 py-2.5 flex flex-col gap-2.5 whitespace-nowrap">
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-[11px] text-slate-500">Model</span>
-                      <button
-                        onClick={() => setReportUseLite(v => !v)}
-                        className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-full font-medium border transition-colors ${reportUseLite ? 'bg-slate-100 text-slate-500 border-slate-300' : 'bg-violet-100 text-violet-700 border-violet-300'}`}
-                      >
-                        <span>{reportUseLite ? '⚡' : '🌐'}</span>
-                        <span>{reportUseLite ? '3.1 Lite' : '2.5 Pro'}</span>
-                      </button>
+                      <div className="flex bg-slate-100 rounded-full p-0.5 gap-0.5">
+                        {([
+                          { label: '2.5 Flash', lite: false, is31: false },
+                          { label: '2.5 Lite',  lite: true,  is31: false },
+                          { label: '3.1 Lite',  lite: false, is31: true  },
+                        ] as const).map(opt => {
+                          const active = opt.is31 ? reportUse31 : (!reportUse31 && reportUseLite === opt.lite)
+                          return (
+                            <button key={opt.label}
+                              onClick={() => { setReportUse31(opt.is31); setReportUseLite(opt.lite) }}
+                              className={`text-[12px] px-2.5 py-1 rounded-full font-medium transition-colors ${active ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-400'}`}
+                            >{opt.label}</button>
+                          )
+                        })}
+                      </div>
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <span className="text-[11px] text-slate-500">API Key</span>
@@ -620,6 +629,7 @@ export default function TransactionsPage({ currency }: Props) {
           loading={qsLoading || qsFetching}
           reportTab={reportSubTab}
           useLite={reportUseLite}
+          use31={reportUse31}
           useKey={reportUseKey}
           chatOpenerRef={chatOpenerRef}
         />

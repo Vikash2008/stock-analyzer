@@ -32,16 +32,19 @@ interface Props {
   initialContextId: string
   sections: SectionInfo[]
   useLite: boolean
+  use31: boolean
   useKey: 0 | 1
 }
 
 const CHAT_TTL = 7 * 24 * 3600 * 1000
 
 function fmtModelName(model: string | undefined): string {
-  return model === 'gemini-2.5-flash' ? '2.5 Flash' : '3.1 Lite'
+  if (model === 'gemini-2.5-flash') return '2.5 Flash'
+  if (model === 'gemini-2.5-flash-lite') return '2.5 Lite'
+  return '3.1 Lite'
 }
 
-export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initialContextId, sections, useLite, useKey }: Props) {
+export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initialContextId, sections, useLite, use31, useKey }: Props) {
   const [messages, setMessages] = React.useState<ChatMessage[]>([])
   const [question, setQuestion] = React.useState('')
   const [selectedContext, setSelectedContext] = React.useState(initialContextId)
@@ -114,7 +117,7 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
 
     const symbol = yf_symbol.replace(/\.(NS|BO)$/i, '')
     try {
-      const result = await fetchGeminiChat(symbol, q, ctx.text, useLite, useKey)
+      const result = await fetchGeminiChat(symbol, q, ctx.text, useLite, useKey, use31)
       if (result.error) throw new Error(result.error)
       const assistantMsg: ChatMessage = {
         id: `${Date.now()}-a`,

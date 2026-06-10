@@ -15,11 +15,12 @@ export async function fetchGeminiSection(
   forceRefresh = false,
   forceLite = false,
   keyIndex = 0,
+  force31 = false,
 ): Promise<GeminiResponse> {
   const res = await fetch(`${API_URL}/api/gemini`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ symbol, section_id: sectionId, prompt, force_refresh: forceRefresh, force_lite: forceLite, key_index: keyIndex }),
+    body: JSON.stringify({ symbol, section_id: sectionId, prompt, force_refresh: forceRefresh, force_lite: forceLite, force_31: force31, key_index: keyIndex }),
   })
   const data = await res.json().catch(() => null)
   if (!res.ok) throw new Error(data?.error ?? data?.detail ?? `Request failed (${res.status})`)
@@ -32,11 +33,12 @@ export async function fetchGeminiChat(
   contextText: string,
   forceLite = false,
   keyIndex = 0,
+  force31 = false,
 ): Promise<GeminiResponse> {
   const res = await fetch(`${API_URL}/api/gemini/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ symbol, question, context_text: contextText, force_lite: forceLite, key_index: keyIndex }),
+    body: JSON.stringify({ symbol, question, context_text: contextText, force_lite: forceLite, force_31: force31, key_index: keyIndex }),
   })
   const data = await res.json().catch(() => null)
   if (!res.ok) throw new Error(data?.error ?? data?.detail ?? `Request failed (${res.status})`)
