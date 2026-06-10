@@ -387,6 +387,17 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 - AI Assistant button: kept as text pill (`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full`) — icon-only version was tried and reverted (looked bad)
 - Gear popover layout: `flex flex-col gap-2.5`; Model row `flex items-center justify-between gap-4`; API Key section `flex flex-col gap-1.5` with segmented row below label
 
+### 2026-06-10
+
+**Explore section — FAB + Bottom Sheet (PortfoliosPage)**
+- Removed inline "Explore New Opportunities" section (was `mt-32` below breakdown cards — awkward scroll, duplicate header)
+- Replaced with fixed teal FAB (`bottom-6 right-4`, `w-14 h-14`, `rounded-full`, `bg-emerald-500`, search icon SVG)
+- Tapping FAB opens bottom sheet: `fixed inset-x-0 bottom-0 z-50`, `rounded-t-2xl`, `65dvh` max height, slide-up `transition-transform duration-300`
+- Sheet contains: drag handle nub, gradient header (same `from-emerald-600 to-teal-500`), ✕ close button (`min-h-[44px] min-w-[44px]` for touch target), search input, autocomplete dropdown, "Recent" label + pills
+- Backdrop: `fixed inset-0 z-40 bg-black/40`, tap to dismiss
+- `navigateToResearch()` calls `setSheetOpen(false)` before `navigate()` so sheet closes on result tap
+- Added `pb-24` to the page container so FAB doesn't overlap last card
+
 ### 2026-06-09
 
 **File import progress bar — asymptotic easing to 99%**
