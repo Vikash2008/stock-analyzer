@@ -227,6 +227,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const [importProgress, setImportProgress] = useState<number | null>(null)
   const [importDone, setImportDone]         = useState(false)
   const [csvMeta, setCsvMeta]               = useState<CsvMeta | null>(getCsvMeta)
+  const [sheetOpen, setSheetOpen]           = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const progressTimer = useRef<ReturnType<typeof setInterval>>()
   const API_URL_SETTINGS = (import.meta.env.VITE_API_URL ?? '') as string
@@ -321,6 +322,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     setSuggestions([])
     setShowSuggestions(false)
     setExploreInput('')
+    setSheetOpen(false)
     navigate(`/research/${encodeURIComponent(trimmed)}`, { state: name ? { name } : undefined })
   }
 
@@ -479,7 +481,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
   return (
     <div
-      className="max-w-xl mx-auto px-4 py-4 space-y-3"
+      className="max-w-xl mx-auto px-4 py-4 pb-24 space-y-3"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -725,61 +727,91 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         </div>
       )}
 
-      {/* ── Explore New Opportunities ────────────────────────── */}
-      <div className="mt-32">
-        {/* Banner — matches Portfolio Manager header */}
-        <div className="flex items-center bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl px-4 py-1.5 mb-3">
-          <p className="text-[14px] font-bold text-white tracking-tight">Explore New Opportunities</p>
-        </div>
+      {/* FAB — Explore */}
+      <button
+        onClick={() => setSheetOpen(true)}
+        className="fixed bottom-6 right-4 z-40 w-14 h-14 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center active:opacity-80 transition-opacity"
+        aria-label="Explore stocks"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+          <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z" clipRule="evenodd" />
+        </svg>
+      </button>
 
-        {/* Search strip */}
-        <div className="relative">
-          <div className="flex gap-2">
-            <input
-              value={exploreInput}
-              onChange={e => { setExploreInput(e.target.value); setShowSuggestions(true) }}
-              onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-              onKeyDown={e => e.key === 'Enter' && navigateToResearch(exploreInput)}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-              placeholder="e.g. AMZN, RELIANCE, HDFC Bank…"
-              className="w-full bg-green-50 text-slate-800 text-[12px] rounded-xl px-3 py-2.5 border border-green-200 placeholder-emerald-400 outline-none focus:border-emerald-400"
-            />
+      {/* Backdrop */}
+      {sheetOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40"
+          onClick={() => setSheetOpen(false)}
+        />
+      )}
+
+      {/* Bottom Sheet — Explore New Opportunities */}
+      <div
+        className={`fixed inset-x-0 bottom-0 z-50 transition-transform duration-300 ease-in-out ${sheetOpen ? 'translate-y-0' : 'translate-y-full'}`}
+      >
+        <div className="bg-white rounded-t-2xl shadow-2xl" style={{ maxHeight: '65dvh', display: 'flex', flexDirection: 'column' }}>
+          {/* Drag handle */}
+          <div className="flex justify-center pt-3 pb-1 shrink-0">
+            <div className="w-10 h-1 rounded-full bg-slate-200" />
           </div>
 
-          {/* Autocomplete dropdown */}
-          {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-green-200 rounded-xl shadow-xl z-50 overflow-hidden">
-              {suggestions.map((s, i) => (
-                <button
-                  key={s.symbol}
-                  onMouseDown={() => navigateToResearch(s.symbol, s.name)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 text-left active:bg-green-50 ${i > 0 ? 'border-t border-green-100' : ''}`}
-                >
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-semibold text-slate-800 truncate">{s.symbol}</p>
-                    <p className="text-[10px] text-slate-500 truncate">{s.name}</p>
-                  </div>
-                  <span className="text-[9px] text-emerald-600 shrink-0 ml-2">{s.exchange}</span>
-                </button>
-              ))}
+          {/* Header */}
+          <div className="flex items-center justify-between bg-gradient-to-r from-emerald-600 to-teal-500 mx-4 rounded-xl px-4 py-1.5 mb-4 shrink-0">
+            <p className="text-[14px] font-bold text-white tracking-tight">Explore New Opportunities</p>
+            <button onClick={() => setSheetOpen(false)} className="text-emerald-100 active:text-white text-lg min-h-[44px] min-w-[44px] flex items-center justify-center -mr-2">✕</button>
+          </div>
+
+          {/* Search + results — scrollable */}
+          <div className="flex-1 overflow-y-auto px-4 pb-8">
+            <div className="relative">
+              <input
+                value={exploreInput}
+                onChange={e => { setExploreInput(e.target.value); setShowSuggestions(true) }}
+                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                onKeyDown={e => e.key === 'Enter' && navigateToResearch(exploreInput)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                placeholder="e.g. AMZN, RELIANCE, HDFC Bank…"
+                className="w-full bg-green-50 text-slate-800 text-[12px] rounded-xl px-3 py-2.5 border border-green-200 placeholder-emerald-400 outline-none focus:border-emerald-400"
+              />
+
+              {/* Autocomplete dropdown */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-green-200 rounded-xl shadow-xl z-10 overflow-hidden">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={s.symbol}
+                      onMouseDown={() => navigateToResearch(s.symbol, s.name)}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 text-left active:bg-green-50 ${i > 0 ? 'border-t border-green-100' : ''}`}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-semibold text-slate-800 truncate">{s.symbol}</p>
+                        <p className="text-[10px] text-slate-500 truncate">{s.name}</p>
+                      </div>
+                      <span className="text-[9px] text-emerald-600 shrink-0 ml-2">{s.exchange}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Recent searches */}
-        {recentSearches.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            {recentSearches.map(sym => (
-              <button
-                key={sym}
-                onClick={() => navigateToResearch(sym)}
-                className="text-[11px] bg-green-50 text-emerald-700 border border-green-200 rounded-full px-2.5 py-1 active:opacity-70"
-              >
-                {sym}
-              </button>
-            ))}
+            {/* Recent searches */}
+            {recentSearches.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest w-full mb-0.5">Recent</span>
+                {recentSearches.map(sym => (
+                  <button
+                    key={sym}
+                    onClick={() => navigateToResearch(sym)}
+                    className="text-[11px] bg-green-50 text-emerald-700 border border-green-200 rounded-full px-2.5 py-1 active:opacity-70"
+                  >
+                    {sym}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
     </div>

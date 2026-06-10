@@ -10,6 +10,7 @@ In-memory cache: 1 hour for daily history, 5 min for intraday.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from typing import Optional
 
@@ -21,8 +22,9 @@ from fastapi.responses import JSONResponse
 router = APIRouter()
 
 _cache: dict[str, tuple[dict, float]] = {}
-_TTL         = 3600.0  # 1 hour  — daily history
-_INTRADAY_TTL = 300.0  # 5 min   — intraday
+_TTL          = 3600.0  # 1 hour  — daily history
+_INTRADAY_TTL = 300.0   # 5 min   — intraday
+_sem          = asyncio.Semaphore(4)  # max 4 concurrent yfinance fetches
 
 
 def _fetch(yf_symbol: str, start: str) -> dict:
@@ -84,7 +86,7 @@ def _fetch_intraday(yf_symbol: str) -> dict:
 
 
 @router.get("/api/history")
-def get_history(
+async def get_history(
     yf_symbol: str = Query(...),
     start:     Optional[str] = Query(None, description="First transaction date (YYYY-MM-DD)"),
     period:    Optional[str] = Query(None, description="'1d' for intraday 5-min bars"),
@@ -96,7 +98,8 @@ def get_history(
         cached = _cache.get(cache_key)
         if cached and (now - cached[1]) < _INTRADAY_TTL:
             return JSONResponse(content=cached[0])
-        data = _fetch_intraday(yf_symbol)
+        async with _sem:
+            data = await asyncio.to_thread(_fetch_intraday, yf_symbol)
         _cache[cache_key] = (data, now)
         return JSONResponse(content=data)
 
@@ -108,6 +111,7 @@ def get_history(
     if cached and (now - cached[1]) < _TTL:
         return JSONResponse(content=cached[0])
 
-    data = _fetch(yf_symbol, start)
+    async with _sem:
+        data = await asyncio.to_thread(_fetch, yf_symbol, start)
     _cache[cache_key] = (data, now)
     return JSONResponse(content=data)
