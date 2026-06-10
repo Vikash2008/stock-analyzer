@@ -387,6 +387,31 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 - AI Assistant button: kept as text pill (`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full`) — icon-only version was tried and reverted (looked bad)
 - Gear popover layout: `flex flex-col gap-2.5`; Model row `flex items-center justify-between gap-4`; API Key section `flex flex-col gap-1.5` with segmented row below label
 
+### 2026-06-10 (session 99)
+
+**Settings popover redesign (PortfoliosPage gear icon)**
+- Replaced full-width download button with compact emerald file card: `bg-emerald-50 border border-emerald-100 rounded-xl`; CSV badge (`w-9 h-9 bg-emerald-600` with "CSV" text); filename + size·date on two lines; download = small `w-8 h-8` icon button with `border-emerald-200` on right side of card
+- Section labels ("Current File", "Import New File") removed; import button simplified to "Import CSV" with upload SVG icon
+- Build version added at bottom: `text-[11px] text-slate-300` formatted as `10 Jun 2026, 14:32 IST`
+- Popover width: `w-60` (up from `w-56`); `rounded-2xl` (up from `rounded-xl`)
+
+**PWA update banner — manual + top strip**
+- Removed auto-reload after 2.5s (was an intrusive DOM element + setTimeout); removed `main.tsx` controllerchange auto-reload
+- New: `updateReady` React state in `App.tsx`; on `controllerchange` sets state → shows persistent top strip banner
+- Banner: `fixed top-0 left-0 right-0 bg-emerald-50 border-b border-emerald-200 px-4 py-2`; left: "New version available" (`text-[12px] text-emerald-700`); right: "Update" button (`bg-emerald-100 border-emerald-300 rounded-full`)
+- SW update check: runs on visibility change + `setInterval` every 30 min (covers users who never background the app)
+- Version shown only in settings popover; no persistent badge in normal UI
+
+**Deep Research gear — 3-way model selector**
+- Model toggle changed from binary pill (2.5 Flash ↔ 3.1 Lite) to 3-segment control: `2.5 Flash | 2.5 Lite | 3.1 Lite`
+- Layout: `bg-slate-100 rounded-full p-0.5` container; active = `bg-white text-violet-700 shadow-sm`; inactive = `text-slate-400`; `text-[12px] px-2.5 py-1`
+- State: `reportUseLite` (bool) + `reportUse31` (bool); `force_31: bool` param added to `GeminiRequest` / `ChatRequest`
+
+**Deep Research — model failure error labels**
+- When gemini-2.5-flash fails, returns `gemini25_{reason}` error code with `detail` field (actual exception text)
+- Frontend maps codes → labels: quota→"Quota exceeded", timeout→"Timed out", overloaded→"Model overloaded — try 3.1", empty→"Empty response", other→"2.5 Flash unavailable"
+- Button shows "Try 2.5 Lite" (purple) instead of generic "Retry" for all gemini25_* errors
+
 ### 2026-06-10
 
 **Explore section — FAB + Bottom Sheet (PortfoliosPage)**
