@@ -3,10 +3,11 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App'
 
-// Reload page when a new service worker takes control so fresh JS/CSS loads
+// Reload only when SW *updates* (old controller → new), not on first install (null → new)
 if ('serviceWorker' in navigator) {
+  const prevController = navigator.serviceWorker.controller
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    window.location.reload()
+    if (prevController) window.location.reload()
   })
 }
 
