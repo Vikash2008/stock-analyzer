@@ -72,40 +72,30 @@ function AppRoutes({ currency, onCurrencyChange }: { currency: Currency; onCurre
 
 export default function App() {
   const [currency, setCurrency] = useState<Currency>('INR')
+  const [updateReady, setUpdateReady] = useState(false)
 
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      const d = new Date(__BUILD_TIME__)
-      const label = d.toLocaleString('en-GB', {
-        day: 'numeric', month: 'short',
-        hour: '2-digit', minute: '2-digit', hour12: false,
-        timeZone: 'Asia/Kolkata',
-      })
-      const el = document.createElement('div')
-      el.style.cssText = [
-        'position:fixed', 'bottom:80px', 'left:50%', 'transform:translateX(-50%)',
-        'background:#0f172a', 'color:#4ade80', 'font-size:13px', 'font-weight:600',
-        'padding:10px 18px', 'border-radius:999px', 'z-index:9999',
-        'box-shadow:0 4px 16px rgba(0,0,0,0.4)', 'white-space:nowrap',
-        'border:1px solid #334155',
-      ].join(';')
-      el.textContent = `✓ App updated · Built ${label}`
-      document.body.appendChild(el)
-      setTimeout(() => window.location.reload(), 2500)
+      setUpdateReady(true)
     })
 
-    const checkForUpdate = () => {
-      if (document.visibilityState === 'visible') {
-        navigator.serviceWorker.getRegistration().then(reg => {
-          if (reg) reg.update()
-        })
-      }
+    const triggerCheck = () => {
+      navigator.serviceWorker.getRegistration().then(reg => { if (reg) reg.update() })
     }
 
-    document.addEventListener('visibilitychange', checkForUpdate)
-    return () => document.removeEventListener('visibilitychange', checkForUpdate)
+    // Check on visibility restore
+    const onVisibility = () => { if (document.visibilityState === 'visible') triggerCheck() }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    // Also check every 30 minutes while app is open
+    const interval = setInterval(triggerCheck, 30 * 60 * 1000)
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      clearInterval(interval)
+    }
   }, [])
 
   return (
@@ -124,6 +114,17 @@ export default function App() {
       }}
     >
       <AppRoutes currency={currency} onCurrencyChange={setCurrency} />
+      {updateReady && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 bg-slate-900 border border-slate-700 rounded-2xl px-4 py-3 shadow-xl whitespace-nowrap">
+          <span className="text-[12px] text-slate-300">New version available</span>
+          <button
+            onClick={() => window.location.reload()}
+            className="text-[12px] font-semibold text-emerald-400 bg-emerald-400/10 px-3 py-2 rounded-full border border-emerald-400/30 active:bg-emerald-400/20"
+          >
+            Update now
+          </button>
+        </div>
+      )}
     </PersistQueryClientProvider>
   )
 }

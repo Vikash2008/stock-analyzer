@@ -150,7 +150,7 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
     localStorage.setItem(`gemini:${yf_symbol}:${sectionId}:alt`, JSON.stringify(cur))
   }
 
-  async function handleGenerate(sectionId: string, force = false) {
+  async function handleGenerate(sectionId: string, force = false, forceLite?: boolean) {
     // Save current result as alt before overwriting
     const cur = sectionStates[sectionId]
     if (typeof cur === 'object' && cur !== null && 'text' in cur) {
@@ -168,14 +168,19 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
     // yield to renderer so loading state paints before fetch starts
     await new Promise(r => setTimeout(r, 50))
 
+    const effectiveLite = forceLite !== undefined ? forceLite : useLite
     const symbol = yf_symbol.replace(/\.(NS|BO)$/i, '')
     const prompt = buildGeminiPrompt(displayName, sectionId, isIndian, yf_symbol, API_URL)
     try {
-      const result: GeminiResponse = await fetchGeminiSection(symbol, sectionId, prompt, force, useLite, useKey)
+      const result: GeminiResponse = await fetchGeminiSection(symbol, sectionId, prompt, force, effectiveLite, useKey)
       clearInterval(timerRefs.current[sectionId])
+      if (result.error === 'gemini25_unavailable') {
+        setSectionStates(prev => ({ ...prev, [sectionId]: { error: 'gemini25_unavailable' } }))
+        return
+      }
       if (result.error) throw new Error(result.error)
       const savedAt = Date.now()
-      const state = { text: result.text ?? '', sources: result.sources ?? [], savedAt, grounded: result.grounded ?? false, model: result.model, requestedLite: useLite }
+      const state = { text: result.text ?? '', sources: result.sources ?? [], savedAt, grounded: result.grounded ?? false, model: result.model, requestedLite: effectiveLite }
       setSectionStates(prev => ({ ...prev, [sectionId]: state }))
       setShowUnavailable(prev => ({ ...prev, [sectionId]: false }))
       localStorage.setItem(`gemini:${yf_symbol}:${sectionId}`, JSON.stringify(state))
@@ -457,6 +462,7 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
         const state = sectionStates[section.id] ?? 'idle'
         const isDone = typeof state === 'object' && 'text' in state
         const isError = typeof state === 'object' && 'error' in state
+        const isGemini25Unavailable = isError && (state as { error: string }).error === 'gemini25_unavailable'
         const isUnavailable = showUnavailable[section.id] ?? false
         const isExpanded = isDone && ((expandedSections[section.id] ?? false) || isUnavailable)
 
@@ -528,12 +534,19 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                     </button>
                   ) : (
                     <button
-                      onClick={() => handleGenerate(section.id)}
+                      onClick={() => isGemini25Unavailable
+                        ? handleGenerate(section.id, false, true)
+                        : handleGenerate(section.id)
+                      }
                       className={`text-[10px] font-medium px-2.5 py-1 rounded-md border ${
-                        isError ? 'bg-red-100 text-red-700 border-red-300' : section.color.btnOutline
+                        isGemini25Unavailable
+                          ? 'bg-purple-50 text-purple-700 border-purple-300'
+                          : isError
+                            ? 'bg-red-100 text-red-700 border-red-300'
+                            : section.color.btnOutline
                       }`}
                     >
-                      {isError ? 'Retry' : 'Research'}
+                      {isGemini25Unavailable ? 'Try 3.1 Lite' : isError ? 'Retry' : 'Research'}
                     </button>
                   )}
                 </div>
@@ -561,8 +574,8 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                   )
                 })()}
                 {isError && (
-                  <span className="text-[9px] text-red-400 max-w-[120px] text-right leading-tight">
-                    {(state as { error: string }).error}
+                  <span className={`text-[9px] max-w-[120px] text-right leading-tight ${isGemini25Unavailable ? 'text-purple-400' : 'text-red-400'}`}>
+                    {isGemini25Unavailable ? '2.5 Flash unavailable' : (state as { error: string }).error}
                   </span>
                 )}
               </div>{/* end right col */}

@@ -576,6 +576,16 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                         </div>
                       </div>
                     )}
+
+                    <div className="border-t border-slate-100 mt-4 pt-3">
+                      <p className="text-[12px] text-slate-400 text-center">
+                        Built {new Date(__BUILD_TIME__).toLocaleString('en-GB', {
+                          day: 'numeric', month: 'short', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit', hour12: false,
+                          timeZone: 'Asia/Kolkata',
+                        })} IST
+                      </p>
+                    </div>
                   </div>
                 </div>
               </>
