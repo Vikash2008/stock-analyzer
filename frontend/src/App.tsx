@@ -115,13 +115,17 @@ export default function App() {
     >
       <AppRoutes currency={currency} onCurrencyChange={setCurrency} />
       {updateReady && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 bg-slate-900 border border-slate-700 rounded-2xl px-4 py-3 shadow-xl whitespace-nowrap">
-          <span className="text-[12px] text-slate-300">New version available</span>
+        <div className="fixed bottom-[72px] left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 whitespace-nowrap rounded-2xl px-4 py-2.5 shadow-2xl"
+          style={{ background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)', boxShadow: '0 8px 32px rgba(5,150,105,0.45)' }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.9 }}>
+            <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/>
+          </svg>
+          <span className="text-[13px] font-medium text-white">New version available</span>
           <button
             onClick={() => window.location.reload()}
-            className="text-[12px] font-semibold text-emerald-400 bg-emerald-400/10 px-3 py-2 rounded-full border border-emerald-400/30 active:bg-emerald-400/20"
+            className="text-[12px] font-bold text-emerald-800 bg-white px-3 py-2 rounded-full active:bg-emerald-50"
           >
-            Update now
+            Update
           </button>
         </div>
       )}

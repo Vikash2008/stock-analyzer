@@ -525,29 +525,43 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
             {settingsOpen && (
               <>
                 <div className="fixed inset-0 z-[9]" onClick={() => { if (importProgress === null) setSettingsOpen(false) }} />
-                <div className="absolute top-full right-0 z-10 mt-1 w-56 rounded-xl bg-white shadow-lg border border-slate-100">
-                  <div className="px-3 pt-3 pb-4">
-                    {/* Current file */}
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-2">Current File</p>
-                    {csvMeta ? (
-                      <div className="mb-1">
-                        <p className="text-[13px] font-medium text-slate-700">{csvMeta.name} · {fmtBytes(csvMeta.size)}</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">Imported {fmtImportDate(csvMeta.importedAt)}</p>
+                <div className="absolute top-full right-0 z-10 mt-1 w-60 rounded-2xl bg-white shadow-xl border border-slate-100 overflow-hidden">
+
+                  {/* Current file card */}
+                  <div className="px-3 pt-3 pb-2.5">
+                    <div className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5">
+                      {/* File type badge */}
+                      <div className="shrink-0 w-9 h-9 bg-emerald-600 rounded-lg flex items-center justify-center">
+                        <span className="text-[9px] font-extrabold text-white tracking-wide">CSV</span>
                       </div>
-                    ) : (
-                      <p className="text-[13px] font-medium text-slate-700 mb-1">Demo Data</p>
-                    )}
-                    <button
-                      onClick={handleDownload}
-                      className="w-full mt-2 py-2 rounded-lg border border-slate-200 text-[12px] font-medium text-slate-600 flex items-center justify-center gap-1.5"
-                    >
-                      <span>↓</span> Download {csvMeta ? 'CSV' : 'Demo CSV'}
-                    </button>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[12px] font-semibold text-slate-700 truncate leading-tight">
+                          {csvMeta ? csvMeta.name : 'Demo Data'}
+                        </p>
+                        <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">
+                          {csvMeta
+                            ? `${fmtBytes(csvMeta.size)} · ${fmtImportDate(csvMeta.importedAt)}`
+                            : 'Sample portfolio'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleDownload}
+                        title={`Download ${csvMeta ? 'CSV' : 'Demo CSV'}`}
+                        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-emerald-200 text-emerald-600 active:bg-emerald-100"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                          <polyline points="7 10 12 15 17 10"/>
+                          <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
 
-                    <div className="border-t border-slate-100 my-4" />
+                  <div className="border-t border-slate-100 mx-3" />
 
-                    {/* Import new file */}
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-3">Import New File</p>
+                  {/* Import */}
+                  <div className="px-3 py-2.5">
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -558,17 +572,22 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                     {importProgress === null ? (
                       <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="w-full py-2 rounded-lg bg-emerald-600 text-white text-[12px] font-semibold flex items-center justify-center gap-1.5"
+                        className="w-full py-2 rounded-xl bg-emerald-600 text-white text-[12px] font-semibold flex items-center justify-center gap-2 active:bg-emerald-700"
                       >
-                        <span>📂</span> Browse &amp; Import…
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                          <polyline points="17 8 12 3 7 8"/>
+                          <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        Import CSV
                       </button>
                     ) : (
                       <div>
                         <div className="flex items-center justify-between mb-1.5">
-                          <p className="text-[12px] text-slate-600">{importDone ? '✓ Portfolio updated' : 'Importing…'}</p>
+                          <p className="text-[12px] text-slate-600">{importDone ? '✓ Updated' : 'Importing…'}</p>
                           <p className="text-[12px] font-medium text-emerald-600">{importProgress}%</p>
                         </div>
-                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-emerald-500 rounded-full transition-all duration-200"
                             style={{ width: `${importProgress}%` }}
@@ -576,17 +595,17 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                         </div>
                       </div>
                     )}
-
-                    <div className="border-t border-slate-100 mt-4 pt-3">
-                      <p className="text-[12px] text-slate-400 text-center">
-                        Built {new Date(__BUILD_TIME__).toLocaleString('en-GB', {
-                          day: 'numeric', month: 'short', year: 'numeric',
-                          hour: '2-digit', minute: '2-digit', hour12: false,
-                          timeZone: 'Asia/Kolkata',
-                        })} IST
-                      </p>
-                    </div>
                   </div>
+
+                  {/* Version */}
+                  <div className="border-t border-slate-100 mx-3" />
+                  <p className="text-[11px] text-slate-300 text-center py-2">
+                    {new Date(__BUILD_TIME__).toLocaleString('en-GB', {
+                      day: 'numeric', month: 'short', year: 'numeric',
+                      hour: '2-digit', minute: '2-digit', hour12: false,
+                      timeZone: 'Asia/Kolkata',
+                    })} IST
+                  </p>
                 </div>
               </>
             )}
