@@ -97,7 +97,7 @@ export default function TransactionsPage({ currency }: Props) {
   const [syncing,       setSyncing]       = useState(false)
   const [reportSyncing, setReportSyncing] = useState(false)
   const [syncedAt,      setSyncedAt]      = useState<Date | null>(null)
-  const [reportSubTab,  setReportSubTab]  = useState<'deep' | 'quickstats'>('quickstats')
+  const [reportSubTab,  setReportSubTab]  = useState<'deep' | 'quickstats' | 'links'>('quickstats')
   const [reportUseLite, setReportUseLite] = useState(false)
   const [reportUseKey,  setReportUseKey]  = useState<0 | 1 | 2>(() => { const v = localStorage.getItem('gemini:key_index'); return (v === '1' ? 1 : v === '2' ? 2 : 0) })
   const chatOpenerRef = React.useRef<{ open: (contextId?: string) => void } | null>(null)
@@ -116,6 +116,10 @@ export default function TransactionsPage({ currency }: Props) {
     return s?.length ? s : [decoded.portfolio]
   }, [location.state, decoded.portfolio])
 
+  // When navigating from an aggregate portfolio (Equity / MF_Portfolio), the URL portfolio
+  // is a SKIP_PORT but actual transactions live in the constituent portfolios (MF_Vikash etc.)
+  const isAggregate = useMemo(() => portfolioFilter.every(p => SKIP_PORTS.has(p)), [portfolioFilter])
+
   const realizedMap = useMemo(
     () => (data ? aggRealized(data.realized, data.usd_inr) : new Map()),
     [data],
@@ -124,9 +128,9 @@ export default function TransactionsPage({ currency }: Props) {
   const holdingList = useMemo(() => {
     if (!data) return []
     return data.holdings.filter(
-      h => portfolioFilter.includes(h.portfolio) && h.symbol === decoded.symbol,
+      h => (isAggregate ? !SKIP_PORTS.has(h.portfolio) : portfolioFilter.includes(h.portfolio)) && h.symbol === decoded.symbol,
     )
-  }, [data, portfolioFilter, decoded.symbol])
+  }, [data, portfolioFilter, isAggregate, decoded.symbol])
 
   const holding = holdingList[0] ?? null  // reference holding for ltp, company, yf_symbol, avg_cost
 
@@ -135,12 +139,11 @@ export default function TransactionsPage({ currency }: Props) {
     return data.transactions
       .filter(t =>
         t.symbol === decoded.symbol &&
-        portfolioFilter.includes(t.portfolio) &&
         (t.type === 'BUY' || t.type === 'SELL') &&
         !SKIP_PORTS.has(t.portfolio),
       )
       .sort((a, b) => b.date.localeCompare(a.date))  // newest first
-  }, [data, decoded.symbol, portfolioFilter])
+  }, [data, decoded.symbol])
 
   const holdingArr = useMemo(() => holdingList, [holdingList])
 
@@ -186,9 +189,9 @@ export default function TransactionsPage({ currency }: Props) {
   const symRealized = useMemo(() => {
     if (!data) return []
     return data.realized.filter(
-      r => portfolioFilter.includes(r.portfolio) && r.symbol === decoded.symbol,
+      r => !SKIP_PORTS.has(r.portfolio) && r.symbol === decoded.symbol,
     )
-  }, [data, portfolioFilter, decoded.symbol])
+  }, [data, decoded.symbol])
 
   const holdingXirr = useMemo(() => {
     if (!symTxns.length || !data) return null
@@ -474,9 +477,13 @@ export default function TransactionsPage({ currency }: Props) {
               onClick={() => setReportSubTab('deep')}
               className={`text-[10px] px-2.5 py-1 rounded-md transition-colors font-medium ${reportSubTab === 'deep' ? 'bg-violet-600 text-white shadow-sm border border-violet-700' : 'bg-violet-200 text-violet-600 border border-violet-300'}`}
             >Deep Research</button>
+            <button
+              onClick={() => setReportSubTab('links')}
+              className={`text-[10px] px-2.5 py-1 rounded-md transition-colors font-medium ${reportSubTab === 'links' ? 'bg-sky-500 text-white shadow-sm border border-sky-600' : 'bg-sky-100 text-sky-700 border border-sky-200'}`}
+            >Explore</button>
           </div>
           {/* Right controls */}
-          {reportSubTab === 'deep' ? (
+          {reportSubTab === 'links' ? null : reportSubTab === 'deep' ? (
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => chatOpenerRef.current?.open()}
@@ -605,7 +612,7 @@ export default function TransactionsPage({ currency }: Props) {
         <AnalysisTab portfolio={decoded.portfolio} symbol={decoded.symbol} />
       )}
 
-      {activeTab === 'report' && (
+      {activeTab === 'report' && reportSubTab !== 'links' && (
         <ReportTab
           yf_symbol={yf}
           name={co || decoded.symbol}
@@ -617,6 +624,52 @@ export default function TransactionsPage({ currency }: Props) {
           chatOpenerRef={chatOpenerRef}
         />
       )}
+      {activeTab === 'report' && reportSubTab === 'links' && (() => {
+        const isIndian = yf.endsWith('.NS') || yf.endsWith('.BO')
+        const isMF = portfolioFilter.some(p => p.startsWith('MF_'))
+        const cleanSym = yf.replace(/\.(NS|BO)$/i, '')
+        const fundName = encodeURIComponent(co || cleanSym)
+        const links: { name: string; desc: string; url: string; color: string }[] = isMF ? [
+          { name: 'Yahoo Finance',   desc: 'NAV history, news & fund details',            url: `https://finance.yahoo.com/quote/${yf}`,                                                                                    color: '#2563eb' },
+          { name: 'Fundoo Data',     desc: 'MF analytics, portfolio overlap & SIP data',  url: `https://www.fundoodata.com/`,                                                                                              color: '#0d9488' },
+          { name: 'AdvisorKhoj',     desc: 'Fund comparison, SIP returns & analysis',     url: `https://www.advisorkhoj.com/`,                                                                                             color: '#7c3aed' },
+          { name: 'Value Research',  desc: 'Fund ratings, NAV history & star rating',     url: `https://www.valueresearchonline.com/funds/newsearch/?q=${fundName}`,                                                       color: '#dc2626' },
+        ] : isIndian ? [
+          { name: 'Screener.in',     desc: 'Fundamentals, financials & ratios',           url: `https://www.screener.in/company/${cleanSym}/`,                                                                            color: '#0d9488' },
+          { name: 'Trendlyne',       desc: 'Technicals, forecasts & DII/FII data',        url: `https://trendlyne.com/equity/${cleanSym.toUpperCase()}/`,                                                                  color: '#7c3aed' },
+          { name: 'NSE India',       desc: 'Exchange quotes, filings & F&O',              url: `https://www.nseindia.com/get-quotes/equity?symbol=${cleanSym}`,                                                           color: '#1d4ed8' },
+          { name: 'Yahoo Finance',   desc: 'Price, news & analyst consensus',             url: `https://finance.yahoo.com/quote/${yf}`,                                                                                    color: '#2563eb' },
+        ] : [
+          { name: 'Finviz',          desc: 'Charts, screener & insider activity',         url: `https://finviz.com/quote.ashx?t=${cleanSym.toUpperCase()}`,                                                               color: '#0d9488' },
+          { name: 'Macrotrends',     desc: 'Long-term historical financials',             url: `https://www.macrotrends.net/stocks/charts/${cleanSym.toUpperCase()}/${cleanSym.toLowerCase()}/stock-price-history`,        color: '#7c3aed' },
+          { name: 'SEC EDGAR',       desc: '10-K, 10-Q & earnings filings',               url: `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${cleanSym}&type=10-K&dateb=&owner=include&count=40`,       color: '#dc2626' },
+          { name: 'Yahoo Finance',   desc: 'Price, news & analyst consensus',             url: `https://finance.yahoo.com/quote/${yf}`,                                                                                    color: '#2563eb' },
+          { name: 'TipRanks',        desc: 'Analyst ratings & price targets',             url: `https://www.tipranks.com/stocks/${cleanSym.toLowerCase()}`,                                                                color: '#ea580c' },
+        ]
+        return (
+          <div className="pt-1 pb-4 flex flex-col gap-2">
+            {links.map(link => (
+              <a
+                key={link.name}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm active:opacity-60"
+              >
+                <div>
+                  <p className="text-[12px] font-semibold text-slate-700">{link.name}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{link.desc}</p>
+                </div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={link.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 ml-3">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                  <polyline points="15 3 21 3 21 9"/>
+                  <line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+              </a>
+            ))}
+          </div>
+        )
+      })()}
 
       {activeTab === 'charts' && (
         <div className="px-0 pt-0 pb-3">

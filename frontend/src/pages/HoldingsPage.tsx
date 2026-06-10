@@ -515,7 +515,7 @@ export default function HoldingsPage({ currency }: Props) {
         subLabel: nameMap.get(sym) ?? '',
         current: 0, invested: 0,
         realGain: rg, realCost: rc,
-        todayGain: null, todayPct: null, ltp: priceMap.get(sym) ?? lastSellMap.get(sym)?.price ?? null,
+        todayGain: null, todayPct: null, ltp: priceMap.get(sym) ?? null,
         navPort: firstPort, navSym: sym,
         portfolios: ports,
       }))
@@ -1024,9 +1024,16 @@ export default function HoldingsPage({ currency }: Props) {
     [metricSeries],
   )
 
+  // Auto-switch to "closed" filter when a portfolio has no open holdings (e.g. fully-exited Upstox)
+  useEffect(() => {
+    if (!isLoading && data && filteredHoldings.length === 0 && closedRows.length > 0 && holdingFilter !== 'closed') {
+      setHoldingFilter('closed')
+    }
+  }, [isLoading, data, filteredHoldings.length, closedRows.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
   if (isLoading) return <LoadingSkeleton />
   if (error || !data) return <ErrorState message={(error as Error)?.message ?? 'Unknown error'} />
-  if (!filteredHoldings.length) {
+  if (!filteredHoldings.length && !closedRows.length) {
     return (
       <div className="max-w-xl mx-auto px-4 py-4">
         <button onClick={() => navigate('/')} className="text-[11px] text-[#2563eb] mb-4">
@@ -1100,9 +1107,9 @@ export default function HoldingsPage({ currency }: Props) {
                     <p className="text-[10px] text-slate-400 uppercase tracking-widest">Show Closed</p>
                     <button
                       onClick={() => setShowClosed(v => !v)}
-                      className={`relative w-8 h-4 rounded-full transition-colors duration-150 ${showClosed ? 'bg-[#2563eb]' : 'bg-slate-200'}`}
+                      className={`relative w-9 h-5 rounded-full overflow-hidden transition-colors duration-200 ${showClosed ? 'bg-[#2563eb]' : 'bg-slate-200'}`}
                     >
-                      <span className={`absolute top-[2px] w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-150 ${showClosed ? 'translate-x-[18px]' : 'translate-x-[2px]'}`} />
+                      <span className={`absolute top-[2px] w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${showClosed ? 'translate-x-[18px]' : 'translate-x-[2px]'}`} />
                     </button>
                   </div>
                 )}

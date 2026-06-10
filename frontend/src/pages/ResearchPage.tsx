@@ -7,7 +7,7 @@ import { AnalysisTab } from '../components/AnalysisTab'
 import { PriceChart } from '../components/PriceChart'
 
 type ActiveTab    = 'report' | 'charts' | 'notes'
-type ReportSubTab = 'quickstats' | 'deep'
+type ReportSubTab = 'quickstats' | 'deep' | 'links'
 
 export default function ResearchPage() {
   const navigate  = useNavigate()
@@ -146,9 +146,17 @@ export default function ResearchPage() {
                     : 'bg-violet-200 text-violet-600 border border-violet-300'
                 }`}
               >Deep Research</button>
+              <button
+                onClick={() => setReportSubTab('links')}
+                className={`text-[10px] px-2.5 py-1 rounded-md transition-colors font-medium ${
+                  reportSubTab === 'links'
+                    ? 'bg-sky-500 text-white shadow-sm border border-sky-600'
+                    : 'bg-sky-100 text-sky-700 border border-sky-200'
+                }`}
+              >Explore</button>
             </div>
 
-            {reportSubTab === 'deep' ? (
+            {reportSubTab === 'links' ? null : reportSubTab === 'deep' ? (
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => chatOpenerRef.current?.open()}
@@ -253,7 +261,7 @@ export default function ResearchPage() {
 
       {/* ── Scrollable content ────────────────────────────── */}
       <div className="flex-1 overflow-y-auto px-4 pb-4">
-        {activeTab === 'report' && (
+        {activeTab === 'report' && reportSubTab !== 'links' && (
           <ReportTab
             yf_symbol={yf_symbol}
             name={name}
@@ -265,6 +273,44 @@ export default function ResearchPage() {
             chatOpenerRef={chatOpenerRef}
           />
         )}
+        {activeTab === 'report' && reportSubTab === 'links' && (() => {
+          const cleanSym = yf_symbol.replace(/\.(NS|BO)$/i, '')
+          const links: { name: string; desc: string; url: string; color: string }[] = isIndian ? [
+            { name: 'Screener.in',   desc: 'Fundamentals, financials & ratios',     url: `https://www.screener.in/company/${cleanSym}/`,                                                                          color: '#0d9488' },
+            { name: 'Trendlyne',     desc: 'Technicals, forecasts & DII/FII data',  url: `https://trendlyne.com/equity/${cleanSym.toUpperCase()}/`,                                                               color: '#7c3aed' },
+            { name: 'NSE India',     desc: 'Exchange quotes, filings & F&O',        url: `https://www.nseindia.com/get-quotes/equity?symbol=${cleanSym}`,                                                        color: '#1d4ed8' },
+            { name: 'Yahoo Finance', desc: 'Price, news & analyst consensus',       url: `https://finance.yahoo.com/quote/${yf_symbol}`,                                                                         color: '#2563eb' },
+          ] : [
+            { name: 'Finviz',        desc: 'Charts, screener & insider activity',   url: `https://finviz.com/quote.ashx?t=${cleanSym.toUpperCase()}`,                                                            color: '#0d9488' },
+            { name: 'Macrotrends',   desc: 'Long-term historical financials',       url: `https://www.macrotrends.net/stocks/charts/${cleanSym.toUpperCase()}/${cleanSym.toLowerCase()}/stock-price-history`,    color: '#7c3aed' },
+            { name: 'SEC EDGAR',     desc: '10-K, 10-Q & earnings filings',         url: `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${cleanSym}&type=10-K&dateb=&owner=include&count=40`,   color: '#dc2626' },
+            { name: 'Yahoo Finance', desc: 'Price, news & analyst consensus',       url: `https://finance.yahoo.com/quote/${yf_symbol}`,                                                                         color: '#2563eb' },
+            { name: 'TipRanks',      desc: 'Analyst ratings & price targets',       url: `https://www.tipranks.com/stocks/${cleanSym.toLowerCase()}`,                                                            color: '#ea580c' },
+          ]
+          return (
+            <div className="pt-1 pb-4 flex flex-col gap-2">
+              {links.map(link => (
+                <a
+                  key={link.name}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm active:opacity-60"
+                >
+                  <div>
+                    <p className="text-[12px] font-semibold text-slate-700">{link.name}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">{link.desc}</p>
+                  </div>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={link.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 ml-3">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                    <polyline points="15 3 21 3 21 9"/>
+                    <line x1="10" y1="14" x2="21" y2="3"/>
+                  </svg>
+                </a>
+              ))}
+            </div>
+          )
+        })()}
         {activeTab === 'charts' && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3 mt-1">
             <PriceChart
