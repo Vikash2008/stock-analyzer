@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useMemo } from 'react'
 
 interface HistoryData {
   dates:      string[]
@@ -32,6 +33,32 @@ async function fetchHistory(yf_symbol: string, start: string | null, period?: st
   const res = await fetch(`${BASE}/history?${params}`)
   if (!res.ok) throw new Error(`History API ${res.status}`)
   return res.json() as Promise<HistoryData>
+}
+
+// Proactively prefetch full history for all holdings so chart tabs open instantly.
+// prefetchQuery is a no-op for symbols already cached (staleTime:Infinity).
+// Called from PortfoliosPage once holdings are available.
+export function usePrefetchHoldingCharts(yf_symbols: string[]) {
+  const qc       = useQueryClient()
+  const symbolsKey = useMemo(() => yf_symbols.slice().sort().join(','), [yf_symbols])
+
+  useEffect(() => {
+    if (!yf_symbols.length) return
+    const start = '2000-01-01'
+    for (const sym of yf_symbols) {
+      qc.prefetchQuery({
+        queryKey:  ['history', sym, start],
+        queryFn:   async () => {
+          const data = await fetchHistory(sym, start)
+          if (data.dates?.length) lsSet(`${sym}:${start}`, data)
+          return data
+        },
+        staleTime: Infinity,
+        gcTime:    Infinity,
+      })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbolsKey, qc])
 }
 
 export function useHistory(yf_symbol: string | null, start: string | null, period?: string) {

@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { usePortfolio, useForceRefresh } from '../hooks/usePortfolio'
+import { usePrefetchHoldingCharts } from '../hooks/useHistory'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
 import { fmt, fmtCompact, fmtCompactGainLine, fmtPct } from '../utils/fmt'
 import { SKIP_PORTS, getSegmentType, filterBySegment, USD_PORTS } from '../utils/segments'
@@ -213,6 +214,15 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const qc           = useQueryClient()
   const { data, isLoading, error, isFetching } = usePortfolio(currency)
   const forceRefresh  = useForceRefresh(currency)
+
+  // Prefetch history for all holdings so chart tabs open instantly.
+  // Runs in background — no-op for symbols already cached.
+  const holdingSymbols = useMemo(
+    () => data ? [...new Set(data.holdings.map((h: Holding) => h.yf_symbol))] : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data?.holdings.length],
+  )
+  usePrefetchHoldingCharts(holdingSymbols)
   const [mode, setMode]       = useState<BreakdownMode>(
     () => (localStorage.getItem('pp:mode') as BreakdownMode) ?? 'type'
   )
