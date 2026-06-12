@@ -448,6 +448,27 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 ### 2026-06-12
 
+**Dividends tab redesign — teal color scheme, year/month filter, search, yield badge**
+- All amber/orange dividend colors replaced with teal/cyan across 6 files (DividendsTab, HoldingCard, SummaryCard, TransactionsPage, PortfoliosPage, HoldingsPage)
+- TDS banner removed from DividendsTab summary strip
+- Year filter: clickable Recharts Bar cells; selected bars `#0d9488`, unselected `#cbd5e1` when any selected, all `#5eead4` when no selection; multi-select (`Set<string>`)
+- Month filter: 12-grid MonthCalendar; selected=`bg-teal-600 text-white ring-1 ring-teal-400`; active-unselected=`bg-teal-200 text-teal-700`; inactive months disabled with `bg-slate-100 text-slate-300`
+- Year+month filters combined with AND; "clear filter" link appears when either active; stock count `(X/Y)` badge when filtered
+- Search input with SVG magnifying glass at top of symbol list; `focus:border-teal-300`; case-insensitive match on symbol
+- Dividend yield shown as teal pill badge `bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full` on each symbol row; `projected_annual` shown as `~X/yr` in right column
+- State reset on portfolio/segment switch via `key={portfolio ?? ''}:${segment ?? ''}` prop on DividendsTab
+
+**Portfolio-scoped dividends**
+- `GET /api/dividends?portfolio=X` — backend filters txns to single portfolio in `_compute()` before all share calculations; per-portfolio 24h cache key `dividends:{portfolio}`
+- DividendsTab props: `currency`, `portfolio?`, `filterSymbols?`; `useDividends(portfolio)` with TanStack Query key `['dividends', portfolio ?? '']`
+- `filterSymbols` only active for segment filter (client-side); portfolio scoping handled entirely by backend
+- `useDividendForSymbol` reads from global `['dividends', '']` cache (TransactionsPage use case, no portfolio filter)
+- Closed holdings included automatically — backend scopes by portfolio and includes all ex-dates where shares > 0, regardless of current open/closed status
+
+**Currency toggle in gear icon (PortfoliosPage)**
+- `[₹ INR] [$ USD]` pill selector added to settings popover (after dividends toggle, before version footer)
+- Container: `flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5`; active segment: `bg-white text-slate-700 shadow-sm`; inactive: `text-slate-400 active:text-slate-600`
+
 **Explore search — bottom sheet → centered modal**
 - FAB tap now opens a centered modal instead of a bottom sheet
 - Container: `fixed inset-0 z-50 flex items-center justify-center px-4`; fade animation (`opacity-0/100 pointer-events-none/auto duration-200`)
