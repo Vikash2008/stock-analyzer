@@ -44,13 +44,12 @@ export function usePrefetchHoldingCharts(yf_symbols: string[]) {
 
   useEffect(() => {
     if (!yf_symbols.length) return
-    const start = '2000-01-01'
     for (const sym of yf_symbols) {
       qc.prefetchQuery({
-        queryKey:  ['history', sym, start],
+        queryKey:  ['history', sym],
         queryFn:   async () => {
-          const data = await fetchHistory(sym, start)
-          if (data.dates?.length) lsSet(`${sym}:${start}`, data)
+          const data = await fetchHistory(sym, '2015-01-01')
+          if (data.dates?.length) lsSet(`${sym}:2015-01-01`, data)
           return data
         },
         staleTime: Infinity,

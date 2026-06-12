@@ -311,6 +311,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const [suggestions,     setSuggestions]     = useState<{ symbol: string; name: string; exchange: string }[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [isSearching,     setIsSearching]     = useState(false)
+  const [inputFocused,    setInputFocused]    = useState(false)
 
   // Wake Render on mount — backend sleeps after inactivity; fire cheap ping so
   // search is responsive by the time user types instead of waiting 60-90s cold start
@@ -797,9 +798,9 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
       {/* Centered Modal — Explore New Opportunities */}
       <div
-        className={`fixed inset-0 z-50 flex items-center justify-center px-4 transition-all duration-200 ${sheetOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 z-50 flex justify-center px-4 transition-all duration-200 ${sheetOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'} ${inputFocused ? 'items-start pt-4' : 'items-center'}`}
       >
-        <div className="bg-white rounded-2xl shadow-2xl w-full" style={{ maxHeight: '70dvh', maxWidth: 480, display: 'flex', flexDirection: 'column' }}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full" style={{ maxHeight: inputFocused ? '92dvh' : '70dvh', maxWidth: 480, display: 'flex', flexDirection: 'column' }}>
           {/* Header */}
           <div className="flex items-center justify-between bg-gradient-to-r from-emerald-600 to-teal-500 mx-4 rounded-xl px-4 py-1.5 mb-4 shrink-0">
             <p className="text-[14px] font-bold text-white tracking-tight">Explore New Opportunities</p>
@@ -808,43 +809,41 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
           {/* Search + results — scrollable */}
           <div className="flex-1 overflow-y-auto px-4 pb-8">
-            <div className="relative">
-              <input
-                value={exploreInput}
-                onChange={e => { setExploreInput(e.target.value); setShowSuggestions(true) }}
-                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-                onKeyDown={e => e.key === 'Enter' && navigateToResearch(exploreInput)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                placeholder="e.g. AMZN, RELIANCE, HDFC Bank…"
-                className="w-full bg-green-50 text-slate-800 text-[12px] rounded-xl px-3 py-2.5 border border-green-200 placeholder-emerald-400 outline-none focus:border-emerald-400"
-              />
+            <input
+              value={exploreInput}
+              onChange={e => { setExploreInput(e.target.value); setShowSuggestions(true) }}
+              onFocus={() => { setInputFocused(true); suggestions.length > 0 && setShowSuggestions(true) }}
+              onKeyDown={e => e.key === 'Enter' && navigateToResearch(exploreInput)}
+              onBlur={() => { setTimeout(() => setShowSuggestions(false), 150); setInputFocused(false) }}
+              placeholder="e.g. AMZN, RELIANCE, HDFC Bank…"
+              className="w-full bg-green-50 text-slate-800 text-[12px] rounded-xl px-3 py-2.5 border border-green-200 placeholder-emerald-400 outline-none focus:border-emerald-400"
+            />
 
-              {/* Searching indicator — shown while waiting for cold Render start */}
-              {isSearching && exploreInput.trim().length > 0 && suggestions.length === 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-green-200 rounded-xl shadow-xl z-10 px-3 py-3">
-                  <p className="text-[12px] text-slate-400 animate-pulse">Searching…</p>
-                </div>
-              )}
+            {/* Searching indicator — shown while waiting for cold Render start */}
+            {isSearching && exploreInput.trim().length > 0 && suggestions.length === 0 && (
+              <div className="mt-1 bg-white border border-green-200 rounded-xl px-3 py-3">
+                <p className="text-[12px] text-slate-400 animate-pulse">Searching…</p>
+              </div>
+            )}
 
-              {/* Autocomplete dropdown */}
-              {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-green-200 rounded-xl shadow-xl z-10 overflow-hidden">
-                  {suggestions.map((s, i) => (
-                    <button
-                      key={s.symbol}
-                      onMouseDown={() => navigateToResearch(s.symbol, s.name)}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 text-left active:bg-green-50 ${i > 0 ? 'border-t border-green-100' : ''}`}
-                    >
-                      <div className="min-w-0">
-                        <p className="text-[12px] font-semibold text-slate-800 truncate">{s.symbol}</p>
-                        <p className="text-[10px] text-slate-500 truncate">{s.name}</p>
-                      </div>
-                      <span className="text-[9px] text-emerald-600 shrink-0 ml-2">{s.exchange}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* Autocomplete results — inline so they scroll within the modal */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="mt-1 bg-white border border-green-200 rounded-xl overflow-hidden">
+                {suggestions.map((s, i) => (
+                  <button
+                    key={s.symbol}
+                    onMouseDown={() => navigateToResearch(s.symbol, s.name)}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 text-left active:bg-green-50 ${i > 0 ? 'border-t border-green-100' : ''}`}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-semibold text-slate-800 truncate">{s.symbol}</p>
+                      <p className="text-[10px] text-slate-500 truncate">{s.name}</p>
+                    </div>
+                    <span className="text-[9px] text-emerald-600 shrink-0 ml-2">{s.exchange}</span>
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Recent searches */}
             {recentSearches.length > 0 && (

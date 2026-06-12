@@ -55,18 +55,10 @@ export function usePortfolioHistory(
     [holdings, extraSymbols],
   )
 
-  const startDate = useMemo(() => {
-    if (!transactions.length) return '2020-01-01'
-    const min = transactions.reduce((m, t) => (t.date < m ? t.date : m), transactions[0].date)
-    const d = new Date(min)
-    d.setDate(d.getDate() - 30)
-    return d.toISOString().slice(0, 10)
-  }, [transactions])
-
   const queries = useQueries({
     queries: symbols.map(sym => ({
-      queryKey:  ['history', sym, startDate],
-      queryFn:   () => fetchSymHistory(sym, startDate),
+      queryKey:  ['history', sym],
+      queryFn:   () => fetchSymHistory(sym, '2015-01-01'),
       enabled,
       staleTime: Infinity,  // never auto-refetch; cleared only on force refresh
       gcTime:    Infinity,  // keep in memory for entire session
@@ -74,7 +66,7 @@ export function usePortfolioHistory(
     })),
   })
 
-  const loadedCount   = queries.filter(q => q.status === 'success').length
+  const loadedCount   = queries.filter(q => q.status === 'success' || q.status === 'error').length
   const fetchingCount = queries.filter(q => q.fetchStatus === 'fetching').length
   const isFetching    = fetchingCount > 0
   // true when not all symbols have data yet (first load) OR any is actively refetching (sync)
