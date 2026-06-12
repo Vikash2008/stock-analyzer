@@ -68,8 +68,10 @@ function buildChartData(
   const vals = tradeTxns.map(t => Math.abs(((t as any).qty ?? (t as any).quantity ?? 0) * ((t as any).price ?? 0)))
   const maxVal = Math.max(...vals, 1)
   const minVal = Math.min(...vals.filter(v => v > 0), maxVal)
-  const R_MIN = 3, R_MAX = 10
-  const toR = (v: number) => R_MIN + ((v - minVal) / (maxVal - minVal || 1)) * (R_MAX - R_MIN)
+  const R_MIN = 4, R_MAX = 14
+  // sqrt scale: perceptually uniform — avoids nearby values looking wildly different on a wide range
+  const sqrtMin = Math.sqrt(minVal), sqrtMax = Math.sqrt(maxVal)
+  const toR = (v: number) => R_MIN + ((Math.sqrt(v) - sqrtMin) / (sqrtMax - sqrtMin || 1)) * (R_MAX - R_MIN)
 
   for (const t of txns) {
     if (t.type !== 'BUY' && t.type !== 'SELL') continue
@@ -136,8 +138,8 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
     if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
   }
   const start = '2000-01-01'
-  const { data: history, isLoading: dailyLoading }      = useHistory(yf_symbol, start)
-  const { data: intradayHistory, isLoading: intLoading } = useHistory(yf_symbol, null, '1d')
+  const { data: history,         isLoading: dailyLoading, isFetching: dailyFetching } = useHistory(yf_symbol, start)
+  const { data: intradayHistory, isLoading: intLoading,   isFetching: intFetching   } = useHistory(yf_symbol, null, '1d')
 
   const allChartData = useMemo(() => {
     if (!history?.dates.length) return []
@@ -156,7 +158,8 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
     return allChartData.filter(p => p.date >= cutoff)
   }, [allChartData, intradayChartData, range])
 
-  const isLoading = range === '1d' ? intLoading : dailyLoading
+  const isLoading   = range === '1d' ? intLoading   : dailyLoading
+  const isBgFetch   = range === '1d' ? (intFetching   && !intLoading)   : (dailyFetching && !dailyLoading)
 
   const yFmt = (v: number) => {
     if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}K`
@@ -173,8 +176,9 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
 
   if (!chartData.length) {
     return (
-      <div className="h-36 flex items-center justify-center">
+      <div className="h-36 flex flex-col items-center justify-center gap-1">
         <p className="text-slate-400 text-xs">No price history available</p>
+        {isBgFetch && <p className="text-slate-300 text-xs animate-pulse">Retrying…</p>}
       </div>
     )
   }
@@ -201,6 +205,9 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
               <span className="text-[10px]" style={{ color: priceColor }}>
                 {pctChange >= 0 ? '+' : ''}{pctChange.toFixed(2)}% in period
               </span>
+            )}
+            {isBgFetch && (
+              <span className="text-[11px] text-slate-300 animate-pulse">Updating…</span>
             )}
           </div>
           {showZoom && (

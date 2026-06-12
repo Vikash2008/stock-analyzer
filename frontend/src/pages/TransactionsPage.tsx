@@ -686,16 +686,12 @@ export default function TransactionsPage({ currency }: Props) {
           {/* Price chart */}
           {chartMetric === 'Price' && (
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3">
-              <div className="flex justify-end mb-1">
-                <button onClick={() => setChartZoomed(true)} className="w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 active:opacity-70">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-                </button>
-              </div>
               <PriceChart
                 transactions={symTxns}
                 yf_symbol={yf}
                 currency={dispCur}
                 usdInr={data.usd_inr}
+                showZoom
               />
             </div>
           )}
