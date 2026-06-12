@@ -136,12 +136,60 @@ One line: Very Strong / Strong / Mixed / Weak — and the single most important 
       btnOutline: 'bg-indigo-100 text-indigo-700 border border-indigo-300',
     },
     query: {
-      indian: `Analyze {name}'s ({symbol}) current valuation on the NSE/BSE. Provide: trailing PE, forward PE, Price/Book, EV/EBITDA, and Price/Sales — each compared against (1) its own 5-year historical average, (2) sector median for Indian peers, and (3) Nifty 50 benchmark. Ensure all multiples reference the same reporting period (state it explicitly). Is the stock at a premium or discount and why? Provide a bull/base/bear target price range (12-month) with the key assumption driving each scenario. State the current CMP and your base-case intrinsic value estimate using at least one method (PE-based target or earnings yield), with the implied upside/downside %.
+      indian: `Analyze {name}'s ({symbol}) intrinsic value — lead with forward-looking and growth-adjusted methods. For high-growth companies, trailing PE vs historical average is misleading; DCF and growth-adjusted multiples should dominate.
 
-Data requirement: Use the current live market price and the most recently available trailing/forward financials. If Q4 FY2026 or the latest annual results have been published, base all multiples on those figures — do not use FY2024 or older as the base when newer data is available.`,
-      us:     `Analyze {name}'s ({symbol}) current valuation. Provide: trailing PE, forward PE, Price/Book, EV/EBITDA, EV/Revenue, and PEG ratio — each compared against (1) its own 5-year historical average, (2) direct sector peers, and (3) S&P 500 median. Ensure all multiples reference the same reporting period (state it explicitly). Is the stock at a premium or discount and why? Provide a bull/base/bear target price range (12-month) with the key assumption driving each scenario. State the current price and your base-case intrinsic value estimate using at least one method (DCF, PE-based, or EV/EBITDA comps), with the implied upside/downside %.
+## 1. DCF Valuation (Primary Method)
+Build a simplified DCF using the latest trailing FCF (use PAT as proxy only if FCF is unavailable). Project FCF for 3 years using analyst consensus or management-guided growth rate. Apply terminal growth of 8-10% for high-growth Indian companies or 5-7% for mature businesses. Use WACC of 12-14%. Show: FCF Year 1/2/3, terminal value, total intrinsic value, and implied upside/downside vs current CMP. State every assumption explicitly (growth rate, WACC, terminal rate, base FCF used).
 
-Data requirement: Use the current live market price and the most recently available trailing/forward financials. If the latest annual (10-K) or quarterly (10-Q) results have been published, base all multiples on those figures — do not use older filings when more recent data is available.`,
+## 2. Growth-Adjusted PE Analysis
+Do NOT treat trailing PE vs 5-year average as the primary signal without growth context:
+- State current revenue growth (1Y and 3Y CAGR) and earnings growth (1Y and 3Y CAGR)
+- Calculate PEG ratio (trailing PE ÷ earnings growth %): interpret <1 as potentially undervalued, >2 as growth fully priced in
+- For hyper-growth companies (revenue CAGR >30%), trailing PE is distorted — use forward PE for FY+1 and FY+2 instead, and explain what PE is justified by the growth rate
+- Explicitly state if historical or peer PE comparison is unreliable here and why (e.g. company has re-rated, sector mix has changed, it is now a different-quality business)
+
+## 3. Multiples Snapshot (Context, Not Verdict)
+Table: **Metric** | **Current** | **5Y Hist Avg** | **Sector Median** | **Growth-Adjusted Fair Range**
+Rows: Trailing PE, Forward PE (FY+1), Forward PE (FY+2), EV/EBITDA, PEG, EV/Revenue, Price/Book
+Note where any comparison is invalidated by growth-rate mismatch.
+
+## 4. Future Stock Price Scenarios
+What price does each scenario imply in 12 months and 24 months?
+Table: **Scenario** | **Rev Growth Assumption** | **Margin Assumption** | **Target Multiple** | **12M Target (₹)** | **24M Target (₹)**
+Rows: Bull, Base, Bear. State the single most important swing factor between scenarios.
+
+## 5. Key Valuation Risks
+- Multiple compression risks: what slows growth or re-rates the stock down (growth miss, rate rise, margin squeeze)
+- Re-rating catalysts: what accelerates earnings or justifies a higher multiple (TAM expansion, new product, margin inflection)
+
+Data requirement: Use the current live CMP and the most recently available financials. If Q4 FY2026 or the latest annual results are published, base all multiples on those. Search for analyst consensus FY+1 and FY+2 EPS estimates to populate forward PE rows.`,
+      us:     `Analyze {name}'s ({symbol}) intrinsic value — lead with forward-looking and growth-adjusted methods. For high-growth or hyper-growth companies, trailing PE vs historical or sector average is insufficient; DCF and growth-adjusted multiples must be the primary lens.
+
+## 1. DCF Valuation (Primary Method)
+For profitable companies: project FCF for 3 years at analyst consensus growth rate, apply terminal growth of 3-4%, discount at WACC of 9-11%. Show FCF Year 1/2/3, terminal value, total intrinsic value, and implied upside/downside vs current price. For pre-profit or early-stage companies: project revenue 3 years forward, apply an exit EV/Revenue multiple appropriate to the expected growth rate at that point, then discount to present. State every assumption explicitly.
+
+## 2. Growth-Adjusted Multiple Analysis
+Do NOT rely on trailing PE vs historical average as the primary signal for growth companies:
+- State current revenue growth (1Y and 3Y CAGR) and earnings/FCF growth rate
+- Calculate PEG ratio (forward PE ÷ NTM earnings growth %): interpret <1 as potentially undervalued, >2 as growth fully priced in
+- For SaaS/software: calculate Rule of 40 (revenue growth % + FCF margin %) — above 40 is strong, above 60 is exceptional; use EV/NTM Revenue and EV/NTM Gross Profit as primary multiples
+- For hyper-growth (revenue CAGR >40%): trailing PE is meaningless; use forward EV/Revenue, NTM P/S, and price-to-growth-adjusted earnings
+- Explicitly call out where historical PE or sector-peer PE comparison breaks down (e.g. company is in a different growth phase than its peers or its own history)
+
+## 3. Multiples Snapshot (Context, Not Verdict)
+Table: **Metric** | **Current** | **5Y Hist Avg** | **Peer Median** | **Growth-Adjusted Fair Range**
+Rows: Trailing PE, Forward PE (NTM), EV/EBITDA, EV/Revenue, Price/FCF, PEG, Price/Sales
+For SaaS/tech: also include EV/ARR or NRR if applicable.
+
+## 4. Future Stock Price Scenarios
+Table: **Scenario** | **Rev Growth** | **Margin Assumption** | **Target Multiple** | **12M Price ($)** | **24M Price ($)**
+Rows: Bull, Base, Bear. For each scenario state the key assumption. Identify the single biggest swing factor between bull and bear outcomes.
+
+## 5. Key Valuation Risks
+- Multiple compression risks: growth deceleration, rate environment tightening, margin miss, competitive disruption
+- Re-rating catalysts: TAM penetration acceleration, margin inflection point, new product cycle, buyback program
+
+Data requirement: Use the current live price and most recently available financials (latest 10-K or 10-Q). Search for analyst consensus NTM and NTM+1 EPS/revenue estimates to populate forward multiples. For pre-profit companies, use EV/Revenue and EV/Gross Profit as the primary multiples.`,
     },
   },
   {
