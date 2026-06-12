@@ -6,6 +6,7 @@ import {
   Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 import { usePortfolio } from '../hooks/usePortfolio'
+import { useDividendForSymbol } from '../hooks/useDividends'
 import { usePortfolioHistory, sliceSeries } from '../hooks/usePortfolioHistory'
 import type { DatedSeries, PortfolioSeries } from '../hooks/usePortfolioHistory'
 import type { Holding } from '../api/types'
@@ -109,6 +110,8 @@ export default function TransactionsPage({ currency }: Props) {
     portfolio: decodeURIComponent(portfolio),
     symbol:    decodeURIComponent(symbol),
   }
+  const symDividends = useDividendForSymbol(decoded.symbol)
+  const [divSectionOpen, setDivSectionOpen] = useState(false)
 
   // portfolios passed via nav state when navigating from a segment (cumulative) view;
   // falls back to the single portfolio in the URL for direct/broker navigation
@@ -613,6 +616,58 @@ export default function TransactionsPage({ currency }: Props) {
                 />
               ))}
             </>
+          )}
+
+          {/* Dividends received section */}
+          {symDividends && symDividends.total_dividends > 0 && (
+            <div className="mt-4 border border-teal-100 rounded-xl overflow-hidden">
+              <button
+                onClick={() => setDivSectionOpen(o => !o)}
+                className="w-full flex items-center justify-between px-3 py-2.5 bg-teal-50 active:bg-teal-100"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold text-teal-700 uppercase tracking-wider">Dividends received</span>
+                  <span className="text-[10px] bg-teal-200 text-teal-800 rounded-full px-1.5 py-0.5 font-medium">{symDividends.event_count}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] font-bold text-teal-700">
+                    +₹{symDividends.total_dividends.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  </span>
+                  <svg className={`w-3 h-3 text-teal-400 transition-transform ${divSectionOpen ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="m6 9 6 6 6-6"/>
+                  </svg>
+                </div>
+              </button>
+
+              {divSectionOpen && (
+                <div className="bg-white px-3 pb-2 pt-1">
+                  {symDividends.yield_on_cost !== null && (
+                    <p className="text-[10px] text-teal-600 mb-2">
+                      Yield on cost: {symDividends.yield_on_cost.toFixed(1)}%
+                      {symDividends.projected_annual > 0 && ` · ~₹${symDividends.projected_annual.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/year projected`}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 px-1 py-0.5 mb-1">
+                    <span className="text-[9px] font-semibold text-slate-400 w-[80px]">Ex-date</span>
+                    <span className="text-[9px] font-semibold text-slate-400 flex-1 text-right">Shares</span>
+                    <span className="text-[9px] font-semibold text-slate-400 w-[56px] text-right">₹/share</span>
+                    <span className="text-[9px] font-semibold text-slate-400 w-[64px] text-right">Earned</span>
+                  </div>
+                  {symDividends.events.map(ev => (
+                    <div key={ev.ex_date} className="flex items-center gap-2 px-1 py-1 border-t border-slate-50">
+                      <span className="text-[10px] text-slate-500 w-[80px] tabular-nums">{ev.ex_date}</span>
+                      <span className="text-[10px] text-slate-600 flex-1 text-right tabular-nums">{ev.shares_held.toLocaleString()}</span>
+                      <span className="text-[10px] text-slate-600 w-[56px] text-right tabular-nums">
+                        {ev.div_currency === 'USD' ? `$${ev.div_per_share.toFixed(2)}` : `₹${ev.div_per_share.toFixed(2)}`}
+                      </span>
+                      <span className="text-[10px] font-semibold text-teal-700 w-[64px] text-right tabular-nums">
+                        +₹{ev.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </>
       )}

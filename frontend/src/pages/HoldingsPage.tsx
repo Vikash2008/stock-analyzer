@@ -1,4 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react'
+import { DividendsTab } from '../components/DividendsTab'
+import { useDividends, getIncludeDividends } from '../hooks/useDividends'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   LineChart, Line, BarChart, Bar, ComposedChart,
@@ -187,14 +189,21 @@ export default function HoldingsPage({ currency }: Props) {
   const location = useLocation()
   const { portfolio, segment } = useParams<{ portfolio?: string; segment?: string }>()
   const { data, isLoading, error } = usePortfolio(currency)
+  const { data: divData } = useDividends()
+  const [includeDivs, setIncludeDivs] = useState(getIncludeDividends)
+  useEffect(() => {
+    const handler = () => setIncludeDivs(getIncludeDividends())
+    window.addEventListener('dividends-toggle', handler)
+    return () => window.removeEventListener('dividends-toggle', handler)
+  }, [])
   const [viewMode,    setViewMode]    = useState<'cumulative' | 'standalone'>(
     () => (localStorage.getItem('hp:viewMode') as 'cumulative' | 'standalone') ?? 'cumulative'
   )
   const [holdingFilter, setHoldingFilter] = useState<'open' | 'closed' | 'all'>(
     () => (localStorage.getItem('hp:holdingFilter') as 'open' | 'closed' | 'all') ?? 'all'
   )
-  const [activeTab,   setActiveTab]   = useState<'holdings' | 'charts' | 'analysis'>(
-    () => (localStorage.getItem('hp:activeTab') as 'holdings' | 'charts' | 'analysis') ?? 'holdings'
+  const [activeTab,   setActiveTab]   = useState<'holdings' | 'charts' | 'analysis' | 'dividends'>(
+    () => (localStorage.getItem('hp:activeTab') as 'holdings' | 'charts' | 'analysis' | 'dividends') ?? 'holdings'
   )
   const [analysisSubTab, setAnalysisSubTab] = useState<'allocation' | 'benchmarking' | 'returns'>('allocation')
   const [chartMetric, setChartMetric] = useState<ChartMetric>('Portfolio Value')
@@ -349,6 +358,25 @@ export default function HoldingsPage({ currency }: Props) {
     () => buildRows(filteredHoldings, realizedMap, viewMode, !!segment),
     [filteredHoldings, realizedMap, viewMode, segment],
   )
+
+  // Dividend lookup maps — only populated when toggle is ON
+  const divBySymbol = useMemo(() => {
+    if (!includeDivs || !divData) return new Map<string, number>()
+    return new Map(divData.by_symbol.map(s => [s.symbol, s.total_dividends]))
+  }, [includeDivs, divData])
+
+  // Segment filter only — portfolio filtering is handled by the backend via the portfolio param
+  const filteredDivSymbols = useMemo(() => {
+    if (!segment) return undefined
+    return new Set(filteredHoldings.map(h => h.symbol))
+  }, [filteredHoldings, segment])
+
+  const totalDivForView = useMemo(() => {
+    if (!includeDivs || !divData) return 0
+    if (!filteredDivSymbols && !portfolio) return divData.by_symbol.reduce((sum, s) => sum + s.total_dividends, 0)
+    const syms = filteredDivSymbols ?? new Set(filteredHoldings.map(h => h.symbol))
+    return divData.by_symbol.filter(s => syms.has(s.symbol)).reduce((sum, s) => sum + s.total_dividends, 0)
+  }, [includeDivs, divData, filteredDivSymbols, portfolio, filteredHoldings])
 
   // Allocation tab always uses one-per-symbol grouping regardless of viewMode
   const allocGroupedRows = useMemo(
@@ -1150,6 +1178,7 @@ export default function HoldingsPage({ currency }: Props) {
         todayGain={displayStats.tg || null}
         todayPct={displayStats.todayPct}
         xirr={filteredSummaryXirr}
+        dividends={totalDivForView > 0 ? totalDivForView : undefined}
         currency={currency}
         highlight={
           segment === 'total'
@@ -1160,11 +1189,12 @@ export default function HoldingsPage({ currency }: Props) {
 
       {/* Tabs */}
       <div className="flex bg-slate-100 rounded-full p-0.5 gap-0.5 mb-2">
-        {(['holdings', 'charts', 'analysis'] as const).map(tab => {
+        {(['holdings', 'charts', 'analysis', 'dividends'] as const).map(tab => {
           const activeClass = {
-            holdings: 'bg-teal-200 text-teal-800',
-            charts:   'bg-sky-200 text-sky-800',
-            analysis: 'bg-violet-200 text-violet-800',
+            holdings:  'bg-teal-200 text-teal-800',
+            charts:    'bg-sky-200 text-sky-800',
+            analysis:  'bg-violet-200 text-violet-800',
+            dividends: 'bg-teal-200 text-teal-800',
           }[tab]
           return (
             <button
@@ -1357,6 +1387,7 @@ export default function HoldingsPage({ currency }: Props) {
                 todayPct={r.todayPct}
                 ltp={r.ltp}
                 xirr={xirrMap.get(r.key) ?? null}
+                dividends={divBySymbol.get(r.ticker) || undefined}
                 currency={currency}
                 onClick={() => {
                   sessionStorage.setItem(`holdingsScroll:${location.pathname}`, String(window.scrollY))
@@ -2175,6 +2206,11 @@ export default function HoldingsPage({ currency }: Props) {
             </div>
           )}
         </div>
+      )}
+
+      {/* ── Dividends tab ── */}
+      {activeTab === 'dividends' && (
+        <DividendsTab key={`${portfolio ?? ''}:${segment ?? ''}`} currency={currency} portfolio={portfolio} filterSymbols={filteredDivSymbols} />
       )}
       </div>
 

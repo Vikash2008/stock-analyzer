@@ -13,6 +13,7 @@ interface SummaryCardProps {
   todayGain:   number | null
   todayPct:    number | null
   xirr?:       number | null
+  dividends?:  number          // pass when "include dividends" toggle is ON
   currency:    Currency
   footer?:     React.ReactNode  // optional custom footer (used on TransactionsPage)
   highlight?:  { bg: string; accent: string }
@@ -20,9 +21,10 @@ interface SummaryCardProps {
 
 export function SummaryCard({
   label, current, invested, realGain, realCost,
-  todayGain, todayPct, xirr, currency, footer, highlight,
+  todayGain, todayPct, xirr, dividends, currency, footer, highlight,
 }: SummaryCardProps) {
-  const totalGain = (current - invested) + realGain
+  const divAmt    = dividends ?? 0
+  const totalGain = (current - invested) + realGain + divAmt
   const totalCost = invested + realCost
   const totalPct  = totalCost !== 0 ? (totalGain / totalCost) * 100 : 0
   const gain      = totalGain >= 0
@@ -73,21 +75,27 @@ export function SummaryCard({
         </span>
       </div>
 
-      {/* Footer: Invested · Realized */}
+      {/* Footer: Invested · Realized · Dividends */}
       {footer ?? (
-        <div
-          className="flex justify-between pt-1.5"
-          style={{ borderTop: '1px solid #e2e8f0' }}
-        >
-          <span className="text-[10px] text-slate-400">
-            Invested <span className="text-slate-600 font-semibold">{fmt(invested, currency)}</span>
-          </span>
-          <span className="text-[10px] text-slate-400">
-            Realized{' '}
-            <span className="font-semibold" style={{ color: realColor }}>
-              {fmtCompactGainLine(realGain, null, currency)}
+        <div style={{ borderTop: '1px solid #e2e8f0' }} className="pt-1.5">
+          <div className="flex justify-between">
+            <span className="text-[10px] text-slate-400">
+              Invested <span className="text-slate-600 font-semibold">{fmt(invested, currency)}</span>
             </span>
-          </span>
+            <span className="text-[10px] text-slate-400">
+              Realized{' '}
+              <span className="font-semibold" style={{ color: realColor }}>
+                {fmtCompactGainLine(realGain, null, currency)}
+              </span>
+            </span>
+          </div>
+          {divAmt > 0 && (
+            <div className="flex justify-end mt-0.5">
+              <span className="text-[10px] text-teal-600">
+                Dividends <span className="font-semibold">+{fmtCompactGainLine(divAmt, null, currency)}</span>
+              </span>
+            </div>
+          )}
         </div>
       )}
       </div>

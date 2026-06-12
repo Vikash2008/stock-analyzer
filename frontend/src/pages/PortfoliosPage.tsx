@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from 'react'
+import { getIncludeDividends, setIncludeDividends } from '../hooks/useDividends'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { usePortfolio, useForceRefresh } from '../hooks/usePortfolio'
@@ -234,6 +235,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
   // Settings panel
   const [settingsOpen, setSettingsOpen]     = useState(false)
+  const [includeDivs, setIncludeDivs]       = useState(getIncludeDividends)
   const [importProgress, setImportProgress] = useState<number | null>(null)
   const [importDone, setImportDone]         = useState(false)
   const [csvMeta, setCsvMeta]               = useState<CsvMeta | null>(getCsvMeta)
@@ -616,6 +618,47 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                         </div>
                       </div>
                     )}
+                  </div>
+
+                  {/* Dividends toggle */}
+                  <div className="border-t border-slate-100 mx-3" />
+                  <div className="px-3 py-2.5 flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-[12px] font-medium text-slate-600 leading-tight">Include dividends</p>
+                      <p className="text-[11px] text-slate-400 leading-tight mt-0.5">Add to total gains &amp; XIRR</p>
+                    </div>
+                    <button
+                      role="switch"
+                      aria-checked={includeDivs}
+                      onClick={() => {
+                        const next = !includeDivs
+                        setIncludeDivs(next)
+                        setIncludeDividends(next)
+                        window.dispatchEvent(new Event('dividends-toggle'))
+                      }}
+                      className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 focus:outline-none ${includeDivs ? 'bg-teal-500' : 'bg-slate-200'}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${includeDivs ? 'translate-x-4' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+
+                  {/* Currency toggle */}
+                  <div className="border-t border-slate-100 mx-3" />
+                  <div className="px-3 py-2.5 flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-[12px] font-medium text-slate-600 leading-tight">Display currency</p>
+                      <p className="text-[11px] text-slate-400 leading-tight mt-0.5">Switch values to USD or INR</p>
+                    </div>
+                    <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
+                      <button
+                        onClick={() => onCurrencyChange('INR')}
+                        className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${currency === 'INR' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 active:text-slate-600'}`}
+                      >₹ INR</button>
+                      <button
+                        onClick={() => onCurrencyChange('USD')}
+                        className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${currency === 'USD' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 active:text-slate-600'}`}
+                      >$ USD</button>
+                    </div>
                   </div>
 
                   {/* Version */}
