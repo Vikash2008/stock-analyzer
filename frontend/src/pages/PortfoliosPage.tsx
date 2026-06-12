@@ -795,16 +795,11 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         />
       )}
 
-      {/* Bottom Sheet — Explore New Opportunities */}
+      {/* Centered Modal — Explore New Opportunities */}
       <div
-        className={`fixed inset-x-0 bottom-0 z-50 transition-transform duration-300 ease-in-out ${sheetOpen ? 'translate-y-0' : 'translate-y-full'}`}
+        className={`fixed inset-0 z-50 flex items-center justify-center px-4 transition-all duration-200 ${sheetOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
       >
-        <div className="bg-white rounded-t-2xl shadow-2xl" style={{ maxHeight: '65dvh', display: 'flex', flexDirection: 'column' }}>
-          {/* Drag handle */}
-          <div className="flex justify-center pt-3 pb-1 shrink-0">
-            <div className="w-10 h-1 rounded-full bg-slate-200" />
-          </div>
-
+        <div className="bg-white rounded-2xl shadow-2xl w-full" style={{ maxHeight: '70dvh', maxWidth: 480, display: 'flex', flexDirection: 'column' }}>
           {/* Header */}
           <div className="flex items-center justify-between bg-gradient-to-r from-emerald-600 to-teal-500 mx-4 rounded-xl px-4 py-1.5 mb-4 shrink-0">
             <p className="text-[14px] font-bold text-white tracking-tight">Explore New Opportunities</p>
