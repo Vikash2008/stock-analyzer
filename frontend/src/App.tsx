@@ -89,8 +89,8 @@ export default function App() {
     const onVisibility = () => { if (document.visibilityState === 'visible') triggerCheck() }
     document.addEventListener('visibilitychange', onVisibility)
 
-    // Check every 2 minutes while app is open so banner appears quickly after deploy
-    const interval = setInterval(triggerCheck, 2 * 60 * 1000)
+    // Check every 15 seconds so banner appears almost immediately after deploy
+    const interval = setInterval(triggerCheck, 15_000)
 
     return () => {
       document.removeEventListener('visibilitychange', onVisibility)
