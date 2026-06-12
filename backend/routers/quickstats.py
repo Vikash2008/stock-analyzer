@@ -12,6 +12,7 @@ Caching:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
 import re
@@ -91,90 +92,101 @@ def _compute_roce(ticker) -> float | None:
         return None
 
 
+_SCREENER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer":         "https://www.screener.in/",
+}
+
+
 def _fetch_screener(clean_symbol: str) -> dict:
-    """Scrape key ratios from Screener.in top-ratios section."""
-    try:
-        url = f"https://www.screener.in/company/{clean_symbol}/"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible)"})
-        html = urllib.request.urlopen(req, timeout=8).read().decode("utf-8", errors="ignore")
+    """Scrape key ratios from Screener.in. Tries consolidated first, falls back to standalone."""
+    for suffix in ("/consolidated/", "/"):
+        try:
+            url  = f"https://www.screener.in/company/{clean_symbol}{suffix}"
+            req  = urllib.request.Request(url, headers=_SCREENER_HEADERS)
+            html = urllib.request.urlopen(req, timeout=12).read().decode("utf-8", errors="ignore")
+            if "top-ratios" not in html:
+                continue  # not a valid stock page — try next suffix
 
-        start = html.find("top-ratios")
-        if start == -1:
-            return {}
-        chunk = html[start : start + 5000]
+            start = html.find("top-ratios")
+            chunk = html[start : start + 5000]
 
-        # Parse name → first number pairs
-        items = re.findall(
-            r'<span class="name">\s*(.*?)\s*</span>.*?<span class="number">([\d.,]+)</span>',
-            chunk, re.DOTALL,
-        )
-        ratios: dict[str, float] = {}
-        for name, value in items:
-            name = re.sub(r'\s+', ' ', name).strip()
-            try:
-                ratios[name] = float(value.replace(',', ''))
-            except ValueError:
-                pass
-
-        out: dict = {}
-        price = ratios.get("Current Price")
-
-        if "Stock P/E" in ratios:
-            out["trailing_pe"] = ratios["Stock P/E"]
-        if "Book Value" in ratios and price:
-            out["price_to_book"] = round(price / ratios["Book Value"], 2)
-        if "ROCE" in ratios:
-            out["roce"] = ratios["ROCE"]                              # already %, frontend formats directly
-        if "ROE" in ratios:
-            out["return_on_equity"] = round(ratios["ROE"] / 100, 5)  # → decimal fraction for fmtPct
-        if "Dividend Yield" in ratios:
-            out["dividend_yield"] = round(ratios["Dividend Yield"] / 100, 6)  # → decimal fraction
-        if "Market Cap" in ratios:
-            mcap_inr = ratios["Market Cap"] * 1e7
-            out["market_cap"] = mcap_inr
-            out["market_cap_display"] = _fmt_cap(mcap_inr, "INR")
-        if price:
-            out["current_price"] = price
-
-        # 52W High / Low — two numbers in the same row
-        hl = re.search(
-            r'High / Low.*?<span class="number">([\d.,]+)</span>.*?<span class="number">([\d.,]+)</span>',
-            chunk, re.DOTALL,
-        )
-        if hl:
-            out["week_52_high"] = float(hl.group(1).replace(',', ''))
-            out["week_52_low"]  = float(hl.group(2).replace(',', ''))
-
-        # Compounded Sales Growth / Profit Growth — parse 3Y and TTM rows
-        for section, rev_key, earn_key in [
-            ("Compounded Sales Growth",  "revenue_growth",    "revenue_growth_3y"),
-            ("Compounded Profit Growth", "earnings_growth",   "earnings_growth_3y"),
-        ]:
-            idx = html.find(section)
-            if idx == -1:
-                continue
-            sec_chunk = html[idx: idx + 800]
-            rows_found = re.findall(r'<td[^>]*>(3 Years?|TTM)[^<]*</td>\s*<td[^>]*>([^<]+)</td>', sec_chunk, re.IGNORECASE)
-            for period, raw_val in rows_found:
+            items = re.findall(
+                r'<span class="name">\s*(.*?)\s*</span>.*?<span class="number">([\d.,]+)</span>',
+                chunk, re.DOTALL,
+            )
+            ratios: dict[str, float] = {}
+            for name, value in items:
+                name = re.sub(r'\s+', ' ', name).strip()
                 try:
-                    val = float(raw_val.strip().replace('%', '').replace(',', ''))
-                    pct = round(val / 100, 4)
-                    if "3" in period:
-                        if section == "Compounded Sales Growth":
-                            out["revenue_growth_3y"]  = pct
-                        else:
-                            out["earnings_growth_3y"] = pct
-                    elif "TTM" in period.upper():
-                        if section == "Compounded Sales Growth":
-                            out["revenue_growth"]     = pct   # override yfinance TTM
-                        else:
-                            out["earnings_growth"]    = pct
+                    ratios[name] = float(value.replace(',', ''))
                 except ValueError:
                     pass
 
-        return out
-    except Exception:
-        return {}
+            out: dict = {}
+            price = ratios.get("Current Price")
+
+            if "Stock P/E" in ratios:
+                out["trailing_pe"] = ratios["Stock P/E"]
+            if "Book Value" in ratios and price:
+                out["price_to_book"] = round(price / ratios["Book Value"], 2)
+            if "ROCE" in ratios:
+                out["roce"] = ratios["ROCE"]
+            if "ROE" in ratios:
+                out["return_on_equity"] = round(ratios["ROE"] / 100, 5)
+            if "Dividend Yield" in ratios:
+                out["dividend_yield"] = round(ratios["Dividend Yield"] / 100, 6)
+            if "Market Cap" in ratios:
+                mcap_inr = ratios["Market Cap"] * 1e7
+                out["market_cap"] = mcap_inr
+                out["market_cap_display"] = _fmt_cap(mcap_inr, "INR")
+            if price:
+                out["current_price"] = price
+
+            hl = re.search(
+                r'High / Low.*?<span class="number">([\d.,]+)</span>.*?<span class="number">([\d.,]+)</span>',
+                chunk, re.DOTALL,
+            )
+            if hl:
+                out["week_52_high"] = float(hl.group(1).replace(',', ''))
+                out["week_52_low"]  = float(hl.group(2).replace(',', ''))
+
+            for section in [
+                ("Compounded Sales Growth",  "revenue_growth",  "revenue_growth_3y"),
+                ("Compounded Profit Growth", "earnings_growth", "earnings_growth_3y"),
+            ]:
+                sec_name, ttm_key, yr3_key = section
+                idx = html.find(sec_name)
+                if idx == -1:
+                    continue
+                sec_chunk = html[idx: idx + 800]
+                rows_found = re.findall(
+                    r'<td[^>]*>(3 Years?|TTM)[^<]*</td>\s*<td[^>]*>([^<]+)</td>',
+                    sec_chunk, re.IGNORECASE,
+                )
+                for period, raw_val in rows_found:
+                    try:
+                        val = float(raw_val.strip().replace('%', '').replace(',', ''))
+                        pct = round(val / 100, 4)
+                        if "3" in period:
+                            out[yr3_key]  = pct
+                        elif "TTM" in period.upper():
+                            out[ttm_key]  = pct
+                    except ValueError:
+                        pass
+
+            if out:  # got at least some data — return it
+                return out
+        except Exception:
+            continue  # try next suffix
+
+    return {}
 
 
 def _compute_growth_3y(ticker) -> dict:
@@ -568,7 +580,7 @@ def _fetch(yf_symbol: str) -> dict:
 
 
 @router.get("/api/quickstats")
-def get_quickstats(
+async def get_quickstats(
     yf_symbol:     str  = Query(...),
     force_refresh: bool = Query(False),
 ):
@@ -596,8 +608,8 @@ def get_quickstats(
             print(f"[quickstats] disk cache read error for {yf_symbol}: {e}")
             disk = None
 
-        # Fetch fresh
-        result = _fetch(yf_symbol)
+        # Fetch fresh — run in thread so multiple requests execute in parallel
+        result = await asyncio.to_thread(_fetch, yf_symbol)
 
         # Persist to disk/memory cache only when we have real data
         if not result.get("partial"):
