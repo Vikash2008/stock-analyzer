@@ -158,15 +158,17 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
     return allChartData.filter(p => p.date >= cutoff)
   }, [allChartData, intradayChartData, range])
 
-  const isLoading   = range === '1d' ? intLoading   : dailyLoading
-  const isBgFetch   = range === '1d' ? (intFetching   && !intLoading)   : (dailyFetching && !dailyLoading)
+  const isLoading = range === '1d' ? intLoading : dailyLoading
+  // true when fetching (incl. placeholder refresh) but chart already has data to show
+  const isBgFetch = (range === '1d' ? intFetching : dailyFetching) && chartData.length > 0
 
   const yFmt = (v: number) => {
     if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}K`
     return v.toFixed(0)
   }
 
-  if (isLoading) {
+  // Only block with full loader when there is truly no data (no cache, no placeholder)
+  if (isLoading && !chartData.length) {
     return (
       <div className="h-48 flex items-center justify-center">
         <div className="text-slate-400 text-xs animate-pulse">Loading chart…</div>
