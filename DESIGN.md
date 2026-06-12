@@ -423,6 +423,15 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 - `navigateToResearch()` calls `setSheetOpen(false)` before `navigate()` so sheet closes on result tap
 - Added `pb-24` to the page container so FAB doesn't overlap last card
 
+### 2026-06-12
+
+**Explore search — bottom sheet → centered modal**
+- FAB tap now opens a centered modal instead of a bottom sheet
+- Container: `fixed inset-0 z-50 flex items-center justify-center px-4`; fade animation (`opacity-0/100 pointer-events-none/auto duration-200`)
+- Inner card: `bg-white rounded-2xl shadow-2xl w-full` with `maxWidth: 480, maxHeight: 70dvh`
+- Drag handle removed (no longer a bottom sheet); header, search input, autocomplete, recent pills unchanged
+- Backdrop (`fixed inset-0 z-40 bg-black/40`) still closes on tap
+
 ### 2026-06-09
 
 **File import progress bar — asymptotic easing to 99%**
