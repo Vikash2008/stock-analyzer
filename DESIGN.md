@@ -420,6 +420,21 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 - Frontend maps codes → labels: quota→"Quota exceeded", timeout→"Timed out", overloaded→"Model overloaded — try 3.1", empty→"Empty response", other→"2.5 Flash unavailable"
 - Button shows "Try 2.5 Lite" (purple) instead of generic "Retry" for all gemini25_* errors
 
+### 2026-06-12 (session 103)
+
+**Dividends tab — color scheme and layout**
+- 4th tab on HoldingsPage (after Holdings / Charts / Analysis); tab pill: `bg-amber-200 text-amber-800` active, same inactive style as other tabs
+- Summary strip: 2×2 grid of amber-50 tiles (Total Earned, Projected/Year) + slate-50 tiles (Stocks paying, Best year)
+- TDS warning banner: `bg-orange-50 border-orange-100` with warning SVG; shown when `total_dividends_inr > 5000` (India ₹5K TDS threshold)
+- Year chart: Recharts BarChart; current year bar `#f59e0b` (amber-500), prior years `#fcd34d` (amber-300); tooltip `bg-#fffbeb border-#fde68a`
+- Month calendar: 12-month horizontal grid; active months `bg-amber-400 text-white`, inactive `bg-slate-100 text-slate-300`; derived from all symbols' month_pattern arrays
+- Per-stock rows: exchange badge (NSE=blue, BSE=orange, US=slate); right side: amber-600 total + YoC %; chevron expands to event table
+- Event table columns: Ex-date (80px) | Shares | Per share (60px, `$` vs `₹` by currency) | Earned (60px, amber-700)
+- `DividendsTab.tsx` — standalone component; `useDividends()` hook drives data; `useForceRefreshDividends()` on refresh icon
+- Toggle (include dividends in returns): amber switch in gear popover (`PortfoliosPage.tsx`); dispatches `window.Event('dividends-toggle')` for cross-page sync; persisted in `localStorage('settings.includeDividends')`
+- SummaryCard/HoldingCard: `dividends?: number` prop; amber "Dividends +₹X" footer row when prop > 0; included in totalGain computation
+- TransactionsPage: collapsible "Dividends received" section; driven by `useDividendForSymbol(symbol)` which reads from query cache
+
 ### 2026-06-10
 
 **Explore section — FAB + Bottom Sheet (PortfoliosPage)**
