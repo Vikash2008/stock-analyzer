@@ -387,6 +387,14 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 - AI Assistant button: kept as text pill (`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full`) — icon-only version was tried and reverted (looked bad)
 - Gear popover layout: `flex flex-col gap-2.5`; Model row `flex items-center justify-between gap-4`; API Key section `flex flex-col gap-1.5` with segmented row below label
 
+### 2026-06-12 (session 102)
+
+**Search modal — keyboard-aware positioning**
+- Added `inputFocused` state to `PortfoliosPage.tsx`; on input `onFocus` → switches outer flex from `items-center` to `items-start pt-4` so modal pins to top of viewport when mobile keyboard opens
+- Max-height expands from `70dvh` → `92dvh` when input is focused (keyboard shrinks viewport; need more of remaining space)
+- Suggestions changed from `absolute top-full` dropdown to inline block within the scrollable container (`flex-1 overflow-y-auto`) — fixes suggestions being clipped behind keyboard and only 2 rows showing; now all results visible and scrollable
+- "Searching…" indicator also changed from absolute to inline (`mt-1` block), consistent with suggestions
+
 ### 2026-06-10 (session 99)
 
 **Settings popover redesign (PortfoliosPage gear icon)**
