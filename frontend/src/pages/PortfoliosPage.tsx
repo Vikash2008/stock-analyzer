@@ -300,17 +300,27 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   })
   const [suggestions,     setSuggestions]     = useState<{ symbol: string; name: string; exchange: string }[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [isSearching,     setIsSearching]     = useState(false)
+
+  // Wake Render on mount — backend sleeps after inactivity; fire cheap ping so
+  // search is responsive by the time user types instead of waiting 60-90s cold start
+  useEffect(() => {
+    fetch(`${API_URL}/api/search?q=a`).catch(() => {})
+  }, [])
 
   useEffect(() => {
     const q = exploreInput.trim()
-    if (q.length < 1) { setSuggestions([]); return }
+    if (q.length < 1) { setSuggestions([]); setIsSearching(false); return }
+    const controller = new AbortController()
+    setIsSearching(true)
     const id = setTimeout(async () => {
       try {
-        const res = await fetch(`${API_URL}/api/search?q=${encodeURIComponent(q)}`)
+        const res = await fetch(`${API_URL}/api/search?q=${encodeURIComponent(q)}`, { signal: controller.signal })
         if (res.ok) { setSuggestions(await res.json()); setShowSuggestions(true) }
-      } catch { /* ignore */ }
+      } catch { /* aborted by next keystroke — ignore */ }
+      finally { if (!controller.signal.aborted) setIsSearching(false) }
     }, 300)
-    return () => clearTimeout(id)
+    return () => { clearTimeout(id); controller.abort() }
   }, [exploreInput])
 
   function navigateToResearch(sym: string, name?: string) {
@@ -803,6 +813,13 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 placeholder="e.g. AMZN, RELIANCE, HDFC Bank…"
                 className="w-full bg-green-50 text-slate-800 text-[12px] rounded-xl px-3 py-2.5 border border-green-200 placeholder-emerald-400 outline-none focus:border-emerald-400"
               />
+
+              {/* Searching indicator — shown while waiting for cold Render start */}
+              {isSearching && exploreInput.trim().length > 0 && suggestions.length === 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-green-200 rounded-xl shadow-xl z-10 px-3 py-3">
+                  <p className="text-[12px] text-slate-400 animate-pulse">Searching…</p>
+                </div>
+              )}
 
               {/* Autocomplete dropdown */}
               {showSuggestions && suggestions.length > 0 && (
