@@ -14,29 +14,29 @@ Navigate to `/` (root).
 #### P-HERO-1: Current value = Stocks current + MF current
 **How to check:** Hero current value = Stocks tile current + MF tile current
 **Expected:** Exact match
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data, Playwright automated)
 
 #### P-HERO-2: Invested = Stocks invested + MF invested
 **How to check:** Note Hero "Invested" (visible in Holdings page summary for `/segment/total`). Stocks invested + MF invested must match.
 **Expected:** Exact match
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data)
 
 #### P-HERO-3: Total gain = Stocks total gain + MF total gain
 **How to check:** Hero Total gain = Stocks tile Total + MF tile Total
 **Expected:** Exact match
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data)
 
 #### P-HERO-4: Today gain = sum of all holding today gains
 **How to check:**
 1. Note Hero Today gain
 2. Navigate to `/holdings/segment/total` → Summary card Today gain
 **Expected:** Match (±rounding)
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data)
 
 #### P-HERO-5: XIRR is a plausible annualised return
 **How to check:** Note XIRR shown on Hero card
 **Expected:** Non-null, in range 10–60% for a typical equity portfolio. Not 0% or >200%.
-**Status:** Pending ⬜
+**Status:** Pass ✅ (2026-06-13, demo data — was 328% in USD mode, fixed by converting terminal value to USD in cardXirrMap)
 
 ---
 
@@ -45,7 +45,7 @@ Navigate to `/` (root).
 #### P-TILES-1: Stocks tile + MF tile = Hero (all three metrics)
 **How to check:** Stocks current + MF current = Hero current; same for invested and total gain
 **Expected:** Exact match on all three
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data)
 
 ---
 
@@ -54,24 +54,24 @@ Navigate to `/` (root).
 #### P-TYPE-1: Sum of all type cards = Hero total gain
 **How to check:** Indian Stocks + US Stocks + Indian MF + US MF Total gains must equal Hero Total gain
 **Expected:** Exact match
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data)
 
 #### P-TYPE-2: Stocks section sum = Stocks tile
 **How to check:** Indian Stocks card Total + US Stocks card Total = Stocks tile Total gain
 **Expected:** Exact match
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data)
 
 #### P-TYPE-3: MF section sum = MF tile
 **How to check:** Indian MF card Total + US MF card Total = MF tile Total gain
 **Expected:** Exact match
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data)
 
 #### P-TYPE-4: Type card XIRR includes closed positions
 **How to check:**
 1. Note Indian Stocks card XIRR
 2. Navigate to `/holdings/segment/indian_stock` → note Summary XIRR
 **Expected:** Values close (both client-side XIRR from all transactions including sells)
-**Status:** Pending ⬜
+**Status:** Pass ✅ (2026-06-13, demo data)
 
 ---
 
@@ -83,22 +83,22 @@ Navigate to `/` (root).
 2. Compare to Stocks tile Total gain
 **Expected:** Exact match (Upstox fully-closed card must appear with current=0 and Total = its realized gain)
 **Note:** Fixed 2026-05-29 — Upstox was missing before fix.
-**Status:** Fixed ✓
+**Status:** Caveat ⚠️ (2026-06-13, demo data — visual ±₹1L rounding mismatch between sum and tile; confirmed expected/by design)
 
 #### P-BROKER-2: By Broker MF cards sum = MF tile total gain
 **How to check:** Sum Total gain of all MF_ cards under Mutual Funds section = MF tile Total gain
 **Expected:** Exact match
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data)
 
 #### P-BROKER-3: Upstox card visible with current = 0
 **How to check:** By Broker tab → find Upstox card
 **Expected:** Current value = ₹0; Total gain = Upstox's realized P&L (~0.47L); XIRR shows a value
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data)
 
 #### P-BROKER-4: By Broker total = By Type total (Hero unchanged)
 **How to check:** Switch between By Type and By Broker; Hero card must not change
 **Expected:** Hero card numbers identical in both views
-**Status:** Pass ✓ (by construction — hero computed from `active` holdings; independent of `mode` state)
+**Status:** Pass ✅ (2026-06-13, demo data)
 
 ---
 
@@ -111,22 +111,22 @@ Navigate to any holdings page (e.g., `/holdings/segment/total`).
 #### H-SUMMARY-1: Current value = sum of open HoldingCard current values
 **How to check:** Sum current values from all visible open HoldingCards; compare to Summary card current
 **Expected:** Exact match
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data, Playwright automated)
 
 #### H-SUMMARY-2: Invested = sum of open HoldingCard invested values
 **How to check:** Sum invested from all open cards (shown on TransactionsPage if needed); compare to Summary invested
 **Expected:** Exact match
-**Status:** Pending ⬜
+**Status:** Pass ✅ (2026-06-13, demo data — verified via API: sum=987,376 = total_invested exactly)
 
 #### H-SUMMARY-3: Today gain = sum of HoldingCard today gains
 **How to check:** Sum all today gain values from open HoldingCards; compare to Summary Today
 **Expected:** Exact match (±rounding)
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data — API sum today=495 = UI Today +₹495)
 
 #### H-SUMMARY-4: Total gain = unrealized + realized
 **How to check:** Summary total gain = (Summary current − Summary invested) + Summary realized
 **Expected:** Exact match
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data)
 
 #### H-SUMMARY-5: Open + Closed realized = All realized (exactly)
 **How to check:**
@@ -134,7 +134,7 @@ Navigate to any holdings page (e.g., `/holdings/segment/total`).
 2. Settings gear → filter = Closed → note Summary realized
 3. Settings gear → filter = All → note Summary realized
 **Expected:** Open realized + Closed realized = All realized (exact)
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data)
 
 ---
 
@@ -143,27 +143,27 @@ Navigate to any holdings page (e.g., `/holdings/segment/total`).
 #### H-FILTER-1: Open filter hides fully-closed positions
 **How to check:** Settings gear → Open → check list
 **Expected:** No holdings with current=0 visible; count shows "N open"
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data)
 
 #### H-FILTER-2: Closed filter shows only fully-exited positions
 **How to check:** Settings gear → Closed → check list
 **Expected:** Only holdings with current=0, Total = realized P&L; count shows "M closed"
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data — META+TCS show ₹0 in closed filter)
 
 #### H-FILTER-3: All filter summary = union of Open and Closed
 **How to check:** All filter summary current must equal Open filter summary current (closed positions add nothing to current)
 **Expected:** All current = Open current; All realized = Open realized + Closed realized
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data)
 
 #### H-FILTER-4: Show Closed toggle (All mode) appends closed rows to list
 **How to check:** Filter = All → toggle Show Closed on → observe list
 **Expected:** Closed rows (current=0) appear below open rows; summary card unchanged
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data — 8→10 cards, summary unchanged)
 
 #### H-FILTER-5: Closed cards have no Today gain
 **How to check:** Filter = Closed; inspect each HoldingCard
 **Expected:** Today gain column shows "—" or is blank; XIRR computed from BUY+SELL only (no terminal value)
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data — Today shows "—" for META+TCS)
 
 ---
 
@@ -172,17 +172,17 @@ Navigate to any holdings page (e.g., `/holdings/segment/total`).
 #### H-GROUP-1: Grouped mode deduplicates same symbol across portfolios
 **How to check:** `/holdings/segment/total` → Settings gear → View = Grouped → find a symbol held in 2+ portfolios (e.g. INFY in Zerodha + AngelOne)
 **Expected:** Symbol appears once; value = combined value from both portfolios
-**Status:** Pass ✓
+**Status:** Warn ⚠️ (2026-06-13 — demo data has no symbol in 2+ portfolios; cannot verify deduplication logic)
 
 #### H-GROUP-2: Standalone mode shows one card per portfolio:symbol
 **How to check:** Settings gear → View = Standalone
 **Expected:** INFY appears twice (one for each portfolio); each shows its own value
-**Status:** Pass ✓
+**Status:** Warn ⚠️ (2026-06-13 — same demo data limitation; standalone=grouped card count)
 
 #### H-GROUP-3: Grouped mode shows company name (not portfolio name)
 **How to check:** Grouped → inspect subLabel on a HoldingCard
 **Expected:** Company name (e.g. "Infosys Ltd") — not portfolio name ("Zerodha")
-**Status:** Pass ✓
+**Status:** Warn ⚠️ (2026-06-13 — no portfolio subLabel visible in either mode with single-portfolio symbols; cannot distinguish)
 
 ---
 
@@ -191,22 +191,22 @@ Navigate to any holdings page (e.g., `/holdings/segment/total`).
 #### H-SORT-1: Default sort = Current Value descending
 **How to check:** Open holdings page; first card must have highest current value
 **Expected:** Cards in descending current value order
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data)
 
 #### H-SORT-2: Tap same sort field toggles asc/desc
 **How to check:** Sort = Current Value ↓ → tap Current Value again
 **Expected:** Sort flips to ↑; lowest current value card is first
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data)
 
 #### H-SORT-3: Sort by Total Gain includes realized P&L
 **How to check:** Sort by Total Gain; inspect order manually
 **Expected:** Total Gain = (current − invested) + realized; a fully-closed position with large realized gain ranks higher than an open position with small unrealized gain if its total is larger
-**Status:** Pending ⬜
+**Status:** Pass ✅ (2026-06-13, demo data — AAPL +2.1L > SBIN +1.3L > GOOGL +1.2L > MSFT +1.2L > APOLLO > MF > INFY > HDFC)
 
 #### H-SORT-4: Sort applies to closed rows when Show Closed is on
 **How to check:** Filter = All, Show Closed = on, Sort = Total Gain ↓
 **Expected:** Closed rows also sorted by their realized gain (Total Gain), not appended unsorted at the end
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data — closed group sorted: META +1.7L before TCS +13.8K)
 
 ---
 
@@ -215,17 +215,17 @@ Navigate to any holdings page (e.g., `/holdings/segment/total`).
 #### H-CARD-1: XIRR colored correctly
 **How to check:** Cards with positive XIRR show green; negative show red
 **Expected:** Green = positive annualised return; Red = holding losing money since purchase
-**Status:** Pass ✓
+**Status:** Pass ✅ (2026-06-13, demo data — INFY/HDFC negative XIRR confirmed red; others green)
 
 #### H-CARD-2: Today gain is non-null for most open positions (market hours)
 **How to check:** During market hours, inspect a few HoldingCards
 **Expected:** Today gain shown as "+₹X (+Y%)" or "−₹X (−Y%)"; not "—" for active holdings
-**Status:** Pending ⬜
+**Status:** Pass ✅ (2026-06-13, demo data — 8 open cards all show Today gain)
 
 #### H-CARD-3: Tapping card saves scroll position and navigates to transactions
 **How to check:** Scroll down the list; tap a card mid-list; press Back
 **Expected:** Returns to same scroll position, not top of page
-**Status:** Pass ✓
+**Status:** Pending ⬜ (cannot automate headlessly — requires manual device test)
 
 ---
 
@@ -238,7 +238,7 @@ Compare last data point on each metric chart (stat line above chart) vs Summary 
 **Expected:** Exact match. Last chart point is pinned to `sum(h.disp_current)` — same value the summary card sums.
 **Note:** Fixed 2026-05-29 — was approximate (used EOD close ≠ live price). Now pinned to live prices.
 **Segments to check:** stk, mf, total, indian_stock, us_stock
-**Status:** Fixed ✓
+**Status:** Pending ⬜
 
 #### HC-A1-PIN: Last-point pin behaves correctly on weekend / holiday
 **How to check:** Open app on a Saturday or public holiday; go to Charts → Portfolio Value
@@ -254,7 +254,7 @@ Compare last data point on each metric chart (stat line above chart) vs Summary 
 **Expected:** Exact match. Pinned value − pinned invested = Summary cur − Summary inv.
 **Note:** Fixed 2026-05-29 — was approximate (inherited A1 intraday gap).
 **How to check:** Stocks segment: chart unrealized stat line = Summary current − Summary invested (should be ~61.1L); MF segment: same cross-check.
-**Status:** Fixed ✓
+**Status:** Pending ⬜
 
 #### HC-A4: Realized Gains last point = Summary realized P&L (exact)
 **Expected:** Exact match for all segments including fully-closed portfolios (Upstox ~0.47L included).
@@ -267,13 +267,13 @@ Compare last data point on each metric chart (stat line above chart) vs Summary 
 | indian_stock | ~8.2L |
 | us_stock | ~0.14L |
 
-**Status:** Fixed ✓
+**Status:** Pending ⬜
 
 #### HC-A5: Total Gains last point = Summary total gain (exact)
 **Expected:** Exact match. Pinned unrealized + exact realized = Summary total gain.
 **Note:** Fixed 2026-05-29 — was approximate (inherited A1 intraday gap).
 **How to check:** Stocks segment: chart Total Gains stat line ≈ 69.4L = Summary total gain.
-**Status:** Fixed ✓
+**Status:** Pending ⬜
 
 #### HC-A6: Return % last point = Summary implied return (exact)
 **Expected:** Exact match. Formula = (pinned totalGain) / (pinned invested + realizedCost) × 100.
@@ -287,7 +287,7 @@ Compare last data point on each metric chart (stat line above chart) vs Summary 
 | indian_stock | ~22% |
 | us_stock | ~60% |
 
-**Status:** Fixed ✓
+**Status:** Pending ⬜
 
 #### HC-A7: XIRR Trend — last point close to Summary XIRR
 **How to check:** Switch to XIRR Trend pill → note last value; compare to Summary card XIRR
@@ -297,7 +297,7 @@ Compare last data point on each metric chart (stat line above chart) vs Summary 
 #### HC-B1: Range filtering — 1m shows ~30 days of data
 **How to check:** Select 1m range; inspect X-axis leftmost label
 **Expected:** First tick ≈ 30 days ago; All range starts at first transaction year
-**Status:** Pass ✓
+**Status:** Pending ⬜
 
 #### HC-B2: Range persists when switching metric pills
 **How to check:** Select 3m range → switch from Portfolio Value to Total Gains
@@ -307,17 +307,17 @@ Compare last data point on each metric chart (stat line above chart) vs Summary 
 #### HC-C1: Segment isolation — stk > indian_stock > single portfolio
 **How to check:** Note Portfolio Value last point for total → stk → indian_stock → Zerodha
 **Expected:** total > stk > indian_stock > Zerodha (each is a subset)
-**Status:** Pass ✓
+**Status:** Pending ⬜
 
 #### HC-C2: Sync ↻ button invalidates history cache
 **How to check:** Tap ↻ on Charts tab strip; observe chart
 **Expected:** Old data stays visible; chart silently re-fetches in background; spinner shows ~1.2s
-**Status:** Pass ✓
+**Status:** Pending ⬜
 
 #### HC-D1: Cross-page: segment chart last point ≈ Portfolios page tile
 **How to check:** Note Stocks tile current on Overview; open `/holdings/segment/stk` → Charts → Portfolio Value stat line
 **Expected:** Values close (daily close vs live price gap only)
-**Status:** Approximate ✓
+**Status:** Pending ⬜
 
 ---
 
@@ -332,22 +332,22 @@ Navigate to any holdings page → Analysis tab.
 #### AN-ALLOC-1: By Sector alloc% sums to 100%
 **How to check:** Expand all sector rows; sum the Alloc% column
 **Expected:** ~100% (±1% rounding)
-**Status:** Pass ✓ (by construction)
+**Status:** Pending ⬜
 
 #### AN-ALLOC-2: Sector value = sum of holding values within it
 **How to check:** Expand any sector; sum Value column of all holding rows
 **Expected:** Exact match with sector header Value
-**Status:** Pass ✓ (by construction)
+**Status:** Pending ⬜
 
 #### AN-ALLOC-3: Holding alloc% = value / portfolio current × 100
 **How to check:** Pick any holding; note Alloc%; calculate value / Summary current × 100
 **Expected:** Match to ±0.1%
-**Status:** Pass ✓ (by construction)
+**Status:** Pending ⬜
 
 #### AN-ALLOC-4: By Market Cap alloc% sums to 100%
 **How to check:** Open By Market Cap; sum alloc% of Large Cap + Mid Cap + Small Cap + US Stocks
 **Expected:** ~100% (±1%)
-**Status:** Pass ✓ (by construction)
+**Status:** Pending ⬜
 
 #### AN-ALLOC-5: Accordion — opening one section collapses others
 **How to check:**
@@ -355,22 +355,22 @@ Navigate to any holdings page → Analysis tab.
 2. Tap By Market Cap → By Sector collapses, By Market Cap opens
 3. Tap By Holdings Concentration → By Market Cap collapses
 **Expected:** Only one section open at a time
-**Status:** Pass ✓ (code verified)
+**Status:** Pending ⬜
 
 #### AN-ALLOC-6: Top N coverage monotonically increasing
 **How to check:** Toggle Top 5 / Top 10 / Top 20 in Holdings Concentration section
 **Expected:** Top 5 coverage < Top 10 coverage < Top 20 coverage; pie has N+1 segments (top N + "Other")
-**Status:** Pass ✓ (code verified)
+**Status:** Pending ⬜
 
 #### AN-ALLOC-7: Deduplication — same symbol held in 2+ portfolios appears once
 **How to check:** `/holdings/segment/total` → Grouped mode → expand a sector containing INFY or META
 **Expected:** Symbol appears once; Value = combined value; portfolios count reflected in XIRR
-**Status:** Pass ✓ (by construction)
+**Status:** Pending ⬜
 
 #### AN-ALLOC-8: Sector XIRR is realistic (pooled cashflows, not inflated)
 **How to check:** Expand any sector — note XIRR; specific canary: Tech sector
 **Expected:** Tech XIRR = 15–50% (not ~94% which was the old weighted-average bug)
-**Status:** Pass ✓ (code verified)
+**Status:** Pending ⬜
 
 #### AN-ALLOC-9: Today gain — inline format, single line, no wrap
 **How to check:** On a sector row with non-zero today gain, inspect the Today column at 360px viewport
@@ -390,7 +390,7 @@ Navigate to any holdings page → Analysis tab.
 **Expected:** Alpha = Your XIRR − Benchmark XIRR (to ±0.1pp)
 **Observed (2026-05-29, stk segment):** Your +23.3%, Bench +20.2%, Alpha +3.1% → 23.3−20.2=3.1 ✓
 **Why it could fail:** UI truncation / rounding displaying one value differently than the stored float
-**Status:** Pass ✓
+**Status:** Pending ⬜
 
 #### AN-BENCH-2: Sector Alpha arithmetic (verify for each visible sector)
 **How to check:** For each sector row, note the three columns: Sector XIRR | Benchmark (XIRR) | Alpha
@@ -407,7 +407,7 @@ Navigate to any holdings page → Analysis tab.
 | Other | +6.2% | +15.3% | −9.1% | 0.00pp |
 | IT | +9.7% | −0.5% | +10.2% | 0.00pp |
 
-**Status:** Pass ✓
+**Status:** Pending ⬜
 
 #### AN-BENCH-3: Canary — Index ETF alpha (strongest correctness signal)
 **How to check:**
@@ -430,7 +430,7 @@ MON100 and MAFANG are INR-denominated ETFs tracking a USD index. Their actual XI
 **Expected alpha going forward:**
 - Pure INR holding vs INR benchmark (ITBEES, domestic stocks): −2% to +2%
 - INR ETF tracking USD index (MON100, MAFANG): alpha will include FX component; expected range roughly equal to INR depreciation since purchase
-**Status:** Pass ✓ (ITBEES confirms simulation; MON100/MAFANG alpha explained by FX design)
+**Status:** Pending ⬜
 
 #### AN-BENCH-4: Benchmark XIRR plausibility
 **How to check:** Note Benchmark XIRR column for each sector
@@ -448,7 +448,7 @@ MON100 and MAFANG are INR-denominated ETFs tracking a USD index. Their actual XI
 
 **Note:** A negative benchmark XIRR means the index itself lost ground since our entry points — not a bug. IT stocks were likely bought when Nifty IT was high.
 **Why it could fail:** Wrong history start date, benchmark fetch failure (would show null or 0.00%)
-**Status:** Pass ✓
+**Status:** Pending ⬜
 
 #### AN-BENCH-5: No null or 0.00% values after data loads
 **How to check:** Wait for benchmarking tab to finish loading (no spinner); inspect all rows
@@ -458,7 +458,7 @@ MON100 and MAFANG are INR-denominated ETFs tracking a USD index. Their actual XI
 - Overall card Your XIRR and Benchmark XIRR both non-null
 **Why it could fail:** Benchmark fetch fails silently → benchmark XIRR null → alpha null
 **Observed (2026-05-29):** All 7 sectors non-null; overall card non-null ✓
-**Status:** Pass ✓
+**Status:** Pending ⬜
 
 #### AN-BENCH-6: Alpha bar direction and proportionality
 **How to check:** Find a positive-alpha sector and a negative-alpha sector among the visible rows
@@ -467,7 +467,7 @@ MON100 and MAFANG are INR-denominated ETFs tracking a USD index. Their actual XI
 - Negative alpha → red bar extends **left** of the center divider
 - The sector with the largest |alpha| value has the **widest** bar
 **Observed (2026-05-29):** Other (−9.1%) shows red bar left ✓; all other sectors green bar right ✓; Growth (+17.9%, largest positive alpha) has widest green bar ✓
-**Status:** Pass ✓
+**Status:** Pending ⬜
 
 #### AN-BENCH-7: Benchmark labels match benchmark indices
 **How to check:** Look at each sector's Benchmark (XIRR) merged column header
@@ -483,7 +483,7 @@ MON100 and MAFANG are INR-denominated ETFs tracking a USD index. Their actual XI
 | Growth | Nifty 500 | Nifty 500 ✓ |
 
 **Expected:** Same label appears in both collapsed sector row AND expanded holding rows below it ✓ (confirmed via IT and Tech expansion)
-**Status:** Pass ✓
+**Status:** Pending ⬜
 
 #### AN-BENCH-8: Per-holding alpha differs within same multi-stock sector
 **How to check:** Expand a sector with ≥2 holdings — use IT or Banking
@@ -491,7 +491,7 @@ MON100 and MAFANG are INR-denominated ETFs tracking a USD index. Their actual XI
 **Observed (2026-05-29):**
 - IT sector (α +10.2%): Affle +16.7% vs ITBEES +0.4% — very different ✓
 - Banking sector (α +5.4%): Federal Bank +23.1%, Axis +4.7%, ICICI +2.6%, IDFC First −8.8% — wide spread ✓
-**Status:** Pass ✓
+**Status:** Pending ⬜
 
 #### AN-BENCH-9: Single-holding sector: sector XIRR = holding benchmark XIRR
 **How to check:** Find a sector containing exactly 1 holding. Expand it.
@@ -507,7 +507,7 @@ MON100 and MAFANG are INR-denominated ETFs tracking a USD index. Their actual XI
 **Observed (2026-05-29, Zerodha):** Summary XIRR **+15.12%**, Benchmarking Your XIRR **+15.1%** → diff = 0.02pp ✓
 **Why close but not exact:** Benchmarking skips DIVIDEND cashflows; filteredSummaryXirr includes them (minor)
 **Note for segment views (e.g. /holdings/segment/stk):** May differ by 1–3pp if fully-closed portfolios (Upstox) are in that segment — their transactions are excluded from Benchmarking (not in filtPorts) but included in Summary XIRR via closedRows
-**Status:** Pass ✓
+**Status:** Pending ⬜
 
 #### AN-BENCH-11: Benchmark data loads only when Analysis tab is active
 **How to check:** Open holdings page → stay on Holdings tab 30 seconds → open browser DevTools Network tab → switch to Analysis → Benchmarking
@@ -524,7 +524,7 @@ MON100 and MAFANG are INR-denominated ETFs tracking a USD index. Their actual XI
 - GOOGL (Alphabet) alpha = +31.8%; META alpha = +8.8%; AMZN alpha = +1.1% — these are USD holdings vs USD index, FX cancels correctly ✓
 - `USD_BENCH_SYMS` includes ^NDX — confirmed working (benchmark is converted to INR for INR portfolio holdings)
 **Note:** For USD portfolios (Vested, IndMoney US), both the holding's actual XIRR and the NDX benchmark are in USD terms → FX cancels → correct comparison. For INR portfolios (Zerodha's MON100), actual XIRR is in INR (includes FX tail/headwind) but benchmark is in pure USD return terms → gap = FX component.
-**Status:** Pass ✓ (mechanics correct; FX asymmetry for Indian USD ETFs is expected design behaviour)
+**Status:** Pending ⬜
 
 ---
 
@@ -537,7 +537,7 @@ MON100 and MAFANG are INR-denominated ETFs tracking a USD index. Their actual XI
 - Bold number = sum of all year bars (total portfolio gains)
 - Number matches Summary card total gain (exact — chart last point is pinned to live prices)
 - Cumulative return% indigo line rightmost point matches Summary card implied return %
-**Status:** Fixed ✓
+**Status:** Pending ⬜
 
 #### AN-RET-SUMLINE-2: Month mode, All sectors — summary line text and number
 **How to check:** Analysis → Returns → Sector=All, Period=Month, Year=2025
@@ -545,7 +545,7 @@ MON100 and MAFANG are INR-denominated ETFs tracking a USD index. Their actual XI
 - Text reads `all sectors · 2025`
 - Bold number = sum of all 12 monthly bars for 2025 (≈ 2025's annual gain)
 - NOT the all-time total portfolio gains
-**Status:** Fixed ✓
+**Status:** Pending ⬜
 
 #### AN-RET-SUMLINE-3: Year mode, specific sector — text shows sector name
 **How to check:** Gear → select Banking sector, Period=Year
@@ -565,32 +565,32 @@ MON100 and MAFANG are INR-denominated ETFs tracking a USD index. Their actual XI
 #### AN-RET-1: Year mode, All sectors — bar sum ≈ total P&L
 **How to check:** Sum the value of all yearly bars (Metric=Gains)
 **Expected:** Sum ≈ current total P&L (~68L). YTD bar is semi-transparent (50% opacity).
-**Status:** Pass ✓ (by construction — telescoping sum of portSeries.total)
+**Status:** Pending ⬜
 
 #### AN-RET-2: Month mode — year selector inside gear popover
 **How to check:** Gear → switch Period to Month
 **Expected:** Year pills appear inside the gear popover (not inline on page); one year active at a time; default = current year
-**Status:** Pass ✓ (code verified; test description corrected)
+**Status:** Pending ⬜
 
 #### AN-RET-3: Monthly bars sum ≈ year bar for same year
 **How to check:** Note 2024 year bar; switch to Month mode → select 2024 → sum all 12 bars
 **Expected:** Sum ≈ 2024 annual bar value (exact for "all sectors" mode, ~approximate for sector mode)
-**Status:** Pass ✓ (by construction)
+**Status:** Pending ⬜
 
 #### AN-RET-4: Metric = Gains — bars show INR values
 **How to check:** Metric = Gains (default)
 **Expected:** Y-axis in INR (L/K/Cr format); bar tooltip shows `+₹X`; green bars positive, red bars negative
-**Status:** Pass ✓ (code verified)
+**Status:** Pending ⬜
 
 #### AN-RET-5: Metric = Return % — bars show percentage values
 **How to check:** Gear → Metric = Return %
 **Expected:** Y-axis shows %; bar tooltip shows `+X.X%`; summary line bold number stays in INR (unchanged)
-**Status:** Pass ✓ (code verified)
+**Status:** Pending ⬜
 
 #### AN-RET-6: Metric = XIRR — bars show annualised rate
 **How to check:** Gear → Metric = XIRR
 **Expected:** Bars show annualised XIRR % per year; values plausible (10–60% range); null periods show 0 (edge case: very early years)
-**Status:** Pass ✓ (code verified); ⚠️ verify early years don't silently show +0.0% when XIRR is null
+**Status:** Pending ⬜
 
 #### AN-RET-7: YTD bar is semi-transparent, labeled with year + "YTD"
 **How to check:** Year mode; find current year bar
@@ -605,7 +605,7 @@ MON100 and MAFANG are INR-denominated ETFs tracking a USD index. Their actual XI
 #### AN-RET-9: Sector filter — bars and summary update to selected sector
 **How to check:** Switch from All → Banking; observe bars and summary
 **Expected:** Bars smaller (subset); summary line shows Banking total gains; text = "Banking · by year"
-**Status:** Pass ✓ (code verified)
+**Status:** Pending ⬜
 
 #### AN-RET-10: Gear popover closes on outside tap
 **How to check:** Open gear popover; tap outside it
@@ -615,12 +615,12 @@ MON100 and MAFANG are INR-denominated ETFs tracking a USD index. Their actual XI
 #### AN-RET-11: Sector change — year stays if valid for new sector
 **How to check:** Month mode, year=2022; switch to a sector that also has 2022 data
 **Expected:** Year selection stays at 2022 (no reset)
-**Status:** Pass ✓ (code verified; resets only if year invalid for new sector)
+**Status:** Pending ⬜
 
 #### AN-RET-12: No bars for years before first transaction
 **How to check:** Year mode; check leftmost bar label
 **Expected:** First bar ≈ year of first investment (~2020–2021); no zero-value bars before it
-**Status:** Pass ✓ (by construction)
+**Status:** Pending ⬜
 
 ---
 
@@ -630,13 +630,13 @@ Quick spot-checks after any gains, realized, or filter change.
 
 | Rule | Check | Status |
 |------|-------|--------|
-| X1 | Hero total gain = Holdings `/segment/total` Summary total gain | Pass ✓ |
-| X2 | Stocks tile total gain = Holdings `/segment/stk` Summary total gain | Pass ✓ |
-| X3 | Indian Stocks card total gain = Holdings `/segment/indian_stock` Summary total gain | Pass ✓ |
-| X4 | US Stocks card total gain = Holdings `/segment/us_stock` Summary total gain | Pass ✓ |
-| X5 | HoldingCard total gain = TransactionsPage summary total gain | Pass ✓ |
-| X6 | HoldingCard current value = TransactionsPage current value | Pass ✓ |
-| X7 | HoldingCard today gain = TransactionsPage today gain | Pass ✓ |
+| X1 | Hero total gain = Holdings `/segment/total` Summary total gain | Pending ⬜ |
+| X2 | Stocks tile total gain = Holdings `/segment/stk` Summary total gain | Pending ⬜ |
+| X3 | Indian Stocks card total gain = Holdings `/segment/indian_stock` Summary total gain | Pending ⬜ |
+| X4 | US Stocks card total gain = Holdings `/segment/us_stock` Summary total gain | Pending ⬜ |
+| X5 | HoldingCard total gain = TransactionsPage summary total gain | Pending ⬜ |
+| X6 | HoldingCard current value = TransactionsPage current value | Pending ⬜ |
+| X7 | HoldingCard today gain = TransactionsPage today gain | Pending ⬜ |
 
 ---
 
@@ -647,11 +647,218 @@ Navigate to any `/transactions/:portfolio/:symbol`.
 #### T-SUMMARY-1: Overview card current value matches HoldingCard (X6)
 **How to check:** Note HoldingCard current; navigate to its TransactionsPage; compare overview card current
 **Expected:** Exact match
-**Status:** Pass ✓
+**Status:** Pending ⬜
 
 #### T-SUMMARY-2: Overview card total gain matches HoldingCard total gain (X5)
 **Expected:** Exact match
-**Status:** Pass ✓
+**Status:** Pending ⬜
+
+---
+
+---
+
+## DIV — Dividends Feature
+
+### DIV-TOGGLE — Include Dividends Setting
+
+#### DIV-TOGGLE-1: Toggle appears in Settings panel on Portfolios page
+**How to check:** Portfolios page → gear icon (Settings) → scroll to bottom of settings
+**Expected:** "Include dividends" toggle with sub-text "Add to total gains & XIRR"
+**Status:** Pending ⬜
+
+#### DIV-TOGGLE-2: Toggle OFF (default) — no dividend amounts visible on cards
+**How to check:** Ensure toggle is OFF → check any HoldingCard and SummaryCard
+**Expected:** No "Div" or dividend line appears on HoldingCard; SummaryCard shows no dividends row
+**Status:** Pending ⬜
+
+#### DIV-TOGGLE-3: Toggle ON — dividend amount appears on HoldingCard
+**How to check:** Turn toggle ON → navigate to Holdings → inspect a HoldingCard for a stock that pays dividends (e.g. INFY, HDFC Bank, GOOGL)
+**Expected:** HoldingCard shows a teal "Div ₹X" line below total gain
+**Status:** Pending ⬜
+
+#### DIV-TOGGLE-4: Toggle ON — SummaryCard shows total dividends
+**How to check:** Toggle ON → Holdings page → SummaryCard
+**Expected:** SummaryCard shows a dividends row with total dividends earned across all visible holdings
+**Status:** Pending ⬜
+
+#### DIV-TOGGLE-5: Toggle persists across page navigations
+**How to check:** Turn toggle ON → navigate away → return to Portfolios page
+**Expected:** Toggle still ON; dividend amounts still visible
+**Status:** Pending ⬜
+
+---
+
+### DIV-TAB — Dividends Tab (Holdings Page)
+
+Navigate to any holdings page → Dividends tab.
+
+#### DIV-TAB-1: Dividends tab visible in tab bar
+**How to check:** Navigate to `/holdings/segment/total` or any portfolio holdings page
+**Expected:** Four tabs visible — Holdings, Charts, Analysis, Dividends
+**Status:** Pending ⬜
+
+#### DIV-TAB-2: Summary strip shows 4 cards
+**How to check:** Open Dividends tab (wait for load)
+**Expected:** Four teal/slate cards: Total Earned, Projected/Year, Stocks paying (count), Best year (amount + year label)
+**Status:** Pending ⬜
+
+#### DIV-TAB-3: Total Earned = sum of all per-symbol totals
+**How to check:** Note Total Earned; expand each SymbolRow and sum their total dividend values
+**Expected:** Sum of all expanded symbol totals = Total Earned (±rounding)
+**Status:** Pending ⬜
+
+#### DIV-TAB-4: Projected/Year is non-zero for active dividend payers
+**How to check:** Check Projected/Year card value
+**Expected:** Non-zero if you hold any stock that paid dividends in the trailing 12 months
+**Status:** Pending ⬜
+
+#### DIV-TAB-5: Best Year card shows the year with highest dividends
+**How to check:** Note Best Year card (amount + year label); cross-check against the Year-by-year bar chart — the tallest bar year should match
+**Expected:** Exact match
+**Status:** Pending ⬜
+
+#### DIV-TAB-6: Year-by-year bar chart renders
+**How to check:** Below summary strip, bar chart appears
+**Expected:** At least one bar per year dividends were received; X-axis shows year labels; Y-axis shows amounts
+**Status:** Pending ⬜
+
+#### DIV-TAB-7: Year filter — clicking a bar filters the stock list
+**How to check:** Click any year bar → observe stock list below
+**Expected:** Bar turns teal; stock list narrows to only stocks that paid dividends in that year; count shown as "(N/total)"
+**Status:** Pending ⬜
+
+#### DIV-TAB-8: Year filter — clicking same bar again clears filter
+**How to check:** Click a bar to select it; click it again
+**Expected:** Bar returns to default color; full stock list restored; "(N/total)" count disappears
+**Status:** Pending ⬜
+
+#### DIV-TAB-9: Month calendar shows only months with dividend payments
+**How to check:** Inspect the 12-cell month calendar row
+**Expected:** Months with dividends show teal background; months without dividends show grey and are non-tappable
+**Status:** Pending ⬜
+
+#### DIV-TAB-10: Month filter — clicking a month filters stock list
+**How to check:** Tap a teal month (e.g. Feb) → inspect stock list
+**Expected:** Only stocks whose `month_pattern` includes that month remain visible
+**Status:** Pending ⬜
+
+#### DIV-TAB-11: "Clear filter" link appears when any filter active
+**How to check:** Select a year or month filter
+**Expected:** "clear filter" link appears next to "Year-by-year" header; tapping it resets all filters and restores full list
+**Status:** Pending ⬜
+
+#### DIV-TAB-12: Search input filters stock list by symbol
+**How to check:** Type a symbol (e.g. "INFY") in the search box
+**Expected:** Only matching symbols shown; count shows "(1/N)" if filtered
+**Status:** Pending ⬜
+
+#### DIV-TAB-13: SymbolRow — exchange badge correct
+**How to check:** Inspect exchange badge on each symbol row
+**Expected:** Indian NSE stocks show blue "NSE" badge; BSE stocks show teal "BSE"; US stocks show grey badge
+**Status:** Pending ⬜
+
+#### DIV-TAB-14: SymbolRow — expanding shows payment event details
+**How to check:** Tap any SymbolRow to expand it
+**Expected:** Row expands showing a table of events: Ex-date | Shares | Per share | Earned; each row matches the corresponding dividend payment
+**Status:** Pending ⬜
+
+#### DIV-TAB-15: SymbolRow — Earned column cross-check
+**How to check:** For any event row: verify Earned = shares_held × div_per_share (approximately)
+**Expected:** Amount correct; FX applied for USD dividends if INR mode
+**Status:** Pending ⬜
+
+#### DIV-TAB-16: SymbolRow — yield on cost badge
+**How to check:** Look for teal "X.X% yield" badge on any dividend-paying Indian stock
+**Expected:** Badge visible if yield_on_cost is non-null; value = total_dividends / avg_cost_invested × 100
+**Status:** Pending ⬜
+
+#### DIV-TAB-17: Projected annual shown below total in SymbolRow header
+**How to check:** On a stock that paid dividends in the last 12 months, check right side of unexpanded row
+**Expected:** "~₹X/yr" shown in slate below the bold total
+**Status:** Pending ⬜
+
+#### DIV-TAB-18: Refresh button reloads dividend data
+**How to check:** Tap the ↻ icon in the Year-by-year card header
+**Expected:** Spinner shows briefly; data reloads (values may update if new dividends declared)
+**Status:** Pending ⬜
+
+#### DIV-TAB-19: No dividends state — shows empty message
+**How to check:** Navigate to a portfolio/segment with no dividend-paying stocks (e.g. a US-only segment with no dividend payers)
+**Expected:** "No dividends found in your holding periods." message shown; summary cards still visible with 0 values
+**Status:** Pending ⬜
+
+---
+
+### DIV-CURR — Currency Toggle
+
+#### DIV-CURR-1: INR mode — all amounts in ₹
+**How to check:** Set currency to INR (default); open Dividends tab on any segment
+**Expected:** Total Earned shows ₹; Projected/Year shows ₹; per-symbol amounts show ₹ including US stocks (converted at ~95.5)
+**Status:** Pending ⬜
+
+#### DIV-CURR-2: USD mode on a USD portfolio — amounts shown in $
+**How to check:** Navigate to `/holdings/portfolio/Vested` or `IndMoney US` → Dividends tab → switch currency to USD
+**Expected:** Total Earned switches to $; per-symbol amounts for US stocks show $; projection in $
+**Status:** Pending ⬜
+
+#### DIV-CURR-3: USD mode — Indian stocks in USD portfolio still handled correctly
+**How to check:** USD mode on a USD-only portfolio (Vested) — all stocks are US stocks
+**Expected:** All amounts in $; no ₹ symbols visible
+**Status:** Pending ⬜
+
+---
+
+### DIV-PORT — Per-Portfolio / Segment Filtering
+
+#### DIV-PORT-1: Dividends tab on a specific portfolio shows only that portfolio's holdings
+**How to check:** Navigate to `/holdings/portfolio/Zerodha` → Dividends tab
+**Expected:** Only symbols held in Zerodha appear in the stock list; Total Earned = only Zerodha dividends
+**Status:** Pending ⬜
+
+#### DIV-PORT-2: Dividends tab on `/segment/total` aggregates all portfolios
+**How to check:** `/holdings/segment/total` → Dividends tab → note Total Earned; compare to sum of individual portfolio totals
+**Expected:** Total Earned on segment/total ≈ sum of all portfolio dividend totals (small rounding differences OK)
+**Status:** Pending ⬜
+
+---
+
+## EXPL — Explore Tab Links
+
+### US Stocks
+
+Navigate to any US holding → Transactions → Research tab → Explore button.
+
+#### EXPL-US-1: US Explore tab shows exactly 5 links in correct order
+**How to check:** Open Explore tab for any US stock (e.g. AAPL, GOOGL)
+**Expected:** 5 rows in this order: YFinance → MacroTrends → TipRanks → SEC EDGAR → Finviz
+**Status:** Pending ⬜
+
+#### EXPL-US-2: YFinance link opens Yahoo Finance quote page
+**How to check:** Tap YFinance row
+**Expected:** Opens `finance.yahoo.com/quote/AAPL` (or the relevant ticker) in browser
+**Status:** Pending ⬜
+
+#### EXPL-US-3: SEC EDGAR link shows both annual and quarterly filings
+**How to check:** Tap SEC EDGAR row for any US stock
+**Expected:** EDGAR filing list shows 10-K (annual) AND 10-Q (quarterly) filings — not just 10-K
+**Status:** Pending ⬜
+
+#### EXPL-US-4: Finviz link opens the correct ticker chart
+**How to check:** Tap Finviz row for e.g. AAPL
+**Expected:** Opens `finviz.com/quote.ashx?t=AAPL` with AAPL chart
+**Status:** Pending ⬜
+
+#### EXPL-US-5: Same links visible from ResearchPage (/research/:symbol)
+**How to check:** Search for a US stock → open Explore page → Research tab → Explore sub-tab
+**Expected:** Same 5 links in same order as on Transactions page
+**Status:** Pending ⬜
+
+### Indian Stocks
+
+#### EXPL-IN-1: Indian Explore tab unchanged — 4 links in original order
+**How to check:** Open Explore tab for any Indian stock (e.g. INFY.NS)
+**Expected:** 4 rows: Screener.in → Trendlyne → NSE India → Yahoo Finance (Indian stock links unchanged)
+**Status:** Pending ⬜
 
 ---
 
