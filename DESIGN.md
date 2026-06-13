@@ -395,6 +395,26 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 - Suggestions changed from `absolute top-full` dropdown to inline block within the scrollable container (`flex-1 overflow-y-auto`) — fixes suggestions being clipped behind keyboard and only 2 rows showing; now all results visible and scrollable
 - "Searching…" indicator also changed from absolute to inline (`mt-1` block), consistent with suggestions
 
+### 2026-06-13 (session 108)
+
+**Settings modal full redesign (PortfoliosPage gear icon)**
+- All rows follow one consistent pattern: left = label (`text-[12px] font-medium text-slate-700`) + subtitle (`text-[11px] text-slate-400`), right = action button / control
+- Modal header: `bg-gradient-to-r from-emerald-600 to-teal-500` strip with "Settings" title + × close button; matches page header style
+- Modal body: `bg-emerald-50` background; rows wrapped in `p-2 flex flex-col gap-1.5`
+- Each row: `bg-white border border-emerald-200 rounded-lg px-3 py-2.5` — visible card with green border outline
+- 5 rows: Portfolio file (download icon btn), Import CSV (upload icon btn + slim progress bar), Include dividends (teal toggle), Display currency (pill switcher), About (Updated on datetime)
+- Backdrop: `bg-black/40 z-[998]`; modal: `z-[999] w-72`; removed `overflow-hidden` (was clipping row borders at container corners)
+- Download button: `bg-slate-200 text-slate-600`; import button: `bg-emerald-200 text-emerald-700`
+- Currency toggle active pill: `bg-emerald-600 text-white` (was `bg-white text-emerald-700` — looked unselected); inactive: `text-emerald-500`
+
+**Currency toggle — consistency + persistence**
+- `App.tsx`: `currency` state initialises from `localStorage.getItem('currency')` → survives page reload; `handleCurrencyChange` writes to localStorage
+- `PortfoliosPage.tsx`: removed single global `scale = 1/usd_inr`; replaced with `usdScale(isUsd)` + `usdCur(isUsd)` helpers applied per-card
+- Hero card + Stocks/MF tiles: always `'INR'` — they aggregate mixed currencies so USD conversion is meaningless
+- Type breakdown cards: `us_stock`/`us_mf` → USD when toggled; `indian_stock`/`indian_mf` → always INR
+- Broker breakdown cards: `USD_PORTS` (Vested/IndMoney US/IndMoney Mummy) → USD when toggled; all other portfolios → always INR
+- `usePortfolioHistory.ts`: fixed today-pin bug — `h.disp_current` is always INR from backend; was overriding last chart point with raw INR value while rest of series was in USD → chart Y-axis spiked to ~3 Cr; fix: `const todayFx = currency === 'USD' ? 1 / usdInr : 1` applied to `disp_current` + `disp_invested` before pinning
+
 ### 2026-06-10 (session 99)
 
 **Settings popover redesign (PortfoliosPage gear icon)**
