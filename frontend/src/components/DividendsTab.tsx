@@ -6,8 +6,9 @@ import { useDividends, useForceRefreshDividends } from '../hooks/useDividends'
 import type { DividendSymbol } from '../api/dividends'
 import { fmtCompact, fmt } from '../utils/fmt'
 import type { Currency } from '../App'
+import { USD_PORTS } from '../utils/segments'
 
-interface Props { currency: Currency; filterSymbols?: Set<string>; portfolio?: string }
+interface Props { currency: Currency; filterSymbols?: Set<string>; portfolio?: string; usdInr?: number }
 
 const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -15,14 +16,19 @@ function YearChart({
   byYear,
   selectedYears,
   onToggleYear,
+  currency = 'INR',
+  fxMultiplier = 1,
 }: {
   byYear: Record<string, number>
   selectedYears: Set<string>
   onToggleYear: (year: string) => void
+  currency?: Currency
+  fxMultiplier?: number
 }) {
-  const data = Object.entries(byYear).sort().map(([year, amount]) => ({ year, amount }))
+  const data = Object.entries(byYear).sort().map(([year, amount]) => ({ year, amount: amount * fxMultiplier }))
   if (data.length === 0) return null
   const hasSel = selectedYears.size > 0
+  const sym = currency === 'USD' ? '$' : '₹'
   return (
     <ResponsiveContainer width="100%" height={120}>
       <BarChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barCategoryGap="30%">
@@ -30,7 +36,7 @@ function YearChart({
         <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
         <Tooltip
           contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #99f6e4', background: '#f0fdfa' }}
-          formatter={(v: number) => [`₹${v.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, 'Dividends']}
+          formatter={(v: number) => [`${sym}${v.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, 'Dividends']}
         />
         <Bar dataKey="amount" radius={[4, 4, 0, 0]} style={{ cursor: 'pointer' }}
           onClick={(d: { year: string }) => onToggleYear(d.year)}>
@@ -85,9 +91,12 @@ function MonthCalendar({
   )
 }
 
-function SymbolRow({ sym, currency }: { sym: DividendSymbol; currency: Currency }) {
+function SymbolRow({ sym, currency, usdInr }: { sym: DividendSymbol; currency: Currency; usdInr?: number }) {
   const [open, setOpen] = useState(false)
-  const fmtAmt = (v: number) => fmt(v, currency)
+  const isUsSym = sym.exchange !== 'NSE' && sym.exchange !== 'BSE'
+  const symCur: Currency = isUsSym && currency === 'USD' ? 'USD' : 'INR'
+  const symFx = symCur === 'USD' ? 1 / (usdInr ?? 95.5) : 1
+  const fmtAmt = (v: number) => fmt(v * symFx, symCur)
 
   return (
     <div className="border border-slate-100 rounded-xl overflow-hidden mb-2">
@@ -115,9 +124,9 @@ function SymbolRow({ sym, currency }: { sym: DividendSymbol; currency: Currency 
         </div>
 
         <div className="text-right shrink-0">
-          <p className="text-[13px] font-bold text-teal-600">{fmtCompact(sym.total_dividends, currency)}</p>
+          <p className="text-[13px] font-bold text-teal-600">{fmtCompact(sym.total_dividends * symFx, symCur)}</p>
           {sym.projected_annual > 0 && (
-            <p className="text-[10px] text-slate-400">~{fmtCompact(sym.projected_annual, currency)}/yr</p>
+            <p className="text-[10px] text-slate-400">~{fmtCompact(sym.projected_annual * symFx, symCur)}/yr</p>
           )}
         </div>
 
@@ -149,7 +158,7 @@ function SymbolRow({ sym, currency }: { sym: DividendSymbol; currency: Currency 
                 {ev.div_currency === 'USD' ? `$${ev.div_per_share.toFixed(2)}` : `₹${ev.div_per_share.toFixed(2)}`}
               </span>
               <span className="text-[10px] font-semibold text-teal-700 w-[60px] text-right tabular-nums">
-                {fmtCompact(ev.amount, currency)}
+                {fmtCompact(ev.amount * symFx, symCur)}
               </span>
             </div>
           ))}
@@ -159,7 +168,10 @@ function SymbolRow({ sym, currency }: { sym: DividendSymbol; currency: Currency 
   )
 }
 
-export function DividendsTab({ currency, filterSymbols, portfolio }: Props) {
+export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Props) {
+  const isUsdPort = portfolio ? USD_PORTS.has(portfolio) : false
+  const summaryCur: Currency = isUsdPort && currency === 'USD' ? 'USD' : 'INR'
+  const summaryFx = summaryCur === 'USD' ? 1 / (usdInr ?? 95.5) : 1
   const { data, isLoading, isError } = useDividends(portfolio)
   const forceRefresh = useForceRefreshDividends(portfolio)
 
@@ -250,14 +262,14 @@ export function DividendsTab({ currency, filterSymbols, portfolio }: Props) {
         <div className="bg-teal-50 border border-teal-100 rounded-xl p-3">
           <p className="text-[10px] text-teal-600 font-medium">Total Earned</p>
           <p className="text-[18px] font-bold text-teal-700 leading-tight">
-            {fmtCompact(activeSummary.total_dividends_inr, currency)}
+            {fmtCompact(activeSummary.total_dividends_inr * summaryFx, summaryCur)}
           </p>
           <p className="text-[10px] text-teal-500 mt-0.5">{activeSummary.dividend_count} payments</p>
         </div>
         <div className="bg-teal-50 border border-teal-100 rounded-xl p-3">
           <p className="text-[10px] text-teal-600 font-medium">Projected / Year</p>
           <p className="text-[18px] font-bold text-teal-700 leading-tight">
-            {fmtCompact(activeSummary.projected_annual_inr, currency)}
+            {fmtCompact(activeSummary.projected_annual_inr * summaryFx, summaryCur)}
           </p>
           <p className="text-[10px] text-teal-500 mt-0.5">~trailing 12m</p>
         </div>
@@ -270,7 +282,7 @@ export function DividendsTab({ currency, filterSymbols, portfolio }: Props) {
           <p className="text-[10px] text-slate-500 font-medium">Best year</p>
           {bestYear ? (
             <>
-              <p className="text-[18px] font-bold text-slate-700 leading-tight">{fmtCompact(bestYear[1], currency)}</p>
+              <p className="text-[18px] font-bold text-slate-700 leading-tight">{fmtCompact(bestYear[1] * summaryFx, summaryCur)}</p>
               <p className="text-[10px] text-slate-400 mt-0.5">{bestYear[0]}</p>
             </>
           ) : (
@@ -306,7 +318,7 @@ export function DividendsTab({ currency, filterSymbols, portfolio }: Props) {
                 </svg>
               </button>
             </div>
-            <YearChart byYear={activeByYear} selectedYears={selectedYears} onToggleYear={toggleYear} />
+            <YearChart byYear={activeByYear} selectedYears={selectedYears} onToggleYear={toggleYear} currency={summaryCur} fxMultiplier={summaryFx} />
             <p className="text-[10px] text-slate-300 text-center mt-1">Tap year or month to filter stocks below</p>
             <MonthCalendar bySymbol={activeSymbols} selectedMonths={selectedMonths} onToggleMonth={toggleMonth} />
           </div>
@@ -339,7 +351,7 @@ export function DividendsTab({ currency, filterSymbols, portfolio }: Props) {
             <p className="text-center text-[11px] text-slate-300 py-4">No stocks match this filter</p>
           ) : (
             visibleSymbols.map(sym => (
-              <SymbolRow key={sym.yf_symbol} sym={sym} currency={currency} />
+              <SymbolRow key={sym.yf_symbol} sym={sym} currency={currency} usdInr={usdInr} />
             ))
           )}
         </>

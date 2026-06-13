@@ -396,7 +396,7 @@ export default function HoldingsPage({ currency }: Props) {
       for (const tx of data.transactions.filter(t => t.symbol === row.navSym && row.portfolios.includes(t.portfolio))) {
         if (tx.type === 'DIVIDEND') continue
         const isUsd = USD_PORTS.has(tx.portfolio)
-        const fx = isUsd ? (currency === 'INR' ? data.usd_inr : 1) : (currency === 'USD' ? 1 / data.usd_inr : 1)
+        const fx = isUsd ? data.usd_inr : 1
         const amt = tx.quantity * tx.price * fx
         const chg = (tx.charges ?? 0) * fx
         if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
@@ -427,7 +427,7 @@ export default function HoldingsPage({ currency }: Props) {
       for (const tx of data.transactions.filter(t => t.symbol === row.navSym && row.portfolios.includes(t.portfolio))) {
         if (tx.type === 'DIVIDEND') continue
         const isUsd = USD_PORTS.has(tx.portfolio)
-        const fx = isUsd ? (currency === 'INR' ? data.usd_inr : 1) : (currency === 'USD' ? 1 / data.usd_inr : 1)
+        const fx = isUsd ? data.usd_inr : 1
         const amt = tx.quantity * tx.price * fx
         const chg = (tx.charges ?? 0) * fx
         if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
@@ -476,9 +476,7 @@ export default function HoldingsPage({ currency }: Props) {
       for (const tx of txns) {
         if (tx.type === 'DIVIDEND') continue
         const isUsd = USD_PORTS.has(tx.portfolio)
-        const fx = isUsd
-          ? (currency === 'INR' ? data.usd_inr : 1)
-          : (currency === 'USD' ? 1 / data.usd_inr : 1)
+        const fx = isUsd ? data.usd_inr : 1
         const amt = tx.quantity * tx.price * fx
         const chg = (tx.charges ?? 0) * fx
         if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
@@ -706,9 +704,7 @@ export default function HoldingsPage({ currency }: Props) {
       for (const tx of txns) {
         if (tx.type === 'DIVIDEND') continue
         const isUsd = USD_PORTS.has(tx.portfolio)
-        const fx    = isUsd
-          ? (currency === 'INR' ? data.usd_inr : 1)
-          : (currency === 'USD' ? 1 / data.usd_inr : 1)
+        const fx    = isUsd ? data.usd_inr : 1
         const amt = tx.quantity * tx.price * fx
         const chg = (tx.charges ?? 0) * fx
         if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
@@ -822,9 +818,7 @@ export default function HoldingsPage({ currency }: Props) {
       for (const tx of txns) {
         if (tx.type === 'DIVIDEND') continue
         const isUsd = USD_PORTS.has(tx.portfolio)
-        const fx = isUsd
-          ? (currency === 'INR' ? data.usd_inr : 1)
-          : (currency === 'USD' ? 1 / data.usd_inr : 1)
+        const fx = isUsd ? data.usd_inr : 1
         const amt = tx.quantity * tx.price * fx
         const chg = (tx.charges ?? 0) * fx
         if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
@@ -873,7 +867,7 @@ export default function HoldingsPage({ currency }: Props) {
         const deltas = qtyDelta.get(key) ?? new Map<string, number>()
         const first  = firstDateM.get(key) ?? allDates[0]
         const isUsd  = USD_PORTS.has(h.portfolio)
-        const fx     = isUsd ? (currency === 'INR' ? usdInr : 1) : (currency === 'USD' ? 1 / usdInr : 1)
+        const fx     = isUsd ? usdInr : 1
         let qty = 0, lastPx: number | null = null
         for (let i = 0; i < allDates.length; i++) {
           const d = allDates[i]
@@ -957,7 +951,7 @@ export default function HoldingsPage({ currency }: Props) {
         const d = tx.date.slice(0, 10)
         if (d <= afterDate || d > upToDate || tx.type === 'DIVIDEND') continue
         const isUsd = USD_PORTS.has(tx.portfolio)
-        const fx = isUsd ? (currency === 'INR' ? usdInrSnap : 1) : (currency === 'USD' ? 1 / usdInrSnap : 1)
+        const fx = isUsd ? usdInrSnap : 1
         const amt = tx.quantity * tx.price * fx
         const chg = (tx.charges ?? 0) * fx
         if (tx.type === 'BUY')  net += amt + chg
@@ -970,7 +964,7 @@ export default function HoldingsPage({ currency }: Props) {
       for (const tx of sectorTxns) {
         if (tx.date.slice(0, 10) > upTo || tx.type === 'DIVIDEND') continue
         const isUsd = USD_PORTS.has(tx.portfolio)
-        const fx    = isUsd ? (currency === 'INR' ? usdInrSnap : 1) : (currency === 'USD' ? 1 / usdInrSnap : 1)
+        const fx    = isUsd ? usdInrSnap : 1
         const amt   = tx.quantity * tx.price * fx
         const chg   = (tx.charges ?? 0) * fx
         if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
@@ -1168,24 +1162,31 @@ export default function HoldingsPage({ currency }: Props) {
         </div>
       </div>
 
-      {/* Summary card */}
+      {/* Summary card — USD portfolio-specific views convert to USD; aggregates stay INR */}
+      {(() => {
+        const isUsdPortView = portfolio ? USD_PORTS.has(portfolio) : false
+        const summCur: Currency = isUsdPortView && currency === 'USD' ? 'USD' : 'INR'
+        const summFx = summCur === 'USD' ? 1 / (data?.usd_inr ?? 95.5) : 1
+        return (
       <SummaryCard
         label={label}
-        current={displayStats.cur}
-        invested={displayStats.inv}
-        realGain={displayStats.realGain}
-        realCost={displayStats.realCost}
-        todayGain={displayStats.tg || null}
+        current={displayStats.cur * summFx}
+        invested={displayStats.inv * summFx}
+        realGain={displayStats.realGain * summFx}
+        realCost={displayStats.realCost * summFx}
+        todayGain={(displayStats.tg || null) !== null ? (displayStats.tg || 0) * summFx : null}
         todayPct={displayStats.todayPct}
         xirr={filteredSummaryXirr}
-        dividends={totalDivForView > 0 ? totalDivForView : undefined}
-        currency={currency}
+        dividends={totalDivForView > 0 ? totalDivForView * summFx : undefined}
+        currency={summCur}
         highlight={
           segment === 'total'
             ? { bg: 'linear-gradient(to right, #f0fdfa, #d1fae5 45%, #ecfdf5)', accent: '#0d9488' }
             : { bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)', accent: '#34d399' }
         }
       />
+        )
+      })()}
 
       {/* Tabs */}
       <div className="flex bg-slate-100 rounded-full p-0.5 gap-0.5 mb-2">
@@ -1374,27 +1375,34 @@ export default function HoldingsPage({ currency }: Props) {
       {activeTab === 'holdings' && (
         <div>
           <div className="space-y-2">
-            {visibleRows.map(r => (
+            {visibleRows.map(r => {
+              const usdInr   = data?.usd_inr ?? 95.5
+              const isUsdRow = r.portfolios.some(p => USD_PORTS.has(p))
+              const cardCur: Currency = isUsdRow && currency === 'USD' ? 'USD' : 'INR'
+              const cardFx   = cardCur === 'USD' ? 1 / usdInr : 1
+              const rawDiv   = divBySymbol.get(r.ticker) ?? 0
+              return (
               <HoldingCard
                 key={r.key}
                 ticker={r.ticker}
                 subLabel={r.subLabel}
-                current={r.current}
-                invested={r.invested}
-                realGain={r.realGain}
-                realCost={r.realCost}
-                todayGain={r.todayGain}
+                current={r.current * cardFx}
+                invested={r.invested * cardFx}
+                realGain={r.realGain * cardFx}
+                realCost={r.realCost * cardFx}
+                todayGain={r.todayGain !== null ? r.todayGain * cardFx : null}
                 todayPct={r.todayPct}
                 ltp={r.ltp}
                 xirr={xirrMap.get(r.key) ?? null}
-                dividends={divBySymbol.get(r.ticker) || undefined}
-                currency={currency}
+                dividends={rawDiv > 0 ? rawDiv * cardFx : undefined}
+                currency={cardCur}
                 onClick={() => {
                   sessionStorage.setItem(`holdingsScroll:${location.pathname}`, String(window.scrollY))
                   navigate(`/transactions/${encodeURIComponent(r.navPort)}/${encodeURIComponent(r.navSym)}`, { state: { from: label, portfolios: r.portfolios } })
                 }}
               />
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
@@ -2210,7 +2218,7 @@ export default function HoldingsPage({ currency }: Props) {
 
       {/* ── Dividends tab ── */}
       {activeTab === 'dividends' && (
-        <DividendsTab key={`${portfolio ?? ''}:${segment ?? ''}`} currency={currency} portfolio={portfolio} filterSymbols={filteredDivSymbols} />
+        <DividendsTab key={`${portfolio ?? ''}:${segment ?? ''}`} currency={currency} portfolio={portfolio} filterSymbols={filteredDivSymbols} usdInr={data?.usd_inr ?? 95.5} />
       )}
       </div>
 

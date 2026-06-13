@@ -9,7 +9,9 @@ function getCsvContent(): string | undefined {
 
 const REFRESH_MS = 30 * 60 * 1000
 
-export function usePortfolio(currency: 'INR' | 'USD' = 'INR') {
+// Always fetch in INR — per-portfolio USD conversion is done on the frontend.
+// The currency param is kept for call-site compatibility but ignored internally.
+export function usePortfolio(_currency: 'INR' | 'USD' = 'INR') {
   const qc = useQueryClient()
 
   // Mobile browsers suspend JS timers when screen locks or app backgrounds.
@@ -17,19 +19,19 @@ export function usePortfolio(currency: 'INR' | 'USD' = 'INR') {
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState !== 'visible') return
-      const state = qc.getQueryState(['portfolio', currency])
+      const state = qc.getQueryState(['portfolio'])
       const lastFetch = state?.dataUpdatedAt ?? 0
       if (Date.now() - lastFetch >= REFRESH_MS) {
-        qc.invalidateQueries({ queryKey: ['portfolio', currency] })
+        qc.refetchQueries({ queryKey: ['portfolio'], type: 'active' })
       }
     }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [qc, currency])
+  }, [qc])
 
   return useQuery({
-    queryKey: ['portfolio', currency],
-    queryFn: () => fetchPortfolio(currency, false, getCsvContent()),
+    queryKey: ['portfolio'],
+    queryFn: () => fetchPortfolio('INR', false, getCsvContent()),
     staleTime:                   REFRESH_MS,
     gcTime:                      Infinity,
     refetchInterval:             REFRESH_MS,     // fires when tab is active (desktop/foreground)
@@ -40,12 +42,12 @@ export function usePortfolio(currency: 'INR' | 'USD' = 'INR') {
   })
 }
 
-export function useForceRefresh(currency: 'INR' | 'USD') {
+export function useForceRefresh(_currency: 'INR' | 'USD') {
   const qc = useQueryClient()
   return () =>
     qc.fetchQuery({
-      queryKey: ['portfolio', currency],
-      queryFn: () => fetchPortfolio(currency, true, getCsvContent()),
+      queryKey: ['portfolio'],
+      queryFn: () => fetchPortfolio('INR', true, getCsvContent()),
       staleTime: 0,
     })
 }

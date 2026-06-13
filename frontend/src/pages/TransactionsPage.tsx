@@ -204,7 +204,7 @@ export default function TransactionsPage({ currency }: Props) {
     const cfs: { date: Date; amount: number }[] = []
     for (const tx of symTxns) {
       const isUsd = USD_PORTS.has(tx.portfolio)
-      const fx = isUsd ? (currency === 'INR' ? data.usd_inr : 1) : (currency === 'USD' ? 1 / data.usd_inr : 1)
+      const fx = isUsd ? data.usd_inr : 1
       const amt = tx.quantity * tx.price * fx
       const chg = (tx.charges ?? 0) * fx
       if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
@@ -213,12 +213,12 @@ export default function TransactionsPage({ currency }: Props) {
     if (aggCurrent > 0) cfs.push({ date: today, amount: aggCurrent })
     const r = computeXIRR(cfs)
     return r !== null ? r * 100 : null
-  }, [symTxns, holdingList, data, currency])
+  }, [symTxns, holdingList, data])
 
   const txGains = useMemo(() => {
     if (!data) return []
     const isUsdPort = USD_PORTS.has(decoded.portfolio)
-    const fx = isUsdPort ? data.usd_inr : 1
+    const fx = isUsdPort ? (currency === 'USD' ? 1 : data.usd_inr) : 1
 
     // Aggregate realized entries by sell_date (for SELL tx rows) and buy_date (for BUY tx rows)
     const sellMap = new Map<string, { gain: number; cost: number }>()
@@ -273,7 +273,7 @@ export default function TransactionsPage({ currency }: Props) {
         unrealGain, unrealPct, unrealQty: qtyRemaining, currentValue,
       }
     })
-  }, [symTxns, symRealized, holding, data, decoded.portfolio])
+  }, [symTxns, symRealized, holding, data, decoded.portfolio, currency])
 
   const { series: portSeries, isLoading: histLoading, loadedCount: txLoaded, totalCount: txTotal, fetchingCount: txFetching } = usePortfolioHistory(
     holdingArrForCharts,
@@ -312,22 +312,29 @@ export default function TransactionsPage({ currency }: Props) {
   if (isLoading) return <LoadingSkeleton />
   if (error || !data) return <ErrorState message={(error as Error)?.message ?? 'Unknown error'} />
 
-  const dispCur = currency
-  // Aggregate realized across all portfolios in view
-  const [realGain, realCost] = portfolioFilter.reduce<[number, number]>(
+  // USD portfolios (Vested/IndMoney US/IndMoney Mummy) show in USD when toggle is USD;
+  // all Indian portfolios always display in INR regardless of the toggle.
+  const isUsdHolding = USD_PORTS.has(decoded.portfolio)
+  const dispCur: Currency = isUsdHolding ? currency : 'INR'
+  const holdFx = isUsdHolding && currency === 'USD' ? 1 / (data?.usd_inr ?? 95.5) : 1
+
+  // Aggregate realized across all portfolios in view (always in INR from aggRealized)
+  const [realGainINR, realCostINR] = portfolioFilter.reduce<[number, number]>(
     ([g, c], p) => {
       const [rg, rc] = realizedMap.get(`${p}:${decoded.symbol}`) ?? [0, 0]
       return [g + rg, c + rc]
     },
     [0, 0],
   )
+  const realGain = realGainINR * holdFx
+  const realCost = realCostINR * holdFx
   const realColor = realGain >= 0 ? '#0a7a42' : '#be1c1c'
   const fromLabel = (location.state as { from?: string } | null)?.from ?? decoded.portfolio
   const backLabel = `← ${fromLabel} Holdings`
 
   // Symbol overview card values — aggregated across all portfolios in view
-  const cur     = holdingList.reduce((s, h) => s + h.disp_current, 0)
-  const inv     = holdingList.reduce((s, h) => s + h.disp_invested, 0)
+  const cur     = holdingList.reduce((s, h) => s + h.disp_current,  0) * holdFx
+  const inv     = holdingList.reduce((s, h) => s + h.disp_invested, 0) * holdFx
   const gain    = cur - inv
   const pct     = inv !== 0 ? (gain / inv) * 100 : 0
   const gainPos = (gain + realGain) >= 0
@@ -336,7 +343,7 @@ export default function TransactionsPage({ currency }: Props) {
   const tc      = gainPos ? '#0a7a42' : '#be1c1c'
 
   const tgRaw = holdingList.some(h => h.disp_today_gain !== null)
-    ? holdingList.reduce((s, h) => s + (h.disp_today_gain ?? 0), 0)
+    ? holdingList.reduce((s, h) => s + (h.disp_today_gain ?? 0), 0) * holdFx
     : null
   const tg    = tgRaw
   const prior = cur - (tgRaw ?? 0)

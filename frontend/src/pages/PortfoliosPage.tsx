@@ -145,7 +145,7 @@ function typeCards(holdings: Holding[], rmap: RealizedMap): CardStats[] {
 
 function isPos(v: number) { return v >= 0 }
 
-function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor, cardBg, pillBlue = false }: { card: CardStats; currency: Currency; xirr: number | null; onClick: () => void; compact?: boolean; accentColor?: string; cardBg?: string; pillBlue?: boolean }) {
+function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor, cardBg, pillBlue = false, scale = 1 }: { card: CardStats; currency: Currency; xirr: number | null; onClick: () => void; compact?: boolean; accentColor?: string; cardBg?: string; pillBlue?: boolean; scale?: number }) {
   const totalGain = (card.current - card.invested) + card.realGain
   const totalCost = card.invested + card.realCost
   const pct = totalCost !== 0 ? (totalGain / totalCost) * 100 : 0
@@ -171,23 +171,23 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
     >
       <p className={`${lblSize} font-bold text-slate-700 uppercase tracking-widest mb-1`}>{card.label}</p>
       <div className="flex items-baseline justify-between">
-        <span className={`${valSize} font-bold text-slate-900 min-w-0`}>{fmt(card.current, currency)}</span>
+        <span className={`${valSize} font-bold text-slate-900 min-w-0`}>{fmt(card.current * scale, currency)}</span>
         <span className={`flex items-center ${gap} shrink-0 whitespace-nowrap`}>
           <span className={`${lblSize} text-slate-400`}>Today</span>
           <span className={gainSize} style={{ color: card.todayGain !== null ? (card.todayGain >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8' }}>
-            {card.todayGain !== null ? fmtCompactGainLine(card.todayGain, todayPct, currency) : '—'}
+            {card.todayGain !== null ? fmtCompactGainLine(card.todayGain * scale, todayPct, currency) : '—'}
           </span>
         </span>
       </div>
       <div className="flex items-center justify-between mt-0.5">
         {xirr !== null
           ? <span className={`${lblSize} font-semibold rounded-full px-1.5 py-0.5 shrink-0`} style={{ background: xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
-          : <span className={`${lblSize} text-slate-400`}>{fmtCompact(card.invested, currency)} inv</span>
+          : <span className={`${lblSize} text-slate-400`}>{fmtCompact(card.invested * scale, currency)} inv</span>
         }
         <span className={`flex items-center ${gap} shrink-0 whitespace-nowrap`}>
           <span className={`${lblSize} text-slate-400`}>Total</span>
           <span className={gainSize} style={{ color: pos ? '#0a7a42' : '#be1c1c' }}>
-            {fmtCompactGainLine(totalGain, pct, currency)}
+            {fmtCompactGainLine(totalGain * scale, pct, currency)}
           </span>
         </span>
       </div>
@@ -501,6 +501,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   if (error || !data) return <ErrorState message={(error as Error)?.message ?? 'Unknown error'} />
 
   const heroPos = isPos(hero.totalGain)
+  const scale = currency === 'USD' ? 1 / data.usd_inr : 1
 
   return (
     <div
@@ -685,11 +686,11 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       >
         <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Total Portfolio</p>
         <div className="flex items-baseline justify-between">
-          <span className="text-[24px] font-bold text-slate-800 min-w-0">{fmt(hero.cur, currency)}</span>
+          <span className="text-[24px] font-bold text-slate-800 min-w-0">{fmt(hero.cur * scale, currency)}</span>
           <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
             <span className="text-[9px] text-slate-400">Today</span>
             <span className="text-[10px]" style={{ color: hero.todayGain >= 0 ? '#0d9488' : '#dc2626' }}>
-              {hero.todayGain !== 0 ? fmtCompactGainLine(hero.todayGain, hero.todayPct, currency) : '—'}
+              {hero.todayGain !== 0 ? fmtCompactGainLine(hero.todayGain * scale, hero.todayPct, currency) : '—'}
             </span>
           </span>
         </div>
@@ -703,7 +704,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
             <span className="text-[9px] text-slate-400">Total</span>
             <span className="text-[10px]" style={{ color: heroPos ? '#0d9488' : '#dc2626' }}>
-              {fmtCompactGainLine(hero.totalGain, hero.returnPct, currency)}
+              {fmtCompactGainLine(hero.totalGain * scale, hero.returnPct, currency)}
             </span>
           </span>
         </div>
@@ -732,11 +733,11 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
             >
               <p className="text-[9px] font-bold text-slate-700 uppercase tracking-widest mb-1">{label}</p>
               <div className="flex items-baseline justify-between">
-                <span className="text-[13px] font-bold text-slate-900 min-w-0">{fmt(stats.cur, currency)}</span>
+                <span className="text-[13px] font-bold text-slate-900 min-w-0">{fmt(stats.cur * scale, currency)}</span>
                 <span className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
                   <span className="text-[8px] text-slate-400">Today</span>
                   <span className="text-[9px]" style={{ color: tgC }}>
-                    {stats.todayGain !== 0 ? fmtCompactGainLine(stats.todayGain, stats.todayPct, currency) : '—'}
+                    {stats.todayGain !== 0 ? fmtCompactGainLine(stats.todayGain * scale, stats.todayPct, currency) : '—'}
                   </span>
                 </span>
               </div>
@@ -748,7 +749,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 <span className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
                   <span className="text-[8px] text-slate-400">Total</span>
                   <span className="text-[9px]" style={{ color: tc }}>
-                    {fmtCompactGainLine(stats.gain, stats.pct, currency)}
+                    {fmtCompactGainLine(stats.gain * scale, stats.pct, currency)}
                   </span>
                 </span>
               </div>
@@ -791,7 +792,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {gc.map(card => (
-                    <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={TYPE_CARD_STYLE[card.key]?.accent} cardBg={TYPE_CARD_STYLE[card.key]?.bg} pillBlue={card.key === 'indian_mf' || card.key === 'us_mf'} />
+                    <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={TYPE_CARD_STYLE[card.key]?.accent} cardBg={TYPE_CARD_STYLE[card.key]?.bg} pillBlue={card.key === 'indian_mf' || card.key === 'us_mf'} scale={scale} />
                   ))}
                 </div>
               </div>
@@ -811,7 +812,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {gc.map(card => (
-                    <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={PORTFOLIO_CARD_STYLE[card.key]?.accent} cardBg={PORTFOLIO_CARD_STYLE[card.key]?.bg} pillBlue={card.key.startsWith('MF_')} />
+                    <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={PORTFOLIO_CARD_STYLE[card.key]?.accent} cardBg={PORTFOLIO_CARD_STYLE[card.key]?.bg} pillBlue={card.key.startsWith('MF_')} scale={scale} />
                   ))}
                 </div>
               </div>
