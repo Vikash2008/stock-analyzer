@@ -395,6 +395,28 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 - Suggestions changed from `absolute top-full` dropdown to inline block within the scrollable container (`flex-1 overflow-y-auto`) — fixes suggestions being clipped behind keyboard and only 2 rows showing; now all results visible and scrollable
 - "Searching…" indicator also changed from absolute to inline (`mt-1` block), consistent with suggestions
 
+### 2026-06-14 (session 112)
+
+**Closed position LTP — null initial, history patch**
+- `HoldingsPage.tsx` `closedRows`: initial `ltp` always `null` (was `priceMap.get(sym) ?? null` from backend holdings, which could return stale/sell-date price); `closedRowsWithLtp` useMemo already patches from `symbolPriceMap` history — that patch is now the sole LTP source
+- `TransactionsPage.tsx`: removed `lastSellPrice` fallback from `ltp` computation entirely; `ltp` now `anyHolding?.current_price?.toFixed(2)` OR history last-price from `txPriceMap` (destructured from `usePortfolioHistory`); `usePortfolioHistory` `enabled` changed from `chartMetric !== 'Price' && !!data` → `!!data` so history always loads regardless of chart tab (needed for LTP even on Price tab)
+- Dead code removed: `priceMap` + `lastSellMap` inside `closedRows` useMemo (HoldingsPage)
+
+**HoldingsPage scroll restore on back navigation**
+- Scrollable container is `<div className="flex-1 overflow-y-auto">` — not `window`; `window.scrollY` was always 0; `window.scrollTo` had no effect
+- Fix: `scrollRef = useRef<HTMLDivElement>()` attached to the scrollable div; all 5 save sites use `scrollRef.current?.scrollTop ?? 0`; restore sets `scrollRef.current.scrollTop = y`
+- Restore effect fires on `sortedRows.length > 0` (not `data`) so it waits until closed cards are actually in the DOM; double `requestAnimationFrame` ensures browser has painted before setting scrollTop; effect placed after `sortedRows` useMemo (avoids temporal dead zone)
+
+**Price chart cache alignment**
+- `PriceChart.tsx` `start` changed `'2000-01-01'` → `'2015-01-01'`; makes `lsKey = ${yf_symbol}:2015-01-01` match what `usePrefetchHoldingCharts` writes → `placeholderData` hits localStorage cache → chart renders instantly
+- `useHistory.ts` daily `queryKey` changed from `['history',yf_symbol,start]` → `['history',yf_symbol]` to share React Query in-memory cache with `usePortfolioHistory` (same key); intraday keeps `['history',yf_symbol,'1d']`
+- Trade-off: "All" range starts from 2015 (not 2000); pre-2015 history lost
+
+**SEC EDGAR link fix (both pages)**
+- Changed from `CIK=${sym}&type=10-` (direct ticker lookup, fails for new/foreign listings) → `company=${sym}&CIK=&type=` (name/ticker search, no filing-type filter)
+- Fixes "No matching Ticker Symbol" for foreign private issuers (20-F filers) and recently listed tickers; tooltip desc updated to "10-K / 20-F & earnings filings"
+- Applies to both `ResearchPage.tsx` and `TransactionsPage.tsx`
+
 ### 2026-06-13 (session 108)
 
 **Settings modal full redesign (PortfoliosPage gear icon)**
