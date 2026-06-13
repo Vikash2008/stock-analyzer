@@ -287,7 +287,7 @@ export default function ResearchPage() {
           const cleanSym = yf_symbol.replace(/\.(NS|BO)$/i, '')
           const links: { name: string; desc: string; url: string; color: string }[] = isIndian ? [
             { name: 'Screener.in',   desc: 'Fundamentals, financials & ratios',     url: `https://www.screener.in/company/${cleanSym}/`,                                                                          color: '#0d9488' },
-            { name: 'Trendlyne',     desc: 'Technicals, forecasts & DII/FII data',  url: `https://trendlyne.com/equity/${cleanSym.toUpperCase()}/`,                                                               color: '#7c3aed' },
+            { name: 'Trendlyne',     desc: 'Technicals, forecasts & DII/FII data',  url: `https://trendlyne.com/equity/${cleanSym.toUpperCase()}/NSENB/`,                                                               color: '#7c3aed' },
             { name: 'NSE India',     desc: 'Exchange quotes, filings & F&O',        url: `https://www.nseindia.com/get-quotes/equity?symbol=${cleanSym}`,                                                        color: '#1d4ed8' },
             { name: 'Yahoo Finance', desc: 'Price, news & analyst consensus',       url: `https://finance.yahoo.com/quote/${yf_symbol}`,                                                                         color: '#2563eb' },
           ] : [

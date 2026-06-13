@@ -236,14 +236,20 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
     return entries.reduce((best, curr) => curr[1] > best[1] ? curr : best)
   }, [activeByYear])
 
+  const hasDivs = activeSummary.total_dividends_inr > 0
+  const hasFilter = selectedYears.size > 0 || selectedMonths.size > 0
+
   // Year/month/search filter for the stock list
   const visibleSymbols = useMemo(() => {
     let syms = activeSymbols
-    if (selectedYears.size > 0) {
-      syms = syms.filter(s => s.events.some(ev => selectedYears.has(ev.ex_date.slice(0, 4))))
-    }
-    if (selectedMonths.size > 0) {
-      syms = syms.filter(s => s.month_pattern.some(m => selectedMonths.has(m)))
+    if (selectedYears.size > 0 || selectedMonths.size > 0) {
+      syms = syms.filter(s => s.events.some(ev => {
+        const yr = ev.ex_date.slice(0, 4)
+        const mo = parseInt(ev.ex_date.slice(5, 7), 10)
+        const yearOk = selectedYears.size === 0 || selectedYears.has(yr)
+        const monthOk = selectedMonths.size === 0 || selectedMonths.has(mo)
+        return yearOk && monthOk
+      }))
     }
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase()
@@ -252,8 +258,21 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
     return syms
   }, [activeSymbols, selectedYears, selectedMonths, searchQuery])
 
-  const hasDivs = activeSummary.total_dividends_inr > 0
-  const hasFilter = selectedYears.size > 0 || selectedMonths.size > 0
+  // Total dividends for the selected year/month window (shown on chart)
+  const periodTotal = useMemo(() => {
+    if (!hasFilter) return null
+    let total = 0
+    activeSymbols.forEach(s => {
+      s.events.forEach(ev => {
+        const yr = ev.ex_date.slice(0, 4)
+        const mo = parseInt(ev.ex_date.slice(5, 7), 10)
+        const yearOk = selectedYears.size === 0 || selectedYears.has(yr)
+        const monthOk = selectedMonths.size === 0 || selectedMonths.has(mo)
+        if (yearOk && monthOk) total += ev.amount
+      })
+    })
+    return total
+  }, [activeSymbols, selectedYears, selectedMonths, hasFilter])
 
   return (
     <div className="pt-2">
@@ -301,14 +320,19 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
           {/* Year chart + month calendar */}
           <div className="bg-white border border-slate-100 rounded-xl p-3 mb-3">
             <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Year-by-year</p>
+                {hasFilter && periodTotal !== null && (
+                  <span className="text-[10px] font-semibold bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full">
+                    {fmtCompact(periodTotal * summaryFx, summaryCur)} selected
+                  </span>
+                )}
                 {hasFilter && (
                   <button
                     onClick={() => { setSelectedYears(new Set()); setSelectedMonths(new Set()) }}
                     className="text-[9px] text-teal-500 underline"
                   >
-                    clear filter
+                    clear
                   </button>
                 )}
               </div>

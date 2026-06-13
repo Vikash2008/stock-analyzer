@@ -541,7 +541,7 @@ def _fetch(yf_symbol: str) -> dict:
         "recommendation":       rec_label,
         "num_analyst_opinions": info.get("numberOfAnalystOpinions"),
         "upside_pct":           upside,
-        "debt_to_equity":       _clean(info.get("debtToEquity")),
+        "debt_to_equity":       round(_clean(info.get("debtToEquity")) / 100, 4) if _clean(info.get("debtToEquity")) is not None else None,
         "return_on_equity":     _clean(info.get("returnOnEquity")),
         "return_on_assets":     _clean(info.get("returnOnAssets")),
         "roce":                 None if is_indian else _compute_roce(ticker),

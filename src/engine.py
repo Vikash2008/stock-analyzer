@@ -23,7 +23,7 @@ import pandas as pd
 
 from src.cache import Cache
 
-_DATA_FILE  = Path("data/msp_v2.csv")
+_DATA_FILE  = Path("data/demo_msp_v2.csv")
 _USD_PORTS  = {"Vested", "IndMoney US", "IndMoney Mummy"}
 _SKIP_PORTS = {"Equity", "MF_Portfolio"}   # aggregate duplicates — excluded from totals
 
