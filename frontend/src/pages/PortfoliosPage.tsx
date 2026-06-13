@@ -475,7 +475,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         }
         // Terminal value: open positions only
         const hs = active.filter(h => getSegmentType(h.portfolio, h.yf_symbol) === card.key)
-        const totalCurrent = hs.reduce((s, h) => s + h.disp_current, 0)
+        const totalCurrent = hs.reduce((s, h) => s + (currency === 'USD' ? h.disp_current / data.usd_inr : h.disp_current), 0)
         if (totalCurrent > 0) cfs.push({ date: today, amount: totalCurrent })
         const r = computeXIRR(cfs)
         map.set(card.key, r !== null ? r * 100 : null)
@@ -501,7 +501,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   if (error || !data) return <ErrorState message={(error as Error)?.message ?? 'Unknown error'} />
 
   const heroPos = isPos(hero.totalGain)
-  const scale = currency === 'USD' ? 1 / data.usd_inr : 1
+  const usdScale = (isUsd: boolean) => isUsd && currency === 'USD' ? 1 / data.usd_inr : 1
+  const usdCur   = (isUsd: boolean): Currency => isUsd && currency === 'USD' ? 'USD' : 'INR'
 
   return (
     <div
@@ -548,30 +549,30 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
             {/* Settings popover — anchored below gear icon */}
             {settingsOpen && (
               <>
-                <div className="fixed inset-0 z-[9]" onClick={() => { if (importProgress === null) setSettingsOpen(false) }} />
-                <div className="absolute top-full right-0 z-10 mt-1 w-60 rounded-2xl bg-white shadow-xl border border-slate-100 overflow-hidden">
+                <div className="fixed inset-0 z-[998] bg-black/40" onClick={() => { if (importProgress === null) setSettingsOpen(false) }} />
+                <div className="absolute top-full right-0 z-[999] mt-1 w-72 rounded-2xl shadow-xl overflow-hidden border border-emerald-100">
 
-                  {/* Current file card */}
-                  <div className="px-3 pt-3 pb-2.5">
-                    <div className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5">
-                      {/* File type badge */}
-                      <div className="shrink-0 w-9 h-9 bg-emerald-600 rounded-lg flex items-center justify-center">
-                        <span className="text-[9px] font-extrabold text-white tracking-wide">CSV</span>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[12px] font-semibold text-slate-700 truncate leading-tight">
-                          {csvMeta ? csvMeta.name : 'Demo Data'}
-                        </p>
-                        <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">
-                          {csvMeta
-                            ? `${fmtBytes(csvMeta.size)} · ${fmtImportDate(csvMeta.importedAt)}`
-                            : 'Sample portfolio'}
+                  {/* Modal header */}
+                  <div className="bg-gradient-to-r from-emerald-600 to-teal-500 px-4 py-2.5 flex items-center justify-between">
+                    <p className="text-[13px] font-semibold text-white tracking-tight">Settings</p>
+                    <button onClick={() => setSettingsOpen(false)} className="text-emerald-200 active:text-white text-lg leading-none">×</button>
+                  </div>
+
+                  {/* Rows */}
+                  <div className="bg-emerald-50 p-2 flex flex-col gap-1.5">
+
+                    {/* Portfolio file row */}
+                    <div className="px-3 py-2.5 flex items-center justify-between gap-3 bg-white border border-emerald-200 rounded-lg">
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-medium text-slate-700 leading-tight">Portfolio file</p>
+                        <p className="text-[11px] text-slate-400 leading-tight mt-0.5 truncate">
+                          {csvMeta ? `${csvMeta.name} · ${fmtBytes(csvMeta.size)}` : 'Demo Data · Sample portfolio'}
                         </p>
                       </div>
                       <button
                         onClick={handleDownload}
                         title={`Download ${csvMeta ? 'CSV' : 'Demo CSV'}`}
-                        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-emerald-200 text-emerald-600 active:bg-emerald-100"
+                        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-slate-200 text-slate-600 active:bg-slate-300"
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
@@ -580,12 +581,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                         </svg>
                       </button>
                     </div>
-                  </div>
 
-                  <div className="border-t border-slate-100 mx-3" />
-
-                  {/* Import */}
-                  <div className="px-3 py-2.5">
+                    {/* Import CSV row */}
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -593,84 +590,90 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                       className="hidden"
                       onChange={e => { const f = e.target.files?.[0]; if (f) handleImport(f); e.target.value = '' }}
                     />
-                    {importProgress === null ? (
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full py-2 rounded-xl bg-emerald-600 text-white text-[12px] font-semibold flex items-center justify-center gap-2 active:bg-emerald-700"
-                      >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                          <polyline points="17 8 12 3 7 8"/>
-                          <line x1="12" y1="3" x2="12" y2="15"/>
-                        </svg>
-                        Import CSV
-                      </button>
-                    ) : (
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <p className="text-[12px] text-slate-600">{importDone ? '✓ Updated' : 'Importing…'}</p>
-                          <p className="text-[12px] font-medium text-emerald-600">{importProgress}%</p>
+                    <div className="px-3 py-2.5 bg-white border border-emerald-200 rounded-lg">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[12px] font-medium text-slate-700 leading-tight">Import CSV</p>
+                          <p className="text-[11px] text-slate-400 leading-tight mt-0.5">
+                            {importProgress !== null
+                              ? (importDone ? '✓ Updated' : `Importing… ${importProgress}%`)
+                              : 'Replace portfolio data'}
+                          </p>
                         </div>
-                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={importProgress !== null}
+                          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-emerald-200 text-emerald-700 active:bg-emerald-300 disabled:opacity-40"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                          </svg>
+                        </button>
+                      </div>
+                      {importProgress !== null && (
+                        <div className="mt-2 h-1 bg-emerald-100 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-emerald-500 rounded-full transition-all duration-200"
                             style={{ width: `${importProgress}%` }}
                           />
                         </div>
+                      )}
+                    </div>
+
+                    {/* Dividends toggle */}
+                    <div className="px-3 py-2.5 flex items-center justify-between gap-2 bg-white border border-emerald-200 rounded-lg">
+                      <div>
+                        <p className="text-[12px] font-medium text-slate-700 leading-tight">Include dividends</p>
+                        <p className="text-[11px] text-slate-400 leading-tight mt-0.5">Add to total gains &amp; XIRR</p>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Dividends toggle */}
-                  <div className="border-t border-slate-100 mx-3" />
-                  <div className="px-3 py-2.5 flex items-center justify-between gap-2">
-                    <div>
-                      <p className="text-[12px] font-medium text-slate-600 leading-tight">Include dividends</p>
-                      <p className="text-[11px] text-slate-400 leading-tight mt-0.5">Add to total gains &amp; XIRR</p>
-                    </div>
-                    <button
-                      role="switch"
-                      aria-checked={includeDivs}
-                      onClick={() => {
-                        const next = !includeDivs
-                        setIncludeDivs(next)
-                        setIncludeDividends(next)
-                        window.dispatchEvent(new Event('dividends-toggle'))
-                      }}
-                      className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 focus:outline-none ${includeDivs ? 'bg-teal-500' : 'bg-slate-200'}`}
-                    >
-                      <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${includeDivs ? 'translate-x-4' : 'translate-x-0'}`} />
-                    </button>
-                  </div>
-
-                  {/* Currency toggle */}
-                  <div className="border-t border-slate-100 mx-3" />
-                  <div className="px-3 py-2.5 flex items-center justify-between gap-2">
-                    <div>
-                      <p className="text-[12px] font-medium text-slate-600 leading-tight">Display currency</p>
-                      <p className="text-[11px] text-slate-400 leading-tight mt-0.5">Switch values to USD or INR</p>
-                    </div>
-                    <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
                       <button
-                        onClick={() => onCurrencyChange('INR')}
-                        className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${currency === 'INR' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 active:text-slate-600'}`}
-                      >₹ INR</button>
-                      <button
-                        onClick={() => onCurrencyChange('USD')}
-                        className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${currency === 'USD' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 active:text-slate-600'}`}
-                      >$ USD</button>
+                        role="switch"
+                        aria-checked={includeDivs}
+                        onClick={() => {
+                          const next = !includeDivs
+                          setIncludeDivs(next)
+                          setIncludeDividends(next)
+                          window.dispatchEvent(new Event('dividends-toggle'))
+                        }}
+                        className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 focus:outline-none ${includeDivs ? 'bg-teal-500' : 'bg-slate-300'}`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${includeDivs ? 'translate-x-4' : 'translate-x-0'}`} />
+                      </button>
                     </div>
-                  </div>
 
-                  {/* Version */}
-                  <div className="border-t border-slate-100 mx-3" />
-                  <p className="text-[11px] text-slate-300 text-center py-2">
-                    {new Date(__BUILD_TIME__).toLocaleString('en-GB', {
-                      day: 'numeric', month: 'short', year: 'numeric',
-                      hour: '2-digit', minute: '2-digit', hour12: false,
-                      timeZone: 'Asia/Kolkata',
-                    })} IST
-                  </p>
+                    {/* Currency toggle */}
+                    <div className="px-3 py-2.5 flex items-center justify-between gap-2 bg-white border border-emerald-200 rounded-lg">
+                      <div>
+                        <p className="text-[12px] font-medium text-slate-700 leading-tight">Display currency</p>
+                        <p className="text-[11px] text-slate-400 leading-tight mt-0.5 whitespace-nowrap">Switch values to USD or INR</p>
+                      </div>
+                      <div className="shrink-0 flex items-center gap-0.5 bg-emerald-100 rounded-lg p-0.5">
+                        <button
+                          onClick={() => onCurrencyChange('INR')}
+                          className={`whitespace-nowrap px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${currency === 'INR' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-500 active:text-emerald-700'}`}
+                        >₹ INR</button>
+                        <button
+                          onClick={() => onCurrencyChange('USD')}
+                          className={`whitespace-nowrap px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${currency === 'USD' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-500 active:text-emerald-700'}`}
+                        >$ USD</button>
+                      </div>
+                    </div>
+
+                    {/* About row */}
+                    <div className="px-3 py-2.5 flex items-center justify-between gap-3 bg-white border border-emerald-200 rounded-lg">
+                      <p className="text-[12px] font-medium text-slate-700 leading-tight whitespace-nowrap">Updated on</p>
+                      <p className="shrink-0 text-[11px] text-slate-500 whitespace-nowrap">
+                        {new Date(__BUILD_TIME__).toLocaleString('en-GB', {
+                          day: 'numeric', month: 'short', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit', hour12: false,
+                          timeZone: 'Asia/Kolkata',
+                        })} IST
+                      </p>
+                    </div>
+
+                  </div>
                 </div>
               </>
             )}
@@ -686,11 +689,11 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       >
         <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Total Portfolio</p>
         <div className="flex items-baseline justify-between">
-          <span className="text-[24px] font-bold text-slate-800 min-w-0">{fmt(hero.cur * scale, currency)}</span>
+          <span className="text-[24px] font-bold text-slate-800 min-w-0">{fmt(hero.cur, 'INR')}</span>
           <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
             <span className="text-[9px] text-slate-400">Today</span>
             <span className="text-[10px]" style={{ color: hero.todayGain >= 0 ? '#0d9488' : '#dc2626' }}>
-              {hero.todayGain !== 0 ? fmtCompactGainLine(hero.todayGain * scale, hero.todayPct, currency) : '—'}
+              {hero.todayGain !== 0 ? fmtCompactGainLine(hero.todayGain, hero.todayPct, 'INR') : '—'}
             </span>
           </span>
         </div>
@@ -704,7 +707,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
             <span className="text-[9px] text-slate-400">Total</span>
             <span className="text-[10px]" style={{ color: heroPos ? '#0d9488' : '#dc2626' }}>
-              {fmtCompactGainLine(hero.totalGain * scale, hero.returnPct, currency)}
+              {fmtCompactGainLine(hero.totalGain, hero.returnPct, 'INR')}
             </span>
           </span>
         </div>
@@ -733,11 +736,11 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
             >
               <p className="text-[9px] font-bold text-slate-700 uppercase tracking-widest mb-1">{label}</p>
               <div className="flex items-baseline justify-between">
-                <span className="text-[13px] font-bold text-slate-900 min-w-0">{fmt(stats.cur * scale, currency)}</span>
+                <span className="text-[13px] font-bold text-slate-900 min-w-0">{fmt(stats.cur, 'INR')}</span>
                 <span className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
                   <span className="text-[8px] text-slate-400">Today</span>
                   <span className="text-[9px]" style={{ color: tgC }}>
-                    {stats.todayGain !== 0 ? fmtCompactGainLine(stats.todayGain * scale, stats.todayPct, currency) : '—'}
+                    {stats.todayGain !== 0 ? fmtCompactGainLine(stats.todayGain, stats.todayPct, 'INR') : '—'}
                   </span>
                 </span>
               </div>
@@ -749,7 +752,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 <span className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
                   <span className="text-[8px] text-slate-400">Total</span>
                   <span className="text-[9px]" style={{ color: tc }}>
-                    {fmtCompactGainLine(stats.gain * scale, stats.pct, currency)}
+                    {fmtCompactGainLine(stats.gain, stats.pct, 'INR')}
                   </span>
                 </span>
               </div>
@@ -792,7 +795,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {gc.map(card => (
-                    <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={TYPE_CARD_STYLE[card.key]?.accent} cardBg={TYPE_CARD_STYLE[card.key]?.bg} pillBlue={card.key === 'indian_mf' || card.key === 'us_mf'} scale={scale} />
+                    <BreakCard key={card.key} card={card} currency={usdCur(card.key === 'us_stock' || card.key === 'us_mf')} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={TYPE_CARD_STYLE[card.key]?.accent} cardBg={TYPE_CARD_STYLE[card.key]?.bg} pillBlue={card.key === 'indian_mf' || card.key === 'us_mf'} scale={usdScale(card.key === 'us_stock' || card.key === 'us_mf')} />
                   ))}
                 </div>
               </div>
@@ -812,7 +815,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {gc.map(card => (
-                    <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={PORTFOLIO_CARD_STYLE[card.key]?.accent} cardBg={PORTFOLIO_CARD_STYLE[card.key]?.bg} pillBlue={card.key.startsWith('MF_')} scale={scale} />
+                    <BreakCard key={card.key} card={card} currency={usdCur(USD_PORTS.has(card.key))} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={PORTFOLIO_CARD_STYLE[card.key]?.accent} cardBg={PORTFOLIO_CARD_STYLE[card.key]?.bg} pillBlue={card.key.startsWith('MF_')} scale={usdScale(USD_PORTS.has(card.key))} />
                   ))}
                 </div>
               </div>

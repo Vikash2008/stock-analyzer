@@ -50,7 +50,8 @@ def _transform_msp(df: pd.DataFrame) -> pd.DataFrame:
     display_col = df.get("display symbol", pd.Series("", index=df.index))
     display_raw = display_col.fillna("").str.strip()
     effective_symbol = [
-        d if (d and " " not in d) else s
+        s if (s.endswith(".NS") or s.endswith(".BO")) else
+        (d if (d and " " not in d) else s)
         for d, s in zip(display_raw, raw_symbol)
     ]
 

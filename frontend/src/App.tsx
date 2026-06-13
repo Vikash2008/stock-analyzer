@@ -71,7 +71,14 @@ function AppRoutes({ currency, onCurrencyChange }: { currency: Currency; onCurre
 }
 
 export default function App() {
-  const [currency, setCurrency] = useState<Currency>('INR')
+  const [currency, setCurrency] = useState<Currency>(
+    () => (localStorage.getItem('currency') as Currency) || 'INR'
+  )
+
+  const handleCurrencyChange = (c: Currency) => {
+    localStorage.setItem('currency', c)
+    setCurrency(c)
+  }
   const [updateReady, setUpdateReady] = useState(false)
 
   useEffect(() => {
@@ -113,7 +120,7 @@ export default function App() {
         },
       }}
     >
-      <AppRoutes currency={currency} onCurrencyChange={setCurrency} />
+      <AppRoutes currency={currency} onCurrencyChange={handleCurrencyChange} />
       {updateReady && (
         <div className="fixed top-0 left-0 right-0 z-[9999] flex items-center justify-between px-4 py-2 bg-emerald-50 border-b border-emerald-200">
           <span className="text-[12px] text-emerald-700">New version available</span>

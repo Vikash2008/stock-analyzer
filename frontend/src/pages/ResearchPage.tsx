@@ -291,11 +291,11 @@ export default function ResearchPage() {
             { name: 'NSE India',     desc: 'Exchange quotes, filings & F&O',        url: `https://www.nseindia.com/get-quotes/equity?symbol=${cleanSym}`,                                                        color: '#1d4ed8' },
             { name: 'Yahoo Finance', desc: 'Price, news & analyst consensus',       url: `https://finance.yahoo.com/quote/${yf_symbol}`,                                                                         color: '#2563eb' },
           ] : [
-            { name: 'Finviz',        desc: 'Charts, screener & insider activity',   url: `https://finviz.com/quote.ashx?t=${cleanSym.toUpperCase()}`,                                                            color: '#0d9488' },
-            { name: 'Macrotrends',   desc: 'Long-term historical financials',       url: `https://www.macrotrends.net/stocks/charts/${cleanSym.toUpperCase()}/${cleanSym.toLowerCase()}/stock-price-history`,    color: '#7c3aed' },
-            { name: 'SEC EDGAR',     desc: '10-K, 10-Q & earnings filings',         url: `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${cleanSym}&type=10-K&dateb=&owner=include&count=40`,   color: '#dc2626' },
-            { name: 'Yahoo Finance', desc: 'Price, news & analyst consensus',       url: `https://finance.yahoo.com/quote/${yf_symbol}`,                                                                         color: '#2563eb' },
+            { name: 'YFinance',      desc: 'Price, news & analyst consensus',       url: `https://finance.yahoo.com/quote/${yf_symbol}`,                                                                         color: '#2563eb' },
+            { name: 'MacroTrends',   desc: 'Long-term historical financials',       url: `https://www.macrotrends.net/stocks/charts/${cleanSym.toUpperCase()}/${cleanSym.toLowerCase()}/stock-price-history`,    color: '#7c3aed' },
             { name: 'TipRanks',      desc: 'Analyst ratings & price targets',       url: `https://www.tipranks.com/stocks/${cleanSym.toLowerCase()}`,                                                            color: '#ea580c' },
+            { name: 'SEC EDGAR',     desc: '10-K, 10-Q & earnings filings',         url: `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${cleanSym}&type=10-&dateb=&owner=include&count=40`,    color: '#dc2626' },
+            { name: 'Finviz',        desc: 'Charts, screener & insider activity',   url: `https://finviz.com/quote.ashx?t=${cleanSym.toUpperCase()}`,                                                            color: '#0d9488' },
           ]
           return (
             <div className="pt-1 pb-4 flex flex-col gap-2">

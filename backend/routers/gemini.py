@@ -8,6 +8,7 @@ Attempt 2: gemini-3.1-flash-lite without grounding (free tier: ~500 RPD) — fal
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import time
 from pathlib import Path
@@ -23,7 +24,7 @@ if _env_file.exists():
 from google import genai
 from google.genai import types as genai_types
 from fastapi import APIRouter
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -434,3 +435,186 @@ async def gemini_chat(req: ChatRequest):
             await asyncio.sleep(3)
 
     return JSONResponse({"error": "Gemini returned an empty response — try again"}, status_code=500)
+
+
+# ── Streaming helpers ──────────────────────────────────────────────────────
+
+def _sse(data: dict) -> str:
+    return f"data: {json.dumps(data)}\n\n"
+
+def _chunk_text(chunk) -> str:
+    try:
+        parts = chunk.candidates[0].content.parts or []
+        return "".join(p.text for p in parts if not getattr(p, "thought", False) and getattr(p, "text", None))
+    except (IndexError, AttributeError):
+        return getattr(chunk, "text", None) or ""
+
+def _chunk_sources(chunk) -> list[str]:
+    try:
+        gc = chunk.candidates[0].grounding_metadata.grounding_chunks or []
+        return [c.web.uri for c in gc if hasattr(c, "web") and c.web.uri]
+    except Exception:
+        return []
+
+
+@router.post("/api/gemini/stream")
+async def gemini_stream(req: GeminiRequest):
+    cache_key = (req.symbol, req.section_id, req.force_lite, req.force_31, req.key_index)
+    _sse_headers = {"X-Accel-Buffering": "no", "Cache-Control": "no-cache"}
+
+    async def event_gen():
+        if not req.force_refresh and cache_key in _cache and time.time() - _cache[cache_key][1] < _TTL:
+            cached = _cache[cache_key][0]
+            yield _sse({"text": cached["text"]})
+            yield _sse({"done": True, "sources": cached.get("sources", []), "model": cached.get("model"), "grounded": cached.get("grounded", False)})
+            return
+
+        api_key = _read_api_key(req.key_index)
+        if not api_key:
+            yield _sse({"error": "GEMINI_API_KEY not configured"})
+            return
+
+        c = genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
+        full_text = ""
+        sources: list[str] = []
+        model_used = ""
+        grounded = False
+
+        if req.force_31:
+            try:
+                last = None
+                async for chunk in c.aio.models.generate_content_stream(model="gemini-3.1-flash-lite", contents=req.prompt):
+                    t = _chunk_text(chunk); last = chunk
+                    if t: full_text += t; yield _sse({"text": t})
+            except Exception as exc:
+                yield _sse({"error": str(exc)[:400]}); return
+            _cache[cache_key] = ({"text": full_text, "sources": [], "grounded": False, "model": "gemini-3.1-flash-lite"}, time.time())
+            yield _sse({"done": True, "sources": [], "model": "gemini-3.1-flash-lite", "grounded": False})
+            return
+
+        if req.force_lite:
+            lite_cfg = genai_types.GenerateContentConfig(tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())])
+            last = None; model_used = "gemini-2.5-flash-lite"; grounded = True
+            try:
+                async for chunk in c.aio.models.generate_content_stream(model="gemini-2.5-flash-lite", contents=req.prompt, config=lite_cfg):
+                    t = _chunk_text(chunk); last = chunk
+                    if t: full_text += t; yield _sse({"text": t})
+                if last: sources = _chunk_sources(last)
+            except Exception:
+                full_text = ""; model_used = "gemini-3.1-flash-lite"; grounded = False
+                try:
+                    async for chunk in c.aio.models.generate_content_stream(model="gemini-3.1-flash-lite", contents=req.prompt):
+                        t = _chunk_text(chunk)
+                        if t: full_text += t; yield _sse({"text": t})
+                except Exception as exc2:
+                    yield _sse({"error": str(exc2)[:400]}); return
+            _cache[cache_key] = ({"text": full_text, "sources": sources, "grounded": grounded, "model": model_used}, time.time())
+            yield _sse({"done": True, "sources": sources, "model": model_used, "grounded": grounded})
+            return
+
+        _fail_reason = "unavailable"; _fail_detail = ""
+        for thinking_budget in (8192, 0):
+            if full_text: break
+            cfg = genai_types.GenerateContentConfig(
+                tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
+                thinking_config=genai_types.ThinkingConfig(thinking_budget=thinking_budget),
+            )
+            last = None
+            try:
+                async for chunk in c.aio.models.generate_content_stream(model="gemini-2.5-flash", contents=req.prompt, config=cfg):
+                    t = _chunk_text(chunk); last = chunk
+                    if t: full_text += t; yield _sse({"text": t})
+                if full_text:
+                    if last: sources = _chunk_sources(last)
+                    model_used = "gemini-2.5-flash"; grounded = True; _fail_reason = ""
+            except Exception as exc:
+                err = str(exc)
+                if _is_fatal_error(err): yield _sse({"error": err[:400]}); return
+                if full_text: break
+                _fail_reason = "quota" if ("429" in err or "quota" in err.lower() or "resource_exhausted" in err.lower()) else "overloaded" if ("503" in err or "unavailable" in err.lower() or "overloaded" in err.lower()) else "error"
+                _fail_detail = err[:300]; break
+
+        if not full_text:
+            yield _sse({"error": f"gemini25_{_fail_reason}", "detail": _fail_detail}); return
+
+        _cache[cache_key] = ({"text": full_text, "sources": sources, "grounded": grounded, "model": model_used}, time.time())
+        yield _sse({"done": True, "sources": sources, "model": model_used, "grounded": grounded})
+
+    return StreamingResponse(event_gen(), media_type="text/event-stream", headers=_sse_headers)
+
+
+@router.post("/api/gemini/chat/stream")
+async def gemini_chat_stream(req: ChatRequest):
+    _sse_headers = {"X-Accel-Buffering": "no", "Cache-Control": "no-cache"}
+    if req.force_lite:
+        _prompt = (
+            f"You are a financial research assistant.\n\nBackground research on {req.symbol}:\n"
+            f"--- CONTEXT ---\n{req.context_text[:4000]}\n--- END CONTEXT ---\n\n"
+            f"User question: {req.question}\n\nAnswer concisely using context + knowledge. Markdown, lead with numbers. No preamble."
+        )
+    else:
+        _prompt = (
+            f"You are a financial research assistant with access to Google Search.\n\nBackground on {req.symbol} (reference only):\n"
+            f"--- CONTEXT ---\n{req.context_text}\n--- END CONTEXT ---\n\n"
+            f"User question: {req.question}\n\nInstructions:\n"
+            f"- Use Google Search for live data beyond the context.\n"
+            f"- Lead with specific numbers and figures. Markdown. No preamble."
+        )
+
+    async def event_gen():
+        api_key = _read_api_key(req.key_index)
+        if not api_key:
+            yield _sse({"error": "GEMINI_API_KEY not configured"}); return
+
+        c = genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
+        full_text = ""; sources: list[str] = []
+
+        if req.force_31:
+            try:
+                async for chunk in c.aio.models.generate_content_stream(model="gemini-3.1-flash-lite", contents=_prompt):
+                    t = _chunk_text(chunk)
+                    if t: full_text += t; yield _sse({"text": t})
+            except Exception as exc:
+                yield _sse({"error": str(exc)[:400]}); return
+            yield _sse({"done": True, "sources": [], "model": "gemini-3.1-flash-lite", "grounded": False})
+            return
+
+        if req.force_lite:
+            lite_cfg = genai_types.GenerateContentConfig(tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())])
+            last = None; model_used = "gemini-2.5-flash-lite"; grounded = True
+            try:
+                async for chunk in c.aio.models.generate_content_stream(model="gemini-2.5-flash-lite", contents=_prompt, config=lite_cfg):
+                    t = _chunk_text(chunk); last = chunk
+                    if t: full_text += t; yield _sse({"text": t})
+                if last: sources = _chunk_sources(last)
+            except Exception:
+                full_text = ""; model_used = "gemini-3.1-flash-lite"; grounded = False
+                try:
+                    async for chunk in c.aio.models.generate_content_stream(model="gemini-3.1-flash-lite", contents=_prompt):
+                        t = _chunk_text(chunk)
+                        if t: full_text += t; yield _sse({"text": t})
+                except Exception as exc2:
+                    yield _sse({"error": str(exc2)[:400]}); return
+            yield _sse({"done": True, "sources": sources, "model": model_used, "grounded": grounded})
+            return
+
+        cfg = genai_types.GenerateContentConfig(
+            tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
+            thinking_config=genai_types.ThinkingConfig(thinking_budget=8192),
+        )
+        last = None
+        try:
+            async for chunk in c.aio.models.generate_content_stream(model="gemini-2.5-flash", contents=_prompt, config=cfg):
+                t = _chunk_text(chunk); last = chunk
+                if t: full_text += t; yield _sse({"text": t})
+            if last: sources = _chunk_sources(last)
+        except Exception as exc:
+            if not full_text:
+                yield _sse({"error": "gemini25_unavailable", "detail": str(exc)[:300]}); return
+
+        if not full_text:
+            yield _sse({"error": "gemini25_unavailable", "detail": ""}); return
+
+        yield _sse({"done": True, "sources": sources, "model": "gemini-2.5-flash", "grounded": True})
+
+    return StreamingResponse(event_gen(), media_type="text/event-stream", headers=_sse_headers)

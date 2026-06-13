@@ -159,11 +159,14 @@ export function usePortfolioHistory(
 
     // Pin the last data point to live prices so the chart endpoint matches the summary card.
     // yfinance history uses EOD closes; current_price is live (30-min cache). The gap = intraday move.
+    // disp_current/disp_invested are always INR from the backend — apply FX so today pin matches
+    // the same currency as the historical series computed above.
     const todayStr = new Date().toISOString().slice(0, 10)
+    const todayFx  = currency === 'USD' ? 1 / usdInr : 1
     let todayVal = 0, todayInv = 0
     for (const h of holdings) {
-      todayVal += h.disp_current
-      todayInv += h.disp_invested
+      todayVal += h.disp_current  * todayFx
+      todayInv += h.disp_invested * todayFx
     }
     if (allDates.length > 0 && allDates[allDates.length - 1] === todayStr) {
       valArr[valArr.length - 1] = todayVal

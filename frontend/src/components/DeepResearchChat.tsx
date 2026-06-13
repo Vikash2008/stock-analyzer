@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { fetchGeminiChat } from '../api/gemini'
+import { streamGeminiChat } from '../api/gemini'
 
 interface ChatMessage {
   id: string
@@ -15,6 +15,7 @@ interface ChatMessage {
   model?: string
   grounded?: boolean
   sources?: string[]
+  streaming?: boolean
 }
 
 interface SectionInfo {
@@ -102,46 +103,35 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
     if (!ctx) return
 
     setQuestion('')
-
-    const userMsg: ChatMessage = {
-      id: `${Date.now()}-u`,
-      role: 'user',
-      question: q,
-      contextLabel: ctx.label,
-      contextEmoji: ctx.emoji,
-      timestamp: Date.now(),
-    }
-    const withUser = [...messages, userMsg]
-    setMessages(withUser)
+    const asstId = `${Date.now()}-a`
+    const userMsg: ChatMessage = { id: `${Date.now()}-u`, role: 'user', question: q, contextLabel: ctx.label, contextEmoji: ctx.emoji, timestamp: Date.now() }
+    const asstMsg: ChatMessage = { id: asstId, role: 'assistant', text: '', contextLabel: ctx.label, contextEmoji: ctx.emoji, timestamp: Date.now(), streaming: true }
+    setMessages(prev => [...prev, userMsg, asstMsg])
     setChatLoading(true)
 
     const symbol = yf_symbol.replace(/\.(NS|BO)$/i, '')
+    let accText = ''
     try {
-      const result = await fetchGeminiChat(symbol, q, ctx.text, useLite, useKey, use31)
-      if (result.error) throw new Error(result.error)
-      const assistantMsg: ChatMessage = {
-        id: `${Date.now()}-a`,
-        role: 'assistant',
-        text: result.text,
-        contextLabel: ctx.label,
-        contextEmoji: ctx.emoji,
-        timestamp: Date.now(),
-        model: result.model,
-        grounded: result.grounded,
-        sources: result.sources,
+      for await (const chunk of streamGeminiChat(symbol, q, ctx.text, useLite, useKey, use31)) {
+        if (chunk.error) {
+          setMessages(prev => prev.map(m => m.id === asstId ? { ...m, error: chunk.error, text: undefined, streaming: false } : m))
+          return
+        }
+        if (chunk.text) {
+          accText += chunk.text
+          setMessages(prev => prev.map(m => m.id === asstId ? { ...m, text: accText, streaming: true } : m))
+        }
+        if (chunk.done) {
+          const finalMsg: ChatMessage = { id: asstId, role: 'assistant', text: accText, contextLabel: ctx.label, contextEmoji: ctx.emoji, timestamp: Date.now(), model: chunk.model, grounded: chunk.grounded, sources: chunk.sources, streaming: false }
+          setMessages(prev => {
+            const updated = prev.map(m => m.id === asstId ? finalMsg : m)
+            try { localStorage.setItem(`gemini:chat:${yf_symbol}`, JSON.stringify({ messages: updated, savedAt: Date.now() })) } catch {}
+            return updated
+          })
+        }
       }
-      const final = [...withUser, assistantMsg]
-      setMessages(final)
-      localStorage.setItem(`gemini:chat:${yf_symbol}`, JSON.stringify({ messages: final, savedAt: Date.now() }))
     } catch (err) {
-      setMessages([...withUser, {
-        id: `${Date.now()}-e`,
-        role: 'assistant',
-        error: err instanceof Error ? err.message : 'Request failed',
-        contextLabel: ctx.label,
-        contextEmoji: ctx.emoji,
-        timestamp: Date.now(),
-      }])
+      setMessages(prev => prev.map(m => m.id === asstId ? { ...m, error: err instanceof Error ? err.message : 'Request failed', text: undefined, streaming: false } : m))
     } finally {
       setChatLoading(false)
     }
@@ -212,6 +202,12 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
                     <div className="bg-slate-50 border border-slate-100 rounded-2xl rounded-tl-sm px-3 py-2.5 max-w-[95%]">
                       {msg.error ? (
                         <p className="text-[11px] text-red-500">{msg.error}</p>
+                      ) : msg.streaming && !msg.text ? (
+                        <div className="flex items-center gap-1.5 py-0.5">
+                          <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                          <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                          <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                        </div>
                       ) : (
                         <div className="text-[11px] text-slate-700 leading-relaxed gemini-md">
                           <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
@@ -235,6 +231,7 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
                           }}>
                             {msg.text ?? ''}
                           </ReactMarkdown>
+                          {msg.streaming && <span className="inline-block w-0.5 h-3 bg-slate-400 animate-pulse align-middle ml-0.5" />}
                         </div>
                       )}
                     </div>
@@ -290,18 +287,6 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
               </div>
             ))}
 
-            {/* Loading dots */}
-            {chatLoading && (
-              <div className="flex items-start">
-                <div className="bg-slate-50 border border-slate-100 rounded-2xl rounded-tl-sm px-4 py-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Input */}

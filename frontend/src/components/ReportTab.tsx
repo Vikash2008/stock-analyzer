@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { QuickStats } from '../api/types'
 import { SECTIONS, buildGeminiPrompt } from '../utils/reportLinks'
-import { fetchGeminiSection, type GeminiResponse } from '../api/gemini'
+import { streamGeminiSection } from '../api/gemini'
 import { DeepResearchChat } from './DeepResearchChat'
 
 const API_URL = (import.meta.env.VITE_API_URL ?? '') as string
@@ -20,6 +20,16 @@ interface Props {
   use31:          boolean
   useKey:         0 | 1 | 2
   chatOpenerRef?: React.MutableRefObject<{ open: (contextId?: string) => void } | null>
+}
+
+function safeLocalSet(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    const geminiKeys = Object.keys(localStorage).filter(k => k.startsWith('gemini:'))
+    for (const k of geminiKeys) localStorage.removeItem(k)
+    try { localStorage.setItem(key, value) } catch {}
+  }
 }
 
 function fmtPe(v: number | null | undefined): string {
@@ -85,7 +95,7 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
   const qc = useQueryClient()
   const [syncing, setSyncing] = React.useState(false)
 
-  type SectionResult = { text: string; sources: string[]; savedAt?: number; grounded?: boolean; model?: string; requestedLite?: boolean }
+  type SectionResult = { text: string; sources: string[]; savedAt?: number; grounded?: boolean; model?: string; requestedLite?: boolean; streaming?: boolean }
   type SectionState = 'idle' | 'loading' | { error: string } | SectionResult
   const [sectionStates, setSectionStates] = React.useState<Record<string, SectionState>>({})
   const [altStates,     setAltStates]     = React.useState<Record<string, SectionResult>>({})
@@ -149,17 +159,16 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
     if (!alt) return
     setSectionStates(prev => ({ ...prev, [sectionId]: alt }))
     setAltStates(prev => ({ ...prev, [sectionId]: cur }))
-    localStorage.setItem(`gemini:${yf_symbol}:${sectionId}`,     JSON.stringify(alt))
-    localStorage.setItem(`gemini:${yf_symbol}:${sectionId}:alt`, JSON.stringify(cur))
+    safeLocalSet(`gemini:${yf_symbol}:${sectionId}`,     JSON.stringify(alt))
+    safeLocalSet(`gemini:${yf_symbol}:${sectionId}:alt`, JSON.stringify(cur))
   }
 
   async function handleGenerate(sectionId: string, force = false, forceLite?: boolean) {
-    // Save current result as alt before overwriting
     const cur = sectionStates[sectionId]
     if (typeof cur === 'object' && cur !== null && 'text' in cur) {
-      const toSave = cur as SectionResult
+      const toSave = { ...(cur as SectionResult), streaming: undefined }
       setAltStates(prev => ({ ...prev, [sectionId]: toSave }))
-      localStorage.setItem(`gemini:${yf_symbol}:${sectionId}:alt`, JSON.stringify(toSave))
+      safeLocalSet(`gemini:${yf_symbol}:${sectionId}:alt`, JSON.stringify(toSave))
     }
     setSectionStates(prev => ({ ...prev, [sectionId]: 'loading' }))
     setElapsed(prev => ({ ...prev, [sectionId]: 0 }))
@@ -168,34 +177,50 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
       setElapsed(prev => ({ ...prev, [sectionId]: (prev[sectionId] ?? 0) + 1 }))
     }, 1000)
 
-    // yield to renderer so loading state paints before fetch starts
     await new Promise(r => setTimeout(r, 50))
 
     const effectiveLite = forceLite !== undefined ? forceLite : useLite
+    const effectiveForce31 = forceLite !== undefined ? false : use31
     const symbol = yf_symbol.replace(/\.(NS|BO)$/i, '')
     const prompt = buildGeminiPrompt(displayName, sectionId, isIndian, yf_symbol, API_URL)
+    let accText = ''
+    let timerStopped = false
     try {
-      const effectiveForce31 = forceLite !== undefined ? false : use31
-      const result: GeminiResponse = await fetchGeminiSection(symbol, sectionId, prompt, force, effectiveLite, useKey, effectiveForce31)
-      clearInterval(timerRefs.current[sectionId])
-      if (result.error?.startsWith('gemini25_')) {
-        const detail = (result as any).detail || ''
-        setSectionStates(prev => ({ ...prev, [sectionId]: { error: result.error!, detail } }))
-        return
+      for await (const chunk of streamGeminiSection(symbol, sectionId, prompt, force, effectiveLite, useKey, effectiveForce31)) {
+        if (chunk.error) {
+          clearInterval(timerRefs.current[sectionId])
+          if (chunk.error.startsWith('gemini25_')) {
+            setSectionStates(prev => ({ ...prev, [sectionId]: { error: chunk.error!, detail: (chunk as any).detail || '' } }))
+          } else {
+            setSectionStates(prev => ({ ...prev, [sectionId]: { error: chunk.error! } }))
+          }
+          return
+        }
+        if (chunk.text) {
+          accText += chunk.text
+          if (!timerStopped) {
+            timerStopped = true
+            clearInterval(timerRefs.current[sectionId])
+            setExpandedSections(() => {
+              const next: Record<string, boolean> = {}
+              for (const s of SECTIONS) next[s.id] = false
+              next[sectionId] = true
+              return next
+            })
+          }
+          setSectionStates(prev => ({
+            ...prev,
+            [sectionId]: { text: accText, sources: [], grounded: false, model: undefined, requestedLite: effectiveLite, streaming: true },
+          }))
+        }
+        if (chunk.done) {
+          const savedAt = Date.now()
+          const state: SectionResult = { text: accText, sources: chunk.sources ?? [], savedAt, grounded: chunk.grounded ?? false, model: chunk.model, requestedLite: effectiveLite }
+          setSectionStates(prev => ({ ...prev, [sectionId]: state }))
+          setShowUnavailable(prev => ({ ...prev, [sectionId]: false }))
+          safeLocalSet(`gemini:${yf_symbol}:${sectionId}`, JSON.stringify(state))
+        }
       }
-      if (result.error) throw new Error(result.error)
-      const savedAt = Date.now()
-      const state = { text: result.text ?? '', sources: result.sources ?? [], savedAt, grounded: result.grounded ?? false, model: result.model, requestedLite: effectiveLite }
-      setSectionStates(prev => ({ ...prev, [sectionId]: state }))
-      setShowUnavailable(prev => ({ ...prev, [sectionId]: false }))
-      localStorage.setItem(`gemini:${yf_symbol}:${sectionId}`, JSON.stringify(state))
-      // auto-expand this card, collapse all others
-      setExpandedSections(() => {
-        const next: Record<string, boolean> = {}
-        for (const s of SECTIONS) next[s.id] = false
-        next[sectionId] = true
-        return next
-      })
     } catch (err) {
       clearInterval(timerRefs.current[sectionId])
       const msg = err instanceof Error ? err.message : 'Request failed'
@@ -532,6 +557,10 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                     <span className={`text-[10px] font-medium px-2.5 py-1 rounded-md border opacity-60 ${section.color.btnOutline}`}>
                       …
                     </span>
+                  ) : isDone && (state as SectionResult).streaming ? (
+                    <span className={`text-[10px] font-medium px-2.5 py-1 rounded-md border opacity-60 ${section.color.btnOutline}`}>
+                      Streaming…
+                    </span>
                   ) : isDone ? (
                     <button
                       onClick={isUnavailable ? () => handleGenerate(section.id, true) : (isExpanded ? () => handleGenerate(section.id, true) : toggleExpanded)}
@@ -609,13 +638,18 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                   </span>
                 </div>
                 <div className="text-[10px] text-slate-400">
-                  {(elapsed[section.id] ?? 0) < 5
-                    ? 'Querying live sources…'
-                    : (elapsed[section.id] ?? 0) < 12
-                    ? 'Reading search results…'
-                    : (elapsed[section.id] ?? 0) < 45
-                    ? 'Composing answer…'
-                    : 'Retrying without extended thinking…'}
+                  {(() => {
+                    const t = elapsed[section.id] ?? 0
+                    if (t < 4)  return `Researching ${section.label.toLowerCase()}…`
+                    if (t < 8)  return 'Sending prompt to Gemini 2.5 Flash…'
+                    if (t < 13) return 'Searching live web sources & news…'
+                    if (t < 19) return 'Reading financial articles & filings…'
+                    if (t < 26) return 'Scanning analyst reports & data…'
+                    if (t < 34) return 'Analyzing with extended thinking…'
+                    if (t < 43) return 'Cross-referencing multiple sources…'
+                    if (t < 52) return 'Composing structured answer…'
+                    return 'Retrying without extended thinking…'
+                  })()}
                 </div>
               </div>
             )}
@@ -631,7 +665,10 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                   </div>
                 ) : (
                 <>
-                <div className="gemini-md text-[12px] text-slate-700 leading-relaxed">
+                <div className="gemini-md text-[12px] text-slate-700 leading-relaxed relative">
+                  {(state as SectionResult).streaming && (
+                    <span className="inline-block w-0.5 h-3.5 bg-slate-400 animate-pulse align-middle absolute bottom-0 right-0" />
+                  )}
                   {(() => {
                     const sr = state as SectionResult
                     const hIdx = { n: 0 }
