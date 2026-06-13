@@ -62,7 +62,7 @@
 
 | # | Item | Notes | Status |
 |---|------|-------|--------|
-| 1 | Dividend tab fix | Issues to be detailed — dividend display/calculation bugs in the Dividends tab | pending |
+| 1 | Dividend tab polish | Session 113 fixed: year/month filter bug (now filters on actual event dates), added period total badge, per-symbol 30-day disk cache + parallel fetch, localStorage 30-day cache on frontend. Remaining: verify blank screen on portfolio click fully resolved (switched initialData→placeholderData) | pending |
 | 2 | FX conversion new feature | New feature around foreign exchange conversion — details TBD | pending |
 | 3 | Yearly activity performance analysis | Analysis/visualisation of performance broken down by year — e.g. annual returns, P&L, invested vs realised per year | pending |
 | 4 | Research Links | Indian: Screener / Trendlyne / NSE pills; US: Finviz / Macrotrends / EDGAR pills | pending |

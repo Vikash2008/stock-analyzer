@@ -417,6 +417,18 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 - Fixes "No matching Ticker Symbol" for foreign private issuers (20-F filers) and recently listed tickers; tooltip desc updated to "10-K / 20-F & earnings filings"
 - Applies to both `ResearchPage.tsx` and `TransactionsPage.tsx`
 
+### 2026-06-14 (session 113)
+
+**DividendsTab — year/month filter and period total**
+- Filter bug root cause: was comparing against `s.month_pattern` (historical month numbers from all past dividends) instead of actual `ev.ex_date` months — a stock with a February dividend would always show regardless of which month was selected
+- Fix: `visibleSymbols` filters on actual event dates: `ev.ex_date.slice(0,4)` for year, `parseInt(ev.ex_date.slice(5,7), 10)` for month; AND logic (year AND month both must match if both selected)
+- Period total: `periodTotal` useMemo computes sum across all `activeSymbols` events (not just visible ones) that match the active year+month filter; shown as teal pill badge in chart header when any filter is active; `null` when no filter active (no badge shown)
+- Filter applies to both the chart data AND the symbol table (visibleSymbols drives both)
+
+**Trendlyne URL fix**
+- Added `/NSENB/` exchange segment to Trendlyne URLs for Indian stocks: `https://trendlyne.com/equity/NSENB/${sym}/`
+- Applies to both `ResearchPage.tsx` and `TransactionsPage.tsx`
+
 ### 2026-06-13 (session 108)
 
 **Settings modal full redesign (PortfoliosPage gear icon)**
