@@ -275,13 +275,13 @@ export default function TransactionsPage({ currency }: Props) {
     })
   }, [symTxns, symRealized, holding, data, decoded.portfolio, currency])
 
-  const { series: portSeries, isLoading: histLoading, loadedCount: txLoaded, totalCount: txTotal, fetchingCount: txFetching } = usePortfolioHistory(
+  const { series: portSeries, isLoading: histLoading, loadedCount: txLoaded, totalCount: txTotal, fetchingCount: txFetching, symbolPriceMap: txPriceMap } = usePortfolioHistory(
     holdingArrForCharts,
     symTxns,
     symRealized,
     data?.usd_inr ?? 95.5,
     currency,
-    chartMetric !== 'Price' && !!data,
+    !!data,
   )
 
   const metricSeries = useMemo((): DatedSeries | null => {
@@ -354,12 +354,17 @@ export default function TransactionsPage({ currency }: Props) {
   const aggAvgCost = aggQty > 0 ? holdingList.reduce((s, h) => s + h.avg_cost * h.quantity, 0) / aggQty : 0
   // for closed holdings (no open position), try any portfolio's holding for LTP/name/yf_symbol
   const anyHolding = holding ?? data.holdings.find(h => h.symbol === decoded.symbol && !SKIP_PORTS.has(h.portfolio)) ?? null
-  const lastSellPrice = symTxns.find(t => t.type === 'SELL')?.price
-  const ltp   = anyHolding?.current_price?.toFixed(2) ?? lastSellPrice?.toFixed(2) ?? '—'
+  const yf    = anyHolding?.yf_symbol ?? symTxns.find(t => t.yf_symbol)?.yf_symbol ?? decoded.symbol
+  const co    = anyHolding?.company ?? ''
   const qty   = holdingList.length ? aggQty.toFixed(3) : '—'
   const avg   = holdingList.length ? aggAvgCost.toFixed(2) : '—'
-  const co    = anyHolding?.company ?? ''
-  const yf    = anyHolding?.yf_symbol ?? symTxns.find(t => t.yf_symbol)?.yf_symbol ?? decoded.symbol
+  const ltpPrice: number | null = (() => {
+    if (anyHolding?.current_price) return anyHolding.current_price
+    const dm = txPriceMap.get(yf)
+    if (!dm?.size) return null
+    return dm.get([...dm.keys()].sort().at(-1)!) ?? null
+  })()
+  const ltp   = ltpPrice != null ? ltpPrice.toFixed(2) : '—'
 
   const isPct       = PCT_METRICS.has(chartMetric)
   const chartLast   = metricSeries?.values[metricSeries.values.length - 1] ?? null
@@ -715,7 +720,7 @@ export default function TransactionsPage({ currency }: Props) {
           { name: 'YFinance',        desc: 'Price, news & analyst consensus',             url: `https://finance.yahoo.com/quote/${yf}`,                                                                                    color: '#2563eb' },
           { name: 'MacroTrends',     desc: 'Long-term historical financials',             url: `https://www.macrotrends.net/stocks/charts/${cleanSym.toUpperCase()}/${cleanSym.toLowerCase()}/stock-price-history`,        color: '#7c3aed' },
           { name: 'TipRanks',        desc: 'Analyst ratings & price targets',             url: `https://www.tipranks.com/stocks/${cleanSym.toLowerCase()}`,                                                                color: '#ea580c' },
-          { name: 'SEC EDGAR',       desc: '10-K, 10-Q & earnings filings',               url: `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${cleanSym}&type=10-&dateb=&owner=include&count=40`,        color: '#dc2626' },
+          { name: 'SEC EDGAR',       desc: '10-K / 20-F & earnings filings',             url: `https://www.sec.gov/cgi-bin/browse-edgar?company=${cleanSym}&CIK=&type=&dateb=&owner=include&count=40&search_text=&action=getcompany`,        color: '#dc2626' },
           { name: 'Finviz',          desc: 'Charts, screener & insider activity',         url: `https://finviz.com/quote.ashx?t=${cleanSym.toUpperCase()}`,                                                               color: '#0d9488' },
         ]
         return (

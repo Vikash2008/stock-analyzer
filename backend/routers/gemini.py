@@ -483,7 +483,8 @@ async def gemini_stream(req: GeminiRequest):
         if req.force_31:
             try:
                 last = None
-                async for chunk in c.aio.models.generate_content_stream(model="gemini-3.1-flash-lite", contents=req.prompt):
+                stream = await c.aio.models.generate_content_stream(model="gemini-3.1-flash-lite", contents=req.prompt)
+                async for chunk in stream:
                     t = _chunk_text(chunk); last = chunk
                     if t: full_text += t; yield _sse({"text": t})
             except Exception as exc:
@@ -496,14 +497,16 @@ async def gemini_stream(req: GeminiRequest):
             lite_cfg = genai_types.GenerateContentConfig(tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())])
             last = None; model_used = "gemini-2.5-flash-lite"; grounded = True
             try:
-                async for chunk in c.aio.models.generate_content_stream(model="gemini-2.5-flash-lite", contents=req.prompt, config=lite_cfg):
+                stream = await c.aio.models.generate_content_stream(model="gemini-2.5-flash-lite", contents=req.prompt, config=lite_cfg)
+                async for chunk in stream:
                     t = _chunk_text(chunk); last = chunk
                     if t: full_text += t; yield _sse({"text": t})
                 if last: sources = _chunk_sources(last)
             except Exception:
                 full_text = ""; model_used = "gemini-3.1-flash-lite"; grounded = False
                 try:
-                    async for chunk in c.aio.models.generate_content_stream(model="gemini-3.1-flash-lite", contents=req.prompt):
+                    stream = await c.aio.models.generate_content_stream(model="gemini-3.1-flash-lite", contents=req.prompt)
+                    async for chunk in stream:
                         t = _chunk_text(chunk)
                         if t: full_text += t; yield _sse({"text": t})
                 except Exception as exc2:
@@ -521,7 +524,8 @@ async def gemini_stream(req: GeminiRequest):
             )
             last = None
             try:
-                async for chunk in c.aio.models.generate_content_stream(model="gemini-2.5-flash", contents=req.prompt, config=cfg):
+                stream = await c.aio.models.generate_content_stream(model="gemini-2.5-flash", contents=req.prompt, config=cfg)
+                async for chunk in stream:
                     t = _chunk_text(chunk); last = chunk
                     if t: full_text += t; yield _sse({"text": t})
                 if full_text:
@@ -571,7 +575,8 @@ async def gemini_chat_stream(req: ChatRequest):
 
         if req.force_31:
             try:
-                async for chunk in c.aio.models.generate_content_stream(model="gemini-3.1-flash-lite", contents=_prompt):
+                stream = await c.aio.models.generate_content_stream(model="gemini-3.1-flash-lite", contents=_prompt)
+                async for chunk in stream:
                     t = _chunk_text(chunk)
                     if t: full_text += t; yield _sse({"text": t})
             except Exception as exc:
@@ -583,14 +588,16 @@ async def gemini_chat_stream(req: ChatRequest):
             lite_cfg = genai_types.GenerateContentConfig(tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())])
             last = None; model_used = "gemini-2.5-flash-lite"; grounded = True
             try:
-                async for chunk in c.aio.models.generate_content_stream(model="gemini-2.5-flash-lite", contents=_prompt, config=lite_cfg):
+                stream = await c.aio.models.generate_content_stream(model="gemini-2.5-flash-lite", contents=_prompt, config=lite_cfg)
+                async for chunk in stream:
                     t = _chunk_text(chunk); last = chunk
                     if t: full_text += t; yield _sse({"text": t})
                 if last: sources = _chunk_sources(last)
             except Exception:
                 full_text = ""; model_used = "gemini-3.1-flash-lite"; grounded = False
                 try:
-                    async for chunk in c.aio.models.generate_content_stream(model="gemini-3.1-flash-lite", contents=_prompt):
+                    stream = await c.aio.models.generate_content_stream(model="gemini-3.1-flash-lite", contents=_prompt)
+                    async for chunk in stream:
                         t = _chunk_text(chunk)
                         if t: full_text += t; yield _sse({"text": t})
                 except Exception as exc2:
@@ -604,7 +611,8 @@ async def gemini_chat_stream(req: ChatRequest):
         )
         last = None
         try:
-            async for chunk in c.aio.models.generate_content_stream(model="gemini-2.5-flash", contents=_prompt, config=cfg):
+            stream = await c.aio.models.generate_content_stream(model="gemini-2.5-flash", contents=_prompt, config=cfg)
+            async for chunk in stream:
                 t = _chunk_text(chunk); last = chunk
                 if t: full_text += t; yield _sse({"text": t})
             if last: sources = _chunk_sources(last)

@@ -65,6 +65,8 @@
 | 1 | Dividend tab fix | Issues to be detailed — dividend display/calculation bugs in the Dividends tab | pending |
 | 2 | FX conversion new feature | New feature around foreign exchange conversion — details TBD | pending |
 | 3 | Yearly activity performance analysis | Analysis/visualisation of performance broken down by year — e.g. annual returns, P&L, invested vs realised per year | pending |
+| 4 | Research Links | Indian: Screener / Trendlyne / NSE pills; US: Finviz / Macrotrends / EDGAR pills | pending |
+| 5 | Better Deep Research prompts | Audit and improve all 8 section prompts (Indian + US variants) for depth, specificity, and output quality | pending |
 
 ---
 

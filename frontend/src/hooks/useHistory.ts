@@ -65,7 +65,7 @@ export function useHistory(yf_symbol: string | null, start: string | null, perio
   const cached = yf_symbol ? lsGet(lsKey) : undefined
 
   return useQuery({
-    queryKey:  ['history', yf_symbol, period ?? start],
+    queryKey:  period ? ['history', yf_symbol, period] : ['history', yf_symbol],
     queryFn:   async () => {
       const data = await fetchHistory(yf_symbol!, start, period)
       // persist to localStorage so next cold-start shows data immediately

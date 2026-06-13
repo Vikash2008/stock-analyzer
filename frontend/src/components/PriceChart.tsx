@@ -137,7 +137,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
     try { (screen.orientation as any).unlock?.() } catch (_) {}
     if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
   }
-  const start = '2000-01-01'
+  const start = '2015-01-01'
   const { data: history,         isLoading: dailyLoading, isFetching: dailyFetching } = useHistory(yf_symbol, start)
   const { data: intradayHistory, isLoading: intLoading,   isFetching: intFetching   } = useHistory(yf_symbol, null, '1d')
 

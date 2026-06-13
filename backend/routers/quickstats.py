@@ -6,13 +6,14 @@ Returns key valuation stats (P/E, MCap, 52W range, analyst target) for the
 Report tab. Lightweight — only ticker.info, no financial statements.
 
 Caching:
-  In-memory : 60s burst (same process)
-  Disk      : 24h per symbol (via Cache "quickstats" permanent layer)
+  In-memory : 30 min burst (same process)
+  Disk      : 24h per symbol (per-symbol key "qs:{SYMBOL}")
 """
 
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import json
 import math
 import re
@@ -33,10 +34,20 @@ def _yf_ticker(symbol: str) -> yf.Ticker:
 router = APIRouter()
 
 _mem: dict[str, tuple[dict, float]] = {}
-_MEM_TTL  = 60.0       # 60s in-memory burst
+_MEM_TTL  = 1800.0     # 30 min in-memory burst
 _DISK_TTL = 86400.0    # 24h per-symbol disk
 
 _cik_map: dict[str, str] | None = None  # ticker → 10-digit CIK, fetched once per process
+
+
+def _with_timeout(fn, timeout: float = 12.0):
+    """Run a blocking callable in a thread with a deadline. Returns None on timeout."""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+        fut = ex.submit(fn)
+        try:
+            return fut.result(timeout=timeout)
+        except concurrent.futures.TimeoutError:
+            return None
 
 
 def _clean(v):
@@ -71,8 +82,8 @@ def _compute_roce(ticker) -> float | None:
     if ticker is None:
         return None
     try:
-        inc = ticker.income_stmt
-        bs  = ticker.balance_sheet
+        inc = _with_timeout(lambda: ticker.income_stmt, timeout=10)
+        bs  = _with_timeout(lambda: ticker.balance_sheet, timeout=10)
         if inc is None or bs is None:
             return None
         pretax = (
@@ -115,7 +126,7 @@ def _fetch_screener(clean_symbol: str) -> dict:
                 continue  # not a valid stock page — try next suffix
 
             start = html.find("top-ratios")
-            chunk = html[start : start + 5000]
+            chunk = html[start : start + 10000]  # 10k chars — enough for all ratio items
 
             items = re.findall(
                 r'<span class="name">\s*(.*?)\s*</span>.*?<span class="number">([\d.,]+)</span>',
@@ -193,7 +204,7 @@ def _compute_growth_3y(ticker) -> dict:
     """3Y CAGR for revenue and net income from annual income_stmt. US stocks only."""
     result = {}
     try:
-        inc = ticker.income_stmt
+        inc = _with_timeout(lambda: ticker.income_stmt, timeout=10)
         if inc is None:
             return result
         for row_name, key in [("Total Revenue", "revenue_growth_3y"), ("Net Income", "earnings_growth_3y")]:
@@ -214,7 +225,7 @@ def _compute_growth_3y(ticker) -> dict:
 def _compute_5y_cagr(ticker) -> float | None:
     """5-year annualised price return from monthly history."""
     try:
-        h = ticker.history(period='5y', interval='1mo')
+        h = _with_timeout(lambda: ticker.history(period='5y', interval='1mo'), timeout=15)
         if h is None or h.empty or len(h) < 12:
             return None
         start = float(h['Close'].iloc[0])
@@ -230,7 +241,7 @@ def _compute_5y_cagr(ticker) -> float | None:
 def _compute_1y_data(ticker, info: dict) -> tuple[float | None, float | None, float | None]:
     """Returns (one_year_return, price_1y_ago, current_from_history) from 1Y daily history."""
     try:
-        h = ticker.history(period='1y', interval='1d')
+        h = _with_timeout(lambda: ticker.history(period='1y', interval='1d'), timeout=15)
         if h is not None and not h.empty and len(h) >= 2:
             start = float(h['Close'].iloc[0])
             end   = float(h['Close'].iloc[-1])
@@ -482,7 +493,7 @@ def _fetch(yf_symbol: str) -> dict:
     ticker = None
     try:
         ticker = _yf_ticker(yf_symbol)
-        info = ticker.info or {}
+        info = _with_timeout(lambda: ticker.info, timeout=12) or {}
     except Exception as e:
         print(f"[quickstats] {yf_symbol} info exception: {type(e).__name__}: {e}")
         info = {}
@@ -516,7 +527,8 @@ def _fetch(yf_symbol: str) -> dict:
     result = {
         "yf_symbol":            yf_symbol,
         "currency":             currency,
-        "trailing_pe":          _clean(info.get("trailingPE")),
+        # yfinance trailingPE is unreliable for Indian stocks — Screener overlay handles it below
+        "trailing_pe":          None if is_indian else _clean(info.get("trailingPE")),
         "forward_pe":           _clean(info.get("forwardPE")),
         "market_cap":           mkt_cap,
         "market_cap_display":   _fmt_cap(mkt_cap, currency),
@@ -560,9 +572,20 @@ def _fetch(yf_symbol: str) -> dict:
     if is_indian:
         clean = re.sub(r'\.(NS|BO)$', '', yf_symbol, flags=re.IGNORECASE)
         screener = _fetch_screener(clean)
+        if screener:
+            print(f"[quickstats] Screener OK for {clean}: PE={screener.get('trailing_pe')}")
+        else:
+            print(f"[quickstats] Screener FAILED for {clean} — will compute PE from price/EPS")
         result.update(screener)
         if screener:  # Screener succeeded — enough data to show the grid
             result["partial"] = False
+        # Fallback PE for Indian stocks: price / trailingEps (more reliable than yfinance trailingPE field)
+        if result.get("trailing_pe") is None:
+            price = result.get("current_price")
+            eps = _clean(info.get("trailingEps"))
+            if price and eps and eps > 0:
+                result["trailing_pe"] = round(price / eps, 1)
+                print(f"[quickstats] Computed PE for {clean}: {result['trailing_pe']}x (price={price}, eps={eps})")
         # Recompute upside_pct against Screener's current price
         if screener.get("current_price") and result.get("target_mean_price"):
             cp = screener["current_price"]
@@ -588,18 +611,18 @@ async def get_quickstats(
         key = yf_symbol.upper()
         now = time.monotonic()
 
-        # In-memory burst cache
+        # In-memory burst cache (30 min)
         if not force_refresh and key in _mem:
             cached_data, ts = _mem[key]
             if now - ts < _MEM_TTL:
                 return JSONResponse(content=cached_data)
 
-        # Disk cache — per-symbol TTL check inside the stored dict
+        # Disk cache — per-symbol key for O(1) lookup
+        disk = None
         try:
             disk = Cache()
             if not force_refresh:
-                store = disk.get("quickstats") or {}
-                entry = store.get(key)
+                entry = disk.get(f"qs:{key}")
                 if entry and (time.time() - entry.get("ts", 0)) < _DISK_TTL:
                     result = entry["data"]
                     _mem[key] = (result, now)
@@ -615,9 +638,7 @@ async def get_quickstats(
         if not result.get("partial"):
             try:
                 if disk is not None:
-                    store = disk.get("quickstats") or {}
-                    store[key] = {"data": result, "ts": time.time()}
-                    disk.set("quickstats", store)
+                    disk.set(f"qs:{key}", {"data": result, "ts": time.time()})
             except Exception as e:
                 print(f"[quickstats] disk cache write error for {yf_symbol}: {e}")
             _mem[key] = (result, now)

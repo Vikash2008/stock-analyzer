@@ -294,7 +294,7 @@ export default function ResearchPage() {
             { name: 'YFinance',      desc: 'Price, news & analyst consensus',       url: `https://finance.yahoo.com/quote/${yf_symbol}`,                                                                         color: '#2563eb' },
             { name: 'MacroTrends',   desc: 'Long-term historical financials',       url: `https://www.macrotrends.net/stocks/charts/${cleanSym.toUpperCase()}/${cleanSym.toLowerCase()}/stock-price-history`,    color: '#7c3aed' },
             { name: 'TipRanks',      desc: 'Analyst ratings & price targets',       url: `https://www.tipranks.com/stocks/${cleanSym.toLowerCase()}`,                                                            color: '#ea580c' },
-            { name: 'SEC EDGAR',     desc: '10-K, 10-Q & earnings filings',         url: `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${cleanSym}&type=10-&dateb=&owner=include&count=40`,    color: '#dc2626' },
+            { name: 'SEC EDGAR',     desc: '10-K / 20-F & earnings filings',        url: `https://www.sec.gov/cgi-bin/browse-edgar?company=${cleanSym}&CIK=&type=&dateb=&owner=include&count=40&search_text=&action=getcompany`,    color: '#dc2626' },
             { name: 'Finviz',        desc: 'Charts, screener & insider activity',   url: `https://finviz.com/quote.ashx?t=${cleanSym.toUpperCase()}`,                                                            color: '#0d9488' },
           ]
           return (

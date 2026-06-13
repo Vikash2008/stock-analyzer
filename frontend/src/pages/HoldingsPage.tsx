@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react'
+import React, { useMemo, useState, useEffect, useRef } from 'react'
 import { DividendsTab } from '../components/DividendsTab'
 import { useDividends, getIncludeDividends } from '../hooks/useDividends'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
@@ -260,16 +260,20 @@ export default function HoldingsPage({ currency }: Props) {
   const [benchEndToday,    setBenchEndToday]    = useState(true)
   const qc = useQueryClient()
 
+  const pendingScrollY = useRef<number | null>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     const key = `holdingsScroll:${location.pathname}`
     const saved = sessionStorage.getItem(key)
     if (saved) {
       sessionStorage.removeItem(key)
-      window.scrollTo(0, parseInt(saved, 10))
+      pendingScrollY.current = parseInt(saved, 10)
     } else {
-      window.scrollTo(0, 0)
+      if (scrollRef.current) scrollRef.current.scrollTop = 0
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
 
   const realizedMap = useMemo(
     () => (data ? aggRealized(data.realized, data.usd_inr) : new Map()),
@@ -505,16 +509,6 @@ export default function HoldingsPage({ currency }: Props) {
       [segment],
     ) : null
 
-    const priceMap = new Map<string, number>()
-    for (const h of data.holdings) if (!SKIP_PORTS.has(h.portfolio)) priceMap.set(h.symbol, h.current_price)
-
-    const lastSellMap = new Map<string, { price: number; date: string }>()
-    for (const tx of data.transactions) {
-      if (tx.type !== 'SELL') continue
-      const ex = lastSellMap.get(tx.symbol)
-      if (!ex || tx.date > ex.date) lastSellMap.set(tx.symbol, { price: tx.price, date: tx.date })
-    }
-
     const symMap = new Map<string, { rg: number; rc: number; firstPort: string; ports: string[] }>()
     for (const r of data.realized) {
       if (SKIP_PORTS.has(r.portfolio)) continue
@@ -541,7 +535,7 @@ export default function HoldingsPage({ currency }: Props) {
         subLabel: nameMap.get(sym) ?? '',
         current: 0, invested: 0,
         realGain: rg, realCost: rc,
-        todayGain: null, todayPct: null, ltp: priceMap.get(sym) ?? null,
+        todayGain: null, todayPct: null, ltp: null,
         navPort: firstPort, navSym: sym,
         portfolios: ports,
       }))
@@ -749,6 +743,14 @@ export default function HoldingsPage({ currency }: Props) {
     if (holdingFilter === 'all')    return showClosed ? [...open, ...closed] : open
     return open
   }, [rows, closedRowsWithLtp, holdingFilter, showClosed, sortField, sortDir, xirrMap])
+
+  useEffect(() => {
+    if (sortedRows.length > 0 && pendingScrollY.current !== null && scrollRef.current) {
+      const y = pendingScrollY.current
+      pendingScrollY.current = null
+      requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = y })
+    }
+  }, [sortedRows.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const symbolSectorMap = useMemo(() => {
     const map = new Map<string, SectorKey>()
@@ -1369,7 +1371,7 @@ export default function HoldingsPage({ currency }: Props) {
         </div>
       )}
       </div>
-      <div className="flex-1 overflow-y-auto px-4 pt-2 pb-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 pt-2 pb-4">
 
       {/* ── Holdings tab ── */}
       {activeTab === 'holdings' && (
@@ -1397,7 +1399,7 @@ export default function HoldingsPage({ currency }: Props) {
                 dividends={rawDiv > 0 ? rawDiv * cardFx : undefined}
                 currency={cardCur}
                 onClick={() => {
-                  sessionStorage.setItem(`holdingsScroll:${location.pathname}`, String(window.scrollY))
+                  sessionStorage.setItem(`holdingsScroll:${location.pathname}`, String(scrollRef.current?.scrollTop ?? 0))
                   navigate(`/transactions/${encodeURIComponent(r.navPort)}/${encodeURIComponent(r.navSym)}`, { state: { from: label, portfolios: r.portfolios } })
                 }}
               />
@@ -1620,7 +1622,7 @@ export default function HoldingsPage({ currency }: Props) {
                                   const xirrColor = hXirr !== null ? (hXirr >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
                                   const todayColor = r.todayPct !== null ? (r.todayPct >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
                                   return (
-                                    <button key={r.key} className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-2 py-1.5 w-full text-left active:opacity-60" onClick={() => { sessionStorage.setItem(`holdingsScroll:${location.pathname}`, String(window.scrollY)); navigate(`/transactions/${encodeURIComponent(r.navPort)}/${encodeURIComponent(r.navSym)}`, { state: { from: label, portfolios: r.portfolios } }) }}>
+                                    <button key={r.key} className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-2 py-1.5 w-full text-left active:opacity-60" onClick={() => { sessionStorage.setItem(`holdingsScroll:${location.pathname}`, String(scrollRef.current?.scrollTop ?? 0)); navigate(`/transactions/${encodeURIComponent(r.navPort)}/${encodeURIComponent(r.navSym)}`, { state: { from: label, portfolios: r.portfolios } }) }}>
                                       <div className="flex-1 min-w-0">
                                         <span className="text-[10px] text-slate-600 truncate block">{r.subLabel || r.ticker}</span>
                                       </div>
@@ -1708,7 +1710,7 @@ export default function HoldingsPage({ currency }: Props) {
                                   const xirrColor = hXirr !== null ? (hXirr >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
                                   const todayColor = r.todayPct !== null ? (r.todayPct >= 0 ? 'text-green-600' : 'text-red-400') : 'text-slate-400'
                                   return (
-                                    <button key={r.key} className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-2 py-1.5 w-full text-left active:opacity-60" onClick={() => { sessionStorage.setItem(`holdingsScroll:${location.pathname}`, String(window.scrollY)); navigate(`/transactions/${encodeURIComponent(r.navPort)}/${encodeURIComponent(r.navSym)}`, { state: { from: label, portfolios: r.portfolios } }) }}>
+                                    <button key={r.key} className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-2 py-1.5 w-full text-left active:opacity-60" onClick={() => { sessionStorage.setItem(`holdingsScroll:${location.pathname}`, String(scrollRef.current?.scrollTop ?? 0)); navigate(`/transactions/${encodeURIComponent(r.navPort)}/${encodeURIComponent(r.navSym)}`, { state: { from: label, portfolios: r.portfolios } }) }}>
                                       <div className="flex-1 min-w-0">
                                         <span className="text-[10px] text-slate-600 truncate block">{r.subLabel || r.ticker}</span>
                                       </div>
@@ -1788,7 +1790,7 @@ export default function HoldingsPage({ currency }: Props) {
                                     if (!entry.key) return
                                     const row = allocGroupedRows.find(r => r.key === entry.key)
                                     if (!row) return
-                                    sessionStorage.setItem(`holdingsScroll:${location.pathname}`, String(window.scrollY))
+                                    sessionStorage.setItem(`holdingsScroll:${location.pathname}`, String(scrollRef.current?.scrollTop ?? 0))
                                     navigate(`/transactions/${encodeURIComponent(row.navPort)}/${encodeURIComponent(row.navSym)}`, { state: { from: label, portfolios: row.portfolios } })
                                   }}
                                 >
@@ -2177,7 +2179,7 @@ export default function HoldingsPage({ currency }: Props) {
                                   const hColor  = hXirr !== null ? hXirr >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'
                                   const hAlphaColor = hAlpha !== null ? hAlpha >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'
                                   return (
-                                    <button key={r.key} className="bg-slate-50 rounded-lg px-2 py-1.5 w-full text-left active:opacity-60" onClick={() => { sessionStorage.setItem(`holdingsScroll:${location.pathname}`, String(window.scrollY)); navigate(`/transactions/${encodeURIComponent(r.navPort)}/${encodeURIComponent(r.navSym)}`, { state: { from: label, portfolios: r.portfolios } }) }}>
+                                    <button key={r.key} className="bg-slate-50 rounded-lg px-2 py-1.5 w-full text-left active:opacity-60" onClick={() => { sessionStorage.setItem(`holdingsScroll:${location.pathname}`, String(scrollRef.current?.scrollTop ?? 0)); navigate(`/transactions/${encodeURIComponent(r.navPort)}/${encodeURIComponent(r.navSym)}`, { state: { from: label, portfolios: r.portfolios } }) }}>
                                       <div className="flex items-center gap-1">
                                         <span className="flex items-center gap-1 flex-[2] min-w-0">
                                           <span className="text-[10px] font-medium text-slate-600 truncate min-w-0">{r.subLabel || r.ticker}</span>
