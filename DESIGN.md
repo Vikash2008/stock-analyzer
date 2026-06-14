@@ -545,3 +545,15 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 - Bug: `gainPos = gain >= 0` used unrealized gain only; for closed positions `cur=0, inv=0 → gain=0 → always green`
 - Fix: `gainPos = (gain + realGain) >= 0` — matches the displayed total (`gain + realGain` on line 413)
 - Applies to both open positions (unrealized + partial-sell realized) and fully closed positions
+
+### 2026-06-14 (session 117)
+
+**FX Gains feature — toggle + 5th tab**
+- Toggle lives in PortfoliosPage gear icon (amber, mirrors dividends teal pattern); dispatches `fxgains-toggle` event; HoldingsPage listens via event listener
+- 5th tab "FX" in HoldingsPage shown only when toggle ON (injected into tabs array conditionally); amber-200/amber-800 active class; auto-switches back to 'holdings' if toggle turned OFF while on 'fx' tab
+- FX gain formula (per holding): `fx_gain_INR = total_invested_usd × (current_rate − avg_buy_fx_rate)` where `avg_buy_fx_rate` = FIFO-weighted INR/USD rate across remaining open lots
+- `buy_fx_rate` read from CSV col 13 (`Purchase Exchange Rate`); `fillna(1.0)` for INR rows; stored in `_Lot.buy_fx_rate` in portfolio.py FIFO engine
+- `fx_lots` array in bundle: per-lot open positions for USD portfolios (`{symbol, yf_symbol, portfolio, date, qty, cost_usd, buy_fx_rate}`); `FxGainsTab` derives all 4 sections purely client-side
+- XIRR recalculation when FX toggle ON: BUY cash flows use `tx.buy_fx_rate` (actual INR spent at purchase) instead of current `data.usd_inr`; SELL stays at current rate; applies in `xirrMap`, `filteredSummaryXirr` (HoldingsPage) and `stkXirr`, `heroXirr`, `cardXirrMap` (PortfoliosPage)
+- `FxGainsTab.tsx` sections: (1) amber-50 summary strip, (2) rate bucket bars grouped by 5-INR bands, (3) year/month collapsible timeline, (4) per-holding table with avg buy rate → current rate + FX gain %
+- Color: amber throughout (amber-50 bg, amber-200/700 text/border) — distinct from dividends (teal) and analysis (violet)

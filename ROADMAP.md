@@ -62,8 +62,7 @@
 
 | # | Item | Notes | Status |
 |---|------|-------|--------|
-| 1 | Dividend tab polish | 2026-06-14 s115: (1) hero uses `by_symbol.reduce(total_dividends)`; (2) `stkXirr`/`mfXirr` client-side with div events; (3) `cardDivGainMap` per-ex-date share proportioning; (4) `filteredDivSymbols` total→undefined; (5) BreakCard `divGain` prop. T1+T2 ✓. — 2026-06-14 s116: (6) `symTxns` cross-portfolio bug fixed (`TransactionsPage.tsx` — was missing `portfolioFilter` in filter + deps, showing all portfolios' transactions); (7) dividends cache invalidation on CSV upload — `dividends.py` `clear_cache()` + `portfolio.py` calls it; `clearDividendLocalCache()` in `useDividends.ts` + `PortfoliosPage.tsx` calls it; (8) DividendsTab ↻ button: `isSyncing`/`lastSynced` state, teal gradient, spinner+timestamp. Validated totals: stocks ₹1,75,368 (Zerodha ₹1,13,913 · Vested ₹22,849 · Groww ₹18,166 · IndMoney US ₹8,871 · AngelOne ₹6,908 · Upstox ₹2,751 · IndMoney Mummy ₹1,746 · IndMoney Ind ₹164). T3–T11 pending. | in-progress |
-| 2 | FX conversion new feature | New feature around foreign exchange conversion — details TBD | pending |
+| 2 | FX conversion new feature | Toggle in PortfoliosPage gear (amber) + 5th tab in HoldingsPage (cross-portfolio, visible only when toggle ON); per-lot FX gain = qty×cost_usd×(usd_inr−buy_fx_rate); `buy_fx_rate` read from CSV col 13 (`Purchase Exchange Rate`); XIRR recalculated using actual INR at purchase time when toggle ON; fx_lots in bundle | done |
 | 3 | Yearly activity performance analysis | Analysis/visualisation of performance broken down by year — e.g. annual returns, P&L, invested vs realised per year | pending |
 | 4 | Research Links | Indian: Screener / Trendlyne / NSE pills; US: Finviz / Macrotrends / EDGAR pills | pending |
 | 5 | Better Deep Research prompts | Audit and improve all 8 section prompts (Indian + US variants) for depth, specificity, and output quality | pending |

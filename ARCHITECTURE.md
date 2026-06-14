@@ -21,17 +21,17 @@ testcases.md                Manual test cases — Charts tab + Portfolios page i
 meta_filings_agent.py       Standalone research tool — fetches SEC EDGAR 10-Q/10-K for any US ticker, downloads HTML→text, uploads to Claude Files API, generates per-filing analysis + cross-quarter trend report; outputs meta_filings/META_Filing_Analysis.md
 
 src/
-  engine.py                 build(currency, force_refresh) → PortfolioBundle
-  cache.py                  Disk cache (data/.cache.pkl) — prices/fx/prev_closes TTL 30min, info 7d
-  data_loader.py            CSV ingestion, MSP auto-detect
-  portfolio.py              FIFO engine, enrich_holdings()
+  engine.py                 build(currency, force_refresh) → PortfolioBundle; computes fx_gain/disp_fx_gain per USD holding; filters fx_lots to selected portfolios ∩ _USD_PORTS
+  cache.py                  Disk cache (data/.cache.pkl) — prices/fx/prev_closes TTL 30min, info 7d; set_fifo(key, txns, holdings, realized, fx_lots) 4-tuple; get_fifo() → (txns, holdings_raw, realized, fx_lots); fifo_is_fresh() checks for "fifo:value:lots" key to force recompute on first deploy
+  data_loader.py            CSV ingestion, MSP auto-detect; reads buy_fx_rate from col 13 (Purchase Exchange Rate); fillna(1.0) for INR rows
+  portfolio.py              FIFO engine; _Lot dataclass has buy_fx_rate field; _run_fifo returns (holdings, realized, fx_lots); calculate_holdings aggregates fx_lots across portfolios
   price_fetcher.py          yfinance wrappers; loads names from data/names.json first (Render-safe fallback)
   schema.py                 Frozen schema + validation
   xirr.py                   XIRR calculation
 
 backend/
   main.py                   FastAPI app; CORS hardcodes https://stock-analyzer-blush.vercel.app + reads ALLOWED_ORIGIN env var (additional origin); load_dotenv() reads .env for local dev (python-dotenv)
-  serializers.py            PortfolioBundle → JSON-safe dict (NaN/Timestamp/numpy handling)
+  serializers.py            PortfolioBundle → JSON-safe dict (NaN/Timestamp/numpy handling); serializes fx_lots list
   routers/
     portfolio.py            GET /api/portfolio?currency=INR&force_refresh=false
     history.py              GET /api/history?yf_symbol=INFY.NS&start=YYYY-MM-DD OR ?period=1d (intraday; timestamps in IST; includes prev_close)
@@ -44,7 +44,7 @@ backend/
 
 frontend/
   src/
-    api/types.ts            TypeScript interfaces matching backend JSON
+    api/types.ts            TypeScript interfaces matching backend JSON; FxLot interface {symbol,yf_symbol,portfolio,date,qty,cost_usd,buy_fx_rate}; Holding adds avg_buy_fx_rate/fx_gain/disp_fx_gain; Transaction adds buy_fx_rate; PortfolioData adds fx_lots: FxLot[]
     api/portfolio.ts        fetch wrapper (uses VITE_API_URL env var)
     hooks/usePortfolio.ts        TanStack Query, staleTime=30min, gcTime=Infinity, refetchInterval=30min, refetchIntervalInBackground=false, refetchOnWindowFocus=false, retry 3 retryDelay 20s; auto-refresh persists across page navigation and tab minimise (all 3 pages subscribe → query always has active observer); useForceRefresh() uses qc.fetchQuery({staleTime:0,force_refresh:true}) for on-demand fresh prices; CSV upload mode: reads portfolio:csv from localStorage and POSTs to /api/portfolio if present, else GET returns demo data from demo_msp_v2.csv; ALWAYS fetches currency=INR from backend regardless of USD toggle — all disp_* values are INR; per-portfolio USD conversion done on frontend (HoldingsPage/TransactionsPage/DividendsTab) using USD_PORTS membership check; queryKey is ['portfolio'] (no currency in key)
     hooks/useHistory.ts          TanStack Query for price history, staleTime+gcTime=Infinity; daily queryKey=['history',yf_symbol] (no start in key — shares React Query cache with usePortfolioHistory); intraday queryKey=['history',yf_symbol,'1d']; lsKey=${yf_symbol}:${period??start} for localStorage; placeholderData from localStorage (7d TTL) for instant chart render
@@ -58,9 +58,9 @@ frontend/
     utils/sectors.ts             SYMBOL_SECTOR (170+ symbols → SectorKey incl. all MF funds + closed positions), SECTOR_COLOR, SECTOR_BENCHMARK, BENCHMARK_LABEL, getSectorForHolding(); 11 sectors: Banking/Finance/Healthcare/IT/Growth/Tech/Smallcap/Equity/Consumer/Global/Other; Global=#6366f1 ^GSPC (S&P 500-themed MFs); Consumer=#ec4899 ^CNXFMCG; Smallcap=NIFTY_MIDCAP_100.NS; all 70 MF symbols classified; MarketCapKey, MARKET_CAP_COLOR, SYMBOL_MARKET_CAP, getMarketCapForHolding()
     api/gemini.ts                fetchGeminiSection / fetchGeminiChat — legacy non-streaming helpers (kept); streamGeminiSection(symbol, sectionId, prompt, forceRefresh?, forceLite?, keyIndex?, force31?) → AsyncGenerator<StreamChunk>; streamGeminiChat(symbol, question, contextText, forceLite?, keyIndex?, force31?) → AsyncGenerator<StreamChunk>; StreamChunk: {text?, done?, sources?, model?, grounded?, error?, detail?}; _readSSE(response) shared SSE parser (buffer-based, handles split chunks)
     api/dividends.ts             DividendEvent / DividendSymbol / DividendsData interfaces; fetchDividends(forceRefresh?, portfolio?) → DividendsData; appends ?portfolio=X to URL when provided
-    hooks/useDividends.ts        useDividends(portfolio?) — TanStack Query ['dividends', portfolio ?? ''], staleTime=30d, gcTime=Infinity, refetchOnWindowFocus=false, retry 2×5s; localStorage 30-day TTL cache (key: dividends:cache:{portfolio}); placeholderData (NOT initialData) — shows localStorage data while fetching fresh; initialData would mark query as succeeded and block real fetch; queryFn saves to localStorage after fetch; useForceRefreshDividends(portfolio?); useDividendForSymbol(symbol) — reads from ['dividends', ''] global cache (no portfolio filter); getIncludeDividends()/setIncludeDividends() — localStorage 'settings.includeDividends'
+    hooks/useDividends.ts        useDividends(portfolio?) — TanStack Query ['dividends', portfolio ?? ''], staleTime=30d, gcTime=Infinity, refetchOnWindowFocus=false, retry 2×5s; localStorage 30-day TTL cache (key: dividends:cache:{portfolio}); placeholderData (NOT initialData) — shows localStorage data while fetching fresh; initialData would mark query as succeeded and block real fetch; queryFn saves to localStorage after fetch; useForceRefreshDividends(portfolio?); useDividendForSymbol(symbol) — reads from ['dividends', ''] global cache (no portfolio filter); getIncludeDividends()/setIncludeDividends() — localStorage 'settings.includeDividends'; getIncludeFxGains()/setIncludeFxGains() — localStorage 'settings.includeFxGains'
     utils/reportLinks.ts         SECTIONS (8 configs: business/industry/results/valuation/peers/financial/news/technical), SectionConfig interface includes color{bg,border,accentHex,btnSolid,btnOutline}; buildGeminiPrompt(name, sectionId, isIndian, yf_symbol?, apiUrl?) — injects today's date prefix + returns prompt string with FORMAT_SUFFIX; all 8 sections have per-section "Data requirement" line (Indian + US) instructing Gemini to use latest available filing/data; results section on Indian stocks embeds filing text URL; accentHex used for inline border styling (borderLeftWidth:4 borderTopWidth:2)
-    components/             LoadingSkeleton, SummaryCard, HoldingCard, TxRow, AnalysisTab, ReportTab, DividendsTab (accepts reportTab/useLite/useKey props from TransactionsPage; Deep Research tab: 8 Gemini cards accordion+auto-expand, elapsed timer, react-markdown+remark-gfm; Quick Stats tab: 4×4 grid + 52W bar + analyst + PE History; sub-tab bar + model toggle + gear + sync in TransactionsPage violet strip; per-card 💬 Ask button + global Ask button → DeepResearchChat); DeepResearchChat (bottom-sheet chat modal: context selector pills, thread with markdown rendering, source links, 🌐 Live badge, localStorage 7d per yf_symbol)
+    components/             LoadingSkeleton, SummaryCard (fxGain? prop), HoldingCard (fxGain? prop — both cards include FX in totalGain when prop provided, amber footer line), TxRow, AnalysisTab, ReportTab, DividendsTab (accepts reportTab/useLite/useKey props from TransactionsPage; Deep Research tab: 8 Gemini cards accordion+auto-expand, elapsed timer, react-markdown+remark-gfm; Quick Stats tab: 4×4 grid + 52W bar + analyst + PE History; sub-tab bar + model toggle + gear + sync in TransactionsPage violet strip; per-card 💬 Ask button + global Ask button → DeepResearchChat); DeepResearchChat (bottom-sheet chat modal: context selector pills, thread with markdown rendering, source links, 🌐 Live badge, localStorage 7d per yf_symbol); FxGainsTab (5th tab in HoldingsPage when FX toggle ON: summary strip, rate bucket bars, year/month collapsible timeline, per-holding table — derives all sections from data.fx_lots + usdInr)
     components/PriceChart.tsx  Price line chart (Recharts); props: transactions, yf_symbol, currency, usdInr, hideLegend? (hides BUY/SELL lines+Legend — used on Explore page), showZoom? (shows ⤢ button + ZoomChartOverlay); self-fetches via useHistory; range selector built-in
     components/ZoomChartOverlay.tsx  Landscape zoom overlay using lightweight-charts v5; pinch zoom+pan+crosshair built-in; Crosshair mode (default) shows dashed H+V lines with axis labels; Range mode: tap 2 points → % gain + abs move displayed; takes allChartData (full unfiltered history)
     demo/                   (removed — superseded by CSV upload approach)
@@ -149,6 +149,7 @@ msp_v2.csv
 | xirr_stk | float\|null | XIRR % for non-MF_ portfolios (stocks + US) |
 | xirr_mf | float\|null | XIRR % for MF_ portfolios |
 | xirr_by_portfolio | object | portfolio → XIRR % (non-SKIP only) |
+| fx_lots | array | Open USD lots: `{symbol, yf_symbol, portfolio, date, qty, cost_usd, buy_fx_rate}` — for USD portfolios only; used by FxGainsTab |
 
 ---
 
@@ -175,6 +176,9 @@ msp_v2.csv
 | today_gain | float\|null | (current_price − prev_close) × qty |
 | today_pct | float\|null | (current_price − prev_close) / prev_close × 100 |
 | disp_today_gain | float\|null | today_gain in display currency |
+| avg_buy_fx_rate | float\|null | FIFO-weighted INR/USD rate at purchase; null/1.0 for INR portfolios |
+| fx_gain | float\|null | Extra INR return from USD/INR appreciation: `total_invested_usd × (usd_inr − avg_buy_fx_rate)` |
+| disp_fx_gain | float\|null | fx_gain in display currency |
 
 ---
 
