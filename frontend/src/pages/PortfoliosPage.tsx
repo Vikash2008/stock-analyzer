@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from 'react'
-import { getIncludeDividends, setIncludeDividends } from '../hooks/useDividends'
+import { useDividends, getIncludeDividends, setIncludeDividends } from '../hooks/useDividends'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { usePortfolio, useForceRefresh } from '../hooks/usePortfolio'
@@ -145,8 +145,8 @@ function typeCards(holdings: Holding[], rmap: RealizedMap): CardStats[] {
 
 function isPos(v: number) { return v >= 0 }
 
-function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor, cardBg, pillBlue = false, scale = 1 }: { card: CardStats; currency: Currency; xirr: number | null; onClick: () => void; compact?: boolean; accentColor?: string; cardBg?: string; pillBlue?: boolean; scale?: number }) {
-  const totalGain = (card.current - card.invested) + card.realGain
+function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor, cardBg, pillBlue = false, scale = 1, divGain = 0 }: { card: CardStats; currency: Currency; xirr: number | null; onClick: () => void; compact?: boolean; accentColor?: string; cardBg?: string; pillBlue?: boolean; scale?: number; divGain?: number }) {
+  const totalGain = (card.current - card.invested) + card.realGain + divGain
   const totalCost = card.invested + card.realCost
   const pct = totalCost !== 0 ? (totalGain / totalCost) * 100 : 0
   const pos = isPos(totalGain)
@@ -214,6 +214,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const navigate     = useNavigate()
   const qc           = useQueryClient()
   const { data, isLoading, error, isFetching } = usePortfolio(currency)
+  const { data: divData } = useDividends()
   const forceRefresh  = useForceRefresh(currency)
 
   // Prefetch history for all holdings so chart tabs open instantly.
@@ -390,7 +391,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     for (const [key, [g, c]] of rmap) {
       if (!SKIP_PORTS.has(key.split(':')[0])) { rg += g; rc += c }
     }
-    const totalGain = (cur - inv) + rg
+    const totalDivs = (includeDivs && divData) ? divData.by_symbol.reduce((sum, s) => sum + s.total_dividends, 0) : 0
+    const totalGain = (cur - inv) + rg + totalDivs
     const totalCost = inv + rc
     const prior = cur - todayGain
     return {
@@ -399,7 +401,94 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       todayGain,
       todayPct:   todayGain !== 0 && prior !== 0 ? (todayGain / prior) * 100 : null,
     }
-  }, [active, rmap])
+  }, [active, rmap, includeDivs, divData])
+
+  // Stocks + MF tile XIRR: recompute client-side with dividends when toggle is ON
+  const stkXirr = useMemo(() => {
+    if (!data) return null
+    if (!includeDivs || !divData) return data.xirr_stk ?? null
+    const today = new Date()
+    const cfs: { date: Date; amount: number }[] = []
+    const yfMap = new Map<string, string>()
+    for (const h of data.holdings) yfMap.set(`${h.portfolio}:${h.symbol}`, h.yf_symbol)
+    for (const tx of data.transactions) {
+      if (tx.type === 'DIVIDEND' || SKIP_PORTS.has(tx.portfolio)) continue
+      const yf  = yfMap.get(`${tx.portfolio}:${tx.symbol}`) ?? tx.symbol
+      const seg = getSegmentType(tx.portfolio, yf)
+      if (seg !== 'indian_stock' && seg !== 'us_stock') continue
+      const isUsd = USD_PORTS.has(tx.portfolio)
+      const fx = isUsd ? data.usd_inr : 1
+      const amt = tx.quantity * tx.price * fx
+      const chg = (tx.charges ?? 0) * fx
+      if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
+      if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
+    }
+    for (const s of divData.by_symbol) {
+      const tx = data.transactions.find(t => t.symbol === s.symbol)
+      const seg = tx ? getSegmentType(tx.portfolio, s.yf_symbol) : getSegmentType('', s.yf_symbol)
+      if (seg !== 'indian_stock' && seg !== 'us_stock') continue
+      for (const ev of s.events) cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
+    }
+    const totalCurrent = filterBySegment(active, 'stk').reduce((s, h) => s + h.disp_current, 0)
+    if (totalCurrent > 0) cfs.push({ date: today, amount: totalCurrent })
+    const r = computeXIRR(cfs)
+    return r !== null ? r * 100 : null
+  }, [data, divData, includeDivs, active])
+
+  const mfXirr = useMemo(() => {
+    if (!data) return null
+    if (!includeDivs || !divData) return data.xirr_mf ?? null
+    const today = new Date()
+    const cfs: { date: Date; amount: number }[] = []
+    const yfMap = new Map<string, string>()
+    for (const h of data.holdings) yfMap.set(`${h.portfolio}:${h.symbol}`, h.yf_symbol)
+    for (const tx of data.transactions) {
+      if (tx.type === 'DIVIDEND' || SKIP_PORTS.has(tx.portfolio)) continue
+      const yf  = yfMap.get(`${tx.portfolio}:${tx.symbol}`) ?? tx.symbol
+      const seg = getSegmentType(tx.portfolio, yf)
+      if (seg !== 'indian_mf' && seg !== 'us_mf') continue
+      const isUsd = USD_PORTS.has(tx.portfolio)
+      const fx = isUsd ? data.usd_inr : 1
+      const amt = tx.quantity * tx.price * fx
+      const chg = (tx.charges ?? 0) * fx
+      if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
+      if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
+    }
+    for (const s of divData.by_symbol) {
+      const tx = data.transactions.find(t => t.symbol === s.symbol)
+      const seg = tx ? getSegmentType(tx.portfolio, s.yf_symbol) : getSegmentType('', s.yf_symbol)
+      if (seg !== 'indian_mf' && seg !== 'us_mf') continue
+      for (const ev of s.events) cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
+    }
+    const totalCurrent = filterBySegment(active, 'mf').reduce((s, h) => s + h.disp_current, 0)
+    if (totalCurrent > 0) cfs.push({ date: today, amount: totalCurrent })
+    const r = computeXIRR(cfs)
+    return r !== null ? r * 100 : null
+  }, [data, divData, includeDivs, active])
+
+  // Hero XIRR: recompute client-side with dividend timeline when toggle is ON
+  const heroXirr = useMemo(() => {
+    if (!data) return null
+    if (!includeDivs || !divData) return data.xirr_total ?? null
+    const today = new Date()
+    const cfs: { date: Date; amount: number }[] = []
+    for (const tx of data.transactions) {
+      if (tx.type === 'DIVIDEND' || SKIP_PORTS.has(tx.portfolio)) continue
+      const isUsd = USD_PORTS.has(tx.portfolio)
+      const fx = isUsd ? data.usd_inr : 1
+      const amt = tx.quantity * tx.price * fx
+      const chg = (tx.charges ?? 0) * fx
+      if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
+      if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
+    }
+    for (const ev of divData.timeline) {
+      cfs.push({ date: new Date(ev.date), amount: ev.amount })
+    }
+    const totalCurrent = active.reduce((s, h) => s + h.disp_current, 0)
+    if (totalCurrent > 0) cfs.push({ date: today, amount: totalCurrent })
+    const r = computeXIRR(cfs)
+    return r !== null ? r * 100 : null
+  }, [data, divData, includeDivs, active])
 
   // Stocks tile
   const stk = useMemo(() => {
@@ -413,11 +502,16 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       const seg = classifyClean(mapKey.slice(0, ci), mapKey.slice(ci + 1))
       if (seg === 'indian_stock' || seg === 'us_stock') { rg += g; rc += c }
     }
-    const gain = (cur - inv) + rg
+    const stkDivs = (includeDivs && divData && data)
+      ? divData.by_symbol
+          .filter(s => { const tx = data.transactions.find(t => t.symbol === s.symbol); const seg = tx ? getSegmentType(tx.portfolio, s.yf_symbol) : getSegmentType('', s.yf_symbol); return seg === 'indian_stock' || seg === 'us_stock' })
+          .reduce((sum, s) => sum + s.total_dividends, 0)
+      : 0
+    const gain = (cur - inv) + rg + stkDivs
     const cost = inv + rc
     const prior = cur - tg
     return { cur, inv, gain, pct: cost !== 0 ? gain / cost * 100 : 0, todayGain: tg, todayPct: tg !== 0 && prior !== 0 ? (tg / prior) * 100 : null }
-  }, [active, rmap])
+  }, [active, rmap, includeDivs, divData, data])
 
   // MF tile
   const mf = useMemo(() => {
@@ -431,11 +525,16 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       const seg = classifyClean(mapKey.slice(0, ci), mapKey.slice(ci + 1))
       if (seg === 'indian_mf' || seg === 'us_mf') { rg += g; rc += c }
     }
-    const gain = (cur - inv) + rg
+    const mfDivs = (includeDivs && divData && data)
+      ? divData.by_symbol
+          .filter(s => { const tx = data.transactions.find(t => t.symbol === s.symbol); const seg = tx ? getSegmentType(tx.portfolio, s.yf_symbol) : getSegmentType('', s.yf_symbol); return seg === 'indian_mf' || seg === 'us_mf' })
+          .reduce((sum, s) => sum + s.total_dividends, 0)
+      : 0
+    const gain = (cur - inv) + rg + mfDivs
     const cost = inv + rc
     const prior = cur - tg
     return { cur, inv, gain, pct: cost !== 0 ? gain / cost * 100 : 0, todayGain: tg, todayPct: tg !== 0 && prior !== 0 ? (tg / prior) * 100 : null }
-  }, [active, rmap])
+  }, [active, rmap, includeDivs, divData, data])
 
   const cards = useMemo(
     () => mode === 'broker' ? portfolioCards(active, rmap) : typeCards(active, rmap),
@@ -449,14 +548,72 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     const today = new Date()
 
     if (mode === 'broker') {
+      // Per-portfolio dividend cash flows: proportioned by shares held at each ex-date
+      const divCfsByPort = new Map<string, { date: Date; amount: number }[]>()
+      if (includeDivs && divData) {
+        for (const s of divData.by_symbol) {
+          for (const ev of s.events) {
+            const exDate = new Date(ev.ex_date)
+            const portShares = new Map<string, number>()
+            for (const tx of data.transactions) {
+              if (tx.symbol !== s.symbol || SKIP_PORTS.has(tx.portfolio)) continue
+              if (new Date(tx.date) > exDate) continue
+              const curr = portShares.get(tx.portfolio) ?? 0
+              if (tx.type === 'BUY')  portShares.set(tx.portfolio, curr + tx.quantity)
+              if (tx.type === 'SELL') portShares.set(tx.portfolio, curr - tx.quantity)
+            }
+            let totalShares = 0
+            for (const [, qty] of portShares) if (qty > 0) totalShares += qty
+            if (totalShares > 0) {
+              for (const [port, qty] of portShares) {
+                if (qty <= 0) continue
+                const bucket = divCfsByPort.get(port) ?? []
+                bucket.push({ date: exDate, amount: ev.amount * (qty / totalShares) })
+                divCfsByPort.set(port, bucket)
+              }
+            }
+          }
+        }
+      }
       for (const card of cards) {
-        const v = data.xirr_by_portfolio[card.key]
-        map.set(card.key, v !== undefined ? v : null)
+        if (!includeDivs || !divData) {
+          const v = data.xirr_by_portfolio[card.key]
+          map.set(card.key, v !== undefined ? v : null)
+        } else {
+          const cfs: { date: Date; amount: number }[] = []
+          for (const tx of data.transactions) {
+            if (tx.type === 'DIVIDEND' || tx.portfolio !== card.key) continue
+            const isUsd = USD_PORTS.has(tx.portfolio)
+            const fx = isUsd ? data.usd_inr : 1
+            const amt = tx.quantity * tx.price * fx
+            const chg = (tx.charges ?? 0) * fx
+            if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
+            if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
+          }
+          for (const ev of divCfsByPort.get(card.key) ?? []) cfs.push(ev)
+          const totalCurrent = active.filter(h => h.portfolio === card.key)
+            .reduce((s, h) => s + h.disp_current, 0)
+          if (totalCurrent > 0) cfs.push({ date: today, amount: totalCurrent })
+          const r = computeXIRR(cfs)
+          map.set(card.key, r !== null ? r * 100 : null)
+        }
       }
     } else {
       // Build port:symbol → yf_symbol from all holdings (open positions)
       const yfMap = new Map<string, string>()
       for (const h of data.holdings) yfMap.set(`${h.portfolio}:${h.symbol}`, h.yf_symbol)
+      // Dividend events grouped by segment type
+      const divEventsBySegment = new Map<string, { date: Date; amount: number }[]>()
+      if (includeDivs && divData) {
+        for (const s of divData.by_symbol) {
+          // Use any transaction to infer portfolio for this symbol (to get segment type)
+          const firstTx = data.transactions.find(t => t.symbol === s.symbol)
+          const segKey = firstTx ? getSegmentType(firstTx.portfolio, s.yf_symbol) : getSegmentType('', s.yf_symbol)
+          const bucket = divEventsBySegment.get(segKey) ?? []
+          for (const ev of s.events) bucket.push({ date: new Date(ev.ex_date), amount: ev.amount })
+          divEventsBySegment.set(segKey, bucket)
+        }
+      }
 
       for (const card of cards) {
         const cfs: { date: Date; amount: number }[] = []
@@ -473,6 +630,9 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
           if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
         }
+        for (const ev of divEventsBySegment.get(card.key) ?? []) {
+          cfs.push(ev)
+        }
         // Terminal value: open positions only
         const hs = active.filter(h => getSegmentType(h.portfolio, h.yf_symbol) === card.key)
         const totalCurrent = hs.reduce((s, h) => s + (currency === 'USD' ? h.disp_current / data.usd_inr : h.disp_current), 0)
@@ -482,7 +642,44 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       }
     }
     return map
-  }, [cards, data, mode, active, currency])
+  }, [cards, data, mode, active, currency, includeDivs, divData])
+
+  // Dividend gain per card for BreakCard total returns display
+  const cardDivGainMap = useMemo(() => {
+    const map = new Map<string, number>()
+    if (!includeDivs || !divData || !data) return map
+    if (mode !== 'broker') {
+      // Type mode: group by segment key using total_dividends (INR, correct amount)
+      for (const s of divData.by_symbol) {
+        const tx = data.transactions.find(t => t.symbol === s.symbol)
+        const segKey = tx ? getSegmentType(tx.portfolio, s.yf_symbol) : getSegmentType('', s.yf_symbol)
+        map.set(segKey, (map.get(segKey) ?? 0) + s.total_dividends)
+      }
+    } else {
+      // Broker mode: proportion by shares held at each ex-date (same logic as divCfsByPort)
+      for (const s of divData.by_symbol) {
+        for (const ev of s.events) {
+          const exDate = new Date(ev.ex_date)
+          const portShares = new Map<string, number>()
+          for (const tx of data.transactions) {
+            if (tx.symbol !== s.symbol || SKIP_PORTS.has(tx.portfolio)) continue
+            if (new Date(tx.date) > exDate) continue
+            const curr = portShares.get(tx.portfolio) ?? 0
+            if (tx.type === 'BUY')  portShares.set(tx.portfolio, curr + tx.quantity)
+            if (tx.type === 'SELL') portShares.set(tx.portfolio, curr - tx.quantity)
+          }
+          let totalShares = 0
+          for (const [, qty] of portShares) if (qty > 0) totalShares += qty
+          if (totalShares <= 0) continue
+          for (const [port, qty] of portShares) {
+            if (qty <= 0) continue
+            map.set(port, (map.get(port) ?? 0) + ev.amount * (qty / totalShares))
+          }
+        }
+      }
+    }
+    return map
+  }, [includeDivs, divData, data, mode])
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY
@@ -698,9 +895,9 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           </span>
         </div>
         <div className="flex items-center justify-between mt-1">
-          {data.xirr_total !== null
-            ? <span className="text-[9px] font-semibold rounded-full px-2 py-0.5" style={{ background: (data.xirr_total ?? 0) >= 0 ? 'rgba(13,148,136,0.15)' : 'rgba(220,38,38,0.12)', color: (data.xirr_total ?? 0) >= 0 ? '#0f766e' : '#b91c1c' }}>
-                XIRR {fmtPct(data.xirr_total!)}
+          {heroXirr !== null
+            ? <span className="text-[9px] font-semibold rounded-full px-2 py-0.5" style={{ background: (heroXirr ?? 0) >= 0 ? 'rgba(13,148,136,0.15)' : 'rgba(220,38,38,0.12)', color: (heroXirr ?? 0) >= 0 ? '#0f766e' : '#b91c1c' }}>
+                XIRR {fmtPct(heroXirr!)}
               </span>
             : <span className="text-[9px] text-slate-400">XIRR —</span>
           }
@@ -716,8 +913,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       {/* Stocks + MF summary tiles — side by side */}
       <div className="grid grid-cols-2 gap-2">
         {[
-          { label: 'Stocks',       stats: stk, seg: 'stk', xirr: data.xirr_stk, tileBg: STOCK_CARD_STYLE.bg, tileAccent: STOCK_CARD_STYLE.accent },
-          { label: 'Mutual Funds', stats: mf,  seg: 'mf',  xirr: data.xirr_mf,  tileBg: MF_CARD_STYLE.bg,  tileAccent: MF_CARD_STYLE.accent },
+          { label: 'Stocks',       stats: stk, seg: 'stk', xirr: stkXirr, tileBg: STOCK_CARD_STYLE.bg, tileAccent: STOCK_CARD_STYLE.accent },
+          { label: 'Mutual Funds', stats: mf,  seg: 'mf',  xirr: mfXirr,  tileBg: MF_CARD_STYLE.bg,  tileAccent: MF_CARD_STYLE.accent },
         ].map(({ label, stats, seg, xirr, tileBg, tileAccent }) => {
           const pos = isPos(stats.gain)
           const tc  = pos ? '#0a7a42' : '#be1c1c'
@@ -795,7 +992,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {gc.map(card => (
-                    <BreakCard key={card.key} card={card} currency={usdCur(card.key === 'us_stock' || card.key === 'us_mf')} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={TYPE_CARD_STYLE[card.key]?.accent} cardBg={TYPE_CARD_STYLE[card.key]?.bg} pillBlue={card.key === 'indian_mf' || card.key === 'us_mf'} scale={usdScale(card.key === 'us_stock' || card.key === 'us_mf')} />
+                    <BreakCard key={card.key} card={card} currency={usdCur(card.key === 'us_stock' || card.key === 'us_mf')} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={TYPE_CARD_STYLE[card.key]?.accent} cardBg={TYPE_CARD_STYLE[card.key]?.bg} pillBlue={card.key === 'indian_mf' || card.key === 'us_mf'} scale={usdScale(card.key === 'us_stock' || card.key === 'us_mf')} divGain={cardDivGainMap.get(card.key) ?? 0} />
                   ))}
                 </div>
               </div>
@@ -815,7 +1012,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {gc.map(card => (
-                    <BreakCard key={card.key} card={card} currency={usdCur(USD_PORTS.has(card.key))} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={PORTFOLIO_CARD_STYLE[card.key]?.accent} cardBg={PORTFOLIO_CARD_STYLE[card.key]?.bg} pillBlue={card.key.startsWith('MF_')} scale={usdScale(USD_PORTS.has(card.key))} />
+                    <BreakCard key={card.key} card={card} currency={usdCur(USD_PORTS.has(card.key))} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={PORTFOLIO_CARD_STYLE[card.key]?.accent} cardBg={PORTFOLIO_CARD_STYLE[card.key]?.bg} pillBlue={card.key.startsWith('MF_')} scale={usdScale(USD_PORTS.has(card.key))} divGain={cardDivGainMap.get(card.key) ?? 0} />
                   ))}
                 </div>
               </div>

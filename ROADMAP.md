@@ -62,7 +62,7 @@
 
 | # | Item | Notes | Status |
 |---|------|-------|--------|
-| 1 | Dividend tab polish | Session 114 fixed: toggle now affects XIRR + total returns on both HoldingsPage and PortfoliosPage. HoldingsPage: `useDividends(portfolio)` shares cache with DividendsTab; `xirrMap` + `filteredSummaryXirr` inject dividend events as positive cash flows. PortfoliosPage: `useDividends()` added; `hero.totalGain` += total dividends; `heroXirr` recomputed client-side with `divData.timeline`; `cardXirrMap` type-mode includes dividend events per segment. Remaining: verify blank screen on portfolio click fully resolved (switched initialData→placeholderData) | pending |
+| 1 | Dividend tab polish | 2026-06-14: (1) hero uses `by_symbol.reduce(total_dividends)` not `summary.total_dividends_inr`; (2) `stkXirr`/`mfXirr` memos compute client-side with dividend events per segment; (3) `cardDivGainMap` broker mode rewritten to per-ex-date share proportioning (net-shares gave 60K vs actual 1.13L for Zerodha); (4) HoldingsPage `filteredDivSymbols`: `segment='total'`→undefined (shows all divs incl. exited positions); segment='stk'/'mf'→filters across all `divData.by_symbol` via `getSegmentType` not open holdings; (5) `BreakCard` receives `divGain` prop. T1+T2 verified. T3–T11 in progress. | in-progress |
 | 2 | FX conversion new feature | New feature around foreign exchange conversion — details TBD | pending |
 | 3 | Yearly activity performance analysis | Analysis/visualisation of performance broken down by year — e.g. annual returns, P&L, invested vs realised per year | pending |
 | 4 | Research Links | Indian: Screener / Trendlyne / NSE pills; US: Finviz / Macrotrends / EDGAR pills | pending |

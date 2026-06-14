@@ -189,7 +189,7 @@ export default function HoldingsPage({ currency }: Props) {
   const location = useLocation()
   const { portfolio, segment } = useParams<{ portfolio?: string; segment?: string }>()
   const { data, isLoading, error } = usePortfolio(currency)
-  const { data: divData } = useDividends()
+  const { data: divData } = useDividends(portfolio)
   const [includeDivs, setIncludeDivs] = useState(getIncludeDividends)
   useEffect(() => {
     const handler = () => setIncludeDivs(getIncludeDividends())
@@ -371,9 +371,22 @@ export default function HoldingsPage({ currency }: Props) {
 
   // Segment filter only — portfolio filtering is handled by the backend via the portfolio param
   const filteredDivSymbols = useMemo(() => {
-    if (!segment) return undefined
-    return new Set(filteredHoldings.map(h => h.symbol))
-  }, [filteredHoldings, segment])
+    if (!segment || segment === 'total') return undefined
+    if (!divData || !data) return new Set<string>()
+    const allowed = segment === 'stk'
+      ? new Set(['indian_stock', 'us_stock'])
+      : segment === 'mf'
+      ? new Set(['indian_mf', 'us_mf'])
+      : null
+    if (!allowed) return undefined
+    const syms = new Set<string>()
+    for (const s of divData.by_symbol) {
+      const tx = data.transactions.find(t => t.symbol === s.symbol)
+      const seg = tx ? getSegmentType(tx.portfolio, s.yf_symbol) : getSegmentType('', s.yf_symbol)
+      if (allowed.has(seg)) syms.add(s.symbol)
+    }
+    return syms
+  }, [segment, divData, data])
 
   const totalDivForView = useMemo(() => {
     if (!includeDivs || !divData) return 0
@@ -685,6 +698,9 @@ export default function HoldingsPage({ currency }: Props) {
     const today = new Date()
     const map   = new Map<string, number | null>()
     const isCumulative = !!segment && viewMode === 'cumulative'
+    const divEventsMap = (includeDivs && divData)
+      ? new Map(divData.by_symbol.map(s => [s.symbol, s.events]))
+      : new Map<string, never[]>()
 
     for (const row of [...rows, ...(holdingFilter !== 'open' ? closedRows : [])]) {
       const rowPorts = (isCumulative && row.key.startsWith('closed:')) ? new Set(row.portfolios) : filtPorts
@@ -704,13 +720,16 @@ export default function HoldingsPage({ currency }: Props) {
         if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
         if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
       }
+      for (const ev of divEventsMap.get(row.navSym) ?? []) {
+        cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
+      }
       if (row.current > 0) cfs.push({ date: today, amount: row.current })
 
       const r = computeXIRR(cfs)
       map.set(row.key, r !== null ? r * 100 : null)
     }
     return map
-  }, [rows, closedRows, holdingFilter, data, currency, filtPorts, segment, viewMode])
+  }, [rows, closedRows, holdingFilter, data, currency, filtPorts, segment, viewMode, includeDivs, divData])
 
   // Patch ltp on closed rows using latest price from symbolPriceMap (available after usePortfolioHistory)
   const closedRowsWithLtp = useMemo(() => {
@@ -810,6 +829,9 @@ export default function HoldingsPage({ currency }: Props) {
     if (targetRows.length === 0) return null
     const today = new Date()
     const cfs: { date: Date; amount: number }[] = []
+    const divEventsMap = (includeDivs && divData)
+      ? new Map(divData.by_symbol.map(s => [s.symbol, s.events]))
+      : new Map<string, never[]>()
     for (const row of targetRows) {
       const rowPorts = (isCumulative && row.key.startsWith('closed:')) ? new Set(row.portfolios) : filtPorts
       const txns = data.transactions.filter(t =>
@@ -826,11 +848,14 @@ export default function HoldingsPage({ currency }: Props) {
         if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
         if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
       }
+      for (const ev of divEventsMap.get(row.navSym) ?? []) {
+        cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
+      }
       if (row.current > 0) cfs.push({ date: today, amount: row.current })
     }
     const r = computeXIRR(cfs)
     return r !== null ? r * 100 : null
-  }, [holdingFilter, data, closedRows, rows, filtPorts, segment, viewMode, currency])
+  }, [holdingFilter, data, closedRows, rows, filtPorts, segment, viewMode, currency, includeDivs, divData])
 
 
   // ── Returns tab: per-sector daily value series ──────────────────────────────
