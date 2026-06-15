@@ -253,12 +253,20 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     reader.onload = async (e) => {
       const text = e.target?.result as string
       setImportProgress(20)
+      const meta: CsvMeta = { name: file.name, size: file.size, importedAt: Date.now() }
       try {
-        const meta: CsvMeta = { name: file.name, size: file.size, importedAt: Date.now() }
         localStorage.setItem('portfolio:csv', text)
+      } catch {
+        // Quota hit — evict gemini + dividend caches and retry
+        for (const k of Object.keys(localStorage)) {
+          if (k.startsWith('gemini:') || k.startsWith('dividends:cache:')) localStorage.removeItem(k)
+        }
+        try { localStorage.setItem('portfolio:csv', text) } catch { /* still full */ }
+      }
+      try {
         localStorage.setItem('portfolio:csv:meta', JSON.stringify(meta))
         setCsvMeta(meta)
-      } catch { /* localStorage quota exceeded — proceed without caching */ }
+      } catch { /* meta write non-fatal */ }
       setImportProgress(40)
 
       // Asymptotic approach to 99% — keeps moving throughout POST, never stalls
