@@ -253,10 +253,12 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     reader.onload = async (e) => {
       const text = e.target?.result as string
       setImportProgress(20)
-      const meta: CsvMeta = { name: file.name, size: file.size, importedAt: Date.now() }
-      localStorage.setItem('portfolio:csv', text)
-      localStorage.setItem('portfolio:csv:meta', JSON.stringify(meta))
-      setCsvMeta(meta)
+      try {
+        const meta: CsvMeta = { name: file.name, size: file.size, importedAt: Date.now() }
+        localStorage.setItem('portfolio:csv', text)
+        localStorage.setItem('portfolio:csv:meta', JSON.stringify(meta))
+        setCsvMeta(meta)
+      } catch { /* localStorage quota exceeded — proceed without caching */ }
       setImportProgress(40)
 
       // Asymptotic approach to 99% — keeps moving throughout POST, never stalls
