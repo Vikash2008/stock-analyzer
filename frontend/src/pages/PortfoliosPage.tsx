@@ -269,13 +269,17 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         setImportProgress(Math.round(pct))
       }, 180)
 
+      const controller = new AbortController()
+      const abortTimer = setTimeout(() => controller.abort(), 120_000)
       try {
         const params = new URLSearchParams({ currency, force_refresh: 'true' })
         const res = await fetch(`${API_URL_SETTINGS}/api/portfolio?${params}`, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain' },
           body: text,
+          signal: controller.signal,
         })
+        clearTimeout(abortTimer)
         clearInterval(progressTimer.current)
         if (res.ok) {
           const newData = await res.json()
@@ -283,8 +287,9 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           clearDividendLocalCache()
           qc.removeQueries({ queryKey: ['dividends'] })
         }
-      } catch { /* keep stale data */ }
+      } catch { /* timed out or network error — CSV already in localStorage, next fetch will retry */ }
       finally {
+        clearTimeout(abortTimer)
         clearInterval(progressTimer.current)
         setImportProgress(100)
         setImportDone(true)
