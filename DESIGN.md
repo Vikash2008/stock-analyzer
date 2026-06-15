@@ -412,6 +412,15 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 - `useHistory.ts` daily `queryKey` changed from `['history',yf_symbol,start]` → `['history',yf_symbol]` to share React Query in-memory cache with `usePortfolioHistory` (same key); intraday keeps `['history',yf_symbol,'1d']`
 - Trade-off: "All" range starts from 2015 (not 2000); pre-2015 history lost
 
+### 2026-06-15 (session 120)
+
+**HoldingCard — FX + Dividends layout (`HoldingCard.tsx`)**
+- FX and Dividends moved from two separate right-aligned rows into a single right-aligned sub-line under the Total G/L row
+- Labels `· FX` and `· DIV` use `text-slate-400` (same muted style as "Today" and "Total" labels for consistency)
+- Values use `text-teal-600 font-semibold`; `fmtCompactGainLine` already includes `+` sign — no manual prefix
+- Dot prefix on each label (`· FX`, `· DIV`) acts as separator; `gap-1.5` between the two items when both present
+- Render: only when `fxAmt > 0 || divAmt > 0`; each item conditional independently
+
 **SEC EDGAR link fix (both pages)**
 - Changed from `CIK=${sym}&type=10-` (direct ticker lookup, fails for new/foreign listings) → `company=${sym}&CIK=&type=` (name/ticker search, no filing-type filter)
 - Fixes "No matching Ticker Symbol" for foreign private issuers (20-F filers) and recently listed tickers; tooltip desc updated to "10-K / 20-F & earnings filings"
