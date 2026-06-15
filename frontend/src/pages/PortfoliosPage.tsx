@@ -283,7 +283,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         clearInterval(progressTimer.current)
         if (res.ok) {
           const newData = await res.json()
-          qc.setQueryData(['portfolio', currency], newData)
+          qc.setQueryData(['portfolio'], newData)
           clearDividendLocalCache()
           qc.removeQueries({ queryKey: ['dividends'] })
         }
