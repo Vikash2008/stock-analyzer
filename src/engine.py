@@ -28,6 +28,54 @@ _USD_PORTS  = {"Vested", "IndMoney US", "IndMoney Mummy"}
 _SKIP_PORTS = {"Equity", "MF_Portfolio"}   # aggregate duplicates — excluded from totals
 
 
+def _fill_usd_fx_rates(txns: pd.DataFrame) -> pd.DataFrame:
+    """
+    For USD BUY rows where buy_fx_rate is missing or ≤ 1.5 (the CSV default),
+    fetch the actual USDINR=X closing rate on the buy date from yfinance and fill it in.
+    Runs once per CSV change (result is baked into the FIFO cache).
+    """
+    import yfinance as yf
+
+    if "buy_fx_rate" not in txns.columns or "currency" not in txns.columns:
+        return txns
+
+    mask = (
+        (txns["currency"] == "USD") &
+        (txns["type"] == "BUY") &
+        (txns["buy_fx_rate"].isna() | (txns["buy_fx_rate"] <= 1.5))
+    )
+    if not mask.any():
+        return txns
+
+    dates = pd.to_datetime(txns.loc[mask, "date"])
+    start = (dates.min() - pd.Timedelta(days=7)).strftime("%Y-%m-%d")
+    end   = (dates.max() + pd.Timedelta(days=2)).strftime("%Y-%m-%d")
+
+    try:
+        fx = yf.download("USDINR=X", start=start, end=end, auto_adjust=True, progress=False)
+        if fx.empty:
+            return txns
+        close = fx["Close"].squeeze()
+        if hasattr(close, "columns"):
+            close = close.iloc[:, 0]
+
+        # Forward-fill then back-fill so weekends/holidays resolve to nearest trading rate
+        all_days = pd.date_range(start, end)
+        close = close.reindex(all_days).ffill().bfill()
+
+        txns = txns.copy()
+        for i in txns[mask].index:
+            buy_date = pd.Timestamp(txns.at[i, "date"]).normalize().tz_localize(None)
+            rate = float(close.get(buy_date, close.iloc[-1]))
+            if rate > 1.5:
+                txns.at[i, "buy_fx_rate"] = rate
+        print(f"[engine] Filled historical USDINR rates for {mask.sum()} USD BUY rows")
+    except Exception as e:
+        print(f"[engine] Historical FX rate fetch failed: {e}")
+
+    return txns
+
+
 # ── Data bundle ───────────────────────────────────────────────────────────────
 
 @dataclass
@@ -39,6 +87,7 @@ class PortfolioBundle:
     holdings: pd.DataFrame
     transactions: pd.DataFrame
     realized: pd.DataFrame
+    fx_lots: List[dict]          # per-lot open positions for USD portfolios (FX tab)
 
     total_invested: float
     total_current: float
@@ -95,11 +144,12 @@ def build(
     if not cache.fifo_is_fresh(fifo_key):
         print("[engine] FIFO stale — recomputing")
         txns = load_transactions(source)
-        holdings_raw, realized_all = calculate_holdings(txns)
-        cache.set_fifo(fifo_key, txns, holdings_raw, realized_all)
+        txns = _fill_usd_fx_rates(txns)
+        holdings_raw, realized_all, fx_lots_all = calculate_holdings(txns)
+        cache.set_fifo(fifo_key, txns, holdings_raw, realized_all, fx_lots_all)
         force_refresh_prices = True   # symbol list may have changed
     else:
-        txns, holdings_raw, realized_all = cache.get_fifo()
+        txns, holdings_raw, realized_all, fx_lots_all = cache.get_fifo()
 
     # ── Layer 2: Prices + FX (30-min TTL) ────────────────────────────────────
     if force_refresh_prices or not cache.is_fresh("prices"):
@@ -167,6 +217,34 @@ def build(
         if pd.notna(r.get("today_gain")) else None, axis=1
     )
 
+    # ── FX gain columns (USD holdings only) ──────────────────────────────────
+    # fx_gain = total_invested_usd × (current_rate − avg_buy_fx_rate)
+    # Represents extra INR return due to USD/INR appreciation since purchase.
+    def _fx_gain(row) -> float:
+        if row.get("currency") != "USD" or row.get("portfolio") not in _USD_PORTS:
+            return 0.0
+        avg_fx = row.get("avg_buy_fx_rate") or 1.0
+        if avg_fx <= 0:
+            return 0.0
+        return float(row["total_invested"]) * (usd_inr - avg_fx)
+
+    holdings["fx_gain"]      = holdings.apply(_fx_gain, axis=1)
+    holdings["disp_fx_gain"] = holdings.apply(
+        lambda r: _to_display(r["fx_gain"], "INR", currency, usd_inr), axis=1
+    )
+
+    # ── buy_fx_rate safety fill on transactions ───────────────────────────────
+    if "buy_fx_rate" not in transactions.columns:
+        transactions = transactions.copy()
+        transactions["buy_fx_rate"] = 1.0
+
+    # ── Filter fx_lots by selected portfolios (USD ports only) ──────────────
+    fx_lots = [
+        lot for lot in fx_lots_all
+        if lot.get("portfolio") in selected_portfolios
+        and lot.get("portfolio") in _USD_PORTS
+    ]
+
     # ── Summary (exclude aggregate-duplicate portfolios) ─────────────────────
     _totals = holdings[~holdings["portfolio"].isin(_SKIP_PORTS)] \
               if "portfolio" in holdings.columns else holdings
@@ -211,6 +289,7 @@ def build(
         holdings=holdings,
         transactions=transactions,
         realized=realized,
+        fx_lots=fx_lots,
         total_invested=total_invested,
         total_current=total_current,
         total_gain=total_gain,

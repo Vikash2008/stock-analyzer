@@ -56,4 +56,5 @@ def serialize_bundle(bundle: PortfolioBundle) -> dict:
         "holdings":            _df_to_records(bundle.holdings),
         "transactions":        _df_to_records(bundle.transactions),
         "realized":            _df_to_records(bundle.realized),
+        "fx_lots":             [{k: _clean(v) for k, v in lot.items()} for lot in (bundle.fx_lots or [])],
     }

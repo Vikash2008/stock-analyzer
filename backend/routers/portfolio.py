@@ -22,6 +22,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from src.engine import build
 from backend.serializers import serialize_bundle
+from backend.routers.dividends import clear_cache as _clear_div_cache
 
 router = APIRouter()
 
@@ -73,6 +74,7 @@ async def post_portfolio(
     bundle = build(currency=currency, force_refresh_prices=force_refresh, csv_content=csv_content)
     data = serialize_bundle(bundle)
     _mem_cache[cache_key] = (data, now)
+    _clear_div_cache()
 
     return JSONResponse(content=data)
 

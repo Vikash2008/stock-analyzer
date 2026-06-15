@@ -44,7 +44,7 @@ _mem: dict[str, tuple[Any, float]] = {}
 def _load_txns():
     cached = Cache().get_fifo()
     if cached is not None:
-        txns, _, _ = cached
+        txns, _, _, _ = cached
         return txns
     return load_transactions(_DATA_FILE)
 
@@ -236,6 +236,11 @@ def _compute(txns: pd.DataFrame, usd_inr: float, portfolio: str | None = None) -
         "by_month":  {k: round(v, 2) for k, v in sorted(by_month.items())},
         "timeline":  timeline,
     }
+
+
+def clear_cache() -> None:
+    """Clear the in-memory dividends cache. Call after a new CSV is uploaded."""
+    _mem.clear()
 
 
 @router.get("/api/dividends/debug")

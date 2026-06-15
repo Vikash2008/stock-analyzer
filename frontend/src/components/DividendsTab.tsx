@@ -175,6 +175,8 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
   const { data, isLoading, isError } = useDividends(portfolio)
   const forceRefresh = useForceRefreshDividends(portfolio)
 
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [lastSynced, setLastSynced] = useState<Date | null>(null)
   const [selectedYears, setSelectedYears] = useState<Set<string>>(new Set())
   const [selectedMonths, setSelectedMonths] = useState<Set<number>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
@@ -186,26 +188,10 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
     const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n
   })
 
-  if (isLoading) {
-    return (
-      <div className="pt-4 text-center">
-        <div className="animate-spin w-5 h-5 border-2 border-teal-300 border-t-teal-600 rounded-full mx-auto mb-2" />
-        <p className="text-[11px] text-slate-400">Fetching dividend history…</p>
-        <p className="text-[10px] text-slate-300 mt-1">First load may take ~30s</p>
-      </div>
-    )
-  }
-
-  if (isError || !data) {
-    return (
-      <div className="pt-4 text-center">
-        <p className="text-[12px] text-red-400 mb-2">Could not load dividend data</p>
-        <button onClick={() => forceRefresh()} className="text-[11px] text-teal-600 underline">Retry</button>
-      </div>
-    )
-  }
-
-  const { summary, by_symbol, by_year } = data
+  // Derived data — computed before early returns so useMemo hooks below are always called
+  const by_symbol = data?.by_symbol ?? []
+  const by_year   = data?.by_year   ?? {}
+  const summary   = data?.summary
 
   const activeSymbols = filterSymbols && filterSymbols.size > 0
     ? by_symbol.filter(s => filterSymbols.has(s.symbol))
@@ -214,11 +200,11 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
   const activeSummary = filterSymbols && filterSymbols.size > 0
     ? {
         total_dividends_inr: activeSymbols.reduce((sum, s) => sum + s.total_dividends, 0),
-        dividend_count: activeSymbols.reduce((sum, s) => sum + s.event_count, 0),
+        dividend_count:       activeSymbols.reduce((sum, s) => sum + s.event_count, 0),
         symbols_with_dividends: activeSymbols.length,
         projected_annual_inr: activeSymbols.reduce((sum, s) => sum + s.projected_annual, 0),
       }
-    : summary
+    : summary ?? { total_dividends_inr: 0, dividend_count: 0, symbols_with_dividends: 0, projected_annual_inr: 0 }
 
   const activeByYear = filterSymbols && filterSymbols.size > 0
     ? activeSymbols.reduce<Record<string, number>>((acc, s) => {
@@ -236,10 +222,9 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
     return entries.reduce((best, curr) => curr[1] > best[1] ? curr : best)
   }, [activeByYear])
 
-  const hasDivs = activeSummary.total_dividends_inr > 0
+  const hasDivs  = activeSummary.total_dividends_inr > 0
   const hasFilter = selectedYears.size > 0 || selectedMonths.size > 0
 
-  // Year/month/search filter for the stock list
   const visibleSymbols = useMemo(() => {
     let syms = activeSymbols
     if (selectedYears.size > 0 || selectedMonths.size > 0) {
@@ -258,7 +243,6 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
     return syms
   }, [activeSymbols, selectedYears, selectedMonths, searchQuery])
 
-  // Total dividends for the selected year/month window (shown on chart)
   const periodTotal = useMemo(() => {
     if (!hasFilter) return null
     let total = 0
@@ -273,6 +257,26 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
     })
     return total
   }, [activeSymbols, selectedYears, selectedMonths, hasFilter])
+
+  // Early returns AFTER all hooks
+  if (isLoading) {
+    return (
+      <div className="pt-4 text-center">
+        <div className="animate-spin w-5 h-5 border-2 border-teal-300 border-t-teal-600 rounded-full mx-auto mb-2" />
+        <p className="text-[11px] text-slate-400">Fetching dividend history…</p>
+        <p className="text-[10px] text-slate-300 mt-1">First load may take ~30s</p>
+      </div>
+    )
+  }
+
+  if (isError || !data) {
+    return (
+      <div className="pt-4 text-center">
+        <p className="text-[12px] text-red-400 mb-2">Could not load dividend data</p>
+        <button onClick={() => forceRefresh()} className="text-[11px] text-teal-600 underline">Retry</button>
+      </div>
+    )
+  }
 
   return (
     <div className="pt-2">
@@ -336,10 +340,24 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
                   </button>
                 )}
               </div>
-              <button onClick={() => forceRefresh()} title="Refresh dividend data" className="text-slate-300 active:text-teal-500">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/>
-                </svg>
+              <button
+                onClick={async () => {
+                  if (isSyncing) return
+                  setIsSyncing(true)
+                  try { await forceRefresh() } finally {
+                    setIsSyncing(false)
+                    setLastSynced(new Date())
+                  }
+                }}
+                title="Refresh dividend data"
+                className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 border active:opacity-60 bg-gradient-to-br from-teal-600 to-emerald-700 border-teal-700"
+              >
+                <span className={`text-[9px] text-white leading-none inline-block ${isSyncing ? 'animate-spin' : ''}`}>↻</span>
+                {lastSynced && (
+                  <span className="text-[10px] text-white whitespace-nowrap leading-none">
+                    {String(lastSynced.getHours()).padStart(2,'0')}:{String(lastSynced.getMinutes()).padStart(2,'0')} {String(lastSynced.getDate()).padStart(2,'0')} {lastSynced.toLocaleString('en-US',{month:'short'})}
+                  </span>
+                )}
               </button>
             </div>
             <YearChart byYear={activeByYear} selectedYears={selectedYears} onToggleYear={toggleYear} currency={summaryCur} fxMultiplier={summaryFx} />

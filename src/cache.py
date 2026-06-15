@@ -103,14 +103,20 @@ class Cache:
 
     # ── FIFO mtime / hash gate ────────────────────────────────────────────────
     # source is either a Path (keyed by mtime) or a str MD5 hash (uploaded CSV)
+    # Bump _FIFO_VERSION whenever FIFO logic changes to force a cache miss.
+    _FIFO_VERSION = "2"
 
     def fifo_is_fresh(self, source: "Path | str") -> bool:
+        if "fifo:value:lots" not in self._data:
+            return False  # force recompute to populate fx_lots
+        if self._data.get("fifo:version") != self._FIFO_VERSION:
+            return False  # logic changed — recompute
         if isinstance(source, str):
             return self._data.get("fifo:csv_hash") == source
         stored = self._data.get("fifo:mtime")
         return stored == source.stat().st_mtime
 
-    def set_fifo(self, source: "Path | str", txns, holdings_raw, realized) -> None:
+    def set_fifo(self, source: "Path | str", txns, holdings_raw, realized, fx_lots=None) -> None:
         if isinstance(source, str):
             self._data["fifo:csv_hash"] = source
             self._data.pop("fifo:mtime", None)
@@ -120,14 +126,17 @@ class Cache:
         self._data["fifo:value:txns"]   = txns
         self._data["fifo:value:raw"]    = holdings_raw
         self._data["fifo:value:real"]   = realized
+        self._data["fifo:value:lots"]   = fx_lots or []
+        self._data["fifo:version"]      = self._FIFO_VERSION
         self._data["fifo:ts"]           = time.time()
         self.save()
 
     def get_fifo(self):
-        """Return (txns, holdings_raw, realized) or None."""
+        """Return (txns, holdings_raw, realized, fx_lots) or None."""
         k = ("fifo:value:txns", "fifo:value:raw", "fifo:value:real")
         if all(x in self._data for x in k):
-            return (self._data[k[0]], self._data[k[1]], self._data[k[2]])
+            lots = self._data.get("fifo:value:lots", [])
+            return (self._data[k[0]], self._data[k[1]], self._data[k[2]], lots)
         return None
 
     # ── Diagnostics ───────────────────────────────────────────────────────────

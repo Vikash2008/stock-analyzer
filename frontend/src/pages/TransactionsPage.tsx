@@ -144,10 +144,11 @@ export default function TransactionsPage({ currency }: Props) {
       .filter(t =>
         t.symbol === decoded.symbol &&
         (t.type === 'BUY' || t.type === 'SELL') &&
-        !SKIP_PORTS.has(t.portfolio),
+        !SKIP_PORTS.has(t.portfolio) &&
+        (isAggregate ? true : portfolioFilter.includes(t.portfolio)),
       )
       .sort((a, b) => b.date.localeCompare(a.date))  // newest first
-  }, [data, decoded.symbol])
+  }, [data, decoded.symbol, portfolioFilter, isAggregate])
 
   const holdingArr = useMemo(() => holdingList, [holdingList])
 

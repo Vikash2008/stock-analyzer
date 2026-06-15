@@ -16,16 +16,18 @@ interface HoldingCardProps {
   ltp:        number | null
   xirr:       number | null
   dividends?: number          // pass when "include dividends" toggle is ON
+  fxGain?:    number          // pass when "include FX gains" toggle is ON
   currency:   Currency
   onClick:    () => void
 }
 
 export function HoldingCard({
   ticker, subLabel, current, invested, realGain, realCost,
-  todayGain, todayPct, ltp, xirr, dividends, currency, onClick,
+  todayGain, todayPct, ltp, xirr, dividends, fxGain, currency, onClick,
 }: HoldingCardProps) {
   const divAmt    = dividends ?? 0
-  const totalGain = (current - invested) + realGain + divAmt
+  const fxAmt     = fxGain ?? 0
+  const totalGain = (current - invested) + realGain + divAmt + fxAmt
   const totalCost = invested + realCost
   const totalPct  = totalCost !== 0 ? (totalGain / totalCost) * 100 : 0
   const gain      = totalGain >= 0
@@ -82,11 +84,18 @@ export function HoldingCard({
           </span>
         </span>
       </div>
-      {divAmt > 0 && (
-        <div className="flex justify-end mt-0.5">
-          <span className="text-[10px] text-teal-600">
-            Dividends <span className="font-semibold">+{fmtCompactGainLine(divAmt, null, currency)}</span>
-          </span>
+      {(fxAmt > 0 || divAmt > 0) && (
+        <div className={`flex items-center mt-0.5 ${fxAmt > 0 && divAmt > 0 ? 'justify-between' : fxAmt > 0 ? 'justify-start' : 'justify-end'}`}>
+          {fxAmt > 0 && (
+            <span className="text-[10px] text-teal-600">
+              FX <span className="font-semibold">+{fmtCompactGainLine(fxAmt, null, currency)}</span>
+            </span>
+          )}
+          {divAmt > 0 && (
+            <span className="text-[10px] text-teal-600">
+              Dividends <span className="font-semibold">+{fmtCompactGainLine(divAmt, null, currency)}</span>
+            </span>
+          )}
         </div>
       )}
     </div>

@@ -3,7 +3,7 @@ import { fetchDividends } from '../api/dividends'
 import type { DividendsData, DividendSymbol } from '../api/dividends'
 
 const STALE_MS = 30 * 24 * 60 * 60 * 1000          // 30 days — matches backend disk cache TTL
-const LS_KEY   = (p: string) => `dividends:cache:${p}`
+const LS_KEY   = (p: string) => p ? `dividends:cache:v2:${p}` : `dividends:cache:`
 
 function lsGet(key: string): DividendsData | undefined {
   try {
@@ -61,6 +61,12 @@ export function useDividendForSymbol(symbol: string): DividendSymbol | undefined
   return data?.by_symbol.find(s => s.symbol === symbol)
 }
 
+/** Wipe all dividend localStorage entries (call after CSV upload to force fresh fetch). */
+export function clearDividendLocalCache(): void {
+  const keys = Object.keys(localStorage).filter(k => k.startsWith('dividends:cache:'))
+  keys.forEach(k => localStorage.removeItem(k))
+}
+
 /** Returns whether dividends should be included in returns (persisted in localStorage). */
 export function getIncludeDividends(): boolean {
   return localStorage.getItem('settings.includeDividends') === 'true'
@@ -68,4 +74,13 @@ export function getIncludeDividends(): boolean {
 
 export function setIncludeDividends(val: boolean): void {
   localStorage.setItem('settings.includeDividends', String(val))
+}
+
+/** Returns whether FX gains should be included in returns (persisted in localStorage). */
+export function getIncludeFxGains(): boolean {
+  return localStorage.getItem('settings.includeFxGains') === 'true'
+}
+
+export function setIncludeFxGains(val: boolean): void {
+  localStorage.setItem('settings.includeFxGains', String(val))
 }

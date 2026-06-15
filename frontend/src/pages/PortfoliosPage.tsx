@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from 'react'
-import { useDividends, getIncludeDividends, setIncludeDividends } from '../hooks/useDividends'
+import { useDividends, getIncludeDividends, setIncludeDividends, clearDividendLocalCache, getIncludeFxGains, setIncludeFxGains } from '../hooks/useDividends'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { usePortfolio, useForceRefresh } from '../hooks/usePortfolio'
@@ -145,8 +145,8 @@ function typeCards(holdings: Holding[], rmap: RealizedMap): CardStats[] {
 
 function isPos(v: number) { return v >= 0 }
 
-function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor, cardBg, pillBlue = false, scale = 1, divGain = 0 }: { card: CardStats; currency: Currency; xirr: number | null; onClick: () => void; compact?: boolean; accentColor?: string; cardBg?: string; pillBlue?: boolean; scale?: number; divGain?: number }) {
-  const totalGain = (card.current - card.invested) + card.realGain + divGain
+function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor, cardBg, pillBlue = false, scale = 1, divGain = 0, fxGain = 0 }: { card: CardStats; currency: Currency; xirr: number | null; onClick: () => void; compact?: boolean; accentColor?: string; cardBg?: string; pillBlue?: boolean; scale?: number; divGain?: number; fxGain?: number }) {
+  const totalGain = (card.current - card.invested) + card.realGain + divGain + fxGain
   const totalCost = card.invested + card.realCost
   const pct = totalCost !== 0 ? (totalGain / totalCost) * 100 : 0
   const pos = isPos(totalGain)
@@ -236,7 +236,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
   // Settings panel
   const [settingsOpen, setSettingsOpen]     = useState(false)
-  const [includeDivs, setIncludeDivs]       = useState(getIncludeDividends)
+  const [includeDivs, setIncludeDivs]           = useState(getIncludeDividends)
+  const [includeFxGainsState, setIncludeFxGainsStateLocal] = useState(getIncludeFxGains)
   const [importProgress, setImportProgress] = useState<number | null>(null)
   const [importDone, setImportDone]         = useState(false)
   const [csvMeta, setCsvMeta]               = useState<CsvMeta | null>(getCsvMeta)
@@ -277,6 +278,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         if (res.ok) {
           const newData = await res.json()
           qc.setQueryData(['portfolio', currency], newData)
+          clearDividendLocalCache()
+          qc.removeQueries({ queryKey: ['dividends'] })
         }
       } catch { /* keep stale data */ }
       finally {
@@ -391,8 +394,11 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     for (const [key, [g, c]] of rmap) {
       if (!SKIP_PORTS.has(key.split(':')[0])) { rg += g; rc += c }
     }
-    const totalDivs = (includeDivs && divData) ? divData.by_symbol.reduce((sum, s) => sum + s.total_dividends, 0) : 0
-    const totalGain = (cur - inv) + rg + totalDivs
+    const totalDivs   = (includeDivs && divData) ? divData.by_symbol.reduce((sum, s) => sum + s.total_dividends, 0) : 0
+    const totalFxGain = includeFxGainsState
+      ? active.filter(h => USD_PORTS.has(h.portfolio)).reduce((s, h) => s + (h.disp_fx_gain ?? 0), 0)
+      : 0
+    const totalGain = (cur - inv) + rg + totalDivs + totalFxGain
     const totalCost = inv + rc
     const prior = cur - todayGain
     return {
@@ -401,12 +407,12 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       todayGain,
       todayPct:   todayGain !== 0 && prior !== 0 ? (todayGain / prior) * 100 : null,
     }
-  }, [active, rmap, includeDivs, divData])
+  }, [active, rmap, includeDivs, divData, includeFxGainsState])
 
   // Stocks + MF tile XIRR: recompute client-side with dividends when toggle is ON
   const stkXirr = useMemo(() => {
     if (!data) return null
-    if (!includeDivs || !divData) return data.xirr_stk ?? null
+    if (!includeDivs && !includeFxGainsState) return data.xirr_stk ?? null
     const today = new Date()
     const cfs: { date: Date; amount: number }[] = []
     const yfMap = new Map<string, string>()
@@ -417,23 +423,27 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       const seg = getSegmentType(tx.portfolio, yf)
       if (seg !== 'indian_stock' && seg !== 'us_stock') continue
       const isUsd = USD_PORTS.has(tx.portfolio)
-      const fx = isUsd ? data.usd_inr : 1
+      const fx = isUsd
+        ? (includeFxGainsState && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10 ? tx.buy_fx_rate : data.usd_inr)
+        : 1
       const amt = tx.quantity * tx.price * fx
       const chg = (tx.charges ?? 0) * fx
       if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
       if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
     }
-    for (const s of divData.by_symbol) {
-      const tx = data.transactions.find(t => t.symbol === s.symbol)
-      const seg = tx ? getSegmentType(tx.portfolio, s.yf_symbol) : getSegmentType('', s.yf_symbol)
-      if (seg !== 'indian_stock' && seg !== 'us_stock') continue
-      for (const ev of s.events) cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
+    if (includeDivs && divData) {
+      for (const s of divData.by_symbol) {
+        const tx = data.transactions.find(t => t.symbol === s.symbol)
+        const seg = tx ? getSegmentType(tx.portfolio, s.yf_symbol) : getSegmentType('', s.yf_symbol)
+        if (seg !== 'indian_stock' && seg !== 'us_stock') continue
+        for (const ev of s.events) cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
+      }
     }
     const totalCurrent = filterBySegment(active, 'stk').reduce((s, h) => s + h.disp_current, 0)
     if (totalCurrent > 0) cfs.push({ date: today, amount: totalCurrent })
     const r = computeXIRR(cfs)
     return r !== null ? r * 100 : null
-  }, [data, divData, includeDivs, active])
+  }, [data, divData, includeDivs, includeFxGainsState, active])
 
   const mfXirr = useMemo(() => {
     if (!data) return null
@@ -466,29 +476,31 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     return r !== null ? r * 100 : null
   }, [data, divData, includeDivs, active])
 
-  // Hero XIRR: recompute client-side with dividend timeline when toggle is ON
+  // Hero XIRR: recompute client-side with dividends / FX buy-rate when toggles are ON
   const heroXirr = useMemo(() => {
     if (!data) return null
-    if (!includeDivs || !divData) return data.xirr_total ?? null
+    if (!includeDivs && !includeFxGainsState) return data.xirr_total ?? null
     const today = new Date()
     const cfs: { date: Date; amount: number }[] = []
     for (const tx of data.transactions) {
       if (tx.type === 'DIVIDEND' || SKIP_PORTS.has(tx.portfolio)) continue
       const isUsd = USD_PORTS.has(tx.portfolio)
-      const fx = isUsd ? data.usd_inr : 1
+      const fx = isUsd
+        ? (includeFxGainsState && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10 ? tx.buy_fx_rate : data.usd_inr)
+        : 1
       const amt = tx.quantity * tx.price * fx
       const chg = (tx.charges ?? 0) * fx
       if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
       if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
     }
-    for (const ev of divData.timeline) {
-      cfs.push({ date: new Date(ev.date), amount: ev.amount })
+    if (includeDivs && divData) {
+      for (const ev of divData.timeline) cfs.push({ date: new Date(ev.date), amount: ev.amount })
     }
     const totalCurrent = active.reduce((s, h) => s + h.disp_current, 0)
     if (totalCurrent > 0) cfs.push({ date: today, amount: totalCurrent })
     const r = computeXIRR(cfs)
     return r !== null ? r * 100 : null
-  }, [data, divData, includeDivs, active])
+  }, [data, divData, includeDivs, includeFxGainsState, active])
 
   // Stocks tile
   const stk = useMemo(() => {
@@ -507,11 +519,14 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           .filter(s => { const tx = data.transactions.find(t => t.symbol === s.symbol); const seg = tx ? getSegmentType(tx.portfolio, s.yf_symbol) : getSegmentType('', s.yf_symbol); return seg === 'indian_stock' || seg === 'us_stock' })
           .reduce((sum, s) => sum + s.total_dividends, 0)
       : 0
-    const gain = (cur - inv) + rg + stkDivs
+    const stkFxGain = includeFxGainsState
+      ? hs.filter(h => USD_PORTS.has(h.portfolio)).reduce((s, h) => s + (h.disp_fx_gain ?? 0), 0)
+      : 0
+    const gain = (cur - inv) + rg + stkDivs + stkFxGain
     const cost = inv + rc
     const prior = cur - tg
     return { cur, inv, gain, pct: cost !== 0 ? gain / cost * 100 : 0, todayGain: tg, todayPct: tg !== 0 && prior !== 0 ? (tg / prior) * 100 : null }
-  }, [active, rmap, includeDivs, divData, data])
+  }, [active, rmap, includeDivs, divData, data, includeFxGainsState])
 
   // MF tile
   const mf = useMemo(() => {
@@ -576,7 +591,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         }
       }
       for (const card of cards) {
-        if (!includeDivs || !divData) {
+        if (!includeDivs && !includeFxGainsState) {
           const v = data.xirr_by_portfolio[card.key]
           map.set(card.key, v !== undefined ? v : null)
         } else {
@@ -584,13 +599,17 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           for (const tx of data.transactions) {
             if (tx.type === 'DIVIDEND' || tx.portfolio !== card.key) continue
             const isUsd = USD_PORTS.has(tx.portfolio)
-            const fx = isUsd ? data.usd_inr : 1
+            const fx = isUsd
+              ? (includeFxGainsState && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10 ? tx.buy_fx_rate : data.usd_inr)
+              : 1
             const amt = tx.quantity * tx.price * fx
             const chg = (tx.charges ?? 0) * fx
             if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
             if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
           }
-          for (const ev of divCfsByPort.get(card.key) ?? []) cfs.push(ev)
+          if (includeDivs) {
+            for (const ev of divCfsByPort.get(card.key) ?? []) cfs.push(ev)
+          }
           const totalCurrent = active.filter(h => h.portfolio === card.key)
             .reduce((s, h) => s + h.disp_current, 0)
           if (totalCurrent > 0) cfs.push({ date: today, amount: totalCurrent })
@@ -623,15 +642,17 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           if (getSegmentType(tx.portfolio, yf) !== card.key) continue
           const isUsd = USD_PORTS.has(tx.portfolio)
           const fx = isUsd
-            ? (currency === 'INR' ? data.usd_inr : 1)
+            ? (currency === 'INR'
+                ? (includeFxGainsState && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10 ? tx.buy_fx_rate : data.usd_inr)
+                : 1)
             : (currency === 'USD' ? 1 / data.usd_inr : 1)
           const amt = tx.quantity * tx.price * fx
           const chg = (tx.charges ?? 0) * fx
           if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
           if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
         }
-        for (const ev of divEventsBySegment.get(card.key) ?? []) {
-          cfs.push(ev)
+        if (includeDivs) {
+          for (const ev of divEventsBySegment.get(card.key) ?? []) cfs.push(ev)
         }
         // Terminal value: open positions only
         const hs = active.filter(h => getSegmentType(h.portfolio, h.yf_symbol) === card.key)
@@ -642,7 +663,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       }
     }
     return map
-  }, [cards, data, mode, active, currency, includeDivs, divData])
+  }, [cards, data, mode, active, currency, includeDivs, divData, includeFxGainsState])
 
   // Dividend gain per card for BreakCard total returns display
   const cardDivGainMap = useMemo(() => {
@@ -680,6 +701,18 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     }
     return map
   }, [includeDivs, divData, data, mode])
+
+  // FX gain per card (simpler — fx_gain is pre-computed per holding by backend)
+  const cardFxGainMap = useMemo(() => {
+    const map = new Map<string, number>()
+    if (!includeFxGainsState || !data) return map
+    for (const h of active) {
+      if (h.currency !== 'USD' || !h.disp_fx_gain) continue
+      const key = mode === 'broker' ? h.portfolio : getSegmentType(h.portfolio, h.yf_symbol)
+      map.set(key, (map.get(key) ?? 0) + h.disp_fx_gain)
+    }
+    return map
+  }, [includeFxGainsState, data, active, mode])
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY
@@ -840,6 +873,27 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                       </button>
                     </div>
 
+                    {/* FX Gains toggle */}
+                    <div className="px-3 py-2.5 flex items-center justify-between gap-2 bg-white border border-emerald-200 rounded-lg">
+                      <div>
+                        <p className="text-[12px] font-medium text-slate-700 leading-tight">Include FX gains</p>
+                        <p className="text-[11px] text-slate-400 leading-tight mt-0.5">USD rate effect on returns</p>
+                      </div>
+                      <button
+                        role="switch"
+                        aria-checked={includeFxGainsState}
+                        onClick={() => {
+                          const next = !includeFxGainsState
+                          setIncludeFxGainsStateLocal(next)
+                          setIncludeFxGains(next)
+                          window.dispatchEvent(new Event('fxgains-toggle'))
+                        }}
+                        className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 focus:outline-none ${includeFxGainsState ? 'bg-teal-500' : 'bg-slate-300'}`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${includeFxGainsState ? 'translate-x-4' : 'translate-x-0'}`} />
+                      </button>
+                    </div>
+
                     {/* Currency toggle */}
                     <div className="px-3 py-2.5 flex items-center justify-between gap-2 bg-white border border-emerald-200 rounded-lg">
                       <div>
@@ -992,7 +1046,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {gc.map(card => (
-                    <BreakCard key={card.key} card={card} currency={usdCur(card.key === 'us_stock' || card.key === 'us_mf')} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={TYPE_CARD_STYLE[card.key]?.accent} cardBg={TYPE_CARD_STYLE[card.key]?.bg} pillBlue={card.key === 'indian_mf' || card.key === 'us_mf'} scale={usdScale(card.key === 'us_stock' || card.key === 'us_mf')} divGain={cardDivGainMap.get(card.key) ?? 0} />
+                    <BreakCard key={card.key} card={card} currency={usdCur(card.key === 'us_stock' || card.key === 'us_mf')} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={TYPE_CARD_STYLE[card.key]?.accent} cardBg={TYPE_CARD_STYLE[card.key]?.bg} pillBlue={card.key === 'indian_mf' || card.key === 'us_mf'} scale={usdScale(card.key === 'us_stock' || card.key === 'us_mf')} divGain={cardDivGainMap.get(card.key) ?? 0} fxGain={cardFxGainMap.get(card.key) ?? 0} />
                   ))}
                 </div>
               </div>
@@ -1012,7 +1066,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {gc.map(card => (
-                    <BreakCard key={card.key} card={card} currency={usdCur(USD_PORTS.has(card.key))} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={PORTFOLIO_CARD_STYLE[card.key]?.accent} cardBg={PORTFOLIO_CARD_STYLE[card.key]?.bg} pillBlue={card.key.startsWith('MF_')} scale={usdScale(USD_PORTS.has(card.key))} divGain={cardDivGainMap.get(card.key) ?? 0} />
+                    <BreakCard key={card.key} card={card} currency={usdCur(USD_PORTS.has(card.key))} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={PORTFOLIO_CARD_STYLE[card.key]?.accent} cardBg={PORTFOLIO_CARD_STYLE[card.key]?.bg} pillBlue={card.key.startsWith('MF_')} scale={usdScale(USD_PORTS.has(card.key))} divGain={cardDivGainMap.get(card.key) ?? 0} fxGain={cardFxGainMap.get(card.key) ?? 0} />
                   ))}
                 </div>
               </div>

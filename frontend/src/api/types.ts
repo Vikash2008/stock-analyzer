@@ -1,43 +1,57 @@
 // Mirrors PortfolioBundle fields serialized by backend/serializers.py
 
 export interface Holding {
-  portfolio:       string
-  symbol:          string
-  exchange:        string
-  yf_symbol:       string
-  currency:        'INR' | 'USD'
-  quantity:        number
-  avg_cost:        number
-  total_invested:  number
-  current_price:   number
-  current_value:   number
-  unrealized_pnl:  number
-  pnl_pct:         number | null
-  sector:          string | null
-  company:         string | null
-  name:            string | null
-  disp_invested:   number
-  disp_current:    number
-  disp_gain:       number
-  disp_pnl_pct:    number | null
-  previous_close:  number | null
-  today_gain:      number | null   // null when prev_close unavailable
-  today_pct:       number | null
-  disp_today_gain: number | null
+  portfolio:        string
+  symbol:           string
+  exchange:         string
+  yf_symbol:        string
+  currency:         'INR' | 'USD'
+  quantity:         number
+  avg_cost:         number
+  total_invested:   number
+  current_price:    number
+  current_value:    number
+  unrealized_pnl:   number
+  pnl_pct:          number | null
+  sector:           string | null
+  company:          string | null
+  name:             string | null
+  disp_invested:    number
+  disp_current:     number
+  disp_gain:        number
+  disp_pnl_pct:     number | null
+  previous_close:   number | null
+  today_gain:       number | null   // null when prev_close unavailable
+  today_pct:        number | null
+  disp_today_gain:  number | null
+  avg_buy_fx_rate:  number | null   // FIFO-weighted INR/USD rate at purchase; null for INR
+  fx_gain:          number | null   // extra INR return from USD/INR appreciation
+  disp_fx_gain:     number | null   // display-currency FX gain
+}
+
+export interface FxLot {
+  symbol:      string
+  yf_symbol:   string
+  portfolio:   string
+  date:        string    // YYYY-MM-DD
+  qty:         number
+  cost_usd:    number    // cost per share in USD
+  buy_fx_rate: number    // INR/USD rate at purchase
 }
 
 export interface Transaction {
-  portfolio: string
-  symbol:    string
-  exchange:  string
-  yf_symbol: string
-  currency:  'INR' | 'USD'
-  type:      'BUY' | 'SELL' | 'DIVIDEND'
-  date:      string           // ISO-8601
-  quantity:  number
-  price:     number
-  charges:   number
-  name:      string | null
+  portfolio:    string
+  symbol:       string
+  exchange:     string
+  yf_symbol:    string
+  currency:     'INR' | 'USD'
+  type:         'BUY' | 'SELL' | 'DIVIDEND'
+  date:         string           // ISO-8601
+  quantity:     number
+  price:        number
+  charges:      number
+  name:         string | null
+  buy_fx_rate:  number | null    // INR/USD rate at purchase time; null for INR or SELL/DIVIDEND
 }
 
 export interface Realized {
@@ -110,4 +124,5 @@ export interface PortfolioData {
   holdings:            Holding[]
   transactions:        Transaction[]
   realized:            Realized[]
+  fx_lots:             FxLot[]        // per-lot open positions for USD portfolios
 }

@@ -81,6 +81,12 @@ def _transform_msp(df: pd.DataFrame) -> pd.DataFrame:
     if "name" in df.columns:
         out["name"] = df["name"].fillna("").str.strip()
 
+    # INR/USD rate at time of each BUY — present in MSP exports as "Purchase Exchange Rate"
+    out["buy_fx_rate"] = pd.to_numeric(
+        df.get("purchase_exchange_rate", pd.Series(1.0, index=df.index)),
+        errors="coerce",
+    ).fillna(1.0)
+
     return out
 
 

@@ -14,6 +14,7 @@ interface SummaryCardProps {
   todayPct:    number | null
   xirr?:       number | null
   dividends?:  number          // pass when "include dividends" toggle is ON
+  fxGain?:     number          // pass when "include FX gains" toggle is ON
   currency:    Currency
   footer?:     React.ReactNode  // optional custom footer (used on TransactionsPage)
   highlight?:  { bg: string; accent: string }
@@ -21,10 +22,11 @@ interface SummaryCardProps {
 
 export function SummaryCard({
   label, current, invested, realGain, realCost,
-  todayGain, todayPct, xirr, dividends, currency, footer, highlight,
+  todayGain, todayPct, xirr, dividends, fxGain, currency, footer, highlight,
 }: SummaryCardProps) {
   const divAmt    = dividends ?? 0
-  const totalGain = (current - invested) + realGain + divAmt
+  const fxAmt     = fxGain ?? 0
+  const totalGain = (current - invested) + realGain + divAmt + fxAmt
   const totalCost = invested + realCost
   const totalPct  = totalCost !== 0 ? (totalGain / totalCost) * 100 : 0
   const gain      = totalGain >= 0
@@ -93,6 +95,13 @@ export function SummaryCard({
             <div className="flex justify-end mt-0.5">
               <span className="text-[10px] text-teal-600">
                 Dividends <span className="font-semibold">+{fmtCompactGainLine(divAmt, null, currency)}</span>
+              </span>
+            </div>
+          )}
+          {fxAmt > 0 && (
+            <div className="flex justify-end mt-0.5">
+              <span className="text-[10px] text-teal-600">
+                FX gains <span className="font-semibold">+{fmtCompactGainLine(fxAmt, null, currency)}</span>
               </span>
             </div>
           )}

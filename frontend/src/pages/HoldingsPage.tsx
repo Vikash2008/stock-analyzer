@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react'
 import { DividendsTab } from '../components/DividendsTab'
-import { useDividends, getIncludeDividends } from '../hooks/useDividends'
+import { FxGainsTab } from '../components/FxGainsTab'
+import { useDividends, getIncludeDividends, getIncludeFxGains } from '../hooks/useDividends'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   LineChart, Line, BarChart, Bar, ComposedChart,
@@ -196,14 +197,20 @@ export default function HoldingsPage({ currency }: Props) {
     window.addEventListener('dividends-toggle', handler)
     return () => window.removeEventListener('dividends-toggle', handler)
   }, [])
+  const [includeFxGains, setIncludeFxGainsLocal] = useState(getIncludeFxGains)
+  useEffect(() => {
+    const handler = () => setIncludeFxGainsLocal(getIncludeFxGains())
+    window.addEventListener('fxgains-toggle', handler)
+    return () => window.removeEventListener('fxgains-toggle', handler)
+  }, [])
   const [viewMode,    setViewMode]    = useState<'cumulative' | 'standalone'>(
     () => (localStorage.getItem('hp:viewMode') as 'cumulative' | 'standalone') ?? 'cumulative'
   )
   const [holdingFilter, setHoldingFilter] = useState<'open' | 'closed' | 'all'>(
     () => (localStorage.getItem('hp:holdingFilter') as 'open' | 'closed' | 'all') ?? 'all'
   )
-  const [activeTab,   setActiveTab]   = useState<'holdings' | 'charts' | 'analysis' | 'dividends'>(
-    () => (localStorage.getItem('hp:activeTab') as 'holdings' | 'charts' | 'analysis' | 'dividends') ?? 'holdings'
+  const [activeTab,   setActiveTab]   = useState<'holdings' | 'charts' | 'analysis' | 'dividends' | 'fx'>(
+    () => (localStorage.getItem('hp:activeTab') as 'holdings' | 'charts' | 'analysis' | 'dividends' | 'fx') ?? 'holdings'
   )
   const [analysisSubTab, setAnalysisSubTab] = useState<'allocation' | 'benchmarking' | 'returns'>('allocation')
   const [chartMetric, setChartMetric] = useState<ChartMetric>('Portfolio Value')
@@ -362,6 +369,29 @@ export default function HoldingsPage({ currency }: Props) {
     () => buildRows(filteredHoldings, realizedMap, viewMode, !!segment),
     [filteredHoldings, realizedMap, viewMode, segment],
   )
+
+  // FX gain per symbol — only populated when toggle is ON; sums across portfolios for cumulative views
+  const fxGainBySymbol = useMemo(() => {
+    if (!includeFxGains) return new Map<string, number>()
+    const map = new Map<string, number>()
+    for (const h of filteredHoldings) {
+      if (!h.disp_fx_gain || !USD_PORTS.has(h.portfolio)) continue
+      map.set(h.symbol, (map.get(h.symbol) ?? 0) + h.disp_fx_gain)
+    }
+    return map
+  }, [includeFxGains, filteredHoldings])
+
+  // fx_lots filtered to the current portfolio/segment view
+  const filteredFxLots = useMemo(() => {
+    if (!data) return []
+    const lots = data.fx_lots ?? []
+    if (portfolio) return lots.filter(lot => lot.portfolio === portfolio)
+    if (segment) {
+      const usdSegments = new Set(['us_stock', 'total', 'stk'])
+      return usdSegments.has(segment) ? lots : []
+    }
+    return lots
+  }, [data, portfolio, segment])
 
   // Dividend lookup maps — only populated when toggle is ON
   const divBySymbol = useMemo(() => {
@@ -714,7 +744,9 @@ export default function HoldingsPage({ currency }: Props) {
       for (const tx of txns) {
         if (tx.type === 'DIVIDEND') continue
         const isUsd = USD_PORTS.has(tx.portfolio)
-        const fx    = isUsd ? data.usd_inr : 1
+        const fx    = isUsd
+          ? (includeFxGains && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10 ? tx.buy_fx_rate : data.usd_inr)
+          : 1
         const amt = tx.quantity * tx.price * fx
         const chg = (tx.charges ?? 0) * fx
         if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
@@ -729,7 +761,7 @@ export default function HoldingsPage({ currency }: Props) {
       map.set(row.key, r !== null ? r * 100 : null)
     }
     return map
-  }, [rows, closedRows, holdingFilter, data, currency, filtPorts, segment, viewMode, includeDivs, divData])
+  }, [rows, closedRows, holdingFilter, data, currency, filtPorts, segment, viewMode, includeDivs, divData, includeFxGains])
 
   // Patch ltp on closed rows using latest price from symbolPriceMap (available after usePortfolioHistory)
   const closedRowsWithLtp = useMemo(() => {
@@ -842,7 +874,9 @@ export default function HoldingsPage({ currency }: Props) {
       for (const tx of txns) {
         if (tx.type === 'DIVIDEND') continue
         const isUsd = USD_PORTS.has(tx.portfolio)
-        const fx = isUsd ? data.usd_inr : 1
+        const fx = isUsd
+          ? (includeFxGains && tx.type === 'BUY' && tx.buy_fx_rate ? tx.buy_fx_rate : data.usd_inr)
+          : 1
         const amt = tx.quantity * tx.price * fx
         const chg = (tx.charges ?? 0) * fx
         if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
@@ -855,7 +889,7 @@ export default function HoldingsPage({ currency }: Props) {
     }
     const r = computeXIRR(cfs)
     return r !== null ? r * 100 : null
-  }, [holdingFilter, data, closedRows, rows, filtPorts, segment, viewMode, currency, includeDivs, divData])
+  }, [holdingFilter, data, closedRows, rows, filtPorts, segment, viewMode, currency, includeDivs, divData, includeFxGains])
 
 
   // ── Returns tab: per-sector daily value series ──────────────────────────────
@@ -1073,6 +1107,11 @@ export default function HoldingsPage({ currency }: Props) {
     [metricSeries],
   )
 
+  // Switch away from FX tab if toggle turned off
+  useEffect(() => {
+    if (!includeFxGains && activeTab === 'fx') setActiveTab('holdings')
+  }, [includeFxGains]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Auto-switch to "closed" filter when a portfolio has no open holdings (e.g. fully-exited Upstox)
   useEffect(() => {
     if (!isLoading && data && filteredHoldings.length === 0 && closedRows.length > 0 && holdingFilter !== 'closed') {
@@ -1194,6 +1233,9 @@ export default function HoldingsPage({ currency }: Props) {
         const isUsdPortView = portfolio ? USD_PORTS.has(portfolio) : false
         const summCur: Currency = isUsdPortView && currency === 'USD' ? 'USD' : 'INR'
         const summFx = summCur === 'USD' ? 1 / (data?.usd_inr ?? 95.5) : 1
+        const totalFxForView = includeFxGains
+          ? filteredHoldings.filter(h => h.currency === 'USD').reduce((s, h) => s + (h.disp_fx_gain ?? 0), 0)
+          : 0
         return (
       <SummaryCard
         label={label}
@@ -1205,6 +1247,7 @@ export default function HoldingsPage({ currency }: Props) {
         todayPct={displayStats.todayPct}
         xirr={filteredSummaryXirr}
         dividends={totalDivForView > 0 ? totalDivForView * summFx : undefined}
+        fxGain={totalFxForView > 0 ? totalFxForView * summFx : undefined}
         currency={summCur}
         highlight={
           segment === 'total'
@@ -1217,22 +1260,24 @@ export default function HoldingsPage({ currency }: Props) {
 
       {/* Tabs */}
       <div className="flex bg-slate-100 rounded-full p-0.5 gap-0.5 mb-2">
-        {(['holdings', 'charts', 'analysis', 'dividends'] as const).map(tab => {
-          const activeClass = {
+        {([...(['holdings', 'charts', 'analysis', 'dividends'] as const), ...(includeFxGains && filteredFxLots.length > 0 ? ['fx' as const] : [])]).map(tab => {
+          const activeClass: Record<string, string> = {
             holdings:  'bg-teal-200 text-teal-800',
             charts:    'bg-sky-200 text-sky-800',
             analysis:  'bg-violet-200 text-violet-800',
             dividends: 'bg-teal-200 text-teal-800',
-          }[tab]
+            fx:        'bg-teal-200 text-teal-800',
+          }
+          const tabLabel: Record<string, string> = { fx: 'FX' }
           return (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`flex-1 text-[11px] py-1.5 rounded-full capitalize font-medium transition-all ${
-                activeTab === tab ? `${activeClass} shadow-sm` : 'text-slate-500'
+                activeTab === tab ? `${activeClass[tab]} shadow-sm` : 'text-slate-500'
               }`}
             >
-              {tab}
+              {tabLabel[tab] ?? tab}
             </button>
           )
         })}
@@ -1408,6 +1453,7 @@ export default function HoldingsPage({ currency }: Props) {
               const cardCur: Currency = isUsdRow && currency === 'USD' ? 'USD' : 'INR'
               const cardFx   = cardCur === 'USD' ? 1 / usdInr : 1
               const rawDiv   = divBySymbol.get(r.ticker) ?? 0
+              const rawFx    = fxGainBySymbol.get(r.ticker) ?? 0
               return (
               <HoldingCard
                 key={r.key}
@@ -1422,6 +1468,7 @@ export default function HoldingsPage({ currency }: Props) {
                 ltp={r.ltp}
                 xirr={xirrMap.get(r.key) ?? null}
                 dividends={rawDiv > 0 ? rawDiv * cardFx : undefined}
+                fxGain={rawFx > 0 ? rawFx * cardFx : undefined}
                 currency={cardCur}
                 onClick={() => {
                   sessionStorage.setItem(`holdingsScroll:${location.pathname}`, String(scrollRef.current?.scrollTop ?? 0))
@@ -2246,6 +2293,9 @@ export default function HoldingsPage({ currency }: Props) {
       {/* ── Dividends tab ── */}
       {activeTab === 'dividends' && (
         <DividendsTab key={`${portfolio ?? ''}:${segment ?? ''}`} currency={currency} portfolio={portfolio} filterSymbols={filteredDivSymbols} usdInr={data?.usd_inr ?? 95.5} />
+      )}
+      {activeTab === 'fx' && (
+        <FxGainsTab fxLots={filteredFxLots} usdInr={data.usd_inr} currency={currency} />
       )}
       </div>
 

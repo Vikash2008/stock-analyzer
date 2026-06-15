@@ -10,12 +10,13 @@ class _Lot:
     date: pd.Timestamp
     quantity: float
     cost_per_share: float  # price + prorated charges per share
+    buy_fx_rate: float = 1.0  # INR/USD rate at purchase; 1.0 for INR lots
 
 
 def _run_fifo(
     transactions: pd.DataFrame,
     portfolio: Optional[str] = None,
-) -> Tuple[List[dict], List[dict]]:
+) -> Tuple[List[dict], List[dict], List[dict]]:
     """Core FIFO engine for a single isolated transaction set."""
     lots: Dict[str, Deque[_Lot]] = {}
     realized_rows: List[dict] = []
@@ -28,8 +29,10 @@ def _run_fifo(
 
         if tx["type"] == "BUY":
             cost_per_share = price + (charges / qty if qty else 0)
+            raw_fx = tx.get("buy_fx_rate") if "buy_fx_rate" in tx.index else None
+            fx_rate = float(raw_fx) if (raw_fx is not None and pd.notna(raw_fx)) else 1.0
             lots.setdefault(sym, deque()).append(
-                _Lot(date=tx["date"], quantity=qty, cost_per_share=cost_per_share)
+                _Lot(date=tx["date"], quantity=qty, cost_per_share=cost_per_share, buy_fx_rate=fx_rate)
             )
 
         elif tx["type"] == "SELL":
@@ -89,6 +92,7 @@ def _run_fifo(
         meta_lookup[tx["yf_symbol"]] = tx
 
     holding_rows: List[dict] = []
+    fx_lot_rows:  List[dict] = []
     for sym, queue in lots.items():
         total_qty = sum(l.quantity for l in queue)
         if total_qty <= 1e-9:
@@ -97,22 +101,41 @@ def _run_fifo(
             import warnings
             warnings.warn(f"[fifo] {sym}: negative remaining qty {total_qty:.6f} — check for data errors")
             continue
-        total_cost = sum(l.quantity * l.cost_per_share for l in queue)
+        total_cost      = sum(l.quantity * l.cost_per_share for l in queue)
+        total_fx_weight = sum(l.quantity * l.buy_fx_rate for l in queue)
+        avg_buy_fx_rate = total_fx_weight / total_qty if total_qty > 1e-9 else 1.0
         meta = meta_lookup[sym]
         row = {
-            "symbol": meta["symbol"],
-            "exchange": meta["exchange"],
-            "yf_symbol": sym,
-            "currency": meta["currency"],
-            "quantity": total_qty,
-            "avg_cost": total_cost / total_qty,
-            "total_invested": total_cost,
+            "symbol":          meta["symbol"],
+            "exchange":        meta["exchange"],
+            "yf_symbol":       sym,
+            "currency":        meta["currency"],
+            "quantity":        total_qty,
+            "avg_cost":        total_cost / total_qty,
+            "total_invested":  total_cost,
+            "avg_buy_fx_rate": avg_buy_fx_rate,
         }
         if portfolio is not None:
             row["portfolio"] = portfolio
         holding_rows.append(row)
 
-    return holding_rows, realized_rows
+        # Per-lot records for FX Gains tab (rate buckets / year-month breakdown)
+        for lot in queue:
+            if lot.quantity <= 1e-9:
+                continue
+            lot_row = {
+                "symbol":      meta["symbol"],
+                "yf_symbol":   sym,
+                "date":        lot.date.strftime("%Y-%m-%d"),
+                "qty":         lot.quantity,
+                "cost_usd":    lot.cost_per_share,
+                "buy_fx_rate": lot.buy_fx_rate,
+            }
+            if portfolio is not None:
+                lot_row["portfolio"] = portfolio
+            fx_lot_rows.append(lot_row)
+
+    return holding_rows, realized_rows, fx_lot_rows
 
 
 def calculate_holdings(
@@ -130,18 +153,20 @@ def calculate_holdings(
     realized : DataFrame
         One row per closed lot or dividend event.
     """
-    _HOLDING_COLS = ["symbol", "exchange", "yf_symbol", "currency", "quantity", "avg_cost", "total_invested"]
+    _HOLDING_COLS = ["symbol", "exchange", "yf_symbol", "currency", "quantity", "avg_cost", "total_invested", "avg_buy_fx_rate"]
     _REALIZED_COLS = ["symbol", "exchange", "currency", "type", "buy_date", "sell_date", "quantity", "buy_price", "sell_price", "realized_pnl"]
 
     if "portfolio" in transactions.columns:
         all_holdings: List[dict] = []
         all_realized: List[dict] = []
+        all_fx_lots:  List[dict] = []
         for port, group in transactions.groupby("portfolio", sort=False):
-            h, r = _run_fifo(group.reset_index(drop=True), portfolio=port)
+            h, r, fl = _run_fifo(group.reset_index(drop=True), portfolio=port)
             all_holdings.extend(h)
             all_realized.extend(r)
+            all_fx_lots.extend(fl)
     else:
-        all_holdings, all_realized = _run_fifo(transactions)
+        all_holdings, all_realized, all_fx_lots = _run_fifo(transactions)
 
     holdings = (
         pd.DataFrame(all_holdings)
@@ -153,7 +178,7 @@ def calculate_holdings(
         if all_realized
         else pd.DataFrame(columns=_REALIZED_COLS)
     )
-    return holdings, realized
+    return holdings, realized, all_fx_lots
 
 
 def enrich_holdings(
