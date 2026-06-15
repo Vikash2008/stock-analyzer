@@ -429,6 +429,18 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 - Added `/NSENB/` exchange segment to Trendlyne URLs for Indian stocks: `https://trendlyne.com/equity/NSENB/${sym}/`
 - Applies to both `ResearchPage.tsx` and `TransactionsPage.tsx`
 
+### 2026-06-15 (session 119)
+
+**FX tab — per-holding accordion with lot-level table**
+- Per Holding section converted from static rows → accordion: tap holding to expand lot-level table
+- Table columns: Date · Shares · USD (qty×cost_usd) · Rate (buy_fx_rate INR/USD) · FX Gain per lot
+- Column widths: `grid-cols-[90px_40px_52px_44px_1fr]` fixed grid for mobile alignment; `tabular-nums` on all numeric cells
+- Date formatted as `fmtDate()` → "14 May '21" (day Mon 'YY); `lot.date.slice(0,10)` guards against ISO timestamps
+- Total row at bottom of expanded section: teal-50 background, confirms per-holding sum
+- Lots sorted oldest → newest; lot count shown as "N lots" badge in header
+- Negative FX gains (header + lot rows + total row) → `text-red-500`; positive → `text-teal-700`
+- `expandedHoldings: Set<string>` state added alongside existing `expandedYears`
+
 ### 2026-06-13 (session 108)
 
 **Settings modal full redesign (PortfoliosPage gear icon)**
