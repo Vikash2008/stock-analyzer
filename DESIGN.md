@@ -421,6 +421,12 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 - Dot prefix on each label (`· FX`, `· DIV`) acts as separator; `gap-1.5` between the two items when both present
 - Render: only when `fxAmt > 0 || divAmt > 0`; each item conditional independently
 
+**Settings popover — permanent demo file row (`PortfoliosPage.tsx`)**
+- New "Demo file" row added between Portfolio file row and Import CSV row; always visible regardless of uploaded CSV
+- Download button calls `window.open(API_URL_SETTINGS + '/api/demo-csv', '_blank')` — always fetches latest demo from backend
+- Sub-label: "Sample portfolio · ~1 Cr · 32 stocks" — descriptive context for new users
+- Styling mirrors existing Portfolio file row exactly (`bg-white border border-emerald-200 rounded-lg`, `w-8 h-8 bg-slate-200` button)
+
 **SEC EDGAR link fix (both pages)**
 - Changed from `CIK=${sym}&type=10-` (direct ticker lookup, fails for new/foreign listings) → `company=${sym}&CIK=&type=` (name/ticker search, no filing-type filter)
 - Fixes "No matching Ticker Symbol" for foreign private issuers (20-F filers) and recently listed tickers; tooltip desc updated to "10-K / 20-F & earnings filings"
