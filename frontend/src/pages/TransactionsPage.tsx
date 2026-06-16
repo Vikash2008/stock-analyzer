@@ -387,15 +387,13 @@ export default function TransactionsPage({ currency }: Props) {
 
   return (
     <div className="max-w-xl mx-auto flex flex-col h-[100dvh]">
-      <div className="shrink-0 px-4 pt-2 bg-white">
+      <div className="shrink-0 px-4 pt-4 bg-white">
       {/* Nav bar */}
-      <div className="flex items-center gap-2 px-3 py-2 mb-3 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl">
-        <button onClick={() => navigate(-1)} className="shrink-0 flex items-center gap-0.5 text-white/90 active:text-white min-h-[44px] min-w-[60px]">
-          <span className="text-[20px] leading-none" style={{ marginBottom: 1 }}>‹</span>
-          <span className="text-[10px] font-medium whitespace-nowrap">{backLabel.replace('← ', '')}</span>
+      <div className="flex items-center px-3 py-2 mb-3 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl">
+        <button onClick={() => navigate(-1)} className="shrink-0 flex items-center gap-1 text-white active:text-white/80 min-h-[44px]">
+          <span className="text-[22px] leading-none font-bold" style={{ marginBottom: 1 }}>‹</span>
+          <span className="text-[15px] font-bold whitespace-nowrap">{backLabel.replace('← ', '')}</span>
         </button>
-        <p className="flex-1 text-center text-[15px] font-bold text-white truncate">{co || decoded.symbol}</p>
-        <div className="min-w-[60px]" />
       </div>
 
       {/* Symbol overview card */}

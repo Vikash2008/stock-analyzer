@@ -170,26 +170,30 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
       onClick={onClick}
     >
       <p className={`${lblSize} font-bold text-slate-700 uppercase tracking-widest mb-1`}>{card.label}</p>
-      <div className="flex items-baseline justify-between">
-        <span className={`${valSize} font-bold text-slate-900 min-w-0`}>{fmt(card.current * scale, currency)}</span>
-        <span className={`flex items-center ${gap} shrink-0 whitespace-nowrap`}>
-          <span className={`inline-block w-[22px] text-right ${lblSize} font-semibold`} style={{color:'#065f46'}}>1D</span>
-          <span className={gainSize} style={{ color: card.todayGain !== null ? (card.todayGain >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8' }}>
-            {card.todayGain !== null ? fmtCompactGainLine(card.todayGain * scale, todayPct, currency) : '—'}
+      <div className="flex items-start justify-between">
+        <div className="flex flex-col min-w-0">
+          <span className={`${valSize} font-bold text-slate-900`}>{fmt(card.current * scale, currency)}</span>
+          <div className="mt-0.5">
+            {xirr !== null
+              ? <span className={`${lblSize} font-semibold rounded-full px-1.5 py-0.5 -ml-1.5`} style={{ background: xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
+              : <span className={`${lblSize} text-slate-400`}>{fmtCompact(card.invested * scale, currency)} inv</span>
+            }
+          </div>
+        </div>
+        <div className="flex flex-col items-end shrink-0 gap-0.5">
+          <span className={`flex items-center ${gap} whitespace-nowrap`}>
+            <span className={`inline-block w-[22px] text-right ${lblSize} font-semibold`} style={{color:'#065f46'}}>1D</span>
+            <span className={gainSize} style={{ color: card.todayGain !== null ? (card.todayGain >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8' }}>
+              {card.todayGain !== null ? fmtCompactGainLine(card.todayGain * scale, todayPct, currency) : '—'}
+            </span>
           </span>
-        </span>
-      </div>
-      <div className="flex items-center justify-between mt-0.5">
-        {xirr !== null
-          ? <span className={`${lblSize} font-semibold rounded-full px-1.5 py-0.5 shrink-0 -ml-1.5`} style={{ background: xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
-          : <span className={`${lblSize} text-slate-400`}>{fmtCompact(card.invested * scale, currency)} inv</span>
-        }
-        <span className={`flex items-center ${gap} shrink-0 whitespace-nowrap`}>
-          <span className={`inline-block w-[22px] text-right ${lblSize} font-semibold`} style={{color:'#065f46'}}>ALL</span>
-          <span className={gainSize} style={{ color: pos ? '#0a7a42' : '#be1c1c' }}>
-            {fmtCompactGainLine(totalGain * scale, pct, currency)}
+          <span className={`flex items-center ${gap} whitespace-nowrap`}>
+            <span className={`inline-block w-[22px] text-right ${lblSize} font-semibold`} style={{color:'#065f46'}}>ALL</span>
+            <span className={gainSize} style={{ color: pos ? '#0a7a42' : '#be1c1c' }}>
+              {fmtCompactGainLine(totalGain * scale, pct, currency)}
+            </span>
           </span>
-        </span>
+        </div>
       </div>
     </div>
   )
@@ -992,25 +996,28 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         onClick={() => navigate('/holdings/segment/total')}
       >
         <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Total Portfolio</p>
-        <div className="flex items-baseline justify-between">
-          <span className="text-[24px] font-bold text-slate-800 min-w-0">{fmt(hero.cur, 'INR')}</span>
-          <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-            <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
-            <span className="text-[10px]" style={{ color: hero.todayGain >= 0 ? '#0d9488' : '#dc2626' }}>
-              {hero.todayGain !== 0 ? fmtCompactGainLine(hero.todayGain, hero.todayPct, 'INR') : '—'}
-            </span>
-          </span>
-        </div>
-        <div className="flex items-center justify-between mt-1">
-          {heroXirr !== null
-            ? <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 -ml-2" style={{ background: (heroXirr ?? 0) >= 0 ? 'rgba(13,148,136,0.15)' : 'rgba(220,38,38,0.12)', color: (heroXirr ?? 0) >= 0 ? '#0f766e' : '#b91c1c' }}>
-                XIRR {fmtPct(heroXirr!)}
+        <div className="flex items-start justify-between">
+          <div className="flex flex-col min-w-0">
+            <span className="text-[24px] font-bold text-slate-800">{fmt(hero.cur, 'INR')}</span>
+            <div className="mt-1">
+              {heroXirr !== null
+                ? <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 -ml-2" style={{ background: (heroXirr ?? 0) >= 0 ? 'rgba(13,148,136,0.15)' : 'rgba(220,38,38,0.12)', color: (heroXirr ?? 0) >= 0 ? '#0f766e' : '#b91c1c' }}>
+                    XIRR {fmtPct(heroXirr!)}
+                  </span>
+                : <span className="text-[10px] text-slate-400">XIRR —</span>
+              }
+            </div>
+          </div>
+          <div className="flex flex-col items-end shrink-0 gap-0.5">
+            <span className="flex items-center gap-1 whitespace-nowrap">
+              <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
+              <span className="text-[10px]" style={{ color: hero.todayGain >= 0 ? '#0d9488' : '#dc2626' }}>
+                {hero.todayGain !== 0 ? fmtCompactGainLine(hero.todayGain, hero.todayPct, 'INR') : '—'}
               </span>
-            : <span className="text-[10px] text-slate-400">XIRR —</span>
-          }
-          <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-            <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
-            <span className="text-[10px]" style={{ color: heroPos ? '#0d9488' : '#dc2626' }}>
+            </span>
+            <span className="flex items-center gap-1 whitespace-nowrap">
+              <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
+              <span className="text-[10px]" style={{ color: heroPos ? '#0d9488' : '#dc2626' }}>
               {fmtCompactGainLine(hero.totalGain, hero.returnPct, 'INR')}
             </span>
           </span>
@@ -1039,26 +1046,30 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               onClick={() => navigate(`/holdings/segment/${seg}`)}
             >
               <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1">{label}</p>
-              <div className="flex items-baseline justify-between">
-                <span className="text-[13px] font-bold text-slate-900 min-w-0">{fmt(stats.cur, 'INR')}</span>
-                <span className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-                  <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
-                  <span className="text-[10px]" style={{ color: tgC }}>
-                    {stats.todayGain !== 0 ? fmtCompactGainLine(stats.todayGain, stats.todayPct, 'INR') : '—'}
+              <div className="flex items-start justify-between">
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[13px] font-bold text-slate-900">{fmt(stats.cur, 'INR')}</span>
+                  <div className="mt-0.5">
+                    {xirr !== null && xirr !== undefined
+                      ? <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 -ml-1.5" style={{ background: xirr >= 0 ? (seg === 'mf' ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (seg === 'mf' ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
+                      : <span className="text-[10px] text-slate-400">XIRR —</span>
+                    }
+                  </div>
+                </div>
+                <div className="flex flex-col items-end shrink-0 gap-0.5">
+                  <span className="flex items-center gap-0.5 whitespace-nowrap">
+                    <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
+                    <span className="text-[10px]" style={{ color: tgC }}>
+                      {stats.todayGain !== 0 ? fmtCompactGainLine(stats.todayGain, stats.todayPct, 'INR') : '—'}
+                    </span>
                   </span>
-                </span>
-              </div>
-              <div className="flex items-center justify-between mt-0.5">
-                {xirr !== null && xirr !== undefined
-                  ? <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 shrink-0 -ml-1.5" style={{ background: xirr >= 0 ? (seg === 'mf' ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (seg === 'mf' ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
-                  : <span className="text-[10px] text-slate-400">XIRR —</span>
-                }
-                <span className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-                  <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
-                  <span className="text-[10px]" style={{ color: tc }}>
-                    {fmtCompactGainLine(stats.gain, stats.pct, 'INR')}
+                  <span className="flex items-center gap-0.5 whitespace-nowrap">
+                    <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
+                    <span className="text-[10px]" style={{ color: tc }}>
+                      {fmtCompactGainLine(stats.gain, stats.pct, 'INR')}
+                    </span>
                   </span>
-                </span>
+                </div>
               </div>
             </div>
           )
