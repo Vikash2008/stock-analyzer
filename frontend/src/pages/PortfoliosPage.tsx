@@ -995,7 +995,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         <div className="flex items-baseline justify-between">
           <span className="text-[24px] font-bold text-slate-800 min-w-0">{fmt(hero.cur, 'INR')}</span>
           <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-            <span className="flex items-center gap-[3px] text-[10px] text-slate-400"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{flexShrink:0}}><circle cx="6" cy="6" r="5"/><path d="M6 3.5v2.5l1.5 1"/></svg></span>
+            <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
             <span className="text-[10px]" style={{ color: hero.todayGain >= 0 ? '#0d9488' : '#dc2626' }}>
               {hero.todayGain !== 0 ? fmtCompactGainLine(hero.todayGain, hero.todayPct, 'INR') : '—'}
             </span>
@@ -1003,13 +1003,13 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         </div>
         <div className="flex items-center justify-between mt-1">
           {heroXirr !== null
-            ? <span className="text-[10px] font-semibold rounded-full px-2 py-0.5" style={{ background: (heroXirr ?? 0) >= 0 ? 'rgba(13,148,136,0.15)' : 'rgba(220,38,38,0.12)', color: (heroXirr ?? 0) >= 0 ? '#0f766e' : '#b91c1c' }}>
+            ? <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 -ml-2" style={{ background: (heroXirr ?? 0) >= 0 ? 'rgba(13,148,136,0.15)' : 'rgba(220,38,38,0.12)', color: (heroXirr ?? 0) >= 0 ? '#0f766e' : '#b91c1c' }}>
                 XIRR {fmtPct(heroXirr!)}
               </span>
             : <span className="text-[10px] text-slate-400">XIRR —</span>
           }
           <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-            <span className="flex items-center gap-[3px] text-[10px] text-slate-400"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M9 2H3l3.5 4-3.5 4h6"/></svg></span>
+            <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
             <span className="text-[10px]" style={{ color: heroPos ? '#0d9488' : '#dc2626' }}>
               {fmtCompactGainLine(hero.totalGain, hero.returnPct, 'INR')}
             </span>
