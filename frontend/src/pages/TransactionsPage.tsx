@@ -413,31 +413,33 @@ export default function TransactionsPage({ currency }: Props) {
           </span>
         </div>
 
-        {/* Current value + today gain */}
-        <div className="flex items-baseline justify-between mb-1">
-          <span className="text-[20px] font-bold text-slate-900 tracking-tight">
-            {fmt(cur, dispCur)}
-          </span>
-          <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-            <span className="flex items-center gap-[3px] text-[10px] text-slate-400"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{flexShrink:0}}><circle cx="6" cy="6" r="5"/><path d="M6 3.5v2.5l1.5 1"/></svg></span>
-            <span className="text-[10px]" style={{ color: tgC }}>
-              {tg !== null ? fmtCompactGainLine(tg, tp, dispCur) : '—'}
+        {/* Value+XIRR (left) | 1D+ALL (right) */}
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex flex-col min-w-0">
+            <span className="text-[20px] font-bold text-slate-900 tracking-tight">
+              {fmt(cur, dispCur)}
             </span>
-          </span>
-        </div>
-
-        {/* XIRR | Total G/L */}
-        <div className="flex items-baseline justify-between mb-2">
-          {holdingXirr !== null
-            ? <span className="text-[10px]" style={{ color: holdingXirr >= 0 ? '#0a7a42' : '#be1c1c' }}>XIRR {fmtPct(holdingXirr)}</span>
-            : <span className="text-[10px] text-slate-400">XIRR —</span>
-          }
-          <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-            <span className="flex items-center gap-[3px] text-[10px] text-slate-400"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M9 2H3l3.5 4-3.5 4h6"/></svg></span>
-            <span className="text-[10px]" style={{ color: tc }}>
-              {fmtCompactGainLine(gain + realGain, inv + realCost !== 0 ? (gain + realGain) / (inv + realCost) * 100 : 0, dispCur)}
+            <div className="mt-0.5">
+              {holdingXirr !== null
+                ? <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none -ml-1.5" style={{ background: holdingXirr >= 0 ? '#d1fae5' : '#fee2e2', color: holdingXirr >= 0 ? '#065f46' : '#991b1b' }}>XIRR {fmtPct(holdingXirr)}</span>
+                : <span className="text-[10px] text-slate-400">XIRR —</span>
+              }
+            </div>
+          </div>
+          <div className="flex flex-col items-end shrink-0 gap-0.5">
+            <span className="flex items-center gap-1 whitespace-nowrap">
+              <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
+              <span className="text-[10px]" style={{ color: tgC }}>
+                {tg !== null ? fmtCompactGainLine(tg, tp, dispCur) : '—'}
+              </span>
             </span>
-          </span>
+            <span className="flex items-center gap-1 whitespace-nowrap">
+              <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
+              <span className="text-[10px]" style={{ color: tc }}>
+                {fmtCompactGainLine(gain + realGain, inv + realCost !== 0 ? (gain + realGain) / (inv + realCost) * 100 : 0, dispCur)}
+              </span>
+            </span>
+          </div>
         </div>
 
         {/* Footer: Invested · qty · avg | Realized */}
