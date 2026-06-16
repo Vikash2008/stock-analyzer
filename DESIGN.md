@@ -378,6 +378,32 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-06-05
 
+### 2026-06-16
+
+**Nav bar redesign — Holdings + Transactions pages**
+- Replaced bare back-button-only bar with iOS-style nav: `‹ Back label` (left) + bold centered title (right spacer balances)
+- Back button: `‹` chevron (text-[20px]) + small label (text-[10px]); `min-h-[44px] min-w-[60px]` touch target
+- Title: `text-[15px] font-bold text-white truncate flex-1 text-center`
+- HoldingsPage title = `label` (portfolio/segment name); TransactionsPage title = `co || decoded.symbol`
+- Gear icon bumped `w-6 h-6` → `w-8 h-8` with `active:bg-white/20` hover state
+
+**Explore modal header — full-width green bar**
+- Removed `mx-4` inset from header div; changed `rounded-xl` → `rounded-t-2xl` to match modal container corners
+
+**Icon labels — Today / Total / Filters**
+- "Today" replaced with 9×9 clock SVG (`viewBox="0 0 12 12"`, circle + hands path)
+- "Total" replaced with 9×9 sigma Σ SVG (path traces Σ shape)
+- "Filters" section header prefixed with 9×9 funnel SVG
+- Text labels removed everywhere; icons only (PortfoliosPage, HoldingCard, SummaryCard, TransactionsPage, HoldingsPage)
+- Icon spans: `flex items-center gap-[3px]` wrapper; `style={{flexShrink:0}}` on SVG
+
+**Font size floor — 10px minimum**
+- All `text-[8px]` (11 occurrences) and `text-[9px]` (81 occurrences) bumped to `text-[10px]` across 12 files
+- Dynamic `lblSize`/`gainSize` in PortfoliosPage BreakCard both resolve to `text-[10px]`
+
+**Transactions page default tab**
+- `useState` default changed from `'transactions'` → `'charts'` so Price chart opens first
+
 ### 2026-06-06
 
 **Deep Research top bar — model toggle moved into gear, iOS key selector**
