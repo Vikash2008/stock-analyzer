@@ -1304,7 +1304,7 @@ export default function HoldingsPage({ currency }: Props) {
             </div>
             <button
               className="flex items-center gap-0.5 shrink-0 rounded-full px-1.5 py-0.5 border active:opacity-60 bg-gradient-to-br from-sky-600 to-cyan-700 border-sky-700"
-              onClick={() => { if (syncing) return; setSyncing(true); qc.invalidateQueries({ queryKey: ['history'] }) }}
+              onClick={() => { if (syncing) return; setSyncing(true); qc.refetchQueries({ queryKey: ['history'], type: 'active' }) }}
             >
               <span className={`text-[9px] text-white leading-none inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
               {histLastSynced && (
@@ -1488,15 +1488,22 @@ export default function HoldingsPage({ currency }: Props) {
           {histLoading && (() => {
             const isFirst = loadedCount < totalCount
             const done    = isFirst ? loadedCount : totalCount - histFetchingCount
-            const pct     = totalCount > 0 ? Math.round(done / totalCount * 100) : 0
+            const pct     = totalCount > 0 ? done / totalCount * 100 : 0
+            const color   = METRIC_STYLE[chartMetric].line
             return (
               <div className="mb-3">
                 <div className="flex justify-between text-[10px] text-slate-400 mb-1">
-                  <span>{isFirst ? 'Loading' : 'Syncing'} price history… {done} / {totalCount}</span>
-                  <span>{pct}%</span>
+                  <span className="flex items-center gap-1">
+                    <span className="inline-block animate-spin leading-none text-[10px]">↻</span>
+                    {isFirst ? 'Loading' : 'Syncing'} price history… {done} / {totalCount}
+                  </span>
+                  <span>{Math.round(pct)}%</span>
                 </div>
-                <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: METRIC_STYLE[chartMetric].line }} />
+                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden relative">
+                  {/* Ghost pulse on full bar — visible when count is stuck between batches */}
+                  <div className="absolute inset-0 rounded-full animate-pulse opacity-20" style={{ backgroundColor: color }} />
+                  {/* Actual fill — long transition smooths out batch jumps */}
+                  <div className="h-full rounded-full transition-all duration-700 relative z-10" style={{ width: `${pct}%`, backgroundColor: color }} />
                 </div>
               </div>
             )

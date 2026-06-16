@@ -8,13 +8,11 @@ import { computeXIRR } from '../utils/xirr'
 const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
 
 async function fetchSymHistory(sym: string, start: string) {
-  try {
-    const r = await fetch(`${BASE}/history?${new URLSearchParams({ yf_symbol: sym, start })}`)
-    if (!r.ok) return { dates: [] as string[], prices: [] as number[] }
-    return r.json() as Promise<{ dates: string[]; prices: number[] }>
-  } catch {
-    return { dates: [] as string[], prices: [] as number[] }
-  }
+  const r = await fetch(`${BASE}/history?${new URLSearchParams({ yf_symbol: sym, start })}`)
+  if (!r.ok) throw new Error(`History ${r.status}`)
+  const d = await r.json() as { dates: string[]; prices: number[] }
+  if (!d.dates?.length) return { dates: [] as string[], prices: [] as number[] }
+  return d
 }
 
 export interface DatedSeries { dates: Date[]; values: number[] }
@@ -60,9 +58,10 @@ export function usePortfolioHistory(
       queryKey:  ['history', sym],
       queryFn:   () => fetchSymHistory(sym, '2015-01-01'),
       enabled,
-      staleTime: Infinity,  // never auto-refetch; cleared only on force refresh
-      gcTime:    Infinity,  // keep in memory for entire session
-      retry:     0,
+      staleTime:  Infinity,  // never auto-refetch; cleared only on force refresh
+      gcTime:     Infinity,  // keep in memory for entire session
+      retry:      2,
+      retryDelay: 8_000,
     })),
   })
 
