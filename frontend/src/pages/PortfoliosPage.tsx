@@ -285,7 +285,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       const controller = new AbortController()
       const abortTimer = setTimeout(() => controller.abort(), 120_000)
       try {
-        const params = new URLSearchParams({ currency, force_refresh: 'true' })
+        const params = new URLSearchParams({ currency: 'INR', force_refresh: 'true' })
         const res = await fetch(`${API_URL_SETTINGS}/api/portfolio?${params}`, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain' },

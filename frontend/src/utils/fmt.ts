@@ -11,7 +11,7 @@ export function fmtINR(value: number): string {
 export function fmtUSD(value: number): string {
   const abs = Math.abs(value)
   const sign = value < 0 ? '-' : ''
-  if (abs >= 1000) return `${sign}$${(abs / 1000).toFixed(1)}K`
+  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(2)}M`
   return `${sign}$${Math.round(abs).toLocaleString('en-US')}`
 }
 
