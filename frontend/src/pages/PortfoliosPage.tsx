@@ -255,8 +255,10 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       const text = e.target?.result as string
       const meta: CsvMeta = { name: file.name, size: file.size, importedAt: Date.now() }
 
-      // Persist CSV — evict gemini, dividend, AND chart history caches on quota error
+      // Persist CSV — remove old entry first (frees the largest item), then retry with full eviction if needed
       setImportProgress(15)
+      localStorage.removeItem('portfolio:csv')
+      localStorage.removeItem('portfolio:csv:hash')
       try {
         localStorage.setItem('portfolio:csv', text)
       } catch {
@@ -1150,7 +1152,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       >
         <div className="bg-white rounded-2xl shadow-2xl w-full" style={{ maxHeight: inputFocused ? '92dvh' : '70dvh', maxWidth: 480, display: 'flex', flexDirection: 'column' }}>
           {/* Header */}
-          <div className="flex items-center justify-between bg-gradient-to-r from-emerald-600 to-teal-500 mx-4 rounded-xl px-4 py-1.5 mb-4 shrink-0">
+          <div className="flex items-center justify-between bg-gradient-to-r from-emerald-600 to-teal-500 rounded-t-2xl px-4 py-1.5 mb-4 shrink-0">
             <p className="text-[14px] font-bold text-white tracking-tight">Explore New Opportunities</p>
             <button onClick={() => setSheetOpen(false)} className="text-emerald-100 active:text-white text-lg min-h-[44px] min-w-[44px] flex items-center justify-center -mr-2">✕</button>
           </div>

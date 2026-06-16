@@ -1165,14 +1165,16 @@ export default function HoldingsPage({ currency }: Props) {
     <div className="max-w-xl mx-auto flex flex-col h-[100dvh]">
       <div className="shrink-0 px-4 pt-2 bg-white">
       {/* Nav bar */}
-      <div className="flex items-center justify-between px-3 py-1.5 mb-3 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl">
-        <button onClick={() => navigate('/')} className="text-[11px] font-semibold text-white active:text-emerald-100">
-          {backLabel}
+      <div className="flex items-center gap-2 px-3 py-2 mb-3 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl">
+        <button onClick={() => navigate('/')} className="shrink-0 flex items-center gap-0.5 text-white/90 active:text-white min-h-[40px] min-w-[60px]">
+          <span className="text-[20px] leading-none" style={{ marginBottom: 1 }}>‹</span>
+          <span className="text-[10px] font-medium whitespace-nowrap">{backLabel.replace('← ', '')}</span>
         </button>
-        <div className="relative">
+        <p className="flex-1 text-center text-[15px] font-bold text-white truncate">{label}</p>
+        <div className="relative shrink-0 min-w-[60px] flex justify-end">
           <button
             onClick={() => setSettingsOpen(o => !o)}
-            className={`w-6 h-6 flex items-center justify-center rounded-full transition-colors ${settingsOpen ? 'bg-white/20 text-white' : 'text-emerald-100 active:text-white'}`}
+            className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${settingsOpen ? 'bg-white/20 text-white' : 'text-emerald-100 active:bg-white/20 active:text-white'}`}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3"/>
