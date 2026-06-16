@@ -243,7 +243,6 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const [csvMeta, setCsvMeta]               = useState<CsvMeta | null>(getCsvMeta)
   const [sheetOpen, setSheetOpen]           = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const progressTimer = useRef<ReturnType<typeof setInterval>>()
   const API_URL_SETTINGS = (import.meta.env.VITE_API_URL ?? '') as string
 
   const handleImport = useCallback((file: File) => {
@@ -254,29 +253,32 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       const text = e.target?.result as string
       setImportProgress(20)
       const meta: CsvMeta = { name: file.name, size: file.size, importedAt: Date.now() }
+
+      // Persist CSV — evict gemini, dividend, AND chart history caches on quota error
       try {
         localStorage.setItem('portfolio:csv', text)
       } catch {
-        // Quota hit — evict gemini + dividend caches and retry
         for (const k of Object.keys(localStorage)) {
-          if (k.startsWith('gemini:') || k.startsWith('dividends:cache:')) localStorage.removeItem(k)
+          if (k.startsWith('gemini:') || k.startsWith('dividends:cache:') || k.startsWith('history:')) {
+            localStorage.removeItem(k)
+          }
         }
-        try { localStorage.setItem('portfolio:csv', text) } catch { /* still full */ }
+        try { localStorage.setItem('portfolio:csv', text) } catch { /* quota still exceeded */ }
       }
       try {
         localStorage.setItem('portfolio:csv:meta', JSON.stringify(meta))
         setCsvMeta(meta)
       } catch { /* meta write non-fatal */ }
-      setImportProgress(40)
 
-      // Asymptotic approach to 99% — keeps moving throughout POST, never stalls
-      let pct = 40
-      clearInterval(progressTimer.current)
-      progressTimer.current = setInterval(() => {
-        pct += (99 - pct) * 0.05
-        setImportProgress(Math.round(pct))
-      }, 180)
+      clearDividendLocalCache()
+      qc.removeQueries({ queryKey: ['dividends'] })
 
+      // Close modal now — CSV is in localStorage so next fetch will use it
+      setImportProgress(100)
+      setImportDone(true)
+      setTimeout(() => { setImportProgress(null); setImportDone(false); setSettingsOpen(false) }, 1200)
+
+      // POST to backend in background — updates React Query cache immediately if it completes
       const controller = new AbortController()
       const abortTimer = setTimeout(() => controller.abort(), 120_000)
       try {
@@ -287,22 +289,12 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           body: text,
           signal: controller.signal,
         })
-        clearTimeout(abortTimer)
-        clearInterval(progressTimer.current)
         if (res.ok) {
           const newData = await res.json()
           qc.setQueryData(['portfolio'], newData)
-          clearDividendLocalCache()
-          qc.removeQueries({ queryKey: ['dividends'] })
         }
-      } catch { /* timed out or network error — CSV already in localStorage, next fetch will retry */ }
-      finally {
-        clearTimeout(abortTimer)
-        clearInterval(progressTimer.current)
-        setImportProgress(100)
-        setImportDone(true)
-        setTimeout(() => { setImportProgress(null); setImportDone(false); setSettingsOpen(false) }, 1200)
-      }
+      } catch { /* timed out or network error — next page load will POST from localStorage */ }
+      finally { clearTimeout(abortTimer) }
     }
     reader.readAsText(file)
   }, [currency, qc, API_URL_SETTINGS])
