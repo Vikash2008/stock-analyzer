@@ -378,7 +378,28 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-06-05
 
-### 2026-06-16
+### 2026-06-16 (session 125)
+
+**1D / ALL text pills on all cards**
+- Clock SVG (Today) → `1D` text pill; sigma SVG (Total) → `ALL` text pill; color `#065f46` (dark emerald, same as XIRR positive)
+- Fixed width `inline-block w-[22px] text-right` on both labels so they column-align across rows
+- Restructured card layout: single `flex items-start justify-between` row; left = `flex-col` (currency value + XIRR pill); right = `flex-col items-end` (1D row stacked above ALL row) — guarantees perfect vertical alignment
+- Applies to: `HoldingCard.tsx`, `SummaryCard.tsx`, `PortfoliosPage.tsx` (BreakCard + hero card + broker/segment tiles), `TransactionsPage.tsx` (inline summary card)
+- Hero card XIRR uses `px-2 -ml-2`; all other cards use `px-1.5 -ml-1.5` to align XIRR text with left content edge
+
+**Positive gain sign removed**
+- `fmtCompactGainLine` in `fmt.ts`: `gain >= 0 ? '+' : '−'` → `gain >= 0 ? '' : '−'`
+- Positive values now show bare number; negative values still show `−` (en-dash) in red
+
+**Nav bar — final state (session 125)**
+- `pt-2` → `pt-4` on both pages (matches overview page top spacing)
+- Back icon: SVG chevron (`path d="M15 18l-6-6 6-6"`, strokeWidth 2.5) replaces `‹` character — vertically centres with text
+- Back label: `text-[15px] font-bold` (was `text-[10px] font-medium`)
+- **HoldingsPage**: `justify-between` — back button (left) + gear icon (right); no centered portfolio title
+- **TransactionsPage**: back button only (no gear, no title); `backLabel` strips " Holdings" suffix — shows raw portfolio name
+- `getCsvMeta()` cross-checks `portfolio:csv` content exists; shows "Demo Data" if content missing despite meta present
+
+### 2026-06-16 (session 124)
 
 **Nav bar redesign — Holdings + Transactions pages**
 - Replaced bare back-button-only bar with iOS-style nav: `‹ Back label` (left) + bold centered title (right spacer balances)
