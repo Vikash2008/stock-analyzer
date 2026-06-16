@@ -5,6 +5,10 @@ import type { DividendsData, DividendSymbol } from '../api/dividends'
 const STALE_MS = 30 * 24 * 60 * 60 * 1000          // 30 days — matches backend disk cache TTL
 const LS_KEY   = (p: string) => p ? `dividends:cache:v2:${p}` : `dividends:cache:`
 
+function getCsvHash(): string {
+  return localStorage.getItem('portfolio:csv:hash') ?? 'demo'
+}
+
 function lsGet(key: string): DividendsData | undefined {
   try {
     const raw = localStorage.getItem(key)
@@ -24,7 +28,7 @@ export function useDividends(portfolio?: string) {
   return useQuery<DividendsData>({
     queryKey: ['dividends', key],
     queryFn: async () => {
-      const data = await fetchDividends(false, portfolio)
+      const data = await fetchDividends(false, portfolio, getCsvHash())
       lsSet(LS_KEY(key), data)
       return data
     },
@@ -44,7 +48,7 @@ export function useForceRefreshDividends(portfolio?: string) {
     const data = await qc.fetchQuery({
       queryKey: ['dividends', key],
       queryFn: async () => {
-        const d = await fetchDividends(true, portfolio)
+        const d = await fetchDividends(true, portfolio, getCsvHash())
         lsSet(LS_KEY(key), d)
         return d
       },

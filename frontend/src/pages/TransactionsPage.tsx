@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react'
+import { AddTransactionModal } from '../components/AddTransactionModal'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
@@ -91,6 +92,7 @@ export default function TransactionsPage({ currency }: Props) {
   const { data, isLoading, error } = usePortfolio(currency)
   const qc = useQueryClient()
   const [activeTab,   setActiveTab]   = useState<'transactions' | 'charts' | 'report' | 'notes'>('transactions')
+  const [addTxnOpen,  setAddTxnOpen]  = useState(false)
 
   useEffect(() => { window.scrollTo(0, 0) }, [])
   const [chartMetric, setChartMetric] = useState<ChartMetric>('Price')
@@ -385,11 +387,13 @@ export default function TransactionsPage({ currency }: Props) {
 
   return (
     <div className="max-w-xl mx-auto flex flex-col h-[100dvh]">
-      <div className="shrink-0 px-4 pt-3 bg-white">
-      {/* Back */}
-      <button onClick={() => navigate(-1)} className="text-[11px] text-[#2563eb] mb-3">
-        {backLabel}
-      </button>
+      <div className="shrink-0 px-4 pt-2 bg-white">
+      {/* Nav bar */}
+      <div className="flex items-center px-3 py-1.5 mb-3 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl">
+        <button onClick={() => navigate(-1)} className="text-[11px] font-semibold text-white active:text-emerald-100">
+          {backLabel}
+        </button>
+      </div>
 
       {/* Symbol overview card */}
       <div
@@ -477,8 +481,17 @@ export default function TransactionsPage({ currency }: Props) {
 
       {/* Transactions strip */}
       {activeTab === 'transactions' && (
-        <div className="bg-teal-50 border border-teal-100 rounded-xl px-2.5 py-1 mb-2">
+        <div className="bg-teal-50 border border-teal-100 rounded-xl px-2.5 py-1 mb-2 flex items-center justify-between">
           <span className="text-[10px] text-teal-700">{symTxns.length} transactions</span>
+          <button
+            onClick={() => setAddTxnOpen(true)}
+            className="flex items-center gap-1 text-[10px] text-teal-700 font-semibold active:opacity-60"
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/>
+            </svg>
+            Txn
+          </button>
         </div>
       )}
       {/* Report strip — sub-tab bar */}
@@ -940,6 +953,21 @@ export default function TransactionsPage({ currency }: Props) {
             )}
           </div>
         </div>
+      )}
+
+      {data && (
+        <AddTransactionModal
+          open={addTxnOpen}
+          onClose={() => setAddTxnOpen(false)}
+          data={data}
+          preFilledSymbol={holding?.yf_symbol}
+          preFilledSymbolName={holding?.company ?? holding?.name ?? undefined}
+          preFilledExchange={holding?.exchange}
+          preFilledCurrency={holding?.currency}
+          preFilledPortfolio={portfolioFilter.find(p => !SKIP_PORTS.has(p))}
+          preFilledPrice={holding?.current_price ?? undefined}
+          lockSymbol
+        />
       )}
     </div>
   )

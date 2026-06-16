@@ -63,7 +63,7 @@ async def post_portfolio(
 
     csv_content = body.decode("utf-8", errors="replace")
     csv_hash = hashlib.md5(csv_content.encode()).hexdigest()
-    cache_key = f"{currency}:{csv_hash[:12]}"
+    cache_key = f"{currency}:{csv_hash}"
 
     now = time.monotonic()
     if not force_refresh:
@@ -73,6 +73,7 @@ async def post_portfolio(
 
     bundle = build(currency=currency, force_refresh_prices=force_refresh, csv_content=csv_content)
     data = serialize_bundle(bundle)
+    data["csv_hash"] = csv_hash
     _mem_cache[cache_key] = (data, now)
     _clear_div_cache()
 

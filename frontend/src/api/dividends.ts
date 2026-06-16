@@ -42,11 +42,12 @@ export interface DividendsData {
   timeline: DividendTimelineEntry[]
 }
 
-export async function fetchDividends(forceRefresh = false, portfolio?: string): Promise<DividendsData> {
+export async function fetchDividends(forceRefresh = false, portfolio?: string, csvHash?: string): Promise<DividendsData> {
   const params = new URLSearchParams()
   if (forceRefresh) params.set('force_refresh', 'true')
   if (portfolio) params.set('portfolio', portfolio)
-  const url = `${BASE}/dividends${params.size ? '?' + params : ''}`
+  params.set('csv_hash', csvHash ?? 'demo')
+  const url = `${BASE}/dividends?${params}`
   const res = await fetch(url)
   if (!res.ok) {
     const text = await res.text().catch(() => '')

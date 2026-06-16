@@ -149,7 +149,7 @@ def build(
         cache.set_fifo(fifo_key, txns, holdings_raw, realized_all, fx_lots_all)
         force_refresh_prices = True   # symbol list may have changed
     else:
-        txns, holdings_raw, realized_all, fx_lots_all = cache.get_fifo()
+        txns, holdings_raw, realized_all, fx_lots_all = cache.get_fifo(fifo_key)
 
     # ── Layer 2: Prices + FX (30-min TTL) ────────────────────────────────────
     if force_refresh_prices or not cache.is_fresh("prices"):

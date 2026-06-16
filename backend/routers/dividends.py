@@ -41,8 +41,8 @@ router = APIRouter()
 _mem: dict[str, tuple[Any, float]] = {}
 
 
-def _load_txns():
-    cached = Cache().get_fifo()
+def _load_txns(csv_hash: str = "demo"):
+    cached = Cache().get_fifo(csv_hash)
     if cached is not None:
         txns, _, _, _ = cached
         return txns
@@ -279,8 +279,12 @@ def debug_dividends(symbol: str = Query(..., description="Clean symbol, e.g. GOO
 
 
 @router.get("/api/dividends")
-def get_dividends(force_refresh: bool = Query(False), portfolio: str = Query(None)):
-    cache_key = f"dividends:{portfolio or ''}"
+def get_dividends(
+    force_refresh: bool = Query(False),
+    portfolio: str = Query(None),
+    csv_hash: str = Query("demo"),
+):
+    cache_key = f"dividends:{csv_hash}:{portfolio or ''}"
     now       = time.monotonic()
 
     if not force_refresh:
@@ -288,7 +292,7 @@ def get_dividends(force_refresh: bool = Query(False), portfolio: str = Query(Non
         if cached and (now - cached[1]) < _CACHE_TTL:
             return JSONResponse(content=cached[0])
 
-    txns    = _load_txns()
+    txns    = _load_txns(csv_hash)
     usd_inr = get_usd_inr_rate()
     result  = _compute(txns, usd_inr, portfolio=portfolio)
 

@@ -107,36 +107,36 @@ class Cache:
     _FIFO_VERSION = "2"
 
     def fifo_is_fresh(self, source: "Path | str") -> bool:
-        if "fifo:value:lots" not in self._data:
-            return False  # force recompute to populate fx_lots
-        if self._data.get("fifo:version") != self._FIFO_VERSION:
-            return False  # logic changed — recompute
-        if isinstance(source, str):
-            return self._data.get("fifo:csv_hash") == source
-        stored = self._data.get("fifo:mtime")
-        return stored == source.stat().st_mtime
+        key = source if isinstance(source, str) else "demo"
+        if f"fifo:{key}:txns" not in self._data:
+            return False
+        if self._data.get(f"fifo:{key}:version") != self._FIFO_VERSION:
+            return False
+        if isinstance(source, Path):
+            return self._data.get("fifo:demo:mtime") == source.stat().st_mtime
+        return True  # hash key — existence is sufficient
 
     def set_fifo(self, source: "Path | str", txns, holdings_raw, realized, fx_lots=None) -> None:
-        if isinstance(source, str):
-            self._data["fifo:csv_hash"] = source
-            self._data.pop("fifo:mtime", None)
-        else:
-            self._data["fifo:mtime"] = source.stat().st_mtime
-            self._data.pop("fifo:csv_hash", None)
-        self._data["fifo:value:txns"]   = txns
-        self._data["fifo:value:raw"]    = holdings_raw
-        self._data["fifo:value:real"]   = realized
-        self._data["fifo:value:lots"]   = fx_lots or []
-        self._data["fifo:version"]      = self._FIFO_VERSION
-        self._data["fifo:ts"]           = time.time()
+        key = source if isinstance(source, str) else "demo"
+        if isinstance(source, Path):
+            self._data["fifo:demo:mtime"] = source.stat().st_mtime
+        self._data[f"fifo:{key}:txns"]    = txns
+        self._data[f"fifo:{key}:raw"]     = holdings_raw
+        self._data[f"fifo:{key}:real"]    = realized
+        self._data[f"fifo:{key}:lots"]    = fx_lots or []
+        self._data[f"fifo:{key}:version"] = self._FIFO_VERSION
+        self._data["fifo:ts"]             = time.time()
         self.save()
 
-    def get_fifo(self):
+    def get_fifo(self, source: "Path | str" = "demo"):
         """Return (txns, holdings_raw, realized, fx_lots) or None."""
-        k = ("fifo:value:txns", "fifo:value:raw", "fifo:value:real")
-        if all(x in self._data for x in k):
-            lots = self._data.get("fifo:value:lots", [])
-            return (self._data[k[0]], self._data[k[1]], self._data[k[2]], lots)
+        key    = source if isinstance(source, str) else "demo"
+        k_txns = f"fifo:{key}:txns"
+        k_raw  = f"fifo:{key}:raw"
+        k_real = f"fifo:{key}:real"
+        if all(x in self._data for x in (k_txns, k_raw, k_real)):
+            lots = self._data.get(f"fifo:{key}:lots", [])
+            return (self._data[k_txns], self._data[k_raw], self._data[k_real], lots)
         return None
 
     # ── Diagnostics ───────────────────────────────────────────────────────────
