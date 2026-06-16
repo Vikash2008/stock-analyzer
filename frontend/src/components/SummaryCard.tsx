@@ -66,7 +66,7 @@ export function SummaryCard({
       {/* XIRR | Total G/L */}
       <div className="flex items-center justify-between mb-2">
         {xirr != null
-          ? <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none shrink-0" style={{ background: xirr >= 0 ? '#d1fae5' : '#fee2e2', color: xirr >= 0 ? '#065f46' : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
+          ? <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none shrink-0 -ml-1.5" style={{ background: xirr >= 0 ? '#d1fae5' : '#fee2e2', color: xirr >= 0 ? '#065f46' : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
           : <span className="text-[10px] text-slate-400">XIRR —</span>
         }
         <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">

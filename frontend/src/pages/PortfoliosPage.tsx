@@ -181,7 +181,7 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
       </div>
       <div className="flex items-center justify-between mt-0.5">
         {xirr !== null
-          ? <span className={`${lblSize} font-semibold rounded-full px-1.5 py-0.5 shrink-0`} style={{ background: xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
+          ? <span className={`${lblSize} font-semibold rounded-full px-1.5 py-0.5 shrink-0 -ml-1.5`} style={{ background: xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
           : <span className={`${lblSize} text-slate-400`}>{fmtCompact(card.invested * scale, currency)} inv</span>
         }
         <span className={`flex items-center ${gap} shrink-0 whitespace-nowrap`}>
@@ -1050,7 +1050,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               </div>
               <div className="flex items-center justify-between mt-0.5">
                 {xirr !== null && xirr !== undefined
-                  ? <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 shrink-0" style={{ background: xirr >= 0 ? (seg === 'mf' ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (seg === 'mf' ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
+                  ? <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 shrink-0 -ml-1.5" style={{ background: xirr >= 0 ? (seg === 'mf' ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (seg === 'mf' ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
                   : <span className="text-[10px] text-slate-400">XIRR —</span>
                 }
                 <span className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
