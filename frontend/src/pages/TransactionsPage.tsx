@@ -421,7 +421,7 @@ export default function TransactionsPage({ currency }: Props) {
             {fmt(cur, dispCur)}
           </span>
           <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-            <span className="flex items-center gap-[3px] text-[10px] text-slate-400"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{flexShrink:0}}><circle cx="6" cy="6" r="5"/><path d="M6 3.5v2.5l1.5 1"/></svg>Today</span>
+            <span className="flex items-center gap-[3px] text-[10px] text-slate-400"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{flexShrink:0}}><circle cx="6" cy="6" r="5"/><path d="M6 3.5v2.5l1.5 1"/></svg></span>
             <span className="text-[10px]" style={{ color: tgC }}>
               {tg !== null ? fmtCompactGainLine(tg, tp, dispCur) : '—'}
             </span>
@@ -435,7 +435,7 @@ export default function TransactionsPage({ currency }: Props) {
             : <span className="text-[10px] text-slate-400">XIRR —</span>
           }
           <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-            <span className="flex items-center gap-[3px] text-[10px] text-slate-400"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M9 2H3l3.5 4-3.5 4h6"/></svg>Total</span>
+            <span className="flex items-center gap-[3px] text-[10px] text-slate-400"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M9 2H3l3.5 4-3.5 4h6"/></svg></span>
             <span className="text-[10px]" style={{ color: tc }}>
               {fmtCompactGainLine(gain + realGain, inv + realCost !== 0 ? (gain + realGain) / (inv + realCost) * 100 : 0, dispCur)}
             </span>
