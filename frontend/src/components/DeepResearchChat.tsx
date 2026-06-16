@@ -189,7 +189,7 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
               <div key={msg.id}>
                 {msg.role === 'user' ? (
                   <div className="flex flex-col items-end gap-1">
-                    <span className="text-[9px] text-slate-400 flex items-center gap-1 pr-1">
+                    <span className="text-[10px] text-slate-400 flex items-center gap-1 pr-1">
                       {msg.contextEmoji && <span>{msg.contextEmoji}</span>}
                       <span>{msg.contextLabel}</span>
                     </span>
@@ -239,14 +239,14 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
                       <div className="flex items-center justify-between pl-1 pr-1 mt-1.5 gap-3">
                         <span className="flex items-center gap-1 shrink-0">
                           {msg.grounded && (
-                            <span className="text-[9px] font-medium text-sky-500">🌐 Live</span>
+                            <span className="text-[10px] font-medium text-sky-500">🌐 Live</span>
                           )}
-                          <span className="text-[9px] text-slate-300">{fmtModelName(msg.model)}</span>
+                          <span className="text-[10px] text-slate-300">{fmtModelName(msg.model)}</span>
                         </span>
                         {msg.sources && msg.sources.length > 0 && (
                           <button
                             onClick={() => setExpandedSources(prev => ({ ...prev, [msg.id]: !prev[msg.id] }))}
-                            className="flex items-center gap-1 text-[9px] text-sky-500 active:text-sky-700"
+                            className="flex items-center gap-1 text-[10px] text-sky-500 active:text-sky-700"
                           >
                             <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                               <circle cx="12" cy="12" r="10"/>
@@ -270,7 +270,7 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
                           try { domain = new URL(url).hostname.replace(/^www\./, '') } catch {}
                           return (
                             <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                               className="flex items-center gap-1.5 text-[9px] text-sky-500 active:text-sky-700">
+                               className="flex items-center gap-1.5 text-[10px] text-sky-500 active:text-sky-700">
                               <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                                 <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
                                 <polyline points="15 3 21 3 21 9"/>

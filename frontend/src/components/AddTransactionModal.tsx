@@ -204,7 +204,7 @@ export function AddTransactionModal({
                         className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-emerald-50 transition-colors"
                       >
                         <span className="text-[11px] font-semibold text-slate-700 w-20 shrink-0">{s.symbol}</span>
-                        <span className="text-[9px] bg-emerald-100 text-emerald-600 rounded-full px-1.5 shrink-0">{s.exchange}</span>
+                        <span className="text-[10px] bg-emerald-100 text-emerald-600 rounded-full px-1.5 shrink-0">{s.exchange}</span>
                         <span className="text-[10px] text-slate-500 truncate">{s.name}</span>
                       </button>
                     ))}

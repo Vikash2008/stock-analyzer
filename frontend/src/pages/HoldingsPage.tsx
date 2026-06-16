@@ -1166,7 +1166,7 @@ export default function HoldingsPage({ currency }: Props) {
       <div className="shrink-0 px-4 pt-2 bg-white">
       {/* Nav bar */}
       <div className="flex items-center gap-2 px-3 py-2 mb-3 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl">
-        <button onClick={() => navigate('/')} className="shrink-0 flex items-center gap-0.5 text-white/90 active:text-white min-h-[40px] min-w-[60px]">
+        <button onClick={() => navigate('/')} className="shrink-0 flex items-center gap-0.5 text-white/90 active:text-white min-h-[44px] min-w-[60px]">
           <span className="text-[20px] leading-none" style={{ marginBottom: 1 }}>‹</span>
           <span className="text-[10px] font-medium whitespace-nowrap">{backLabel.replace('← ', '')}</span>
         </button>
@@ -1196,11 +1196,11 @@ export default function HoldingsPage({ currency }: Props) {
                 <div className="bg-white px-2 py-1.5 flex flex-col gap-1">
 
                   {/* ── Filters ── */}
-                  <p className="text-[9px] font-semibold text-emerald-600 uppercase tracking-widest px-1 pt-0.5">Filters</p>
+                  <p className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 uppercase tracking-widest px-1 pt-0.5"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M1.5 2h9L7 6.5V10l-2-1V6.5L1.5 2z"/></svg>Filters</p>
 
                   {/* Status pill */}
                   <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1 flex items-center justify-between gap-2">
-                    <p className="text-[9px] text-slate-400 uppercase tracking-widest shrink-0">Status</p>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-widest shrink-0">Status</p>
                     <div className="relative flex bg-white rounded-full p-[2px] border border-emerald-100">
                       <div
                         className="absolute top-[2px] bottom-[2px] w-1/3 rounded-full bg-emerald-500 shadow-sm transition-transform duration-150"
@@ -1234,7 +1234,7 @@ export default function HoldingsPage({ currency }: Props) {
                   {/* Grouped / Standalone */}
                   {segment && (
                     <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1 flex items-center justify-between gap-2">
-                      <p className="text-[9px] text-slate-400 uppercase tracking-widest shrink-0">View</p>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-widest shrink-0">View</p>
                       <div className="relative flex bg-white rounded-full p-[2px] border border-emerald-100">
                         <div
                           className="absolute top-[2px] bottom-[2px] w-1/2 rounded-full bg-emerald-500 shadow-sm transition-transform duration-150"
@@ -1254,7 +1254,7 @@ export default function HoldingsPage({ currency }: Props) {
                   )}
 
                   {/* ── Actions ── */}
-                  <p className="text-[9px] font-semibold text-emerald-600 uppercase tracking-widest px-1 pt-0.5">Actions</p>
+                  <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-widest px-1 pt-0.5">Actions</p>
                   <button
                     onClick={() => { setSettingsOpen(false); setAddHoldingOpen(true) }}
                     className="bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1 flex items-center gap-2 w-full text-left active:bg-emerald-100"
@@ -1350,7 +1350,7 @@ export default function HoldingsPage({ currency }: Props) {
               className="flex items-center gap-0.5 shrink-0 rounded-full px-1.5 py-0.5 border active:opacity-60 bg-gradient-to-br from-sky-600 to-cyan-700 border-sky-700"
               onClick={() => { if (syncing) return; setSyncing(true); qc.refetchQueries({ queryKey: ['history'], type: 'active' }) }}
             >
-              <span className={`text-[9px] text-white leading-none inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
+              <span className={`text-[10px] text-white leading-none inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
               {histLastSynced && (
                 <span className="text-[10px] text-white whitespace-nowrap leading-none">{fmtSyncTime(histLastSynced)}</span>
               )}
@@ -1392,7 +1392,7 @@ export default function HoldingsPage({ currency }: Props) {
                 className={`flex items-center gap-0.5 text-[10px] px-2 py-[3px] rounded-full border transition-colors whitespace-nowrap ${sectorFilter !== 'all' ? 'bg-teal-500 text-white border-teal-600' : 'bg-white text-teal-600 font-medium border-slate-200'}`}
               >
                 <span>{sectorFilter === 'all' ? 'Sector' : sectorFilter}</span>
-                <span className="text-[8px] leading-none">▾</span>
+                <span className="text-[10px] leading-none">▾</span>
               </button>
               {sectorOpen && (
                 <>
@@ -1426,7 +1426,7 @@ export default function HoldingsPage({ currency }: Props) {
                   <rect x="3" y="7" width="5" height="1.5" rx="0.75"/>
                 </svg>
                 <span>{SORT_OPTIONS.find(o => o.field === sortField)?.label}</span>
-                <span className="text-[9px]">{sortDir === 'desc' ? '↓' : '↑'}</span>
+                <span className="text-[10px]">{sortDir === 'desc' ? '↓' : '↑'}</span>
               </button>
               {sortOpen && (
                 <>
@@ -1477,7 +1477,7 @@ export default function HoldingsPage({ currency }: Props) {
                 style={{ background: 'linear-gradient(135deg,#0284c7,#0c4a6e)', borderColor: '#0369a1' }}
                 onClick={() => { if (benchSyncing) return; setBenchSyncing(true); qc.invalidateQueries({ queryKey: ['history'] }); qc.invalidateQueries({ queryKey: ['benchmark-hist'] }) }}
               >
-                <span className={`text-[9px] text-white leading-none inline-block ${benchSyncing ? 'animate-spin' : ''}`}>↻</span>
+                <span className={`text-[10px] text-white leading-none inline-block ${benchSyncing ? 'animate-spin' : ''}`}>↻</span>
                 {benchLastSynced && <span className="text-[10px] text-white whitespace-nowrap leading-none ml-0.5">{fmtSyncTime(benchLastSynced)}</span>}
               </button>
             )}
@@ -1681,7 +1681,7 @@ export default function HoldingsPage({ currency }: Props) {
                   <div>
                     <div className="border border-slate-200 rounded-xl mb-3">
                     <button className="flex items-center gap-1 w-full text-left text-[10px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5" onClick={() => { if (!sectorSectionOpen) { setMktCapSectionOpen(false); setConcentrationSectionOpen(false) } setSectorSectionOpen(o => !o) }}>
-                      <span className="text-blue-600">By Sector</span> <span className="text-[9px] text-slate-300 ml-0.5">{sectorSectionOpen ? '▲' : '▼'}</span>
+                      <span className="text-blue-600">By Sector</span> <span className="text-[10px] text-slate-300 ml-0.5">{sectorSectionOpen ? '▲' : '▼'}</span>
                     </button>
                     {sectorSectionOpen && <div className="flex items-center gap-1.5 px-2 py-1.5 mx-1 mb-2 bg-violet-100 rounded-lg">
                       <span className="text-[10px] font-semibold text-violet-700 flex-1">Sector</span>
@@ -1721,16 +1721,16 @@ export default function HoldingsPage({ currency }: Props) {
                             <div className="flex items-center gap-1.5 mb-1">
                               <span className="flex-1 min-w-0 flex items-center gap-1">
                                 <span className="text-[10px] font-medium text-slate-700 truncate">{s.name}</span>
-                                <span className="text-[9px] text-slate-400 whitespace-nowrap shrink-0">(#{sectorAllocRows.length})</span>
+                                <span className="text-[10px] text-slate-400 whitespace-nowrap shrink-0">(#{sectorAllocRows.length})</span>
                               </span>
                               <span className="text-[10px] text-slate-500 whitespace-nowrap w-[52px] text-center">{s.pct.toFixed(1)}%</span>
                               <span className="text-[10px] font-medium text-slate-700 whitespace-nowrap w-[90px] text-right">
                                 {fmtCompact(s.value, currency)}{sXirr !== null && <span className={sXirrColor}> ({sXirr >= 0 ? '+' : ''}{sXirr.toFixed(1)}%)</span>}
                               </span>
-                              <span className={`text-[9px] font-medium whitespace-nowrap w-[80px] text-right ${sTodayColor}`}>
+                              <span className={`text-[10px] font-medium whitespace-nowrap w-[80px] text-right ${sTodayColor}`}>
                                 {sTodayGain !== null ? `${fmtTodayGain(sTodayGain)}${sTodayPct !== null ? ` (${sTodayPct >= 0 ? '+' : ''}${sTodayPct.toFixed(1)}%)` : ''}` : '—'}
                               </span>
-                              <span className="text-[9px] text-slate-300 w-[8px]">{isOpen ? '▲' : '▼'}</span>
+                              <span className="text-[10px] text-slate-300 w-[8px]">{isOpen ? '▲' : '▼'}</span>
                             </div>
                             <div className="h-1.5 rounded-full overflow-hidden bg-slate-100">
                               <div className="h-full rounded-full" style={{ width: `${s.pct}%`, backgroundColor: SECTOR_COLOR[s.name] }} />
@@ -1753,7 +1753,7 @@ export default function HoldingsPage({ currency }: Props) {
                                       <span className="text-[10px] font-medium text-slate-700 w-[90px] whitespace-nowrap text-right">
                                         {fmtCompact(r.current, currency)}{hXirr !== null && <span className={xirrColor}> ({hXirr >= 0 ? '+' : ''}{hXirr.toFixed(1)}%)</span>}
                                       </span>
-                                      <span className={`text-[9px] font-medium whitespace-nowrap w-[80px] text-right ${todayColor}`}>
+                                      <span className={`text-[10px] font-medium whitespace-nowrap w-[80px] text-right ${todayColor}`}>
                                         {r.todayGain !== null ? `${fmtTodayGain(r.todayGain)}${r.todayPct !== null ? ` (${r.todayPct >= 0 ? '+' : ''}${r.todayPct.toFixed(1)}%)` : ''}` : '—'}
                                       </span>
                                       <span className="w-[8px]" />
@@ -1769,7 +1769,7 @@ export default function HoldingsPage({ currency }: Props) {
                     </div>
                     <div className="border border-slate-200 rounded-xl">
                     <button className="flex items-center gap-1 w-full text-left text-[10px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5" onClick={() => { if (!mktCapSectionOpen) { setSectorSectionOpen(false); setConcentrationSectionOpen(false) } setMktCapSectionOpen(o => !o) }}>
-                      <span className="text-orange-600">By Market Cap</span> <span className="text-[9px] text-slate-300 ml-0.5">{mktCapSectionOpen ? '▲' : '▼'}</span>
+                      <span className="text-orange-600">By Market Cap</span> <span className="text-[10px] text-slate-300 ml-0.5">{mktCapSectionOpen ? '▲' : '▼'}</span>
                     </button>
                     {mktCapSectionOpen && <div className="flex items-center gap-1.5 px-2 py-1.5 mx-1 mb-2 bg-violet-100 rounded-lg">
                       <span className="text-[10px] font-semibold text-violet-700 flex-1">Bucket</span>
@@ -1809,16 +1809,16 @@ export default function HoldingsPage({ currency }: Props) {
                             <div className="flex items-center gap-1.5 mb-1">
                               <span className="flex-1 min-w-0 flex items-center gap-1">
                                 <span className="text-[10px] font-medium text-slate-700 truncate">{b.name}</span>
-                                <span className="text-[9px] text-slate-400 whitespace-nowrap shrink-0">(#{bucketAllocRows.length})</span>
+                                <span className="text-[10px] text-slate-400 whitespace-nowrap shrink-0">(#{bucketAllocRows.length})</span>
                               </span>
                               <span className="text-[10px] text-slate-500 whitespace-nowrap w-[52px] text-center">{b.pct.toFixed(1)}%</span>
                               <span className="text-[10px] font-medium text-slate-700 whitespace-nowrap w-[90px] text-right">
                                 {fmtCompact(b.value, currency)}{sXirr !== null && <span className={sXirrColor}> ({sXirr >= 0 ? '+' : ''}{sXirr.toFixed(1)}%)</span>}
                               </span>
-                              <span className={`text-[9px] font-medium whitespace-nowrap w-[80px] text-right ${sTodayColor}`}>
+                              <span className={`text-[10px] font-medium whitespace-nowrap w-[80px] text-right ${sTodayColor}`}>
                                 {sTodayGain !== null ? `${fmtTodayGain(sTodayGain)}${sTodayPct !== null ? ` (${sTodayPct >= 0 ? '+' : ''}${sTodayPct.toFixed(1)}%)` : ''}` : '—'}
                               </span>
-                              <span className="text-[9px] text-slate-300 w-[8px]">{isOpen ? '▲' : '▼'}</span>
+                              <span className="text-[10px] text-slate-300 w-[8px]">{isOpen ? '▲' : '▼'}</span>
                             </div>
                             <div className="h-1.5 rounded-full overflow-hidden bg-slate-100">
                               <div className="h-full rounded-full" style={{ width: `${b.pct}%`, backgroundColor: MARKET_CAP_COLOR[b.name] }} />
@@ -1841,7 +1841,7 @@ export default function HoldingsPage({ currency }: Props) {
                                       <span className="text-[10px] font-medium text-slate-700 w-[90px] whitespace-nowrap text-right">
                                         {fmtCompact(r.current, currency)}{hXirr !== null && <span className={xirrColor}> ({hXirr >= 0 ? '+' : ''}{hXirr.toFixed(1)}%)</span>}
                                       </span>
-                                      <span className={`text-[9px] font-medium whitespace-nowrap w-[80px] text-right ${todayColor}`}>
+                                      <span className={`text-[10px] font-medium whitespace-nowrap w-[80px] text-right ${todayColor}`}>
                                         {r.todayGain !== null ? `${fmtTodayGain(r.todayGain)}${r.todayPct !== null ? ` (${r.todayPct >= 0 ? '+' : ''}${r.todayPct.toFixed(1)}%)` : ''}` : '—'}
                                       </span>
                                       <span className="w-[8px]" />
@@ -1858,7 +1858,7 @@ export default function HoldingsPage({ currency }: Props) {
                     {/* Concentration section */}
                     <div className="border border-slate-200 rounded-xl mt-3">
                       <button className="flex items-center gap-1 w-full text-left text-[10px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5" onClick={() => { if (!concentrationSectionOpen) { setSectorSectionOpen(false); setMktCapSectionOpen(false) } setConcentrationSectionOpen(o => !o) }}>
-                        <span className="text-emerald-600">By Holdings Concentration</span> <span className="text-[9px] text-slate-300 ml-0.5">{concentrationSectionOpen ? '▲' : '▼'}</span>
+                        <span className="text-emerald-600">By Holdings Concentration</span> <span className="text-[10px] text-slate-300 ml-0.5">{concentrationSectionOpen ? '▲' : '▼'}</span>
                       </button>
                       {concentrationSectionOpen && (
                         <div className="px-3 pb-3">
@@ -2194,7 +2194,7 @@ export default function HoldingsPage({ currency }: Props) {
                           onClick={() => setBenchSectorSectionOpen(o => !o)}
                         >
                           <span className="text-sky-600">By Sector</span>
-                          <span className="text-[9px] text-slate-300 ml-0.5">{benchSectorSectionOpen ? '▲' : '▼'}</span>
+                          <span className="text-[10px] text-slate-300 ml-0.5">{benchSectorSectionOpen ? '▲' : '▼'}</span>
                         </button>
                         <div className="flex-1" />
                         <button
@@ -2207,7 +2207,7 @@ export default function HoldingsPage({ currency }: Props) {
                               ? `${MONTHS[benchStartMonth - 1]} ${benchStartYear} → ${benchEndToday ? 'today' : `${MONTHS[benchEndMonth - 1]} ${benchEndYear}`}`
                               : 'All dates'}
                           </span>
-                          {benchDateEnabled && <span className="text-[9px] bg-sky-100 text-sky-600 rounded px-1 font-medium ml-0.5">Active</span>}
+                          {benchDateEnabled && <span className="text-[10px] bg-sky-100 text-sky-600 rounded px-1 font-medium ml-0.5">Active</span>}
                         </button>
                       </div>
 
@@ -2280,7 +2280,7 @@ export default function HoldingsPage({ currency }: Props) {
                                   <span className="shrink-0 whitespace-nowrap">({fmtX(s.benchXirr)})</span>
                                 </span>
                                 <span className={`text-[10px] font-semibold flex-1 whitespace-nowrap text-right ${alphaColor}`}>{fmtX(s.alpha)}</span>
-                                <span className="text-[9px] text-slate-300 w-[8px] text-right">{isOpen ? '▲' : '▼'}</span>
+                                <span className="text-[10px] text-slate-300 w-[8px] text-right">{isOpen ? '▲' : '▼'}</span>
                               </div>
                               <div className="relative h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1.5">
                                 {s.alpha !== null && s.alpha > 0 && (

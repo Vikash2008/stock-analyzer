@@ -227,7 +227,7 @@ export default function ResearchPage() {
                   setTimeout(() => setReportSyncing(false), 1500)
                 }}
               >
-                <span className={`text-[9px] text-white leading-none inline-block ${reportSyncing ? 'animate-spin' : ''}`}>↻</span>
+                <span className={`text-[10px] text-white leading-none inline-block ${reportSyncing ? 'animate-spin' : ''}`}>↻</span>
               </button>
             )}
           </div>
@@ -254,7 +254,7 @@ export default function ResearchPage() {
                   setTimeout(() => setChartSyncing(false), 1500)
                 }}
               >
-                <span className={`text-[9px] text-white leading-none inline-block ${chartSyncing ? 'animate-spin' : ''}`}>↻</span>
+                <span className={`text-[10px] text-white leading-none inline-block ${chartSyncing ? 'animate-spin' : ''}`}>↻</span>
               </button>
             </div>
           </div>

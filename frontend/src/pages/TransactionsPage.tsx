@@ -390,7 +390,7 @@ export default function TransactionsPage({ currency }: Props) {
       <div className="shrink-0 px-4 pt-2 bg-white">
       {/* Nav bar */}
       <div className="flex items-center gap-2 px-3 py-2 mb-3 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl">
-        <button onClick={() => navigate(-1)} className="shrink-0 flex items-center gap-0.5 text-white/90 active:text-white min-h-[40px] min-w-[60px]">
+        <button onClick={() => navigate(-1)} className="shrink-0 flex items-center gap-0.5 text-white/90 active:text-white min-h-[44px] min-w-[60px]">
           <span className="text-[20px] leading-none" style={{ marginBottom: 1 }}>‹</span>
           <span className="text-[10px] font-medium whitespace-nowrap">{backLabel.replace('← ', '')}</span>
         </button>
@@ -421,7 +421,7 @@ export default function TransactionsPage({ currency }: Props) {
             {fmt(cur, dispCur)}
           </span>
           <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-            <span className="text-[10px] text-slate-400">Today</span>
+            <span className="flex items-center gap-[3px] text-[10px] text-slate-400"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{flexShrink:0}}><circle cx="6" cy="6" r="5"/><path d="M6 3.5v2.5l1.5 1"/></svg>Today</span>
             <span className="text-[10px]" style={{ color: tgC }}>
               {tg !== null ? fmtCompactGainLine(tg, tp, dispCur) : '—'}
             </span>
@@ -435,7 +435,7 @@ export default function TransactionsPage({ currency }: Props) {
             : <span className="text-[10px] text-slate-400">XIRR —</span>
           }
           <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-            <span className="text-[10px] text-slate-400">Total</span>
+            <span className="flex items-center gap-[3px] text-[10px] text-slate-400"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M9 2H3l3.5 4-3.5 4h6"/></svg>Total</span>
             <span className="text-[10px]" style={{ color: tc }}>
               {fmtCompactGainLine(gain + realGain, inv + realCost !== 0 ? (gain + realGain) / (inv + realCost) * 100 : 0, dispCur)}
             </span>
@@ -578,7 +578,7 @@ export default function TransactionsPage({ currency }: Props) {
               className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 border active:opacity-60 bg-gradient-to-br from-violet-600 to-purple-800 border-violet-700"
               onClick={() => { if (reportSyncing) return; setReportSyncing(true); qc.resetQueries({ queryKey: ['quickstats', yf] }); setTimeout(() => setReportSyncing(false), 1500) }}
             >
-              <span className={`text-[9px] text-white leading-none inline-block ${reportSyncing ? 'animate-spin' : ''}`}>↻</span>
+              <span className={`text-[10px] text-white leading-none inline-block ${reportSyncing ? 'animate-spin' : ''}`}>↻</span>
             </button>
           )}
         </div>
@@ -620,8 +620,8 @@ export default function TransactionsPage({ currency }: Props) {
                 setTimeout(() => { setSyncedAt(new Date()); setSyncing(false) }, 1200)
               }}
             >
-              <span className={`text-[9px] text-white leading-none inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
-              {syncedAt && <span className="text-[9px] text-white whitespace-nowrap leading-none ml-0.5">{fmtSyncTime(syncedAt)}</span>}
+              <span className={`text-[10px] text-white leading-none inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
+              {syncedAt && <span className="text-[10px] text-white whitespace-nowrap leading-none ml-0.5">{fmtSyncTime(syncedAt)}</span>}
             </button>
           </div>
         </div>
@@ -677,10 +677,10 @@ export default function TransactionsPage({ currency }: Props) {
                     </p>
                   )}
                   <div className="flex items-center gap-2 px-1 py-0.5 mb-1">
-                    <span className="text-[9px] font-semibold text-slate-400 w-[80px]">Ex-date</span>
-                    <span className="text-[9px] font-semibold text-slate-400 flex-1 text-right">Shares</span>
-                    <span className="text-[9px] font-semibold text-slate-400 w-[56px] text-right">₹/share</span>
-                    <span className="text-[9px] font-semibold text-slate-400 w-[64px] text-right">Earned</span>
+                    <span className="text-[10px] font-semibold text-slate-400 w-[80px]">Ex-date</span>
+                    <span className="text-[10px] font-semibold text-slate-400 flex-1 text-right">Shares</span>
+                    <span className="text-[10px] font-semibold text-slate-400 w-[56px] text-right">₹/share</span>
+                    <span className="text-[10px] font-semibold text-slate-400 w-[64px] text-right">Earned</span>
                   </div>
                   {symDividends.events.map(ev => (
                     <div key={ev.ex_date} className="flex items-center gap-2 px-1 py-1 border-t border-slate-50">

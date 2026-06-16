@@ -181,7 +181,7 @@ export function FxGainsTab({ fxLots, usdInr }: Props) {
                   <div className="flex items-center gap-3">
                     <span className="text-[10px] text-slate-400">{fmtUsd(yrUsd)}</span>
                     <span className="text-[10px] font-semibold text-teal-700">{fmtInr(yrFx)}</span>
-                    <span className="text-[9px] text-slate-300">{isOpen ? '▲' : '▼'}</span>
+                    <span className="text-[10px] text-slate-300">{isOpen ? '▲' : '▼'}</span>
                   </div>
                 </button>
                 {isOpen && (
@@ -225,11 +225,11 @@ export function FxGainsTab({ fxLots, usdInr }: Props) {
                 >
                   <div className="flex items-center gap-1.5">
                     <span className="text-[11px] font-semibold text-slate-700">{h.symbol.replace(/\.(NS|BO)$/i, '')}</span>
-                    <span className="text-[9px] text-slate-400">{lots.length} lot{lots.length !== 1 ? 's' : ''}</span>
+                    <span className="text-[10px] text-slate-400">{lots.length} lot{lots.length !== 1 ? 's' : ''}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`text-[11px] font-semibold ${h.fxGain >= 0 ? 'text-teal-700' : 'text-red-500'}`}>{fmtInr(h.fxGain)}</span>
-                    <span className="text-[9px] text-slate-300">{isOpen ? '▲' : '▼'}</span>
+                    <span className="text-[10px] text-slate-300">{isOpen ? '▲' : '▼'}</span>
                   </div>
                 </button>
 
@@ -238,11 +238,11 @@ export function FxGainsTab({ fxLots, usdInr }: Props) {
                   <div className="border-t border-slate-100">
                     {/* Column headers */}
                     <div className="grid grid-cols-[90px_40px_52px_44px_1fr] gap-x-1 px-3 py-1.5 bg-slate-50 border-b border-slate-200">
-                      <span className="text-[9px] font-semibold text-slate-400 uppercase">Date</span>
-                      <span className="text-[9px] font-semibold text-slate-400 uppercase text-right">Shares</span>
-                      <span className="text-[9px] font-semibold text-slate-400 uppercase text-right">USD</span>
-                      <span className="text-[9px] font-semibold text-slate-400 uppercase text-right">Rate</span>
-                      <span className="text-[9px] font-semibold text-slate-400 uppercase text-right">FX Gain</span>
+                      <span className="text-[10px] font-semibold text-slate-400 uppercase">Date</span>
+                      <span className="text-[10px] font-semibold text-slate-400 uppercase text-right">Shares</span>
+                      <span className="text-[10px] font-semibold text-slate-400 uppercase text-right">USD</span>
+                      <span className="text-[10px] font-semibold text-slate-400 uppercase text-right">Rate</span>
+                      <span className="text-[10px] font-semibold text-slate-400 uppercase text-right">FX Gain</span>
                     </div>
                     {/* Lot rows */}
                     {lots.map((lot, i) => {
@@ -250,18 +250,18 @@ export function FxGainsTab({ fxLots, usdInr }: Props) {
                       const lotFxGain = lotUsd * (usdInr - lot.buy_fx_rate)
                       return (
                         <div key={i} className="grid grid-cols-[90px_40px_52px_44px_1fr] gap-x-1 px-3 py-2 border-b border-slate-100 last:border-0 bg-white">
-                          <span className="text-[9px] text-slate-500">{fmtDate(lot.date)}</span>
-                          <span className="text-[9px] text-slate-600 text-right tabular-nums">{lot.qty % 1 === 0 ? lot.qty : lot.qty.toFixed(3)}</span>
-                          <span className="text-[9px] text-slate-600 text-right tabular-nums">{fmtUsd(lotUsd)}</span>
-                          <span className="text-[9px] text-slate-600 text-right tabular-nums">₹{lot.buy_fx_rate.toFixed(1)}</span>
-                          <span className={`text-[9px] font-medium text-right tabular-nums ${lotFxGain >= 0 ? 'text-teal-700' : 'text-red-500'}`}>{fmtInr(lotFxGain)}</span>
+                          <span className="text-[10px] text-slate-500">{fmtDate(lot.date)}</span>
+                          <span className="text-[10px] text-slate-600 text-right tabular-nums">{lot.qty % 1 === 0 ? lot.qty : lot.qty.toFixed(3)}</span>
+                          <span className="text-[10px] text-slate-600 text-right tabular-nums">{fmtUsd(lotUsd)}</span>
+                          <span className="text-[10px] text-slate-600 text-right tabular-nums">₹{lot.buy_fx_rate.toFixed(1)}</span>
+                          <span className={`text-[10px] font-medium text-right tabular-nums ${lotFxGain >= 0 ? 'text-teal-700' : 'text-red-500'}`}>{fmtInr(lotFxGain)}</span>
                         </div>
                       )
                     })}
                     {/* Total row */}
                     <div className="grid grid-cols-[90px_40px_52px_44px_1fr] gap-x-1 px-3 py-2 bg-teal-50 border-t border-teal-100">
-                      <span className="text-[9px] font-bold text-slate-600 col-span-4">Total</span>
-                      <span className={`text-[9px] font-bold text-right tabular-nums ${h.fxGain >= 0 ? 'text-teal-700' : 'text-red-500'}`}>{fmtInr(h.fxGain)}</span>
+                      <span className="text-[10px] font-bold text-slate-600 col-span-4">Total</span>
+                      <span className={`text-[10px] font-bold text-right tabular-nums ${h.fxGain >= 0 ? 'text-teal-700' : 'text-red-500'}`}>{fmtInr(h.fxGain)}</span>
                     </div>
                   </div>
                 )}

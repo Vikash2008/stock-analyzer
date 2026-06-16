@@ -308,7 +308,7 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
               { label: 'Beta',    value: fmtRatio(qs.beta),                      color: null },
             ].map(({ label, value, color }) => (
               <div key={label} className="bg-emerald-50 rounded-lg p-1.5">
-                <div className="text-[9px] text-emerald-600/70 uppercase tracking-wide mb-0.5 truncate">{label}</div>
+                <div className="text-[10px] text-emerald-600/70 uppercase tracking-wide mb-0.5 truncate">{label}</div>
                 <div
                   className="text-[11px] font-semibold whitespace-nowrap"
                   style={{ color: color ?? '#1e293b' }}
@@ -337,7 +337,7 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                 <span className="text-[10px] font-semibold text-emerald-600">
                   {fmtPrice(qs.current_price, qs.currency)}
                 </span>
-                <span className="text-[9px] text-slate-400">
+                <span className="text-[10px] text-slate-400">
                   {fmtPrice(qs.week_52_high, qs.currency)}
                 </span>
               </div>
@@ -478,9 +478,9 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
             const min = Math.min(...pes), max = Math.max(...pes), avg = pes.reduce((a, b) => a + b, 0) / pes.length
             return (
               <div className="flex justify-between mt-1">
-                <span className="text-[9px] text-slate-400">Min {min.toFixed(1)}×</span>
-                <span className="text-[9px] text-slate-400">Avg {avg.toFixed(1)}×</span>
-                <span className="text-[9px] text-slate-400">Max {max.toFixed(1)}×</span>
+                <span className="text-[10px] text-slate-400">Min {min.toFixed(1)}×</span>
+                <span className="text-[10px] text-slate-400">Avg {avg.toFixed(1)}×</span>
+                <span className="text-[10px] text-slate-400">Max {max.toFixed(1)}×</span>
               </div>
             )
           })()}
@@ -599,7 +599,7 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                           title={isUnavailable ? 'Back to 3.1 Lite result' : (fallback ? 'View 2.5 Flash (unavailable)' : `Switch to ${fmtModelName(alt?.model)} · ${fmtSavedAt(alt?.savedAt)}`)}
                         >⇄</button>
                       )}
-                      <span className="text-[8px] text-right leading-tight">
+                      <span className="text-[10px] text-right leading-tight">
                         {isUnavailable ? (
                           <><span className="text-amber-500">⚠ · </span><span className="text-slate-400">2.5 Flash · unavailable</span></>
                         ) : (
@@ -611,11 +611,11 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                 })()}
                 {isError && (
                   <div className="flex flex-col items-end gap-0.5 max-w-[140px]">
-                    <span className={`text-[9px] text-right leading-tight ${isGemini25Unavailable ? 'text-purple-400' : 'text-red-400'}`}>
+                    <span className={`text-[10px] text-right leading-tight ${isGemini25Unavailable ? 'text-purple-400' : 'text-red-400'}`}>
                       {isGemini25Unavailable ? gemini25Label : (state as { error: string }).error}
                     </span>
                     {isGemini25Unavailable && (state as any).detail && (
-                      <span className="text-[8px] text-slate-400 text-right leading-tight line-clamp-2">
+                      <span className="text-[10px] text-slate-400 text-right leading-tight line-clamp-2">
                         {(state as any).detail}
                       </span>
                     )}

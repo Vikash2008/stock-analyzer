@@ -81,7 +81,7 @@ function MonthCalendar({
             key={label}
             onClick={() => hasDivs && onToggleMonth(month)}
             disabled={!hasDivs}
-            className={`rounded py-1 text-center text-[9px] font-medium transition-colors ${cls} ${hasDivs ? 'active:opacity-70' : ''}`}
+            className={`rounded py-1 text-center text-[10px] font-medium transition-colors ${cls} ${hasDivs ? 'active:opacity-70' : ''}`}
           >
             {label}
           </button>
@@ -105,7 +105,7 @@ function SymbolRow({ sym, currency, usdInr }: { sym: DividendSymbol; currency: C
         className="w-full flex items-center gap-2 px-3 py-2.5 text-left active:bg-teal-50"
       >
         {/* Exchange badge */}
-        <span className={`shrink-0 text-[8px] font-bold px-1.5 py-0.5 rounded ${
+        <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded ${
           sym.exchange === 'NSE' ? 'bg-blue-100 text-blue-600' :
           sym.exchange === 'BSE' ? 'bg-teal-100 text-teal-600' :
           'bg-slate-100 text-slate-500'
@@ -116,7 +116,7 @@ function SymbolRow({ sym, currency, usdInr }: { sym: DividendSymbol; currency: C
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             <span className="text-[10px] text-slate-400 leading-tight">{sym.event_count} payment{sym.event_count !== 1 ? 's' : ''} · last {sym.last_ex_date}</span>
             {sym.yield_on_cost !== null && (
-              <span className="text-[9px] font-semibold bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full leading-none">
+              <span className="text-[10px] font-semibold bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full leading-none">
                 {sym.yield_on_cost.toFixed(1)}% yield
               </span>
             )}
@@ -145,10 +145,10 @@ function SymbolRow({ sym, currency, usdInr }: { sym: DividendSymbol; currency: C
           )}
 
           <div className="flex items-center gap-2 px-1 py-0.5 mb-1">
-            <span className="text-[9px] font-semibold text-slate-400 w-[80px]">Ex-date</span>
-            <span className="text-[9px] font-semibold text-slate-400 flex-1 text-right">Shares</span>
-            <span className="text-[9px] font-semibold text-slate-400 w-[60px] text-right">Per share</span>
-            <span className="text-[9px] font-semibold text-slate-400 w-[60px] text-right">Earned</span>
+            <span className="text-[10px] font-semibold text-slate-400 w-[80px]">Ex-date</span>
+            <span className="text-[10px] font-semibold text-slate-400 flex-1 text-right">Shares</span>
+            <span className="text-[10px] font-semibold text-slate-400 w-[60px] text-right">Per share</span>
+            <span className="text-[10px] font-semibold text-slate-400 w-[60px] text-right">Earned</span>
           </div>
           {sym.events.map(ev => (
             <div key={ev.ex_date} className="flex items-center gap-2 px-1 py-1 border-t border-teal-100">
@@ -334,7 +334,7 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
                 {hasFilter && (
                   <button
                     onClick={() => { setSelectedYears(new Set()); setSelectedMonths(new Set()) }}
-                    className="text-[9px] text-teal-500 underline"
+                    className="text-[10px] text-teal-500 underline"
                   >
                     clear
                   </button>
@@ -352,7 +352,7 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
                 title="Refresh dividend data"
                 className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 border active:opacity-60 bg-gradient-to-br from-teal-600 to-emerald-700 border-teal-700"
               >
-                <span className={`text-[9px] text-white leading-none inline-block ${isSyncing ? 'animate-spin' : ''}`}>↻</span>
+                <span className={`text-[10px] text-white leading-none inline-block ${isSyncing ? 'animate-spin' : ''}`}>↻</span>
                 {lastSynced && (
                   <span className="text-[10px] text-white whitespace-nowrap leading-none">
                     {String(lastSynced.getHours()).padStart(2,'0')}:{String(lastSynced.getMinutes()).padStart(2,'0')} {String(lastSynced.getDate()).padStart(2,'0')} {lastSynced.toLocaleString('en-US',{month:'short'})}

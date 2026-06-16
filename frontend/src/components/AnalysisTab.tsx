@@ -105,7 +105,7 @@ export function AnalysisTab({ portfolio, symbol }: Props) {
             >
               {/* Header: timestamp + actions */}
               <div className="flex justify-between items-center gap-2 mb-1">
-                <span className="text-[9px] text-slate-400 shrink-0">{note.timestamp}</span>
+                <span className="text-[10px] text-slate-400 shrink-0">{note.timestamp}</span>
                 <div className="flex gap-2 shrink-0">
                   {editingId !== note.id && (
                     <button
