@@ -173,7 +173,7 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
       <div className="flex items-baseline justify-between">
         <span className={`${valSize} font-bold text-slate-900 min-w-0`}>{fmt(card.current * scale, currency)}</span>
         <span className={`flex items-center ${gap} shrink-0 whitespace-nowrap`}>
-          <span className={`${lblSize} font-semibold`} style={{color:'#065f46'}}>1D</span>
+          <span className={`inline-block w-[22px] text-right ${lblSize} font-semibold`} style={{color:'#065f46'}}>1D</span>
           <span className={gainSize} style={{ color: card.todayGain !== null ? (card.todayGain >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8' }}>
             {card.todayGain !== null ? fmtCompactGainLine(card.todayGain * scale, todayPct, currency) : '—'}
           </span>
@@ -185,7 +185,7 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
           : <span className={`${lblSize} text-slate-400`}>{fmtCompact(card.invested * scale, currency)} inv</span>
         }
         <span className={`flex items-center ${gap} shrink-0 whitespace-nowrap`}>
-          <span className={`${lblSize} font-semibold`} style={{color:'#065f46'}}>ALL</span>
+          <span className={`inline-block w-[22px] text-right ${lblSize} font-semibold`} style={{color:'#065f46'}}>ALL</span>
           <span className={gainSize} style={{ color: pos ? '#0a7a42' : '#be1c1c' }}>
             {fmtCompactGainLine(totalGain * scale, pct, currency)}
           </span>
@@ -1042,7 +1042,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               <div className="flex items-baseline justify-between">
                 <span className="text-[13px] font-bold text-slate-900 min-w-0">{fmt(stats.cur, 'INR')}</span>
                 <span className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-                  <span className="text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
+                  <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
                   <span className="text-[10px]" style={{ color: tgC }}>
                     {stats.todayGain !== 0 ? fmtCompactGainLine(stats.todayGain, stats.todayPct, 'INR') : '—'}
                   </span>
@@ -1054,7 +1054,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                   : <span className="text-[10px] text-slate-400">XIRR —</span>
                 }
                 <span className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-                  <span className="text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
+                  <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
                   <span className="text-[10px]" style={{ color: tc }}>
                     {fmtCompactGainLine(stats.gain, stats.pct, 'INR')}
                   </span>

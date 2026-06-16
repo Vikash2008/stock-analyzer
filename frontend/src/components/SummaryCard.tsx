@@ -56,7 +56,7 @@ export function SummaryCard({
           {fmt(current, currency)}
         </span>
         <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-          <span className="text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
+          <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
           <span className="text-[10px]" style={{ color: tgColor }}>
             {todayGain !== null ? fmtCompactGainLine(todayGain, todayPct, currency) : '—'}
           </span>
@@ -70,7 +70,7 @@ export function SummaryCard({
           : <span className="text-[10px] text-slate-400">XIRR —</span>
         }
         <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-          <span className="text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
+          <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
           <span className="text-[10px]" style={{ color: textColor }}>
             {fmtCompactGainLine(totalGain, totalPct, currency)}
           </span>
