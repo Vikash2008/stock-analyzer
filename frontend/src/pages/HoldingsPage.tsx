@@ -1165,72 +1165,15 @@ export default function HoldingsPage({ currency }: Props) {
     <div className="max-w-xl mx-auto flex flex-col h-[100dvh]">
       <div className="shrink-0 px-4 pt-4 bg-white">
       {/* Nav bar */}
-      <div className="flex items-center px-3 py-2 mb-3 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl">
+      <div className="flex items-center justify-between px-3 py-2 mb-3 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl">
         <button onClick={() => navigate('/')} className="shrink-0 flex items-center gap-0.5 text-white active:text-white/80 min-h-[44px]">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
           <span className="text-[15px] font-bold whitespace-nowrap">{backLabel.replace('← ', '')}</span>
         </button>
-      </div>
-
-      {/* Summary card — USD portfolio-specific views convert to USD; aggregates stay INR */}
-      {(() => {
-        const isUsdPortView = portfolio ? USD_PORTS.has(portfolio) : false
-        const summCur: Currency = isUsdPortView && currency === 'USD' ? 'USD' : 'INR'
-        const summFx = summCur === 'USD' ? 1 / (data?.usd_inr ?? 95.5) : 1
-        const totalFxForView = includeFxGains
-          ? filteredHoldings.filter(h => h.currency === 'USD').reduce((s, h) => s + (h.disp_fx_gain ?? 0), 0)
-          : 0
-        return (
-      <SummaryCard
-        label={label}
-        current={displayStats.cur * summFx}
-        invested={displayStats.inv * summFx}
-        realGain={displayStats.realGain * summFx}
-        realCost={displayStats.realCost * summFx}
-        todayGain={(displayStats.tg || null) !== null ? (displayStats.tg || 0) * summFx : null}
-        todayPct={displayStats.todayPct}
-        xirr={filteredSummaryXirr}
-        dividends={totalDivForView > 0 ? totalDivForView * summFx : undefined}
-        fxGain={totalFxForView > 0 ? totalFxForView * summFx : undefined}
-        currency={summCur}
-        highlight={
-          segment === 'total'
-            ? { bg: 'linear-gradient(to right, #f0fdfa, #d1fae5 45%, #ecfdf5)', accent: '#0d9488' }
-            : { bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)', accent: '#34d399' }
-        }
-      />
-        )
-      })()}
-
-      {/* Tabs + gear */}
-      <div className="flex items-center gap-2 mb-2">
-        <div className="flex flex-1 bg-slate-100 rounded-full p-0.5 gap-0.5">
-          {([...(['holdings', 'charts', 'analysis', 'dividends'] as const), ...(includeFxGains && filteredFxLots.length > 0 ? ['fx' as const] : [])]).map(tab => {
-            const activeClass: Record<string, string> = {
-              holdings:  'bg-teal-200 text-teal-800',
-              charts:    'bg-sky-200 text-sky-800',
-              analysis:  'bg-violet-200 text-violet-800',
-              dividends: 'bg-teal-200 text-teal-800',
-              fx:        'bg-teal-200 text-teal-800',
-            }
-            const tabLabel: Record<string, string> = { fx: 'FX' }
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-1 text-[11px] py-1.5 rounded-full capitalize font-medium transition-all ${
-                  activeTab === tab ? `${activeClass[tab]} shadow-sm` : 'text-slate-500'
-                }`}
-              >
-                {tabLabel[tab] ?? tab}
-              </button>
-            )
-          })}
-        </div>
         <div className="relative shrink-0">
           <button
             onClick={() => setSettingsOpen(o => !o)}
-            className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${settingsOpen ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500 active:bg-slate-200'}`}
+            className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${settingsOpen ? 'bg-white/20 text-white' : 'text-emerald-100 active:bg-white/20 active:text-white'}`}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3"/>
@@ -1285,6 +1228,61 @@ export default function HoldingsPage({ currency }: Props) {
             </>
           )}
         </div>
+      </div>
+
+      {/* Summary card — USD portfolio-specific views convert to USD; aggregates stay INR */}
+      {(() => {
+        const isUsdPortView = portfolio ? USD_PORTS.has(portfolio) : false
+        const summCur: Currency = isUsdPortView && currency === 'USD' ? 'USD' : 'INR'
+        const summFx = summCur === 'USD' ? 1 / (data?.usd_inr ?? 95.5) : 1
+        const totalFxForView = includeFxGains
+          ? filteredHoldings.filter(h => h.currency === 'USD').reduce((s, h) => s + (h.disp_fx_gain ?? 0), 0)
+          : 0
+        return (
+      <SummaryCard
+        label={label}
+        current={displayStats.cur * summFx}
+        invested={displayStats.inv * summFx}
+        realGain={displayStats.realGain * summFx}
+        realCost={displayStats.realCost * summFx}
+        todayGain={(displayStats.tg || null) !== null ? (displayStats.tg || 0) * summFx : null}
+        todayPct={displayStats.todayPct}
+        xirr={filteredSummaryXirr}
+        dividends={totalDivForView > 0 ? totalDivForView * summFx : undefined}
+        fxGain={totalFxForView > 0 ? totalFxForView * summFx : undefined}
+        currency={summCur}
+        highlight={
+          segment === 'total'
+            ? { bg: 'linear-gradient(to right, #f0fdfa, #d1fae5 45%, #ecfdf5)', accent: '#0d9488' }
+            : { bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)', accent: '#34d399' }
+        }
+      />
+        )
+      })()}
+
+      {/* Tabs */}
+      <div className="flex bg-slate-100 rounded-full p-0.5 gap-0.5 mb-2">
+        {([...(['holdings', 'charts', 'analysis', 'dividends'] as const), ...(includeFxGains && filteredFxLots.length > 0 ? ['fx' as const] : [])]).map(tab => {
+          const activeClass: Record<string, string> = {
+            holdings:  'bg-teal-200 text-teal-800',
+            charts:    'bg-sky-200 text-sky-800',
+            analysis:  'bg-violet-200 text-violet-800',
+            dividends: 'bg-teal-200 text-teal-800',
+            fx:        'bg-teal-200 text-teal-800',
+          }
+          const tabLabel: Record<string, string> = { fx: 'FX' }
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 text-[11px] py-1.5 rounded-full capitalize font-medium transition-all ${
+                activeTab === tab ? `${activeClass[tab]} shadow-sm` : 'text-slate-500'
+              }`}
+            >
+              {tabLabel[tab] ?? tab}
+            </button>
+          )
+        })}
       </div>
       {/* Charts strip — metric pills + sync */}
       {activeTab === 'charts' && (
