@@ -240,6 +240,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const [includeFxGainsState, setIncludeFxGainsStateLocal] = useState(getIncludeFxGains)
   const [importProgress, setImportProgress] = useState<number | null>(null)
   const [importDone, setImportDone]         = useState(false)
+  const [importStatus, setImportStatus]     = useState('')
   const [csvMeta, setCsvMeta]               = useState<CsvMeta | null>(getCsvMeta)
   const [sheetOpen, setSheetOpen]           = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -248,13 +249,14 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const handleImport = useCallback((file: File) => {
     setImportProgress(0)
     setImportDone(false)
+    setImportStatus('Reading rows…')
     const reader = new FileReader()
     reader.onload = async (e) => {
       const text = e.target?.result as string
-      setImportProgress(20)
       const meta: CsvMeta = { name: file.name, size: file.size, importedAt: Date.now() }
 
       // Persist CSV — evict gemini, dividend, AND chart history caches on quota error
+      setImportProgress(15)
       try {
         localStorage.setItem('portfolio:csv', text)
       } catch {
@@ -265,20 +267,21 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         }
         try { localStorage.setItem('portfolio:csv', text) } catch { /* quota still exceeded */ }
       }
-      try {
-        localStorage.setItem('portfolio:csv:meta', JSON.stringify(meta))
-        setCsvMeta(meta)
-      } catch { /* meta write non-fatal */ }
+      try { localStorage.setItem('portfolio:csv:meta', JSON.stringify(meta)); setCsvMeta(meta) } catch {}
 
       clearDividendLocalCache()
       qc.removeQueries({ queryKey: ['dividends'] })
 
-      // Close modal now — CSV is in localStorage so next fetch will use it
-      setImportProgress(100)
-      setImportDone(true)
-      setTimeout(() => { setImportProgress(null); setImportDone(false); setSettingsOpen(false) }, 1200)
+      setImportProgress(30)
+      setImportStatus('Running FIFO calculations…')
 
-      // POST to backend in background — updates React Query cache immediately if it completes
+      // Step through status messages while backend processes
+      const t1 = setTimeout(() => { setImportProgress(50); setImportStatus('Fetching latest prices…') }, 6_000)
+      const t2 = setTimeout(() => { setImportProgress(70) },                                              25_000)
+      const t3 = setTimeout(() => { setImportProgress(85); setImportStatus('Almost done…') },             55_000)
+      const t4 = setTimeout(() => { setImportProgress(93) },                                              90_000)
+      const clearTimers = () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4) }
+
       const controller = new AbortController()
       const abortTimer = setTimeout(() => controller.abort(), 120_000)
       try {
@@ -289,12 +292,20 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           body: text,
           signal: controller.signal,
         })
+        clearTimeout(abortTimer)
         if (res.ok) {
           const newData = await res.json()
           qc.setQueryData(['portfolio'], newData)
         }
-      } catch { /* timed out or network error — next page load will POST from localStorage */ }
-      finally { clearTimeout(abortTimer) }
+      } catch { /* timed out or network error — CSV in localStorage, next load will retry */ }
+      finally {
+        clearTimeout(abortTimer)
+        clearTimers()
+        setImportProgress(100)
+        setImportStatus('')
+        setImportDone(true)
+        setTimeout(() => { setImportProgress(null); setImportDone(false); setSettingsOpen(false) }, 1200)
+      }
     }
     reader.readAsText(file)
   }, [currency, qc, API_URL_SETTINGS])
@@ -852,7 +863,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                           <p className="text-[12px] font-medium text-slate-700 leading-tight">Import CSV</p>
                           <p className="text-[11px] text-slate-400 leading-tight mt-0.5">
                             {importProgress !== null
-                              ? (importDone ? '✓ Updated' : `Importing… ${importProgress}%`)
+                              ? (importDone ? '✓ Updated' : importStatus)
                               : 'Replace portfolio data'}
                           </p>
                         </div>
