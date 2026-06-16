@@ -390,8 +390,8 @@ export default function TransactionsPage({ currency }: Props) {
       <div className="shrink-0 px-4 pt-4 bg-white">
       {/* Nav bar */}
       <div className="flex items-center px-3 py-2 mb-3 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl">
-        <button onClick={() => navigate(-1)} className="shrink-0 flex items-center gap-1 text-white active:text-white/80 min-h-[44px]">
-          <span className="text-[22px] leading-none font-bold" style={{ marginBottom: 1 }}>‹</span>
+        <button onClick={() => navigate(-1)} className="shrink-0 flex items-center gap-0.5 text-white active:text-white/80 min-h-[44px]">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
           <span className="text-[15px] font-bold whitespace-nowrap">{backLabel.replace('← ', '')}</span>
         </button>
       </div>
