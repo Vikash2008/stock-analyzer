@@ -412,6 +412,25 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 - `useHistory.ts` daily `queryKey` changed from `['history',yf_symbol,start]` → `['history',yf_symbol]` to share React Query in-memory cache with `usePortfolioHistory` (same key); intraday keeps `['history',yf_symbol,'1d']`
 - Trade-off: "All" range starts from 2015 (not 2000); pre-2015 history lost
 
+### 2026-06-16 (session 121)
+
+**fmtUSD — full numbers in USD mode (`fmt.ts`)**
+- `fmtUSD` no longer abbreviates under $1M; `$7.8K` → `$7,821` (comma-formatted); only abbreviates ≥$1M as `$1.23M`
+- `fmtCompact` retains K abbreviation for compact card lines (unchanged)
+
+**CSV import — always store INR in query cache (`PortfoliosPage.tsx`)**
+- Import POST was sending the live `currency` prop (could be `'USD'`), getting USD-denominated response, then `setQueryData(['portfolio'])` stored USD values in the INR cache
+- Hardcoded `currency: 'INR'` in import POST params — `usePortfolio` always subscribes to `['portfolio']` expecting INR; FX conversion is client-side only
+- Bug symptom: total portfolio 2.12 Cr displayed as 2.24L (values divided by ~95.5 USD/INR rate)
+
+**Charts tab — sync icon + progress bar (`HoldingsPage.tsx`)**
+- Sync button: `invalidateQueries` → `refetchQueries({ type: 'active' })` — old approach set queries stale async so the `useEffect([syncing, histLoading])` cleared the spinner before fetching actually started; new approach sets `fetchStatus='fetching'` immediately so `histLoading` stays true until data arrives
+- Progress bar: `h-1` → `h-1.5`; transition `duration-300` → `duration-700` to smooth visual batch jumps; ghost pulse (`opacity-20 animate-pulse` on full bar width) shows activity when count is stuck between batches; spinning `↻` on label so user always sees active loading regardless of counter
+
+**usePortfolioHistory — retry on fetch failure (`usePortfolioHistory.ts`)**
+- `retry: 0` → `retry: 2, retryDelay: 8_000` so transient failures (e.g. backend cold start right after CSV import) auto-retry twice with 8s gaps
+- `fetchSymHistory` previously caught all errors and returned empty data (success state, blocking retry); now throws on non-OK response so TanStack retry actually fires
+
 ### 2026-06-15 (session 120)
 
 **HoldingCard — FX + Dividends layout (`HoldingCard.tsx`)**
