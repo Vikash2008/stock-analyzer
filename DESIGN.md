@@ -444,6 +444,20 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 - No centered title in nav bar — portfolio/holding name shown on summary card below; redundant in nav
 - Gear icon in HoldingsPage nav (`text-emerald-100`); TransactionsPage nav has back button only
 
+### 2026-06-16 (session 123)
+
+**Nav bar — contained width, rounded, white gap above**
+- Removed `-mx-4` full-bleed; nav bar now contained within page `px-4` padding — aligns with summary card edges
+- Added `rounded-xl` to nav bar div
+- Outer wrapper `pt-0` → `pt-2` so there's a small white gap above the nav bar
+- Back button: `text-emerald-100` → `font-semibold text-white` for better legibility; no centered title (name already in summary card below)
+
+**HoldingsPage gear popover — compact row cards**
+- Row card vertical padding `py-2` → `py-1` on all three rows (Status, Show Closed, View)
+- Body gap `gap-2` → `gap-1`; body padding `p-2` → `px-2 py-1.5`
+- Pill button inner padding `py-[4px]` → `py-[3px] px-2` for tighter pill feel
+- Action button (Add Holding) also `py-2` → `py-1`
+
 ### 2026-06-16 (session 121)
 
 **fmtUSD — full numbers in USD mode (`fmt.ts`)**
