@@ -1165,110 +1165,11 @@ export default function HoldingsPage({ currency }: Props) {
     <div className="max-w-xl mx-auto flex flex-col h-[100dvh]">
       <div className="shrink-0 px-4 pt-4 bg-white">
       {/* Nav bar */}
-      <div className="flex items-center justify-between px-3 py-2 mb-3 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl">
+      <div className="flex items-center px-3 py-2 mb-3 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl">
         <button onClick={() => navigate('/')} className="shrink-0 flex items-center gap-0.5 text-white active:text-white/80 min-h-[44px]">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
           <span className="text-[15px] font-bold whitespace-nowrap">{backLabel.replace('← ', '')}</span>
         </button>
-        <div className="relative shrink-0 flex justify-end">
-          <button
-            onClick={() => setSettingsOpen(o => !o)}
-            className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${settingsOpen ? 'bg-white/20 text-white' : 'text-emerald-100 active:bg-white/20 active:text-white'}`}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-          </button>
-          {settingsOpen && (
-            <>
-              <div className="fixed inset-0 z-[9]" onClick={() => setSettingsOpen(false)} />
-              <div className="absolute right-0 top-full mt-1.5 rounded-2xl shadow-xl overflow-hidden border border-emerald-100 z-10 min-w-[270px]">
-
-                {/* Header */}
-                <div className="bg-gradient-to-r from-emerald-600 to-teal-500 px-3 py-2 flex items-center justify-between">
-                  <p className="text-[12px] font-semibold text-white tracking-tight">Settings</p>
-                  <button onClick={() => setSettingsOpen(false)} className="text-emerald-200 active:text-white text-lg leading-none">×</button>
-                </div>
-
-                {/* Body */}
-                <div className="bg-white px-2 py-1.5 flex flex-col gap-1">
-
-                  {/* ── Filters ── */}
-                  <p className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 uppercase tracking-widest px-1 pt-0.5"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M1.5 2h9L7 6.5V10l-2-1V6.5L1.5 2z"/></svg>Filters</p>
-
-                  {/* Status pill */}
-                  <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1 flex items-center justify-between gap-2">
-                    <p className="text-[10px] text-slate-400 uppercase tracking-widest shrink-0">Status</p>
-                    <div className="relative flex bg-white rounded-full p-[2px] border border-emerald-100">
-                      <div
-                        className="absolute top-[2px] bottom-[2px] w-1/3 rounded-full bg-emerald-500 shadow-sm transition-transform duration-150"
-                        style={{ transform: `translateX(${holdingFilter === 'open' ? '0%' : holdingFilter === 'closed' ? '100%' : '200%'})` }}
-                      />
-                      {(['open', 'closed', 'all'] as const).map(v => (
-                        <button
-                          key={v}
-                          onClick={() => setHoldingFilter(v)}
-                          className={`relative z-10 flex-1 text-[10px] py-[3px] px-2 capitalize transition-colors ${holdingFilter === v ? 'text-white font-semibold' : 'text-slate-400'}`}
-                        >
-                          {v}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Show Closed toggle */}
-                  {holdingFilter === 'all' && (
-                    <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1 flex items-center justify-between gap-3">
-                      <p className="text-[11px] font-medium text-slate-700">Show Closed</p>
-                      <button
-                        onClick={() => setShowClosed(v => !v)}
-                        className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 ${showClosed ? 'bg-teal-500' : 'bg-slate-200'}`}
-                      >
-                        <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${showClosed ? 'translate-x-4' : 'translate-x-0'}`} />
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Grouped / Standalone */}
-                  {segment && (
-                    <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1 flex items-center justify-between gap-2">
-                      <p className="text-[10px] text-slate-400 uppercase tracking-widest shrink-0">View</p>
-                      <div className="relative flex bg-white rounded-full p-[2px] border border-emerald-100">
-                        <div
-                          className="absolute top-[2px] bottom-[2px] w-1/2 rounded-full bg-emerald-500 shadow-sm transition-transform duration-150"
-                          style={{ transform: `translateX(${viewMode === 'standalone' ? '100%' : '0%'})` }}
-                        />
-                        {(['cumulative', 'standalone'] as const).map(m => (
-                          <button
-                            key={m}
-                            onClick={() => setViewMode(m)}
-                            className={`relative z-10 flex-1 text-[10px] py-[3px] px-2 transition-colors ${viewMode === m ? 'text-white font-semibold' : 'text-slate-400'}`}
-                          >
-                            {m === 'cumulative' ? 'Grouped' : 'Standalone'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ── Actions ── */}
-                  <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-widest px-1 pt-0.5">Actions</p>
-                  <button
-                    onClick={() => { setSettingsOpen(false); setAddHoldingOpen(true) }}
-                    className="bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1 flex items-center gap-2 w-full text-left active:bg-emerald-100"
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-emerald-600 shrink-0">
-                      <circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/>
-                    </svg>
-                    <span className="text-[11px] font-medium text-emerald-700">Add Holding</span>
-                  </button>
-
-                </div>
-              </div>
-            </>
-          )}
-        </div>
       </div>
 
       {/* Summary card — USD portfolio-specific views convert to USD; aggregates stay INR */}
@@ -1301,29 +1202,89 @@ export default function HoldingsPage({ currency }: Props) {
         )
       })()}
 
-      {/* Tabs */}
-      <div className="flex bg-slate-100 rounded-full p-0.5 gap-0.5 mb-2">
-        {([...(['holdings', 'charts', 'analysis', 'dividends'] as const), ...(includeFxGains && filteredFxLots.length > 0 ? ['fx' as const] : [])]).map(tab => {
-          const activeClass: Record<string, string> = {
-            holdings:  'bg-teal-200 text-teal-800',
-            charts:    'bg-sky-200 text-sky-800',
-            analysis:  'bg-violet-200 text-violet-800',
-            dividends: 'bg-teal-200 text-teal-800',
-            fx:        'bg-teal-200 text-teal-800',
-          }
-          const tabLabel: Record<string, string> = { fx: 'FX' }
-          return (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 text-[11px] py-1.5 rounded-full capitalize font-medium transition-all ${
-                activeTab === tab ? `${activeClass[tab]} shadow-sm` : 'text-slate-500'
-              }`}
-            >
-              {tabLabel[tab] ?? tab}
-            </button>
-          )
-        })}
+      {/* Tabs + gear */}
+      <div className="flex items-center gap-2 mb-2">
+        <div className="flex flex-1 bg-slate-100 rounded-full p-0.5 gap-0.5">
+          {([...(['holdings', 'charts', 'analysis', 'dividends'] as const), ...(includeFxGains && filteredFxLots.length > 0 ? ['fx' as const] : [])]).map(tab => {
+            const activeClass: Record<string, string> = {
+              holdings:  'bg-teal-200 text-teal-800',
+              charts:    'bg-sky-200 text-sky-800',
+              analysis:  'bg-violet-200 text-violet-800',
+              dividends: 'bg-teal-200 text-teal-800',
+              fx:        'bg-teal-200 text-teal-800',
+            }
+            const tabLabel: Record<string, string> = { fx: 'FX' }
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 text-[11px] py-1.5 rounded-full capitalize font-medium transition-all ${
+                  activeTab === tab ? `${activeClass[tab]} shadow-sm` : 'text-slate-500'
+                }`}
+              >
+                {tabLabel[tab] ?? tab}
+              </button>
+            )
+          })}
+        </div>
+        <div className="relative shrink-0">
+          <button
+            onClick={() => setSettingsOpen(o => !o)}
+            className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${settingsOpen ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500 active:bg-slate-200'}`}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
+          {settingsOpen && (
+            <>
+              <div className="fixed inset-0 z-[9]" onClick={() => setSettingsOpen(false)} />
+              <div className="absolute right-0 top-full mt-1.5 rounded-2xl shadow-xl overflow-hidden border border-emerald-100 z-10 min-w-[270px]">
+                <div className="bg-gradient-to-r from-emerald-600 to-teal-500 px-3 py-2 flex items-center justify-between">
+                  <p className="text-[12px] font-semibold text-white tracking-tight">Settings</p>
+                  <button onClick={() => setSettingsOpen(false)} className="text-emerald-200 active:text-white text-lg leading-none">×</button>
+                </div>
+                <div className="bg-white px-2 py-1.5 flex flex-col gap-1">
+                  <p className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 uppercase tracking-widest px-1 pt-0.5"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M1.5 2h9L7 6.5V10l-2-1V6.5L1.5 2z"/></svg>Filters</p>
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1 flex items-center justify-between gap-2">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-widest shrink-0">Status</p>
+                    <div className="relative flex bg-white rounded-full p-[2px] border border-emerald-100">
+                      <div className="absolute top-[2px] bottom-[2px] w-1/3 rounded-full bg-emerald-500 shadow-sm transition-transform duration-150" style={{ transform: `translateX(${holdingFilter === 'open' ? '0%' : holdingFilter === 'closed' ? '100%' : '200%'})` }} />
+                      {(['open', 'closed', 'all'] as const).map(v => (
+                        <button key={v} onClick={() => setHoldingFilter(v)} className={`relative z-10 flex-1 text-[10px] py-[3px] px-2 capitalize transition-colors ${holdingFilter === v ? 'text-white font-semibold' : 'text-slate-400'}`}>{v}</button>
+                      ))}
+                    </div>
+                  </div>
+                  {holdingFilter === 'all' && (
+                    <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1 flex items-center justify-between gap-3">
+                      <p className="text-[11px] font-medium text-slate-700">Show Closed</p>
+                      <button onClick={() => setShowClosed(v => !v)} className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 ${showClosed ? 'bg-teal-500' : 'bg-slate-200'}`}>
+                        <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${showClosed ? 'translate-x-4' : 'translate-x-0'}`} />
+                      </button>
+                    </div>
+                  )}
+                  {segment && (
+                    <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1 flex items-center justify-between gap-2">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-widest shrink-0">View</p>
+                      <div className="relative flex bg-white rounded-full p-[2px] border border-emerald-100">
+                        <div className="absolute top-[2px] bottom-[2px] w-1/2 rounded-full bg-emerald-500 shadow-sm transition-transform duration-150" style={{ transform: `translateX(${viewMode === 'standalone' ? '100%' : '0%'})` }} />
+                        {(['cumulative', 'standalone'] as const).map(m => (
+                          <button key={m} onClick={() => setViewMode(m)} className={`relative z-10 flex-1 text-[10px] py-[3px] px-2 transition-colors ${viewMode === m ? 'text-white font-semibold' : 'text-slate-400'}`}>{m === 'cumulative' ? 'Grouped' : 'Standalone'}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-widest px-1 pt-0.5">Actions</p>
+                  <button onClick={() => { setSettingsOpen(false); setAddHoldingOpen(true) }} className="bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1 flex items-center gap-2 w-full text-left active:bg-emerald-100">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-emerald-600 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+                    <span className="text-[11px] font-medium text-emerald-700">Add Holding</span>
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
       {/* Charts strip — metric pills + sync */}
       {activeTab === 'charts' && (

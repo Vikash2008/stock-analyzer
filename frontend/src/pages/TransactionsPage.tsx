@@ -333,7 +333,7 @@ export default function TransactionsPage({ currency }: Props) {
   const realCost = realCostINR * holdFx
   const realColor = realGain >= 0 ? '#0a7a42' : '#be1c1c'
   const fromLabel = (location.state as { from?: string } | null)?.from ?? decoded.portfolio
-  const backLabel = `← ${fromLabel} Holdings`
+  const backLabel = `← ${fromLabel}`
 
   // Symbol overview card values — aggregated across all portfolios in view
   const cur     = holdingList.reduce((s, h) => s + h.disp_current,  0) * holdFx
