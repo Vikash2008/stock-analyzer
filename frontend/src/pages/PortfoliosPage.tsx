@@ -198,6 +198,7 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
 interface CsvMeta { name: string; size: number; importedAt: number }
 
 function getCsvMeta(): CsvMeta | null {
+  if (!localStorage.getItem('portfolio:csv')) return null
   try { return JSON.parse(localStorage.getItem('portfolio:csv:meta') || 'null') } catch { return null }
 }
 function fmtBytes(b: number) { return b < 1024 * 1024 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB` }
