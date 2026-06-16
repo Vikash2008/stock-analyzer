@@ -412,6 +412,38 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 - `useHistory.ts` daily `queryKey` changed from `['history',yf_symbol,start]` → `['history',yf_symbol]` to share React Query in-memory cache with `usePortfolioHistory` (same key); intraday keeps `['history',yf_symbol,'1d']`
 - Trade-off: "All" range starts from 2015 (not 2000); pre-2015 history lost
 
+### 2026-06-16 (session 122)
+
+**Add Transaction Modal — design language (`AddTransactionModal.tsx`)**
+- New modal for BUY/SELL transactions; entry points: HoldingsPage gear → "Add Holding" and TransactionsPage "+ Txn" button
+- Gradient header `bg-gradient-to-r from-emerald-600 to-teal-500`; white body `bg-white`; section cards `bg-emerald-50 rounded-xl border border-emerald-100 p-3`
+- Design rule enforced: colored elements *inside* cards (emerald-50), outside body stays white — initial prototype had it inverted (colored bg + white cards); swapped to match app-wide pattern
+- Portfolio + Type in one row; Date + Quantity + Price in 3-column grid (`grid grid-cols-3 gap-2`); no "copy to portfolios"; no "Your Holdings" quick-picks
+- `lockSymbol` prop: stock shown as read-only badge when opened from TransactionsPage (pre-filled)
+- Price pre-fill: checks existing holding `current_price` first, then `/api/quickstats` with spinner; 300ms debounced `/api/search` autocomplete
+
+**Settings panel restructure — PortfoliosPage (`PortfoliosPage.tsx`)**
+- `w-72` → `w-80`; rows compacted from `py-2.5` → `py-2`
+- **Data section**: Import CSV (moved first), Portfolio file, Demo file
+- **Configuration section**: Dividends toggle, FX gains toggle, Currency toggle
+- **Updated on footer**: `border-t border-slate-100`; left "Updated on" label; right `v{__APP_VERSION__} · {datetime} IST`
+- `__APP_VERSION__` injected via Vite `define` block from `package.json` at build time; `vite-env.d.ts` extended
+
+**HoldingsPage gear popover redesign (`HoldingsPage.tsx`)**
+- Gradient header + white body `bg-white p-2`; matches settings modal pattern
+- Two labelled sections: "Filters" (Status / Show Closed / View rows) and "Actions" (Add Holding button)
+- Section labels: `text-[9px] font-semibold text-emerald-600 uppercase tracking-widest`
+- Row cards: `bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-2`; left label `text-[9px] text-slate-400 uppercase`; right pill with `bg-emerald-500` active fill, `text-white`
+- `min-w-[270px]` so Status + View fit on one row without wrapping
+
+**Breakdown toggle color — PortfoliosPage (`PortfoliosPage.tsx`)**
+- Active breakdown toggle pill: `bg-emerald-500 text-white` (was `bg-white text-slate-700`)
+
+**Gradient nav bar — HoldingsPage + TransactionsPage**
+- Pattern: `bg-gradient-to-r from-emerald-600 to-teal-500` applied to inner nav row only via `-mx-4 px-3 py-1.5 mb-3`; outer wrapper stays `bg-white px-4 pt-0`; back-button `text-emerald-100 active:text-white`
+- No centered title in nav bar — portfolio/holding name shown on summary card below; redundant in nav
+- Gear icon in HoldingsPage nav (`text-emerald-100`); TransactionsPage nav has back button only
+
 ### 2026-06-16 (session 121)
 
 **fmtUSD — full numbers in USD mode (`fmt.ts`)**
