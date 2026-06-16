@@ -12,6 +12,7 @@ import {
 import { usePortfolio } from '../hooks/usePortfolio'
 import { useQueryClient } from '@tanstack/react-query'
 import { usePortfolioHistory, sliceSeries } from '../hooks/usePortfolioHistory'
+import { usePrefetchHoldingCharts } from '../hooks/useHistory'
 import type { DatedSeries, PortfolioSeries } from '../hooks/usePortfolioHistory'
 import { HoldingCard } from '../components/HoldingCard'
 import { SummaryCard } from '../components/SummaryCard'
@@ -190,6 +191,14 @@ export default function HoldingsPage({ currency }: Props) {
   const location = useLocation()
   const { portfolio, segment } = useParams<{ portfolio?: string; segment?: string }>()
   const { data, isLoading, error } = usePortfolio(currency)
+  // Pre-fetch history for ALL holdings across all portfolios so switching portfolio views
+  // hits cache instead of waiting for per-symbol fetches to restart.
+  const allSymbols = useMemo(
+    () => data ? [...new Set(data.holdings.map((h: Holding) => h.yf_symbol))] : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data?.holdings.length],
+  )
+  usePrefetchHoldingCharts(allSymbols)
   const { data: divData } = useDividends(portfolio)
   const [includeDivs, setIncludeDivs] = useState(getIncludeDividends)
   useEffect(() => {

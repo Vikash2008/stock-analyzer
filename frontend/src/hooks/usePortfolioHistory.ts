@@ -58,10 +58,11 @@ export function usePortfolioHistory(
       queryKey:  ['history', sym],
       queryFn:   () => fetchSymHistory(sym, '2015-01-01'),
       enabled,
-      staleTime:  Infinity,  // never auto-refetch; cleared only on force refresh
-      gcTime:     Infinity,  // keep in memory for entire session
-      retry:      2,
-      retryDelay: 8_000,
+      staleTime:    Infinity,  // never auto-refetch; cleared only on force refresh
+      gcTime:       Infinity,  // keep in memory for entire session
+      retry:        2,
+      retryDelay:   8_000,
+      retryOnMount: false,     // error-state queries stay counted on navigation; avoids backwards counter
     })),
   })
 
