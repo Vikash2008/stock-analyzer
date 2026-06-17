@@ -273,7 +273,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         localStorage.setItem('portfolio:csv', text)
       } catch {
         for (const k of Object.keys(localStorage)) {
-          if (k.startsWith('gemini:') || k.startsWith('dividends:cache:') || k.startsWith('history:')) {
+          if (k.startsWith('gemini:') || k.startsWith('dividends:cache:') || k.startsWith('hist:') || k === 'stock-analyzer-chart-cache') {
             localStorage.removeItem(k)
           }
         }

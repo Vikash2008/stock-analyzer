@@ -89,6 +89,11 @@ export default function App() {
     // or after a period of inactivity — this is what was wiping the imported CSV).
     logDebug(`app mount: csvLen=${(localStorage.getItem('portfolio:csv') ?? '').length}`)
 
+    // Orphaned key from a renamed/removed feature — nothing reads or writes it anymore,
+    // but it sits at ~1.4MB on devices that had it written historically, eating quota
+    // that the CSV import needs.
+    localStorage.removeItem('stock-analyzer-chart-cache')
+
     if (navigator.storage?.persist) {
       navigator.storage.persist().then(granted => {
         logDebug(granted ? 'storage.persist GRANTED' : 'storage.persist NOT granted')
