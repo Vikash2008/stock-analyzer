@@ -2,6 +2,7 @@ import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { fetchPortfolio } from '../api/portfolio'
 import type { PortfolioData } from '../api/types'
+import { logDebug } from '../utils/debugLog'
 
 function getCsvContent(): string | undefined {
   return localStorage.getItem('portfolio:csv') ?? undefined
@@ -12,8 +13,17 @@ function getCsvContent(): string | undefined {
 // React Query retries instead of silently caching/showing demo data over real data.
 async function fetchPortfolioGuarded(forceRefresh: boolean): Promise<PortfolioData> {
   const csvContent = getCsvContent()
-  const data = await fetchPortfolio('INR', forceRefresh, csvContent)
+  logDebug(`fetch start: forceRefresh=${forceRefresh} csvLen=${csvContent?.length ?? 'null'}`)
+  let data: PortfolioData
+  try {
+    data = await fetchPortfolio('INR', forceRefresh, csvContent)
+  } catch (e) {
+    logDebug(`fetch threw: ${String(e)}`)
+    throw e
+  }
+  logDebug(`fetch done: method=${csvContent ? 'POST' : 'GET'} csv_hash=${data.csv_hash ?? 'none'}`)
   if (csvContent && !data.csv_hash) {
+    logDebug('GUARD TRIGGERED: sent CSV but got demo data back — throwing for retry')
     throw new Error('Expected real portfolio data but got demo data — retrying')
   }
   return data
@@ -34,6 +44,7 @@ export function usePortfolio(_currency: 'INR' | 'USD' = 'INR') {
       const state = qc.getQueryState(['portfolio'])
       const lastFetch = state?.dataUpdatedAt ?? 0
       if (Date.now() - lastFetch >= REFRESH_MS) {
+        logDebug('visibilitychange: stale, refetching')
         qc.refetchQueries({ queryKey: ['portfolio'], type: 'active' })
       }
     }

@@ -7,6 +7,8 @@ import PortfoliosPage   from './pages/PortfoliosPage'
 import HoldingsPage     from './pages/HoldingsPage'
 import TransactionsPage from './pages/TransactionsPage'
 import ResearchPage     from './pages/ResearchPage'
+import DebugOverlay     from './components/DebugOverlay'
+import { logDebug } from './utils/debugLog'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -85,15 +87,18 @@ export default function App() {
     // Ask the browser to exempt this origin from automatic storage eviction
     // (default "best-effort" storage can be silently cleared under storage pressure
     // or after a period of inactivity — this is what was wiping the imported CSV).
+    logDebug(`app mount: csvLen=${(localStorage.getItem('portfolio:csv') ?? '').length}`)
+
     if (navigator.storage?.persist) {
       navigator.storage.persist().then(granted => {
-        console.log(granted ? '[storage] persistent storage granted' : '[storage] persistent storage NOT granted')
+        logDebug(granted ? 'storage.persist GRANTED' : 'storage.persist NOT granted')
       })
     }
 
     if (!('serviceWorker' in navigator)) return
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
+      logDebug(`controllerchange: csvLen=${(localStorage.getItem('portfolio:csv') ?? '').length}`)
       setUpdateReady(true)
     })
 
@@ -134,12 +139,16 @@ export default function App() {
       }}
     >
       <AppRoutes currency={currency} onCurrencyChange={handleCurrencyChange} />
+      <DebugOverlay />
       {updateReady && (
         <div className="fixed top-0 left-0 right-0 z-[9999] flex items-center justify-between px-4 py-2 bg-emerald-50 border-b border-emerald-200">
           <span className="text-[12px] text-emerald-700">New version available</span>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                logDebug(`update tapped: csvLen=${(localStorage.getItem('portfolio:csv') ?? '').length}, reloading`)
+                window.location.reload()
+              }}
               className="text-[12px] font-semibold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300 active:bg-emerald-200"
             >
               Update
