@@ -12,6 +12,7 @@ import { computeXIRR } from '../utils/xirr'
 import type { RealizedMap } from '../utils/realized'
 import type { Currency } from '../App'
 import type { Holding } from '../api/types'
+import { logDebug } from '../utils/debugLog'
 
 interface Props {
   currency: Currency
@@ -261,10 +262,13 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       const text = e.target?.result as string
       const meta: CsvMeta = { name: file.name, size: file.size, importedAt: Date.now() }
 
-      // Persist CSV — remove old entry first (frees the largest item), then retry with full eviction if needed
+      // Persist CSV — remove old entry first (frees the largest item), then retry with full eviction if needed.
+      // Meta (filename/size shown in settings) must only be written if the content write actually succeeded —
+      // otherwise settings shows the new filename while portfolio:csv is empty (silent quota failure).
       setImportProgress(15)
       localStorage.removeItem('portfolio:csv')
       localStorage.removeItem('portfolio:csv:hash')
+      let csvWriteOk = true
       try {
         localStorage.setItem('portfolio:csv', text)
       } catch {
@@ -273,8 +277,26 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
             localStorage.removeItem(k)
           }
         }
-        try { localStorage.setItem('portfolio:csv', text) } catch { /* quota still exceeded */ }
+        try {
+          localStorage.setItem('portfolio:csv', text)
+        } catch {
+          csvWriteOk = false
+        }
       }
+
+      if (!csvWriteOk) {
+        logDebug(`IMPORT FAILED: portfolio:csv write failed even after cache eviction (textLen=${text.length})`)
+        const ts = Date.now()
+        try { localStorage.setItem('portfolio:import:lastError', String(ts)) } catch {}
+        setLastImportError(ts)
+        setImportFailBanner(true)
+        clearTimeout(importFailBannerTimer.current)
+        importFailBannerTimer.current = setTimeout(() => setImportFailBanner(false), 2000)
+        setImportProgress(null)
+        setImportStatus('')
+        return
+      }
+
       try { localStorage.setItem('portfolio:csv:meta', JSON.stringify(meta)); setCsvMeta(meta) } catch {}
 
       clearDividendLocalCache()
