@@ -791,7 +791,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           </button>
           <div className="relative">
             <button
-              onClick={() => setSettingsOpen(v => !v)}
+              onClick={() => { setCsvMeta(getCsvMeta()); setSettingsOpen(v => !v) }}
               className="text-emerald-100 active:text-white p-1 -mr-1 min-h-[44px] flex items-center"
               aria-label="Portfolio settings"
             >

@@ -121,11 +121,15 @@ export default function App() {
         persister,
         maxAge: 3 * 24 * 60 * 60 * 1000,  // 3 days
         dehydrateOptions: {
+          // 'history' and 'quickstats' already have their own dedicated per-symbol
+          // localStorage caches (useHistory.ts, useQuickStats.ts) — persisting them
+          // again here duplicates potentially MBs of data into one big blob that gets
+          // rewritten on every fetch, increasing the odds of hitting the device's
+          // storage quota (which risks corrupting/evicting unrelated small keys like
+          // portfolio:csv on some Android WebView versions).
           shouldDehydrateQuery: (query) =>
-            query.queryKey[0] === 'history' ||
             query.queryKey[0] === 'portfolio' ||
-            query.queryKey[0] === 'benchmark-hist' ||
-            query.queryKey[0] === 'quickstats',
+            query.queryKey[0] === 'benchmark-hist',
         },
       }}
     >
