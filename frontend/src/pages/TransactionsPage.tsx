@@ -785,7 +785,7 @@ export default function TransactionsPage({ currency }: Props) {
                 </div>
               )}
 
-              {(histLoading || syncing) && (() => {
+              {(histLoading || (syncing && histIsFetching)) && (() => {
                 const isFirst = txLoaded < txTotal
                 const done    = isFirst ? txLoaded : txTotal - txFetching
                 const pct     = txTotal > 0 ? Math.round(done / txTotal * 100) : 0

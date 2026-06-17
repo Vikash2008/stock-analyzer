@@ -208,15 +208,20 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
                 {pctChange >= 0 ? '+' : ''}{pctChange.toFixed(2)}% in period
               </span>
             )}
+          </div>
+          <div className="flex items-center gap-2">
             {isBgFetch && (
-              <span className="text-[11px] text-slate-300 animate-pulse">Updating…</span>
+              <span className="flex items-center gap-1 text-[9px] text-slate-400">
+                <span className="inline-block animate-spin leading-none text-[9px]">↻</span>
+                Refreshing…
+              </span>
+            )}
+            {showZoom && (
+              <button onClick={handleOpenZoom} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 active:opacity-70">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+              </button>
             )}
           </div>
-          {showZoom && (
-            <button onClick={handleOpenZoom} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 active:opacity-70">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-            </button>
-          )}
         </div>
       )}
       <ResponsiveContainer width="100%" height={240}>
