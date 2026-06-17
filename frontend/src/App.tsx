@@ -88,19 +88,18 @@ function FetchingScreen() {
 
 function AppRoutes({ currency, onCurrencyChange }: { currency: Currency; onCurrencyChange: (c: Currency) => void }) {
   const isRestoring = useIsRestoring()
-  const { isFetching } = usePortfolio()
-  const [ready, setReady] = useState(false)
-
-  useEffect(() => {
-    if (!isRestoring && !isFetching) setReady(true)
-  }, [isRestoring, isFetching])
+  const { data } = usePortfolio()
 
   if (isRestoring) return <LoadingScreen />
-  // First fetch after restore (app launch / post-update reload) replaces whatever was
-  // cached — including stale or demo data — with the real, latest-priced portfolio.
-  // Gate rendering behind it so users never see that flicker; later background
-  // refreshes (every 30 min) skip this since `ready` stays true once set.
-  if (!ready) return <FetchingScreen />
+
+  // csv_hash is only ever set on a real-CSV response, never demo (fetchPortfolioGuarded
+  // in usePortfolio.ts throws rather than resolve with demo data when a CSV was sent).
+  // If a CSV is saved locally but we don't yet have real data cached, keep blocking so
+  // demo never flashes. Otherwise render immediately with whatever we have — even if
+  // stale by hours/a day — and let the header's existing ↻ spinner show the background sync.
+  const hasCsv     = !!localStorage.getItem('portfolio:csv')
+  const hasRealData = !!data?.csv_hash
+  if (!data || (hasCsv && !hasRealData)) return <FetchingScreen />
 
   return (
     <BrowserRouter>
