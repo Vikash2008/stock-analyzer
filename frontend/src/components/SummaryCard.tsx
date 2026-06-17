@@ -111,6 +111,7 @@ export function SummaryCard({
         </div>
       )}
       </div>
+      </div>
     </div>
   )
 }

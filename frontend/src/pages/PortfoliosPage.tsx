@@ -1023,6 +1023,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           </span>
         </div>
       </div>
+      </div>
 
       {/* Stocks + MF summary tiles — side by side */}
       <div className="grid grid-cols-2 gap-2">
