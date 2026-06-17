@@ -378,6 +378,22 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-06-05
 
+### 2026-06-18 (session 132)
+
+**Background-sync UI pattern — "Refreshing…" indicator**
+- Standardized small-text background-revalidation indicator across all chart surfaces: `text-[9px] text-slate-400`, spinning `↻` + `Refreshing…`, right-aligned. Used in `PriceChart.tsx` (replacing the old inline pulsing "Updating…" next to the price) and as a new block in `HoldingsPage.tsx`/`TransactionsPage.tsx` Charts tabs
+- Rule going forward: the big labeled progress bar (`Loading…`/`Syncing… X/Y · pct%`) is reserved for (a) a true cold load with nothing cached yet, or (b) an explicit manual sync tap — never for a passive, already-rendered-from-cache background refetch
+
+**Overview cards — 1D/ALL/XIRR label gap reduced to single NBSP**
+- Was two NBSP characters (session 131's fix); reduced to one per user request — same NBSP mechanism, just one character instead of two, across all 9 spots (BreakCard, hero, Stocks/MF tiles)
+
+**SummaryCard FX/Dividends layout — matched then refined from HoldingCard**
+- First pass: replaced SummaryCard's separate "FX gains"/"Dividends" rows with HoldingCard's combined right-aligned `· FX` / `· DIV` line
+- Refined per follow-up: FX moved to its own left-aligned row directly under "Invested", using full text ("FX gains") instead of the `· FX` abbreviation; Dividends stays as the `· DIV` line. Two different placements by design — not a revert
+
+**Settings modal z-index bug — pattern to watch for**
+- `HoldingsPage.tsx`'s nav-bar header had no `position`/`z-index` of its own; an absolutely-positioned popover inside it still loses to a later, non-positioned sibling (the scrollable content area) in stacking order, since z-index only resolves within a stacking context and the header never established one. Fix: add `relative z-20` to the header wrapper itself, not just the popover. Same risk likely applies to any other absolutely-positioned popover anchored inside a non-positioned ancestor on this page.
+
 ### 2026-06-17 (session 131)
 
 **Overview page — 1D/ALL/XIRR spacing bug fix (follow-up to session 130)**

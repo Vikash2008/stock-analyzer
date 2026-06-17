@@ -69,6 +69,19 @@
 
 ---
 
+## Backlog — App Launch & Chart Caching
+
+| # | Item | Notes | Status |
+|---|------|-------|--------|
+| 1 | App-launch loader gate | App.tsx renders instantly from cached real portfolio data on reopen (skips blocking loader) unless nothing cached yet or CSV present without real data | done |
+| 2 | Chart data caching (3 surfaces) | Price chart, Holding 7-charts, Portfolio 7-charts share one per-symbol localStorage cache (`hist:*`, useHistory.ts); usePortfolioHistory.ts now reads/writes it too via placeholderData; errored symbols (no cache, retries exhausted) no longer wedge the progress bar forever | done |
+| 3 | localStorage quota eviction for chart cache | `lsSet` evicts oldest 20 `hist:*` entries and retries once on QuotaExceededError, instead of silently failing (which was also silently breaking the React Query persister's portfolio-cache write and the debug log itself) | done |
+| 4 | Backend cache memory growth (Render memory-limit emails) | `src/cache.py` `prune()` added — drops expired named/per-symbol layers, caps fifo:{hash}:* to 5 entries | done |
+| 5 | Verify app-launch loader gate on real device | Added `gate:` debug log line in App.tsx (hasData/csv_hash/hasCsv/hasRealData/decision) — needs one more real close-reopen test with the localStorage-quota fix in place to confirm the original "30s loader despite recent fetch" symptom is resolved | pending |
+| 6 | Incremental chart fetch | Discussed: trust cache without re-fetching when <24h old, and when refresh is needed ask backend only for dates since last cached point (today always re-fetches full `2015-01-01→now` history per symbol on every cold session) — not yet implemented | pending |
+
+---
+
 ## Backlog — Mobile CSV Persistence (RESOLVED)
 
 | # | Item | Notes | Status |
