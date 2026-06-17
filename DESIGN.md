@@ -378,6 +378,13 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-06-05
 
+### 2026-06-17 (session 131)
+
+**Overview page — 1D/ALL/XIRR spacing bug fix (follow-up to session 130)**
+- Session 130's `{'  '}` (two regular space characters) had no visible effect after shipping — browsers collapse consecutive regular spaces in rendered HTML regardless of how many appear in JSX source, so the requested gap silently disappeared in production
+- Fixed by using actual non-breaking spaces (`  `) instead of regular spaces at all 6 spots (BreakCard + hero + Stocks/MF tiles, both the 1D/ALL value gap and the XIRR pill gap) — NBSP is never collapsed by `white-space: normal`, so this renders reliably
+- Lesson: literal space characters in `{'...'}` JSX expressions are not a reliable spacing mechanism in this codebase; use NBSP for inline text gaps, or flex `gap-*` when the two parts are already separate elements
+
 ### 2026-06-17 (session 130)
 
 **Overview page — XIRR/gain % precision + spacing (BreakCard + hero + Stocks/MF tiles)**
