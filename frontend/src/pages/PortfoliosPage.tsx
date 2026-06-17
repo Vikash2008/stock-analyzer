@@ -153,14 +153,14 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
   const todayPrior = card.current - (card.todayGain ?? 0)
   const todayPct = card.todayGain !== null && todayPrior !== 0 ? (card.todayGain / todayPrior) * 100 : null
 
-  const valSize  = compact ? 'text-[13px]' : 'text-[15px]'
+  const valSize  = compact ? 'text-[15px]' : 'text-[17px]'
   const lblSize  = compact ? 'text-[9px]'  : 'text-[9px]'
   const gainSize = compact ? 'text-[10px]'  : 'text-[10px]'
   const gap      = compact ? 'gap-0.5'     : 'gap-1'
 
   return (
     <div
-      className="rounded-[10px] p-2 border cursor-pointer active:opacity-80 transition-opacity"
+      className="rounded-[10px] p-2.5 border cursor-pointer active:opacity-80 transition-opacity"
       style={{
         background:      cardBg ?? (pos ? '#f0fdf8' : '#fff5f5'),
         borderColor:     '#e2e8f0',
@@ -169,8 +169,8 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
       }}
       onClick={onClick}
     >
-      <p className={`${lblSize} font-bold text-slate-700 uppercase tracking-widest mb-1`}>{card.label}</p>
-      <div className="grid grid-cols-[auto_1fr] items-center gap-y-0">
+      <p className={`${lblSize} font-bold text-slate-700 uppercase tracking-widest mb-1.5`}>{card.label}</p>
+      <div className="grid grid-cols-[auto_1fr] items-center gap-y-2">
         <span className={`${valSize} font-bold text-slate-900`}>{fmt(card.current * scale, currency)}</span>
         <span className={`flex items-center ${gap} whitespace-nowrap justify-self-end`}>
           <span className={`inline-block w-[16px] text-right ${lblSize} font-semibold`} style={{color:'#065f46'}}>1D</span>
@@ -178,9 +178,9 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
             {card.todayGain !== null ? fmtCompactGainLine(card.todayGain * scale, todayPct, currency) : '—'}
           </span>
         </span>
-        <div className="-ml-1.5 flex items-center">
+        <div className="flex items-center">
           {xirr !== null
-            ? <span className={`${lblSize} font-semibold rounded-full px-1 py-0.5 whitespace-nowrap leading-none`} style={{ background: xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr).replace(/^\+/, '')}</span>
+            ? <span className={`${lblSize} font-semibold rounded-full px-1.5 py-0.5 whitespace-nowrap leading-none`} style={{ background: xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr).replace(/^\+/, '')}</span>
             : <span className={`${lblSize} text-slate-400`}>{fmtCompact(card.invested * scale, currency)} inv</span>
           }
         </div>
@@ -1029,7 +1029,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           return (
             <div
               key={seg}
-              className="rounded-[10px] p-2 border cursor-pointer active:opacity-80 transition-opacity"
+              className="rounded-[10px] p-2.5 border cursor-pointer active:opacity-80 transition-opacity"
               style={{
                 background:      tileBg,
                 borderColor:     '#e2e8f0',
@@ -1038,18 +1038,18 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               }}
               onClick={() => navigate(`/holdings/segment/${seg}`)}
             >
-              <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1">{label}</p>
-              <div className="grid grid-cols-[auto_1fr] items-center gap-y-0">
-                <span className="text-[13px] font-bold text-slate-900">{fmt(stats.cur, 'INR')}</span>
+              <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1.5">{label}</p>
+              <div className="grid grid-cols-[auto_1fr] items-center gap-y-2">
+                <span className="text-[15px] font-bold text-slate-900">{fmt(stats.cur, 'INR')}</span>
                 <span className="flex items-center gap-0.5 whitespace-nowrap justify-self-end">
                   <span className="inline-block w-[16px] text-right text-[9px] font-semibold" style={{color:'#065f46'}}>1D</span>
                   <span className="text-[10px]" style={{ color: tgC }}>
                     {stats.todayGain !== 0 ? fmtCompactGainLine(stats.todayGain, stats.todayPct, 'INR') : '—'}
                   </span>
                 </span>
-                <div className="-ml-1.5 flex items-center">
+                <div className="flex items-center">
                   {xirr !== null && xirr !== undefined
-                    ? <span className="text-[9px] font-semibold rounded-full px-1 py-0.5 whitespace-nowrap leading-none" style={{ background: xirr >= 0 ? (seg === 'mf' ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (seg === 'mf' ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr).replace(/^\+/, '')}</span>
+                    ? <span className="text-[9px] font-semibold rounded-full px-1.5 py-0.5 whitespace-nowrap leading-none" style={{ background: xirr >= 0 ? (seg === 'mf' ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (seg === 'mf' ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr).replace(/^\+/, '')}</span>
                     : <span className="text-[9px] text-slate-400">XIRR —</span>
                   }
                 </div>
