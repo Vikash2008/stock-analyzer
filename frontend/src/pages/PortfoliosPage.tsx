@@ -234,6 +234,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const [refreshing, setRefreshing] = useState(false)
   const [bannerVisible, setBannerVisible] = useState(false)
   const [refreshError, setRefreshError] = useState(false)
+  const [importFailBanner, setImportFailBanner] = useState(false)
+  const importFailBannerTimer = useRef<ReturnType<typeof setTimeout>>()
 
   // Settings panel
   const [settingsOpen, setSettingsOpen]     = useState(false)
@@ -243,6 +245,9 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const [importDone, setImportDone]         = useState(false)
   const [importStatus, setImportStatus]     = useState('')
   const [csvMeta, setCsvMeta]               = useState<CsvMeta | null>(getCsvMeta)
+  const [lastImportError, setLastImportError] = useState<number | null>(
+    () => { const v = localStorage.getItem('portfolio:import:lastError'); return v ? Number(v) : null }
+  )
   const [sheetOpen, setSheetOpen]           = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const API_URL_SETTINGS = (import.meta.env.VITE_API_URL ?? '') as string
@@ -302,8 +307,25 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
             try { localStorage.setItem('portfolio:csv:hash', newData.csv_hash) } catch {}
           }
           qc.setQueryData(['portfolio'], newData)
+          localStorage.removeItem('portfolio:import:lastError')
+          setLastImportError(null)
+        } else {
+          const ts = Date.now()
+          try { localStorage.setItem('portfolio:import:lastError', String(ts)) } catch {}
+          setLastImportError(ts)
+          setImportFailBanner(true)
+          clearTimeout(importFailBannerTimer.current)
+          importFailBannerTimer.current = setTimeout(() => setImportFailBanner(false), 2000)
         }
-      } catch { /* timed out or network error — CSV in localStorage, next load will retry */ }
+      } catch {
+        // timed out or network error — CSV in localStorage, next load will retry
+        const ts = Date.now()
+        try { localStorage.setItem('portfolio:import:lastError', String(ts)) } catch {}
+        setLastImportError(ts)
+        setImportFailBanner(true)
+        clearTimeout(importFailBannerTimer.current)
+        importFailBannerTimer.current = setTimeout(() => setImportFailBanner(false), 2000)
+      }
       finally {
         clearTimeout(abortTimer)
         clearTimers()
@@ -397,7 +419,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       .finally(() => setRefreshing(false))
   }
 
-  useEffect(() => () => { clearTimeout(bannerTimer.current); clearTimeout(errorTimer.current) }, [])
+  useEffect(() => () => { clearTimeout(bannerTimer.current); clearTimeout(errorTimer.current); clearTimeout(importFailBannerTimer.current) }, [])
 
 
   const rmap = useMemo(() => data ? aggRealized(data.realized, data.usd_inr) : new Map(), [data])
@@ -773,6 +795,12 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         </div>
       )}
 
+      {importFailBanner && (
+        <div className="fixed top-2 left-1/2 -translate-x-1/2 z-[1000] bg-red-100 border border-red-300 text-red-700 text-[12px] font-medium px-4 py-2 rounded-full shadow-md">
+          ⚠ Import failed — try again
+        </div>
+      )}
+
       {/* Page header */}
       <div className="flex items-center justify-between bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl px-4 py-1.5">
         <p className="text-[18px] font-bold text-white tracking-tight">Portfolio Manager</p>
@@ -856,6 +884,11 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                               style={{ width: `${importProgress}%` }}
                             />
                           </div>
+                        )}
+                        {importProgress === null && lastImportError !== null && (
+                          <p className="text-[10px] text-red-500 mt-1">
+                            ⚠ Last import failed at {fmtImportDate(lastImportError)}
+                          </p>
                         )}
                       </div>
 
