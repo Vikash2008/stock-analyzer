@@ -378,6 +378,12 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-06-05
 
+### 2026-06-17 (session 129)
+
+**Overview page XIRR pill re-indent (BreakCard + Stocks/MF tiles)**
+- User reported XIRR pill "too much right indented," wanted it starting closer to the value's left edge — re-added `-ml-1.5` to the wrapping `<div className="flex items-center">` on both BreakCard (line ~182) and Stocks/MF tile (line ~1107)
+- Note: session 128 had removed a `-ml-1.5`/`-ml-2` negative margin, attributing the alignment issue instead to a missing `flex items-center` wrapper. This session's re-add is a different, explicit user preference (visual indent reduction), not a regression of the session 128 fix — the `flex items-center` wrapper fix is still in place; this just nudges the pill left within it.
+
 ### 2026-06-17 (session 128)
 
 **Overview page card redesign (BreakCard + hero + Stocks/MF tiles)**
