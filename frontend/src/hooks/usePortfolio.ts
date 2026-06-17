@@ -3,8 +3,23 @@ import { useEffect } from 'react'
 import { fetchPortfolio } from '../api/portfolio'
 import type { PortfolioData } from '../api/types'
 
+// In-memory copy of the CSV, immune to localStorage eviction for the lifetime of this page load.
+// Browsers (esp. Android Chrome on non-"persisted" origins) can silently evict localStorage
+// at any time, even mid-session. A plain JS variable can't be evicted that way, so once we've
+// read the CSV once (or imported a new one), refreshes within this session keep using it even
+// if localStorage gets wiped in the background. Only a fresh page load re-reads from storage —
+// that's the one case where eviction can still surface (e.g. right after an app update).
+let _csvMem: string | undefined
+
+export function setCsvMem(content: string | undefined) {
+  _csvMem = content
+}
+
 function getCsvContent(): string | undefined {
-  return localStorage.getItem('portfolio:csv') ?? undefined
+  if (_csvMem) return _csvMem
+  const fromStorage = localStorage.getItem('portfolio:csv') ?? undefined
+  if (fromStorage) _csvMem = fromStorage
+  return _csvMem
 }
 
 // Backend only sets csv_hash on the real-CSV (POST) response, never on the demo (GET) response.
