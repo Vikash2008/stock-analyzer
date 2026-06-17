@@ -124,12 +124,21 @@ export default function App() {
       {updateReady && (
         <div className="fixed top-0 left-0 right-0 z-[9999] flex items-center justify-between px-4 py-2 bg-emerald-50 border-b border-emerald-200">
           <span className="text-[12px] text-emerald-700">New version available</span>
-          <button
-            onClick={() => window.location.reload()}
-            className="text-[12px] font-semibold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300 active:bg-emerald-200"
-          >
-            Update
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.location.reload()}
+              className="text-[12px] font-semibold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300 active:bg-emerald-200"
+            >
+              Update
+            </button>
+            <button
+              onClick={() => setUpdateReady(false)}
+              aria-label="Dismiss"
+              className="text-emerald-700 text-[16px] leading-none px-1.5 py-1 active:bg-emerald-100 rounded-full"
+            >
+              ×
+            </button>
+          </div>
         </div>
       )}
     </PersistQueryClientProvider>

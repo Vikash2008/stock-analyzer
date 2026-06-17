@@ -387,7 +387,7 @@ export default function TransactionsPage({ currency }: Props) {
 
   return (
     <div className="max-w-xl mx-auto flex flex-col h-[100dvh]">
-      <div className="shrink-0 px-4 pt-4 bg-white">
+      <div className="shrink-0 px-2 pt-4 bg-white">
       {/* Nav bar */}
       <div className="flex items-center px-3 py-2 mb-3 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl">
         <button onClick={() => navigate(-1)} className="shrink-0 flex items-center gap-0.5 text-white active:text-white/80 min-h-[44px]">
@@ -623,7 +623,7 @@ export default function TransactionsPage({ currency }: Props) {
         </div>
       )}
       </div>
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="flex-1 overflow-y-auto px-2 pb-4">
 
       {activeTab === 'transactions' && (
         <>

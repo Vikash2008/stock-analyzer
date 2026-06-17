@@ -154,13 +154,13 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
   const todayPct = card.todayGain !== null && todayPrior !== 0 ? (card.todayGain / todayPrior) * 100 : null
 
   const valSize  = compact ? 'text-[13px]' : 'text-[15px]'
-  const lblSize  = compact ? 'text-[10px]'  : 'text-[10px]'
+  const lblSize  = compact ? 'text-[9px]'  : 'text-[9px]'
   const gainSize = compact ? 'text-[10px]'  : 'text-[10px]'
   const gap      = compact ? 'gap-0.5'     : 'gap-1'
 
   return (
     <div
-      className="rounded-[10px] p-3 border cursor-pointer active:opacity-80 transition-opacity"
+      className="rounded-[10px] p-2 border cursor-pointer active:opacity-80 transition-opacity"
       style={{
         background:      cardBg ?? (pos ? '#f0fdf8' : '#fff5f5'),
         borderColor:     '#e2e8f0',
@@ -173,19 +173,19 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
       <div className="grid grid-cols-[auto_1fr] items-center gap-y-0">
         <span className={`${valSize} font-bold text-slate-900`}>{fmt(card.current * scale, currency)}</span>
         <span className={`flex items-center ${gap} whitespace-nowrap justify-self-end`}>
-          <span className={`inline-block w-[22px] text-right ${lblSize} font-semibold`} style={{color:'#065f46'}}>1D</span>
+          <span className={`inline-block w-[16px] text-right ${lblSize} font-semibold`} style={{color:'#065f46'}}>1D</span>
           <span className={gainSize} style={{ color: card.todayGain !== null ? (card.todayGain >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8' }}>
             {card.todayGain !== null ? fmtCompactGainLine(card.todayGain * scale, todayPct, currency) : '—'}
           </span>
         </span>
-        <div className="-ml-1.5">
+        <div className="-ml-1.5 flex items-center">
           {xirr !== null
-            ? <span className={`${lblSize} font-semibold rounded-full px-1.5 py-0.5 whitespace-nowrap`} style={{ background: xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
+            ? <span className={`${lblSize} font-semibold rounded-full px-1 py-0.5 whitespace-nowrap leading-none`} style={{ background: xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr).replace(/^\+/, '')}</span>
             : <span className={`${lblSize} text-slate-400`}>{fmtCompact(card.invested * scale, currency)} inv</span>
           }
         </div>
         <span className={`flex items-center ${gap} whitespace-nowrap justify-self-end`}>
-          <span className={`inline-block w-[22px] text-right ${lblSize} font-semibold`} style={{color:'#065f46'}}>ALL</span>
+          <span className={`inline-block w-[16px] text-right ${lblSize} font-semibold`} style={{color:'#065f46'}}>ALL</span>
           <span className={gainSize} style={{ color: pos ? '#0a7a42' : '#be1c1c' }}>
             {fmtCompactGainLine(totalGain * scale, pct, currency)}
           </span>
@@ -760,7 +760,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
   return (
     <div
-      className="max-w-xl mx-auto px-4 py-4 pb-24 space-y-3"
+      className="max-w-xl mx-auto px-2 py-4 pb-24 space-y-3"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -1000,9 +1000,9 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               {hero.todayGain !== 0 ? fmtCompactGainLine(hero.todayGain, hero.todayPct, 'INR') : '—'}
             </span>
           </span>
-          <div className="-ml-2">
+          <div className="-ml-2 flex items-center">
             {heroXirr !== null
-              ? <span className="text-[10px] font-semibold rounded-full px-2 py-0.5" style={{ background: (heroXirr ?? 0) >= 0 ? 'rgba(13,148,136,0.15)' : 'rgba(220,38,38,0.12)', color: (heroXirr ?? 0) >= 0 ? '#0f766e' : '#b91c1c' }}>
+              ? <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 leading-none" style={{ background: (heroXirr ?? 0) >= 0 ? 'rgba(13,148,136,0.15)' : 'rgba(220,38,38,0.12)', color: (heroXirr ?? 0) >= 0 ? '#0f766e' : '#b91c1c' }}>
                   XIRR {fmtPct(heroXirr!)}
                 </span>
               : <span className="text-[10px] text-slate-400">XIRR —</span>
@@ -1018,7 +1018,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       </div>
 
       {/* Stocks + MF summary tiles — side by side */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-1.5">
         {[
           { label: 'Stocks',       stats: stk, seg: 'stk', xirr: stkXirr, tileBg: STOCK_CARD_STYLE.bg, tileAccent: STOCK_CARD_STYLE.accent },
           { label: 'Mutual Funds', stats: mf,  seg: 'mf',  xirr: mfXirr,  tileBg: MF_CARD_STYLE.bg,  tileAccent: MF_CARD_STYLE.accent },
@@ -1029,7 +1029,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           return (
             <div
               key={seg}
-              className="rounded-[10px] p-3 border cursor-pointer active:opacity-80 transition-opacity"
+              className="rounded-[10px] p-2 border cursor-pointer active:opacity-80 transition-opacity"
               style={{
                 background:      tileBg,
                 borderColor:     '#e2e8f0',
@@ -1042,19 +1042,19 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               <div className="grid grid-cols-[auto_1fr] items-center gap-y-0">
                 <span className="text-[13px] font-bold text-slate-900">{fmt(stats.cur, 'INR')}</span>
                 <span className="flex items-center gap-0.5 whitespace-nowrap justify-self-end">
-                  <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
+                  <span className="inline-block w-[16px] text-right text-[9px] font-semibold" style={{color:'#065f46'}}>1D</span>
                   <span className="text-[10px]" style={{ color: tgC }}>
                     {stats.todayGain !== 0 ? fmtCompactGainLine(stats.todayGain, stats.todayPct, 'INR') : '—'}
                   </span>
                 </span>
-                <div className="-ml-1.5">
+                <div className="-ml-1.5 flex items-center">
                   {xirr !== null && xirr !== undefined
-                    ? <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 whitespace-nowrap" style={{ background: xirr >= 0 ? (seg === 'mf' ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (seg === 'mf' ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
-                    : <span className="text-[10px] text-slate-400">XIRR —</span>
+                    ? <span className="text-[9px] font-semibold rounded-full px-1 py-0.5 whitespace-nowrap leading-none" style={{ background: xirr >= 0 ? (seg === 'mf' ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (seg === 'mf' ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr).replace(/^\+/, '')}</span>
+                    : <span className="text-[9px] text-slate-400">XIRR —</span>
                   }
                 </div>
                 <span className="flex items-center gap-0.5 whitespace-nowrap justify-self-end">
-                  <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
+                  <span className="inline-block w-[16px] text-right text-[9px] font-semibold" style={{color:'#065f46'}}>ALL</span>
                   <span className="text-[10px]" style={{ color: tc }}>
                     {fmtCompactGainLine(stats.gain, stats.pct, 'INR')}
                   </span>
@@ -1097,7 +1097,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                   <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: group.color }} />
                   <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: group.color }}>{group.label}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-1.5">
                   {gc.map(card => (
                     <BreakCard key={card.key} card={card} currency={usdCur(card.key === 'us_stock' || card.key === 'us_mf')} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={TYPE_CARD_STYLE[card.key]?.accent} cardBg={TYPE_CARD_STYLE[card.key]?.bg} pillBlue={card.key === 'indian_mf' || card.key === 'us_mf'} scale={usdScale(card.key === 'us_stock' || card.key === 'us_mf')} divGain={cardDivGainMap.get(card.key) ?? 0} fxGain={cardFxGainMap.get(card.key) ?? 0} />
                   ))}
@@ -1117,7 +1117,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                   <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: group.color }} />
                   <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: group.color }}>{group.label}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-1.5">
                   {gc.map(card => (
                     <BreakCard key={card.key} card={card} currency={usdCur(USD_PORTS.has(card.key))} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={PORTFOLIO_CARD_STYLE[card.key]?.accent} cardBg={PORTFOLIO_CARD_STYLE[card.key]?.bg} pillBlue={card.key.startsWith('MF_')} scale={usdScale(USD_PORTS.has(card.key))} divGain={cardDivGainMap.get(card.key) ?? 0} fxGain={cardFxGainMap.get(card.key) ?? 0} />
                   ))}

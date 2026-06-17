@@ -37,6 +37,7 @@ export function usePortfolio(_currency: 'INR' | 'USD' = 'INR') {
     refetchInterval:             REFRESH_MS,     // fires when tab is active (desktop/foreground)
     refetchIntervalInBackground: false,           // don't rely on suspended timers; visibilitychange handles it
     refetchOnWindowFocus:        false,           // handled manually above with elapsed-time check
+    refetchOnMount:              'always',        // app-update reload restores persisted cache; always refetch so latest localStorage CSV is re-POSTed
     retry: 3,
     retryDelay: 20_000,
   })
