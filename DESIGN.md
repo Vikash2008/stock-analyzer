@@ -378,6 +378,20 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-06-05
 
+### 2026-06-17 (session 130)
+
+**Overview page — XIRR/gain % precision + spacing (BreakCard + hero + Stocks/MF tiles)**
+- XIRR now shown to 1 decimal place (was 2) — local `fmtPct1`/inline `.toFixed(1)` added in `PortfoliosPage.tsx` rather than touching the shared `fmtPct`/`fmtCompactGainLine` in `fmt.ts`, since those are also used by TransactionsPage/HoldingCard/SummaryCard/TxRow/ReportTab and the request was scoped to Overview cards only
+- 1D/ALL gain percentages also switched to 1 decimal via new local `fmtCompactGainLine1` helper (same scoping reason)
+- Added a 2-space gap (`{'  '}`) between the `1D`/`ALL`/`XIRR` labels and their values on all three card types
+
+**Holdings page — Benchmarking pill (Analysis tab)**
+- "Overall" stat card redesigned: added left accent border (green/red, matching `BreakCard` style) + an alpha visualization bar underneath the 3 stat columns, matching the per-sector rows below it instead of being a flat box
+- Date filter icon: 📅 emoji → funnel SVG (same path used elsewhere in the app's filter UI) for icon-language consistency
+- Date filter config panel converted from an inline block (was pushing the sector list down when opened) to an absolutely-positioned overlay popover anchored to the button — same pattern as the Settings and Returns config popovers; narrowed to `w-[190px]`
+- Removed the separate "Use today as end date" toggle — the To-month/year selects are now directly editable and default to the current month/year; `benchPeriodEnd` resolves to "today" automatically whenever the selected To-date matches the current month
+- Popover border/Apply button kept in the sky theme already used for the Benchmarking pill itself, for color consistency with the rest of that tab
+
 ### 2026-06-17 (session 129)
 
 **Overview page XIRR pill re-indent (BreakCard + Stocks/MF tiles)**
