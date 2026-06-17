@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import { useDividends, getIncludeDividends, setIncludeDividends, clearDividendLocalCache, getIncludeFxGains, setIncludeFxGains } from '../hooks/useDividends'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { usePortfolio, useForceRefresh, setCsvMem } from '../hooks/usePortfolio'
+import { usePortfolio, useForceRefresh } from '../hooks/usePortfolio'
 import { usePrefetchHoldingCharts } from '../hooks/useHistory'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
 import { fmt, fmtCompact, fmtCompactGainLine, fmtPct } from '../utils/fmt'
@@ -260,11 +260,6 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     reader.onload = async (e) => {
       const text = e.target?.result as string
       const meta: CsvMeta = { name: file.name, size: file.size, importedAt: Date.now() }
-
-      // In-memory copy first — this is what actually protects refreshes within this session
-      // from localStorage eviction. The localStorage write below is best-effort, for surviving
-      // a future page reload; the memory copy is the durable source for the rest of this session.
-      setCsvMem(text)
 
       // Persist CSV — remove old entry first (frees the largest item), then retry with full eviction if needed
       setImportProgress(15)
@@ -824,7 +819,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           </button>
           <div className="relative">
             <button
-              onClick={() => { const fresh = getCsvMeta(); if (fresh) setCsvMeta(fresh); setSettingsOpen(v => !v) }}
+              onClick={() => { setCsvMeta(getCsvMeta()); setSettingsOpen(v => !v) }}
               className="text-emerald-100 active:text-white p-1 -mr-1 min-h-[44px] flex items-center"
               aria-label="Portfolio settings"
             >
