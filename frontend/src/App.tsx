@@ -82,6 +82,15 @@ export default function App() {
   const [updateReady, setUpdateReady] = useState(false)
 
   useEffect(() => {
+    // Ask the browser to exempt this origin from automatic storage eviction
+    // (default "best-effort" storage can be silently cleared under storage pressure
+    // or after a period of inactivity — this is what was wiping the imported CSV).
+    if (navigator.storage?.persist) {
+      navigator.storage.persist().then(granted => {
+        console.log(granted ? '[storage] persistent storage granted' : '[storage] persistent storage NOT granted')
+      })
+    }
+
     if (!('serviceWorker' in navigator)) return
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
