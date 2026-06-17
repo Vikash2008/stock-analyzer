@@ -231,8 +231,9 @@ export function usePortfolioHistory(
       let y = t0.getFullYear(), mo = t0.getMonth()
 
       while (true) {
-        const me    = new Date(y, mo + 1, 0)   // last day of this month
-        if (me > now) break
+        const monthEnd = new Date(y, mo + 1, 0)   // last day of this month
+        const isCurrentPeriod = monthEnd > now
+        const me    = isCurrentPeriod ? now : monthEnd   // clamp to today for the in-progress month
         const meStr = me.toISOString().slice(0, 10)
 
         // Accumulate transactions up to this month-end
@@ -260,6 +261,7 @@ export function usePortfolioHistory(
           }
         }
 
+        if (isCurrentPeriod) break
         mo++
         if (mo > 11) { mo = 0; y++ }
       }

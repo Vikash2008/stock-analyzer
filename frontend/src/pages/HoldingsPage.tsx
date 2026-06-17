@@ -277,7 +277,6 @@ export default function HoldingsPage({ currency }: Props) {
   const [benchStartYear,   setBenchStartYear]   = useState(new Date().getFullYear() - 1)
   const [benchEndMonth,    setBenchEndMonth]    = useState(new Date().getMonth() + 1)
   const [benchEndYear,     setBenchEndYear]     = useState(new Date().getFullYear())
-  const [benchEndToday,    setBenchEndToday]    = useState(true)
   const qc = useQueryClient()
 
   const pendingScrollY = useRef<number | null>(null)
@@ -650,10 +649,12 @@ export default function HoldingsPage({ currency }: Props) {
   }, [benchDateEnabled, benchStartYear, benchStartMonth])
 
   const benchPeriodEnd = useMemo((): string | null => {
-    if (!benchDateEnabled || benchEndToday) return null
+    if (!benchDateEnabled) return null
+    const now = new Date()
+    if (benchEndMonth === now.getMonth() + 1 && benchEndYear === now.getFullYear()) return null
     const lastDay = new Date(benchEndYear, benchEndMonth, 0).getDate()
     return `${benchEndYear}-${String(benchEndMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
-  }, [benchDateEnabled, benchEndToday, benchEndYear, benchEndMonth])
+  }, [benchDateEnabled, benchEndYear, benchEndMonth])
   const filtRealized = useMemo(() => {
     if (!data) return []
     if (portfolio) return data.realized.filter(r => r.portfolio === portfolio)
@@ -2154,8 +2155,16 @@ export default function HoldingsPage({ currency }: Props) {
                 return (
                   <div>
                     {/* Overall card */}
-                    <div className="bg-green-50 rounded-lg px-2 py-2 mb-3 border border-green-100">
-                      <p className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-1.5">Overall</p>
+                    <div
+                      className="rounded-xl px-3 py-2.5 mb-3 border"
+                      style={{
+                        background:      overallAlphaPos ? '#f0fdf8' : '#fff5f5',
+                        borderColor:     '#e2e8f0',
+                        borderLeftWidth: 4,
+                        borderLeftColor: overallAlphaPos ? '#10b981' : '#f43f5e',
+                      }}
+                    >
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Overall</p>
                       <div className="flex items-center gap-1">
                         <div className="flex items-center gap-1.5 flex-1">
                           <span className="text-[10px] text-slate-400 whitespace-nowrap">Your XIRR</span>
@@ -2177,6 +2186,15 @@ export default function HoldingsPage({ currency }: Props) {
                         </div>
                         <span className="w-[8px]" />
                       </div>
+                      <div className="relative h-1.5 bg-slate-100 rounded-full overflow-hidden mt-2.5">
+                        {benchAlpha !== null && benchAlpha > 0 && (
+                          <div className="absolute top-0 bottom-0 bg-green-400 rounded-r-sm" style={{ left: '50%', width: `${Math.min(Math.abs(benchAlpha) / maxAlpha * 50, 50)}%` }} />
+                        )}
+                        {benchAlpha !== null && benchAlpha < 0 && (
+                          <div className="absolute top-0 bottom-0 bg-red-400 rounded-l-sm" style={{ right: '50%', width: `${Math.min(Math.abs(benchAlpha) / maxAlpha * 50, 50)}%` }} />
+                        )}
+                        <div className="absolute top-0 bottom-0 left-1/2 w-px bg-slate-300" />
+                      </div>
                     </div>
 
                     {/* By Sector — bordered collapsible section */}
@@ -2191,55 +2209,54 @@ export default function HoldingsPage({ currency }: Props) {
                           <span className="text-[10px] text-slate-300 ml-0.5">{benchSectorSectionOpen ? '▲' : '▼'}</span>
                         </button>
                         <div className="flex-1" />
-                        <button
-                          className="flex items-center gap-1 bg-slate-50 border border-slate-100 rounded-lg px-2 py-1"
-                          onClick={() => setBenchConfigOpen(o => !o)}
-                        >
-                          <span className="text-[10px] text-slate-400">📅</span>
-                          <span className="text-[10px] text-slate-500 whitespace-nowrap">
-                            {benchDateEnabled
-                              ? `${MONTHS[benchStartMonth - 1]} ${benchStartYear} → ${benchEndToday ? 'today' : `${MONTHS[benchEndMonth - 1]} ${benchEndYear}`}`
-                              : 'All dates'}
-                          </span>
-                          {benchDateEnabled && <span className="text-[10px] bg-sky-100 text-sky-600 rounded px-1 font-medium ml-0.5">Active</span>}
-                        </button>
-                      </div>
+                        <div className="relative shrink-0">
+                          <button
+                            className="flex items-center gap-1 bg-slate-50 border border-slate-100 rounded-lg px-2 py-1"
+                            onClick={() => setBenchConfigOpen(o => !o)}
+                          >
+                            <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400" style={{flexShrink:0}}><path d="M1.5 2h9L7 6.5V10l-2-1V6.5L1.5 2z"/></svg>
+                            <span className="text-[10px] text-slate-500 whitespace-nowrap">
+                              {benchDateEnabled
+                                ? `${MONTHS[benchStartMonth - 1]} ${benchStartYear} → ${benchPeriodEnd === null ? 'today' : `${MONTHS[benchEndMonth - 1]} ${benchEndYear}`}`
+                                : 'All dates'}
+                            </span>
+                            {benchDateEnabled && <span className="text-[10px] bg-sky-100 text-sky-600 rounded px-1 font-medium ml-0.5">Active</span>}
+                          </button>
 
-                      {/* Date config panel — inline inside the card */}
-                      {benchConfigOpen && (
-                        <div className="mx-3 mb-3 bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-2.5">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-slate-400 w-[28px] shrink-0">From</span>
-                            <select value={benchStartMonth} onChange={e => setBenchStartMonth(+e.target.value)} className="text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-slate-700 flex-1">
-                              {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-                            </select>
-                            <select value={benchStartYear} onChange={e => setBenchStartYear(+e.target.value)} className="text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-slate-700 flex-1">
-                              {txnYears.map(y => <option key={y} value={y}>{y}</option>)}
-                            </select>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-slate-400 w-[28px] shrink-0">To</span>
-                            <select value={benchEndMonth} onChange={e => setBenchEndMonth(+e.target.value)} disabled={benchEndToday} className={`text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 flex-1 ${benchEndToday ? 'opacity-30' : 'text-slate-700'}`}>
-                              {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-                            </select>
-                            <select value={benchEndYear} onChange={e => setBenchEndYear(+e.target.value)} disabled={benchEndToday} className={`text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 flex-1 ${benchEndToday ? 'opacity-30' : 'text-slate-700'}`}>
-                              {txnYears.map(y => <option key={y} value={y}>{y}</option>)}
-                            </select>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] text-slate-500">Use today as end date</span>
-                            <button onClick={() => setBenchEndToday(o => !o)} className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${benchEndToday ? 'bg-sky-400' : 'bg-slate-200'}`}>
-                              <span className={`absolute top-[3px] w-[14px] h-[14px] rounded-full bg-white shadow transition-transform ${benchEndToday ? 'translate-x-[19px]' : 'translate-x-[3px]'}`} />
-                            </button>
-                          </div>
-                          <div className="flex gap-2 pt-0.5">
-                            <button onClick={() => { setBenchDateEnabled(true); setBenchConfigOpen(false) }} className="flex-1 text-[11px] bg-sky-500 text-white rounded-full py-3 font-medium">Apply</button>
-                            {benchDateEnabled && (
-                              <button onClick={() => { setBenchDateEnabled(false); setBenchConfigOpen(false) }} className="flex-1 text-[11px] bg-slate-200 text-slate-600 rounded-full py-3 font-medium">Clear</button>
-                            )}
-                          </div>
+                          {/* Date config panel — overlay popover, does not push page content */}
+                          {benchConfigOpen && (
+                            <>
+                              <div className="fixed inset-0 z-[9]" onClick={() => setBenchConfigOpen(false)} />
+                              <div className="absolute right-0 top-full mt-1.5 bg-white border border-sky-100 rounded-xl shadow-lg z-10 p-3 w-[190px] space-y-2.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] text-slate-400 w-[28px] shrink-0">From</span>
+                                  <select value={benchStartMonth} onChange={e => setBenchStartMonth(+e.target.value)} className="text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-slate-700 flex-1">
+                                    {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                                  </select>
+                                  <select value={benchStartYear} onChange={e => setBenchStartYear(+e.target.value)} className="text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-slate-700 flex-1">
+                                    {txnYears.map(y => <option key={y} value={y}>{y}</option>)}
+                                  </select>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] text-slate-400 w-[28px] shrink-0">To</span>
+                                  <select value={benchEndMonth} onChange={e => setBenchEndMonth(+e.target.value)} className="text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-slate-700 flex-1">
+                                    {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                                  </select>
+                                  <select value={benchEndYear} onChange={e => setBenchEndYear(+e.target.value)} className="text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-slate-700 flex-1">
+                                    {txnYears.map(y => <option key={y} value={y}>{y}</option>)}
+                                  </select>
+                                </div>
+                                <div className="flex gap-2 pt-0.5">
+                                  <button onClick={() => { setBenchDateEnabled(true); setBenchConfigOpen(false) }} className="flex-1 text-[11px] bg-sky-500 text-white rounded-full py-3 font-medium">Apply</button>
+                                  {benchDateEnabled && (
+                                    <button onClick={() => { setBenchDateEnabled(false); setBenchConfigOpen(false) }} className="flex-1 text-[11px] bg-slate-200 text-slate-600 rounded-full py-3 font-medium">Clear</button>
+                                  )}
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
-                      )}
+                      </div>
 
                       {benchSectorSectionOpen && (
                         <div className="flex items-center gap-1 px-2 py-1.5 mx-1 mb-2 bg-green-100 rounded-lg">

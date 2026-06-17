@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { usePortfolio, useForceRefresh } from '../hooks/usePortfolio'
 import { usePrefetchHoldingCharts } from '../hooks/useHistory'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
-import { fmt, fmtCompact, fmtCompactGainLine, fmtPct } from '../utils/fmt'
+import { fmt, fmtCompact } from '../utils/fmt'
 import { SKIP_PORTS, getSegmentType, filterBySegment, USD_PORTS } from '../utils/segments'
 import { aggRealized, realizedForPorts } from '../utils/realized'
 import { computeXIRR } from '../utils/xirr'
@@ -17,6 +17,18 @@ import { logDebug } from '../utils/debugLog'
 interface Props {
   currency: Currency
   onCurrencyChange: (c: Currency) => void
+}
+
+function fmtPct1(value: number): string {
+  const sign = value >= 0 ? '+' : ''
+  return `${sign}${value.toFixed(1)}%`
+}
+
+function fmtCompactGainLine1(gain: number, pct: number | null, currency: Currency): string {
+  const sign = gain >= 0 ? '' : '−'
+  const valStr = `${sign}${fmtCompact(Math.abs(gain), currency)}`
+  if (pct === null) return valStr
+  return `${valStr} (${fmtPct1(pct)})`
 }
 
 type BreakdownMode = 'broker' | 'type'
@@ -176,19 +188,19 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
         <span className={`flex items-center ${gap} whitespace-nowrap justify-self-end`}>
           <span className={`inline-block w-[16px] text-right ${lblSize} font-semibold`} style={{color:'#065f46'}}>1D</span>
           <span className={gainSize} style={{ color: card.todayGain !== null ? (card.todayGain >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8' }}>
-            {card.todayGain !== null ? fmtCompactGainLine(card.todayGain * scale, todayPct, currency) : '—'}
+            {'  '}{card.todayGain !== null ? fmtCompactGainLine1(card.todayGain * scale, todayPct, currency) : '—'}
           </span>
         </span>
         <div className="flex items-center -ml-1.5">
           {xirr !== null
-            ? <span className={`${lblSize} font-semibold rounded-full px-1.5 py-0.5 whitespace-nowrap leading-none`} style={{ background: xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr).replace(/^\+/, '')}</span>
+            ? <span className={`${lblSize} font-semibold rounded-full px-1.5 py-0.5 whitespace-nowrap leading-none`} style={{ background: xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR{'  '}{xirr.toFixed(1)}%</span>
             : <span className={`${lblSize} text-slate-400`}>{fmtCompact(card.invested * scale, currency)} inv</span>
           }
         </div>
         <span className={`flex items-center ${gap} whitespace-nowrap justify-self-end`}>
           <span className={`inline-block w-[16px] text-right ${lblSize} font-semibold`} style={{color:'#065f46'}}>ALL</span>
           <span className={gainSize} style={{ color: pos ? '#0a7a42' : '#be1c1c' }}>
-            {fmtCompactGainLine(totalGain * scale, pct, currency)}
+            {'  '}{fmtCompactGainLine1(totalGain * scale, pct, currency)}
           </span>
         </span>
       </div>
@@ -1054,13 +1066,13 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           <span className="flex items-center gap-1 whitespace-nowrap justify-self-end">
             <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
             <span className="text-[10px]" style={{ color: hero.todayGain >= 0 ? '#0d9488' : '#dc2626' }}>
-              {hero.todayGain !== 0 ? fmtCompactGainLine(hero.todayGain, hero.todayPct, 'INR') : '—'}
+              {'  '}{hero.todayGain !== 0 ? fmtCompactGainLine1(hero.todayGain, hero.todayPct, 'INR') : '—'}
             </span>
           </span>
           <div className="-ml-2 flex items-center">
             {heroXirr !== null
               ? <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 leading-none" style={{ background: (heroXirr ?? 0) >= 0 ? 'rgba(13,148,136,0.15)' : 'rgba(220,38,38,0.12)', color: (heroXirr ?? 0) >= 0 ? '#0f766e' : '#b91c1c' }}>
-                  XIRR {fmtPct(heroXirr!)}
+                  XIRR{'  '}{fmtPct1(heroXirr!)}
                 </span>
               : <span className="text-[10px] text-slate-400">XIRR —</span>
             }
@@ -1068,7 +1080,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           <span className="flex items-center gap-1 whitespace-nowrap justify-self-end">
             <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
             <span className="text-[10px]" style={{ color: heroPos ? '#0d9488' : '#dc2626' }}>
-            {fmtCompactGainLine(hero.totalGain, hero.returnPct, 'INR')}
+            {'  '}{fmtCompactGainLine1(hero.totalGain, hero.returnPct, 'INR')}
           </span>
         </span>
       </div>
@@ -1101,19 +1113,19 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 <span className="flex items-center gap-0.5 whitespace-nowrap justify-self-end">
                   <span className="inline-block w-[16px] text-right text-[9px] font-semibold" style={{color:'#065f46'}}>1D</span>
                   <span className="text-[10px]" style={{ color: tgC }}>
-                    {stats.todayGain !== 0 ? fmtCompactGainLine(stats.todayGain, stats.todayPct, 'INR') : '—'}
+                    {'  '}{stats.todayGain !== 0 ? fmtCompactGainLine1(stats.todayGain, stats.todayPct, 'INR') : '—'}
                   </span>
                 </span>
                 <div className="flex items-center -ml-1.5">
                   {xirr !== null && xirr !== undefined
-                    ? <span className="text-[9px] font-semibold rounded-full px-1.5 py-0.5 whitespace-nowrap leading-none" style={{ background: xirr >= 0 ? (seg === 'mf' ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (seg === 'mf' ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr).replace(/^\+/, '')}</span>
+                    ? <span className="text-[9px] font-semibold rounded-full px-1.5 py-0.5 whitespace-nowrap leading-none" style={{ background: xirr >= 0 ? (seg === 'mf' ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (seg === 'mf' ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR{'  '}{xirr.toFixed(1)}%</span>
                     : <span className="text-[9px] text-slate-400">XIRR —</span>
                   }
                 </div>
                 <span className="flex items-center gap-0.5 whitespace-nowrap justify-self-end">
                   <span className="inline-block w-[16px] text-right text-[9px] font-semibold" style={{color:'#065f46'}}>ALL</span>
                   <span className="text-[10px]" style={{ color: tc }}>
-                    {fmtCompactGainLine(stats.gain, stats.pct, 'INR')}
+                    {'  '}{fmtCompactGainLine1(stats.gain, stats.pct, 'INR')}
                   </span>
                 </span>
               </div>
