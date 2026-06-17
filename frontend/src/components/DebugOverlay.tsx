@@ -32,6 +32,11 @@ export default function DebugOverlay() {
   const csvLen = (localStorage.getItem('portfolio:csv') ?? '').length
   const csvMeta = localStorage.getItem('portfolio:csv:meta')
 
+  const keySizes = Object.keys(localStorage)
+    .map(k => ({ k, size: (localStorage.getItem(k) ?? '').length }))
+    .sort((a, b) => b.size - a.size)
+  const totalSize = keySizes.reduce((s, e) => s + e.size, 0)
+
   return (
     <div className="fixed inset-0 z-[9999] bg-black/80 flex flex-col p-2">
       <div className="flex items-center justify-between bg-slate-900 text-white px-3 py-2 rounded-t-lg">
@@ -53,6 +58,17 @@ export default function DebugOverlay() {
       </div>
       <div className="bg-slate-800 text-emerald-300 text-[10px] px-3 py-2">
         portfolio:csv length: {csvLen} · meta: {csvMeta ?? 'null'}
+      </div>
+      <div className="bg-slate-800 text-amber-300 text-[10px] px-3 py-2 border-t border-slate-700">
+        localStorage total: ~{(totalSize / 1024).toFixed(0)}KB across {keySizes.length} keys
+        <div className="mt-1 max-h-[120px] overflow-y-auto">
+          {keySizes.slice(0, 15).map(({ k, size }) => (
+            <div key={k} className="flex justify-between gap-2">
+              <span className="truncate">{k}</span>
+              <span className="shrink-0">{(size / 1024).toFixed(1)}KB</span>
+            </div>
+          ))}
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto bg-slate-950 text-slate-200 text-[10px] font-mono p-2 rounded-b-lg">
         {entries.length === 0 && <div className="text-slate-500">No entries yet.</div>}
