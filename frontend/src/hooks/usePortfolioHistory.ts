@@ -4,14 +4,19 @@ import type { Holding, Transaction, Realized } from '../api/types'
 import type { Currency } from '../App'
 import { USD_PORTS } from '../utils/segments'
 import { computeXIRR } from '../utils/xirr'
+import { lsGet, lsSet } from './useHistory'
 
 const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
+
+// Same key format as useHistory.ts/usePrefetchHoldingCharts — one shared cache per symbol.
+const lsKey = (sym: string) => `${sym}:2015-01-01`
 
 async function fetchSymHistory(sym: string, start: string) {
   const r = await fetch(`${BASE}/history?${new URLSearchParams({ yf_symbol: sym, start })}`)
   if (!r.ok) throw new Error(`History ${r.status}`)
   const d = await r.json() as { dates: string[]; prices: number[] }
   if (!d.dates?.length) return { dates: [] as string[], prices: [] as number[] }
+  lsSet(lsKey(sym), d)
   return d
 }
 
@@ -63,14 +68,21 @@ export function usePortfolioHistory(
       retry:        2,
       retryDelay:   8_000,
       retryOnMount: false,     // error-state queries stay counted on navigation; avoids backwards counter
+      // Show the cached chart (possibly a few days old) instantly instead of blocking on
+      // the live fetch — same cache the price chart already reads/writes (useHistory.ts).
+      placeholderData: () => lsGet(lsKey(sym)),
     })),
   })
 
   const loadedCount   = queries.filter(q => q.status === 'success' || q.status === 'error').length
   const fetchingCount = queries.filter(q => q.fetchStatus === 'fetching').length
   const isFetching    = fetchingCount > 0
-  // true when not all symbols have data yet (first load) OR any is actively refetching (sync)
-  const isLoading     = enabled && (loadedCount < symbols.length || isFetching)
+  // "Nothing to show yet" — true only when at least one symbol has neither a real nor a
+  // cached/placeholder result. This drives the blocking progress bar; once every symbol has
+  // *something* to render (even stale cache), isLoading goes false and any further fetching
+  // is a silent background refresh (see isFetching) rather than a block.
+  const hasAllData    = symbols.length > 0 && queries.every(q => q.data !== undefined)
+  const isLoading     = enabled && symbols.length > 0 && !hasAllData
 
   // Built from whatever queries have data — allows showing cached series while refetching
   const symbolPriceMap = useMemo((): Map<string, Map<string, number>> => {
@@ -279,5 +291,5 @@ export function usePortfolioHistory(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, loadedCount, holdings, transactions, realized, usdInr, currency, symbols, symbolPriceMap])
 
-  return { series, isLoading, loadedCount, totalCount: symbols.length, fetchingCount, symbolPriceMap }
+  return { series, isLoading, isFetching, loadedCount, totalCount: symbols.length, fetchingCount, symbolPriceMap }
 }

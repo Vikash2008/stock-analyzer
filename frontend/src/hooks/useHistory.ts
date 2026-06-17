@@ -12,7 +12,9 @@ const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
 const LS_PREFIX = 'hist:'
 const LS_TTL    = 7 * 24 * 60 * 60 * 1000 // 7 days
 
-function lsGet(key: string): HistoryData | undefined {
+// Exported so usePortfolioHistory.ts can share this same per-symbol cache —
+// all chart surfaces (price chart, holding/portfolio 7-charts) read/write one pool.
+export function lsGet(key: string): HistoryData | undefined {
   try {
     const raw = localStorage.getItem(LS_PREFIX + key)
     if (!raw) return undefined
@@ -22,7 +24,7 @@ function lsGet(key: string): HistoryData | undefined {
   } catch { return undefined }
 }
 
-function lsSet(key: string, data: HistoryData) {
+export function lsSet(key: string, data: HistoryData) {
   try { localStorage.setItem(LS_PREFIX + key, JSON.stringify({ d: data, t: Date.now() })) } catch {}
 }
 

@@ -675,7 +675,7 @@ export default function HoldingsPage({ currency }: Props) {
   }, [data, filtPorts, segment, portfolio])
 
   // Placed before useBenchmarkXirr so symbolPriceMap is available for period XIRR opening balance
-  const { series: portSeries, isLoading: histLoading, loadedCount, totalCount, fetchingCount: histFetchingCount, symbolPriceMap } = usePortfolioHistory(
+  const { series: portSeries, isLoading: histLoading, isFetching: histIsFetching, loadedCount, totalCount, fetchingCount: histFetchingCount, symbolPriceMap } = usePortfolioHistory(
     filteredHoldings,
     filtTxns,
     filtRealized,
@@ -687,8 +687,8 @@ export default function HoldingsPage({ currency }: Props) {
 
   // Stop sync spinner once all history queries have finished refetching
   useEffect(() => {
-    if (syncing && !histLoading) setSyncing(false)
-  }, [syncing, histLoading])
+    if (syncing && !histIsFetching) setSyncing(false)
+  }, [syncing, histIsFetching])
 
   const {
     sectors:           benchSectors,
@@ -1523,8 +1523,8 @@ export default function HoldingsPage({ currency }: Props) {
       {/* ── Charts tab ── */}
       {activeTab === 'charts' && (
         <div className="pt-1 pb-3">
-          {/* Progress bar — first load and sync */}
-          {histLoading && (() => {
+          {/* Progress bar — only when we have nothing cached to show yet, or user tapped manual sync */}
+          {(histLoading || syncing) && (() => {
             const isFirst = loadedCount < totalCount
             const done    = isFirst ? loadedCount : totalCount - histFetchingCount
             const pct     = totalCount > 0 ? done / totalCount * 100 : 0
@@ -1547,6 +1547,16 @@ export default function HoldingsPage({ currency }: Props) {
               </div>
             )
           })()}
+
+          {/* Charts already rendered from cache — silent background revalidation, no blocking bar */}
+          {!histLoading && !syncing && histIsFetching && (
+            <div className="flex justify-end text-[9px] text-slate-400 mb-2">
+              <span className="flex items-center gap-1">
+                <span className="inline-block animate-spin leading-none text-[9px]">↻</span>
+                Refreshing…
+              </span>
+            </div>
+          )}
 
           {portSeries && !metricSeries && (
             <div className="text-center py-10 text-slate-400 text-xs">

@@ -278,7 +278,7 @@ export default function TransactionsPage({ currency }: Props) {
     })
   }, [symTxns, symRealized, holding, data, decoded.portfolio, currency])
 
-  const { series: portSeries, isLoading: histLoading, loadedCount: txLoaded, totalCount: txTotal, fetchingCount: txFetching, symbolPriceMap: txPriceMap } = usePortfolioHistory(
+  const { series: portSeries, isLoading: histLoading, isFetching: histIsFetching, loadedCount: txLoaded, totalCount: txTotal, fetchingCount: txFetching, symbolPriceMap: txPriceMap } = usePortfolioHistory(
     holdingArrForCharts,
     symTxns,
     symRealized,
@@ -785,7 +785,7 @@ export default function TransactionsPage({ currency }: Props) {
                 </div>
               )}
 
-              {histLoading && (() => {
+              {(histLoading || syncing) && (() => {
                 const isFirst = txLoaded < txTotal
                 const done    = isFirst ? txLoaded : txTotal - txFetching
                 const pct     = txTotal > 0 ? Math.round(done / txTotal * 100) : 0
@@ -801,6 +801,14 @@ export default function TransactionsPage({ currency }: Props) {
                   </div>
                 )
               })()}
+              {!histLoading && !syncing && histIsFetching && (
+                <div className="flex justify-end text-[9px] text-slate-400 mb-2">
+                  <span className="flex items-center gap-1">
+                    <span className="inline-block animate-spin leading-none text-[9px]">↻</span>
+                    Refreshing…
+                  </span>
+                </div>
+              )}
               {!portSeries && !histLoading && (
                 <div className="text-center py-10 text-slate-400 text-xs">
                   No price history available.
