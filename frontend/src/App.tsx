@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, useIsRestoring } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
@@ -89,6 +89,19 @@ function FetchingScreen() {
 function AppRoutes({ currency, onCurrencyChange }: { currency: Currency; onCurrencyChange: (c: Currency) => void }) {
   const isRestoring = useIsRestoring()
   const { data } = usePortfolio()
+  const loggedRestore = useRef(false)
+
+  // One-time log of exactly what the gate saw right as restore finished — lets us tell,
+  // after the fact, whether a blocking FetchingScreen was justified (nothing cached yet)
+  // or a bug (real data was cached but the gate didn't see it in time).
+  useEffect(() => {
+    if (isRestoring || loggedRestore.current) return
+    loggedRestore.current = true
+    const hasCsv      = !!localStorage.getItem('portfolio:csv')
+    const hasRealData = !!data?.csv_hash
+    const willBlock    = !data || (hasCsv && !hasRealData)
+    logDebug(`gate: hasData=${!!data} csv_hash=${data?.csv_hash ?? 'none'} hasCsv=${hasCsv} hasRealData=${hasRealData} -> ${willBlock ? 'BLOCKING (FetchingScreen)' : 'instant render'}`)
+  }, [isRestoring, data])
 
   if (isRestoring) return <LoadingScreen />
 

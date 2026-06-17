@@ -77,11 +77,11 @@ export function usePortfolioHistory(
   const loadedCount   = queries.filter(q => q.status === 'success' || q.status === 'error').length
   const fetchingCount = queries.filter(q => q.fetchStatus === 'fetching').length
   const isFetching    = fetchingCount > 0
-  // "Nothing to show yet" — true only when at least one symbol has neither a real nor a
-  // cached/placeholder result. This drives the blocking progress bar; once every symbol has
-  // *something* to render (even stale cache), isLoading goes false and any further fetching
-  // is a silent background refresh (see isFetching) rather than a block.
-  const hasAllData    = symbols.length > 0 && queries.every(q => q.data !== undefined)
+  // "Nothing to show yet" — true only when at least one symbol has neither a real/cached
+  // result nor has finished failing. A symbol that errors out (no cache, retries exhausted —
+  // e.g. a transient mobile network drop) counts as resolved too, so one bad symbol doesn't
+  // wedge the progress bar on screen forever; the chart just renders without that symbol.
+  const hasAllData    = symbols.length > 0 && queries.every(q => q.data !== undefined || q.status === 'error')
   const isLoading     = enabled && symbols.length > 0 && !hasAllData
 
   // Built from whatever queries have data — allows showing cached series while refetching
