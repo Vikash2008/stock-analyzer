@@ -1173,7 +1173,7 @@ export default function HoldingsPage({ currency }: Props) {
 
   return (
     <div className="max-w-xl mx-auto flex flex-col h-[100dvh]">
-      <div className="shrink-0 px-2 pt-4 bg-white">
+      <div className="shrink-0 px-2 pt-4 bg-white relative z-20">
       {/* Nav bar */}
       <div className="flex items-center justify-between px-3 py-2 mb-3 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl">
         <button onClick={() => navigate('/')} className="shrink-0 flex items-center gap-0.5 text-white active:text-white/80 min-h-[44px]">
@@ -1523,8 +1523,8 @@ export default function HoldingsPage({ currency }: Props) {
       {/* ── Charts tab ── */}
       {activeTab === 'charts' && (
         <div className="pt-1 pb-3">
-          {/* Progress bar — only when we have nothing cached to show yet, or user tapped manual sync */}
-          {(histLoading || syncing) && (() => {
+          {/* Progress bar — only when we have nothing cached to show yet, or a manual sync is actually still in flight */}
+          {(histLoading || (syncing && histIsFetching)) && (() => {
             const isFirst = loadedCount < totalCount
             const done    = isFirst ? loadedCount : totalCount - histFetchingCount
             const pct     = totalCount > 0 ? done / totalCount * 100 : 0
