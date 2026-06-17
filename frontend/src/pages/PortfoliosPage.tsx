@@ -179,7 +179,7 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
             {card.todayGain !== null ? fmtCompactGainLine(card.todayGain * scale, todayPct, currency) : '—'}
           </span>
         </span>
-        <div className="flex items-center">
+        <div className="flex items-center -ml-1.5">
           {xirr !== null
             ? <span className={`${lblSize} font-semibold rounded-full px-1.5 py-0.5 whitespace-nowrap leading-none`} style={{ background: xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr).replace(/^\+/, '')}</span>
             : <span className={`${lblSize} text-slate-400`}>{fmtCompact(card.invested * scale, currency)} inv</span>
@@ -1104,7 +1104,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                     {stats.todayGain !== 0 ? fmtCompactGainLine(stats.todayGain, stats.todayPct, 'INR') : '—'}
                   </span>
                 </span>
-                <div className="flex items-center">
+                <div className="flex items-center -ml-1.5">
                   {xirr !== null && xirr !== undefined
                     ? <span className="text-[9px] font-semibold rounded-full px-1.5 py-0.5 whitespace-nowrap leading-none" style={{ background: xirr >= 0 ? (seg === 'mf' ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (seg === 'mf' ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR {fmtPct(xirr).replace(/^\+/, '')}</span>
                     : <span className="text-[9px] text-slate-400">XIRR —</span>
