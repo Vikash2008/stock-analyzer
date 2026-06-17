@@ -24,8 +24,35 @@ export function lsGet(key: string): HistoryData | undefined {
   } catch { return undefined }
 }
 
+// Quota errors here can otherwise go silent and starve more critical writes (the React
+// Query persister's portfolio cache, this same debug log) of room — evict the oldest
+// chart-history entries first and retry once, instead of just swallowing the error.
+function evictOldestHist(count: number) {
+  const entries: { key: string; t: number }[] = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i)
+    if (!k || !k.startsWith(LS_PREFIX)) continue
+    try {
+      const { t } = JSON.parse(localStorage.getItem(k) ?? '{}')
+      entries.push({ key: k, t: t ?? 0 })
+    } catch { entries.push({ key: k, t: 0 }) }
+  }
+  entries.sort((a, b) => a.t - b.t)
+  for (const e of entries.slice(0, count)) localStorage.removeItem(e.key)
+}
+
 export function lsSet(key: string, data: HistoryData) {
-  try { localStorage.setItem(LS_PREFIX + key, JSON.stringify({ d: data, t: Date.now() })) } catch {}
+  const payload = JSON.stringify({ d: data, t: Date.now() })
+  try {
+    localStorage.setItem(LS_PREFIX + key, payload)
+  } catch {
+    try {
+      evictOldestHist(20)
+      localStorage.setItem(LS_PREFIX + key, payload)
+    } catch {
+      // still over quota after eviction — give up, same as before
+    }
+  }
 }
 
 async function fetchHistory(yf_symbol: string, start: string | null, period?: string): Promise<HistoryData> {
