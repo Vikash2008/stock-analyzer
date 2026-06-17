@@ -69,6 +69,15 @@
 
 ---
 
+## Backlog — Mobile CSV Persistence (unresolved, high priority)
+
+| # | Item | Notes | Status |
+|---|------|-------|--------|
+| 1 | Portfolio CSV reverts to demo data unpredictably on Android | Reported tied to: app updates, manual price-refresh (sync icon), and after manually clearing app storage. Root cause NOT confirmed — leading theories: (a) Chrome's "best-effort" storage eviction policy evicting `localStorage` for low-engagement origins (independent of total device free space — confirmed user has 2GB+ free); (b) Android WebAPK re-mint on app update for self-hosted (non-Play-Store) PWAs, which can reset the storage partition; (c) manually clearing app data resets Chrome's site-engagement score to 0, so `navigator.storage.persist()` likely gets denied again right after a clear, until usage rebuilds trust. Ruled out: TanStack persister eviction (verified via library source — only touches its own key), our own code removing `portfolio:csv` outside the explicit import flow, OS-level storage pressure. User wants: data must survive a same-session price refresh (in-memory CSV cache attempted, then reverted — see below); accepts data may need re-import after a fresh deploy/update. Considered server-side per-device-token backup as the durable fix, but Render free tier has an ephemeral filesystem (wiped on every cold start after 15min idle) so a naive disk-based token store would need either a paid Render plan with persistent disk, or a separate free external store (e.g. Supabase) — decision pending user input. | pending |
+| 2 | In-memory CSV cache (attempted, reverted) | `setCsvMem()` in `usePortfolio.ts` kept an in-session JS-memory copy of the CSV so price refreshes wouldn't depend on `localStorage` mid-session. Reverted (commit `c8abf26`) because user pointed out "close and reopen the app" is more common than "mid-session refresh," and a full app close/OS reclaim still resets JS memory, falling back to the same vulnerable `localStorage` read — so it only partially addressed the real-world need. | reverted |
+
+---
+
 ## Done
 
 | Item | Completed |

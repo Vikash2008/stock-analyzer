@@ -378,6 +378,22 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-06-05
 
+### 2026-06-17 (session 128)
+
+**Overview page card redesign (BreakCard + hero + Stocks/MF tiles)**
+- XIRR pill indent fixed: removed `-ml-1.5`/`-ml-2` negative margin that pulled it too far left; wrapped in `flex items-center` (the plain `<div>` wrapper had no flex, so its line-box "strut" came from the page's default font/line-height instead of the 9-10px pill content — this, not the negative margin, was the real cause of the XIRR/ALL vertical misalignment that `leading-none` alone didn't fix)
+- Vertical spacing: `gap-y-0` → `gap-y-2` between the value/1D row and XIRR/ALL row
+- Current value font bumped: BreakCard 13/15px → 15/17px (compact/non-compact); Stocks/MF tiles 13px → 15px
+- Card padding `p-2` → `p-2.5`, label margin `mb-1` → `mb-1.5` for less cramped feel
+- Non-hero cards (By Type/By Broker/Stocks/MF): "1D"/"ALL" labels + XIRR pill text → 9px (was 10px); `+` sign stripped from XIRR via `.replace(/^\+/, '')` (hero card XIRR keeps the `+` and 10px)
+- Page-level `px-4` → `px-2` on Overview/Holdings/Transactions outer wrapper to reduce side white space
+
+**TransactionsPage summary card**
+- Inline overview card's Value/1D/XIRR/ALL block converted from `flex justify-between` to the same `grid grid-cols-[auto_1fr] items-center gap-y-0` pattern as `SummaryCard.tsx`, for the same alignment fix
+
+**PWA update banner**
+- Added a dismiss "×" button next to "Update" — dismissing just hides the banner (`setUpdateReady(false)`), doesn't reload or skip the already-downloaded update; banner reappears on next visibility check
+
 ### 2026-06-17 (session 126)
 
 **Card row alignment fixed — flex-col → CSS Grid**
