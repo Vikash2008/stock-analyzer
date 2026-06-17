@@ -58,33 +58,29 @@ export function HoldingCard({
         )}
       </div>
 
-      {/* Value+XIRR (left) | 1D+ALL (right) — single row so labels stay in same column */}
-      <div className="flex items-start justify-between">
-        <div className="flex flex-col min-w-0">
-          <span className="text-[16px] font-bold text-slate-900 tracking-tight">
-            {fmt(current, currency)}
+      {/* Value+XIRR (left) | 1D+ALL (right) — grid keeps both rows aligned across columns */}
+      <div className="grid grid-cols-[auto_1fr] items-center gap-y-0">
+        <span className="text-[16px] font-bold text-slate-900 tracking-tight">
+          {fmt(current, currency)}
+        </span>
+        <span className="flex items-center gap-1 whitespace-nowrap justify-self-end">
+          <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
+          <span className="text-[10px]" style={{ color: tgColor }}>
+            {todayGain !== null ? fmtCompactGainLine(todayGain, todayPct, currency) : '—'}
           </span>
-          <div className="mt-0.5">
-            {xirr !== null
-              ? <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none -ml-1.5" style={{ background: xirr >= 0 ? '#d1fae5' : '#fee2e2', color: xirr >= 0 ? '#065f46' : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
-              : <span className="text-[11px] text-slate-400">→</span>
-            }
-          </div>
+        </span>
+        <div className="-ml-1.5">
+          {xirr !== null
+            ? <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none" style={{ background: xirr >= 0 ? '#d1fae5' : '#fee2e2', color: xirr >= 0 ? '#065f46' : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
+            : <span className="text-[11px] text-slate-400">→</span>
+          }
         </div>
-        <div className="flex flex-col items-end shrink-0 gap-0.5">
-          <span className="flex items-center gap-1 whitespace-nowrap">
-            <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
-            <span className="text-[10px]" style={{ color: tgColor }}>
-              {todayGain !== null ? fmtCompactGainLine(todayGain, todayPct, currency) : '—'}
-            </span>
+        <span className="flex items-center gap-1 whitespace-nowrap justify-self-end">
+          <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
+          <span className="text-[10px]" style={{ color: textColor }}>
+            {fmtCompactGainLine(totalGain, totalPct, currency)}
           </span>
-          <span className="flex items-center gap-1 whitespace-nowrap">
-            <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
-            <span className="text-[10px]" style={{ color: textColor }}>
-              {fmtCompactGainLine(totalGain, totalPct, currency)}
-            </span>
-          </span>
-        </div>
+        </span>
       </div>
       {(fxAmt > 0 || divAmt > 0) && (
         <div className="flex justify-end items-center gap-1.5 mt-0.5">

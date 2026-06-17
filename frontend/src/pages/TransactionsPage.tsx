@@ -414,32 +414,28 @@ export default function TransactionsPage({ currency }: Props) {
         </div>
 
         {/* Value+XIRR (left) | 1D+ALL (right) */}
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex flex-col min-w-0">
-            <span className="text-[20px] font-bold text-slate-900 tracking-tight">
-              {fmt(cur, dispCur)}
+        <div className="grid grid-cols-[auto_1fr] items-center gap-y-0 mb-2">
+          <span className="text-[20px] font-bold text-slate-900 tracking-tight">
+            {fmt(cur, dispCur)}
+          </span>
+          <span className="flex items-center gap-1 whitespace-nowrap justify-self-end">
+            <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
+            <span className="text-[10px]" style={{ color: tgC }}>
+              {tg !== null ? fmtCompactGainLine(tg, tp, dispCur) : '—'}
             </span>
-            <div className="mt-0.5">
-              {holdingXirr !== null
-                ? <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none -ml-1.5" style={{ background: holdingXirr >= 0 ? '#d1fae5' : '#fee2e2', color: holdingXirr >= 0 ? '#065f46' : '#991b1b' }}>XIRR {fmtPct(holdingXirr)}</span>
-                : <span className="text-[10px] text-slate-400">XIRR —</span>
-              }
-            </div>
+          </span>
+          <div className="-ml-1.5">
+            {holdingXirr !== null
+              ? <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none" style={{ background: holdingXirr >= 0 ? '#d1fae5' : '#fee2e2', color: holdingXirr >= 0 ? '#065f46' : '#991b1b' }}>XIRR {fmtPct(holdingXirr)}</span>
+              : <span className="text-[10px] text-slate-400">XIRR —</span>
+            }
           </div>
-          <div className="flex flex-col items-end shrink-0 gap-0.5">
-            <span className="flex items-center gap-1 whitespace-nowrap">
-              <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
-              <span className="text-[10px]" style={{ color: tgC }}>
-                {tg !== null ? fmtCompactGainLine(tg, tp, dispCur) : '—'}
-              </span>
+          <span className="flex items-center gap-1 whitespace-nowrap justify-self-end">
+            <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
+            <span className="text-[10px]" style={{ color: tc }}>
+              {fmtCompactGainLine(gain + realGain, inv + realCost !== 0 ? (gain + realGain) / (inv + realCost) * 100 : 0, dispCur)}
             </span>
-            <span className="flex items-center gap-1 whitespace-nowrap">
-              <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
-              <span className="text-[10px]" style={{ color: tc }}>
-                {fmtCompactGainLine(gain + realGain, inv + realCost !== 0 ? (gain + realGain) / (inv + realCost) * 100 : 0, dispCur)}
-              </span>
-            </span>
-          </div>
+          </span>
         </div>
 
         {/* Footer: Invested · qty · avg | Realized */}
@@ -468,7 +464,7 @@ export default function TransactionsPage({ currency }: Props) {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 text-[10px] py-1 rounded-full font-medium transition-all ${
+            className={`flex-1 text-[10px] py-2 rounded-full font-medium transition-all ${
               activeTab === tab
                 ? tab === 'transactions' ? 'bg-teal-200 text-teal-800 shadow-sm'
                 : tab === 'charts'       ? 'bg-sky-200 text-sky-800 shadow-sm'

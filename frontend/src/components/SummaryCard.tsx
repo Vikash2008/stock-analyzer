@@ -51,33 +51,28 @@ export function SummaryCard({
       <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">{label}</p>
 
       {/* Value + today gain */}
-      <div className="flex items-baseline justify-between mb-1">
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex flex-col min-w-0">
-            <span className="text-[20px] font-bold text-slate-900 tracking-tight">
-              {fmt(current, currency)}
+        <div className="grid grid-cols-[auto_1fr] items-center gap-y-0 mb-2">
+          <span className="text-[20px] font-bold text-slate-900 tracking-tight">
+            {fmt(current, currency)}
+          </span>
+          <span className="flex items-center gap-1 whitespace-nowrap justify-self-end">
+            <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
+            <span className="text-[10px]" style={{ color: tgColor }}>
+              {todayGain !== null ? fmtCompactGainLine(todayGain, todayPct, currency) : '—'}
             </span>
-            <div className="mt-0.5">
-              {xirr != null
-                ? <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none -ml-1.5" style={{ background: xirr >= 0 ? '#d1fae5' : '#fee2e2', color: xirr >= 0 ? '#065f46' : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
-                : <span className="text-[10px] text-slate-400">XIRR —</span>
-              }
-            </div>
+          </span>
+          <div className="-ml-1.5">
+            {xirr != null
+              ? <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none" style={{ background: xirr >= 0 ? '#d1fae5' : '#fee2e2', color: xirr >= 0 ? '#065f46' : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
+              : <span className="text-[10px] text-slate-400">XIRR —</span>
+            }
           </div>
-          <div className="flex flex-col items-end shrink-0 gap-0.5">
-            <span className="flex items-center gap-1 whitespace-nowrap">
-              <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
-              <span className="text-[10px]" style={{ color: tgColor }}>
-                {todayGain !== null ? fmtCompactGainLine(todayGain, todayPct, currency) : '—'}
-              </span>
+          <span className="flex items-center gap-1 whitespace-nowrap justify-self-end">
+            <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
+            <span className="text-[10px]" style={{ color: textColor }}>
+              {fmtCompactGainLine(totalGain, totalPct, currency)}
             </span>
-            <span className="flex items-center gap-1 whitespace-nowrap">
-              <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
-              <span className="text-[10px]" style={{ color: textColor }}>
-                {fmtCompactGainLine(totalGain, totalPct, currency)}
-              </span>
-            </span>
-          </div>
+          </span>
         </div>
 
       {/* Footer: Invested · Realized · Dividends */}
@@ -110,7 +105,6 @@ export function SummaryCard({
           )}
         </div>
       )}
-      </div>
       </div>
     </div>
   )

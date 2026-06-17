@@ -175,8 +175,6 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
   const { data, isLoading, isError } = useDividends(portfolio)
   const forceRefresh = useForceRefreshDividends(portfolio)
 
-  const [isSyncing, setIsSyncing] = useState(false)
-  const [lastSynced, setLastSynced] = useState<Date | null>(null)
   const [selectedYears, setSelectedYears] = useState<Set<string>>(new Set())
   const [selectedMonths, setSelectedMonths] = useState<Set<number>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
@@ -193,11 +191,11 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
   const by_year   = data?.by_year   ?? {}
   const summary   = data?.summary
 
-  const activeSymbols = filterSymbols && filterSymbols.size > 0
+  const activeSymbols = filterSymbols !== undefined
     ? by_symbol.filter(s => filterSymbols.has(s.symbol))
     : by_symbol
 
-  const activeSummary = filterSymbols && filterSymbols.size > 0
+  const activeSummary = filterSymbols !== undefined
     ? {
         total_dividends_inr: activeSymbols.reduce((sum, s) => sum + s.total_dividends, 0),
         dividend_count:       activeSymbols.reduce((sum, s) => sum + s.event_count, 0),
@@ -206,7 +204,7 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
       }
     : summary ?? { total_dividends_inr: 0, dividend_count: 0, symbols_with_dividends: 0, projected_annual_inr: 0 }
 
-  const activeByYear = filterSymbols && filterSymbols.size > 0
+  const activeByYear = filterSymbols !== undefined
     ? activeSymbols.reduce<Record<string, number>>((acc, s) => {
         s.events.forEach(ev => {
           const yr = ev.ex_date.slice(0, 4)
@@ -340,25 +338,6 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
                   </button>
                 )}
               </div>
-              <button
-                onClick={async () => {
-                  if (isSyncing) return
-                  setIsSyncing(true)
-                  try { await forceRefresh() } finally {
-                    setIsSyncing(false)
-                    setLastSynced(new Date())
-                  }
-                }}
-                title="Refresh dividend data"
-                className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 border active:opacity-60 bg-gradient-to-br from-teal-600 to-emerald-700 border-teal-700"
-              >
-                <span className={`text-[10px] text-white leading-none inline-block ${isSyncing ? 'animate-spin' : ''}`}>↻</span>
-                {lastSynced && (
-                  <span className="text-[10px] text-white whitespace-nowrap leading-none">
-                    {String(lastSynced.getHours()).padStart(2,'0')}:{String(lastSynced.getMinutes()).padStart(2,'0')} {String(lastSynced.getDate()).padStart(2,'0')} {lastSynced.toLocaleString('en-US',{month:'short'})}
-                  </span>
-                )}
-              </button>
             </div>
             <YearChart byYear={activeByYear} selectedYears={selectedYears} onToggleYear={toggleYear} currency={summaryCur} fxMultiplier={summaryFx} />
             <p className="text-[10px] text-slate-300 text-center mt-1">Tap year or month to filter stocks below</p>

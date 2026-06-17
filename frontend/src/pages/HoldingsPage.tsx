@@ -200,7 +200,7 @@ export default function HoldingsPage({ currency }: Props) {
     [data?.holdings.length],
   )
   usePrefetchHoldingCharts(allSymbols)
-  const { data: divData } = useDividends(portfolio)
+  const { data: divData, isLoading: divLoading, isFetching: divFetching } = useDividends(portfolio)
   const [includeDivs, setIncludeDivs] = useState(getIncludeDividends)
   useEffect(() => {
     const handler = () => setIncludeDivs(getIncludeDividends())
@@ -255,6 +255,8 @@ export default function HoldingsPage({ currency }: Props) {
   const [benchSyncing,   setBenchSyncing]   = useState(false)
   const [histLastSynced,  setHistLastSynced]  = useState<Date | null>(null)
   const [benchLastSynced, setBenchLastSynced] = useState<Date | null>(null)
+  const [divSyncing,      setDivSyncing]      = useState(false)
+  const [divLastSynced,   setDivLastSynced]   = useState<Date | null>(null)
   const [expandedSectors,     setExpandedSectors]     = useState<Set<string>>(new Set())
   const [benchSectorSectionOpen, setBenchSectorSectionOpen] = useState(true)
   const [concentrationTop, setConcentrationTop] = useState<5 | 10 | 20>(10)
@@ -418,8 +420,7 @@ export default function HoldingsPage({ currency }: Props) {
       ? new Set(['indian_stock', 'us_stock'])
       : segment === 'mf'
       ? new Set(['indian_mf', 'us_mf'])
-      : null
-    if (!allowed) return undefined
+      : new Set([segment])
     const syms = new Set<string>()
     for (const s of divData.by_symbol) {
       const tx = data.transactions.find(t => t.symbol === s.symbol)
@@ -706,7 +707,7 @@ export default function HoldingsPage({ currency }: Props) {
     benchTxns,
     data?.usd_inr ?? 95.5,
     currency,
-    activeTab === 'analysis' && !!data,
+    !!data,
     benchPeriodStart,
     benchPeriodEnd,
     symbolPriceMap,
@@ -733,6 +734,14 @@ export default function HoldingsPage({ currency }: Props) {
   useEffect(() => {
     if (!benchLoading && !benchFetching && benchSectors.length > 0) setBenchLastSynced(new Date())
   }, [benchLoading, benchFetching, benchSectors.length])
+
+  // Set divLastSynced whenever dividend data is available (initial load from cache OR after sync)
+  useEffect(() => {
+    if (!divLoading && !divFetching && divData) setDivLastSynced(new Date())
+  }, [divLoading, divFetching, divData])
+  useEffect(() => {
+    if (divSyncing && !divFetching) setDivSyncing(false)
+  }, [divSyncing, divFetching])
 
   const xirrMap = useMemo(() => {
     if (!data) return new Map<string, number | null>()
@@ -1190,39 +1199,87 @@ export default function HoldingsPage({ currency }: Props) {
                 </div>
                 <div className="bg-white px-2 py-1.5 flex flex-col gap-1">
                   <p className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 uppercase tracking-widest px-1 pt-0.5"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M1.5 2h9L7 6.5V10l-2-1V6.5L1.5 2z"/></svg>Filters</p>
-                  <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1 flex items-center justify-between gap-2">
-                    <p className="text-[10px] text-slate-400 uppercase tracking-widest shrink-0">Status</p>
-                    <div className="relative flex bg-white rounded-full p-[2px] border border-emerald-100">
-                      <div className="absolute top-[2px] bottom-[2px] w-1/3 rounded-full bg-emerald-500 shadow-sm transition-transform duration-150" style={{ transform: `translateX(${holdingFilter === 'open' ? '0%' : holdingFilter === 'closed' ? '100%' : '200%'})` }} />
-                      {(['open', 'closed', 'all'] as const).map(v => (
-                        <button key={v} onClick={() => setHoldingFilter(v)} className={`relative z-10 flex-1 text-[10px] py-[3px] px-2 capitalize transition-colors ${holdingFilter === v ? 'text-white font-semibold' : 'text-slate-400'}`}>{v}</button>
-                      ))}
+                  <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg overflow-hidden">
+                    <div className="px-2.5 py-1.5 flex items-center justify-between gap-2">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-widest shrink-0">Status</p>
+                      <div className="relative flex w-[150px] bg-white rounded-full p-[2px] border border-emerald-100">
+                        <div className="absolute top-[2px] bottom-[2px] w-1/3 rounded-full bg-emerald-500 shadow-sm transition-transform duration-150" style={{ transform: `translateX(${holdingFilter === 'open' ? '0%' : holdingFilter === 'closed' ? '100%' : '200%'})` }} />
+                        {(['open', 'closed', 'all'] as const).map(v => (
+                          <button key={v} onClick={() => setHoldingFilter(v)} className={`relative z-10 flex-1 text-[10px] py-[3px] px-2 text-center capitalize transition-colors ${holdingFilter === v ? 'text-white font-semibold' : 'text-slate-400'}`}>{v}</button>
+                        ))}
+                      </div>
                     </div>
+                    {holdingFilter === 'all' && (
+                      <div className="px-2.5 py-1.5 flex items-center justify-between gap-3 border-t border-emerald-100/70">
+                        <p className="text-[10px] text-slate-400 uppercase tracking-widest">Show Closed</p>
+                        <button onClick={() => setShowClosed(v => !v)} className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 ${showClosed ? 'bg-teal-500' : 'bg-slate-200'}`}>
+                          <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${showClosed ? 'translate-x-4' : 'translate-x-0'}`} />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  {holdingFilter === 'all' && (
-                    <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1 flex items-center justify-between gap-3">
-                      <p className="text-[11px] font-medium text-slate-700">Show Closed</p>
-                      <button onClick={() => setShowClosed(v => !v)} className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 ${showClosed ? 'bg-teal-500' : 'bg-slate-200'}`}>
-                        <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${showClosed ? 'translate-x-4' : 'translate-x-0'}`} />
-                      </button>
-                    </div>
-                  )}
                   {segment && (
-                    <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1 flex items-center justify-between gap-2">
+                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
                       <p className="text-[10px] text-slate-400 uppercase tracking-widest shrink-0">View</p>
-                      <div className="relative flex bg-white rounded-full p-[2px] border border-emerald-100">
+                      <div className="relative flex w-[150px] bg-white rounded-full p-[2px] border border-emerald-100">
                         <div className="absolute top-[2px] bottom-[2px] w-1/2 rounded-full bg-emerald-500 shadow-sm transition-transform duration-150" style={{ transform: `translateX(${viewMode === 'standalone' ? '100%' : '0%'})` }} />
                         {(['cumulative', 'standalone'] as const).map(m => (
-                          <button key={m} onClick={() => setViewMode(m)} className={`relative z-10 flex-1 text-[10px] py-[3px] px-2 transition-colors ${viewMode === m ? 'text-white font-semibold' : 'text-slate-400'}`}>{m === 'cumulative' ? 'Grouped' : 'Standalone'}</button>
+                          <button key={m} onClick={() => setViewMode(m)} className={`relative z-10 flex-1 text-[10px] py-[3px] px-2 text-center whitespace-nowrap transition-colors ${viewMode === m ? 'text-white font-semibold' : 'text-slate-400'}`}>{m === 'cumulative' ? 'Grouped' : 'Standalone'}</button>
                         ))}
                       </div>
                     </div>
                   )}
                   <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-widest px-1 pt-0.5">Actions</p>
-                  <button onClick={() => { setSettingsOpen(false); setAddHoldingOpen(true) }} className="bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1 flex items-center gap-2 w-full text-left active:bg-emerald-100">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-emerald-600 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
-                    <span className="text-[11px] font-medium text-emerald-700">Add Holding</span>
-                  </button>
+                  <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-medium text-emerald-700">Add New Holdings</span>
+                    <div className="flex flex-col items-center gap-0.5 shrink-0">
+                      <button onClick={() => { setSettingsOpen(false); setAddHoldingOpen(true) }} className="w-[70px] text-center bg-emerald-700 text-white text-[10px] font-semibold rounded-full px-3 py-1 active:bg-emerald-800">
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                  <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-medium text-emerald-700">Charts</span>
+                    <div className="flex flex-col items-center gap-0.5 shrink-0">
+                      <button
+                        onClick={() => { if (syncing) return; setSyncing(true); qc.refetchQueries({ queryKey: ['history'], type: 'active' }) }}
+                        className="w-[70px] text-center bg-emerald-700 text-white text-[10px] font-semibold rounded-full px-3 py-1 active:bg-emerald-800"
+                      >
+                        {syncing ? 'Syncing…' : 'Refresh'}
+                      </button>
+                      {histLastSynced && (
+                        <span className="text-[9px] text-slate-400 whitespace-nowrap leading-none">{fmtSyncTime(histLastSynced)}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-medium text-emerald-700">Dividends</span>
+                    <div className="flex flex-col items-center gap-0.5 shrink-0">
+                      <button
+                        onClick={() => { if (divSyncing) return; setDivSyncing(true); qc.refetchQueries({ queryKey: ['dividends'], type: 'active' }) }}
+                        className="w-[70px] text-center bg-emerald-700 text-white text-[10px] font-semibold rounded-full px-3 py-1 active:bg-emerald-800"
+                      >
+                        {divSyncing ? 'Syncing…' : 'Update'}
+                      </button>
+                      {divLastSynced && (
+                        <span className="text-[9px] text-slate-400 whitespace-nowrap leading-none">{fmtSyncTime(divLastSynced)}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-medium text-emerald-700">Benchmarking analysis</span>
+                    <div className="flex flex-col items-center gap-0.5 shrink-0">
+                      <button
+                        onClick={() => { if (benchSyncing) return; setBenchSyncing(true); qc.invalidateQueries({ queryKey: ['history'] }); qc.invalidateQueries({ queryKey: ['benchmark-hist'] }) }}
+                        className="w-[70px] text-center bg-emerald-700 text-white text-[10px] font-semibold rounded-full px-3 py-1 active:bg-emerald-800"
+                      >
+                        {benchSyncing ? 'Syncing…' : 'Refresh'}
+                      </button>
+                      {benchLastSynced && (
+                        <span className="text-[9px] text-slate-400 whitespace-nowrap leading-none">{fmtSyncTime(benchLastSynced)}</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </>
@@ -1287,32 +1344,21 @@ export default function HoldingsPage({ currency }: Props) {
       {/* Charts strip — metric pills + sync */}
       {activeTab === 'charts' && (
         <div className="bg-sky-50 border border-sky-200 rounded-xl px-2.5 py-1.5 mt-2">
-          <div className="flex items-center gap-2">
-            <div
-              className="flex gap-0.5 overflow-x-auto flex-1 rounded-lg p-0.5"
-              style={{ backgroundColor: '#bae6fd44', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
-            >
-              {METRICS.map(m => (
-                <button
-                  key={m}
-                  onClick={() => setChartMetric(m)}
-                  className={`text-[10px] whitespace-nowrap px-2.5 py-1 rounded-md font-medium transition-all ${
-                    chartMetric === m ? METRIC_STYLE[m].active : METRIC_STYLE[m].inactive
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-            <button
-              className="flex items-center gap-0.5 shrink-0 rounded-full px-1.5 py-0.5 border active:opacity-60 bg-gradient-to-br from-sky-600 to-cyan-700 border-sky-700"
-              onClick={() => { if (syncing) return; setSyncing(true); qc.refetchQueries({ queryKey: ['history'], type: 'active' }) }}
-            >
-              <span className={`text-[10px] text-white leading-none inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
-              {histLastSynced && (
-                <span className="text-[10px] text-white whitespace-nowrap leading-none">{fmtSyncTime(histLastSynced)}</span>
-              )}
-            </button>
+          <div
+            className="flex gap-0.5 overflow-x-auto rounded-lg p-0.5"
+            style={{ backgroundColor: '#bae6fd44', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+          >
+            {METRICS.map(m => (
+              <button
+                key={m}
+                onClick={() => setChartMetric(m)}
+                className={`text-[10px] whitespace-nowrap px-2.5 py-1 rounded-md font-medium transition-all ${
+                  chartMetric === m ? METRIC_STYLE[m].active : METRIC_STYLE[m].inactive
+                }`}
+              >
+                {m}
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -1429,16 +1475,6 @@ export default function HoldingsPage({ currency }: Props) {
                 </button>
               ))}
             </div>
-            {analysisSubTab === 'benchmarking' && (
-              <button
-                className="flex items-center gap-0.5 shrink-0 rounded-full px-1.5 py-0.5 border active:opacity-60"
-                style={{ background: 'linear-gradient(135deg,#0284c7,#0c4a6e)', borderColor: '#0369a1' }}
-                onClick={() => { if (benchSyncing) return; setBenchSyncing(true); qc.invalidateQueries({ queryKey: ['history'] }); qc.invalidateQueries({ queryKey: ['benchmark-hist'] }) }}
-              >
-                <span className={`text-[10px] text-white leading-none inline-block ${benchSyncing ? 'animate-spin' : ''}`}>↻</span>
-                {benchLastSynced && <span className="text-[10px] text-white whitespace-nowrap leading-none ml-0.5">{fmtSyncTime(benchLastSynced)}</span>}
-              </button>
-            )}
           </div>
         </div>
       )}
