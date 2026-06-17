@@ -378,6 +378,34 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-06-05
 
+### 2026-06-17 (session 126)
+
+**Card row alignment fixed — flex-col → CSS Grid**
+- Session 125's "guarantees perfect vertical alignment" claim for the 1D/ALL layout was wrong: independent `flex-col` columns size each row to their own tallest child, so the XIRR pill (taller, has padding) and the ALL row (plain text) drifted apart by ~15-20px depending on font size
+- Replaced with `grid grid-cols-[auto_1fr] items-center gap-y-0` — row 1 = value + 1D, row 2 = XIRR/fallback + ALL; grid rows are shared across both columns so they align within 1px regardless of content height
+- Applies to: `SummaryCard.tsx`, `HoldingCard.tsx`, `PortfoliosPage.tsx` (BreakCard + hero card + Stocks/MF tiles + segment tiles)
+- `gap-y-0` chosen over `gap-y-0.5`/`gap-y-1` per user request for compact cards — row heights from content alone already give enough visual separation
+
+**XIRR pill wrapping bug (narrow tiles)**
+- In 2-column tiles (Stocks/MF, segment Breakdown cards), the `XIRR +33.29%` pill would wrap to two lines when the percentage had more digits, breaking the grid alignment above it
+- Fixed: `whitespace-nowrap` added to the XIRR pill span in both `BreakCard` and the separate Stocks/MF tile block in `PortfoliosPage.tsx`
+
+**Filters toggle pill bug (Status / View segmented controls)**
+- Sliding indicator assumed equal-width segments (`w-1/3`/`w-1/2` flex-1), but buttons sized to their own text content ("Closed" wider than "Open"/"All") — indicator drifted and visually covered part of the longer label's text
+- Fixed: gave both toggles a fixed container width (`w-[150px]`) + `text-center`/`whitespace-nowrap` on buttons so segments are truly equal
+
+**Settings popover (Holdings page gear icon) — redesigned**
+- Action rows (Add New Holdings / Charts / Dividends / Benchmarking analysis) consolidated here; sync icons removed from each tab's own top bar (Charts strip, Dividends tab header, Benchmarking pill row) for a cleaner per-tab UI
+- Row background lightened to `bg-emerald-50/60` (was solid `bg-emerald-50`)
+- Status + Show Closed merged into one card (single border, internal `border-t` divider) instead of two separate bordered boxes
+- "Show Closed" label restyled to match "Status"/"View" pattern (`text-[10px] text-slate-400 uppercase tracking-widest`), kept label-left/toggle-right (not right-indented — tried indenting, reverted per feedback)
+- All 4 action buttons made uniform: `w-[70px]`, no icon, single short verb ("Add"/"Refresh"/"Update"); button shows "Syncing…" as text during sync instead of a spin icon
+- Datetime moved outside/below the button, centered (`items-center`, not `items-end` — right-aligned looked off-center under a centered button)
+- Benchmark XIRR hook (`useBenchmarkXirr`) enabled flag changed from `activeTab === 'analysis' && !!data` to `!!data` — otherwise the new settings-popover refresh button did nothing and the timestamp never appeared until the user had visited the Analysis tab at least once
+
+**TransactionsPage tab bar height**
+- "Txns/Charts/Research/Notes" segmented control `py-1` → `py-2` (was too short relative to the rest of the page)
+
 ### 2026-06-16 (session 125)
 
 **1D / ALL text pills on all cards**
