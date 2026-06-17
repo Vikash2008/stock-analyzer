@@ -107,6 +107,7 @@ export interface QuickStats {
 }
 
 export interface PortfolioData {
+  csv_hash?:           string         // present only when backend computed from a real uploaded CSV (not demo)
   currency:            'INR' | 'USD'
   usd_inr:             number
   total_invested:      number

@@ -7,6 +7,18 @@ function getCsvContent(): string | undefined {
   return localStorage.getItem('portfolio:csv') ?? undefined
 }
 
+// Backend only sets csv_hash on the real-CSV (POST) response, never on the demo (GET) response.
+// If we sent a CSV but got back data without csv_hash, something went wrong — refuse it so
+// React Query retries instead of silently caching/showing demo data over real data.
+async function fetchPortfolioGuarded(forceRefresh: boolean): Promise<PortfolioData> {
+  const csvContent = getCsvContent()
+  const data = await fetchPortfolio('INR', forceRefresh, csvContent)
+  if (csvContent && !data.csv_hash) {
+    throw new Error('Expected real portfolio data but got demo data — retrying')
+  }
+  return data
+}
+
 const REFRESH_MS = 30 * 60 * 1000
 
 // Always fetch in INR — per-portfolio USD conversion is done on the frontend.
@@ -31,7 +43,7 @@ export function usePortfolio(_currency: 'INR' | 'USD' = 'INR') {
 
   return useQuery({
     queryKey: ['portfolio'],
-    queryFn: () => fetchPortfolio('INR', false, getCsvContent()),
+    queryFn: () => fetchPortfolioGuarded(false),
     staleTime:                   REFRESH_MS,
     gcTime:                      Infinity,
     refetchInterval:             REFRESH_MS,     // fires when tab is active (desktop/foreground)
@@ -48,7 +60,7 @@ export function useForceRefresh(_currency: 'INR' | 'USD') {
   return () =>
     qc.fetchQuery({
       queryKey: ['portfolio'],
-      queryFn: () => fetchPortfolio('INR', true, getCsvContent()),
+      queryFn: () => fetchPortfolioGuarded(true),
       staleTime: 0,
     })
 }
