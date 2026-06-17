@@ -332,6 +332,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           localStorage.removeItem('portfolio:import:lastError')
           setLastImportError(null)
         } else {
+          logDebug(`IMPORT FAILED: backend responded ${res.status}`)
           const ts = Date.now()
           try { localStorage.setItem('portfolio:import:lastError', String(ts)) } catch {}
           setLastImportError(ts)
@@ -339,8 +340,9 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           clearTimeout(importFailBannerTimer.current)
           importFailBannerTimer.current = setTimeout(() => setImportFailBanner(false), 2000)
         }
-      } catch {
+      } catch (e) {
         // timed out or network error — CSV in localStorage, next load will retry
+        logDebug(`IMPORT FAILED: backend fetch threw — ${String(e)}`)
         const ts = Date.now()
         try { localStorage.setItem('portfolio:import:lastError', String(ts)) } catch {}
         setLastImportError(ts)
