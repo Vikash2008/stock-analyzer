@@ -39,6 +39,21 @@ _TTL: dict[str, Optional[float]] = {
     "quickstats":  None,        # permanent layer — per-symbol TTL managed in router (24h)
 }
 
+# Per-symbol layers use a dynamic key prefix (qs:{SYMBOL}, divs:{SYMBOL}) instead of a
+# fixed layer name, so they fall outside _TTL above and is_fresh() treats them as
+# permanent — they were never actually evicted. TTLs here must match the routers that
+# write them (backend/routers/quickstats.py _DISK_TTL, backend/routers/dividends.py
+# _SYM_DIV_TTL) so prune() can age them out the same way those routers already intend to.
+_PREFIX_TTL: dict[str, float] = {
+    "qs:":   86400.0,
+    "divs:": 30 * 86400.0,
+}
+
+# Each uploaded CSV gets its own permanent fifo:{hash}:* entry that's never otherwise
+# removed — cap how many distinct hashes we keep so repeated re-uploads/testing don't
+# accumulate forever.
+_MAX_FIFO_HASHES = 5
+
 # Module-level singleton: loaded from disk once per process lifetime.
 # Mutations (set/invalidate) update this dict in-place, so all Cache
 # instances in the same process share the same live state.
@@ -64,9 +79,47 @@ class Cache:
         return {}
 
     def save(self) -> None:
+        self.prune()
         _FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(_FILE, "wb") as f:
             pickle.dump(self._data, f)
+
+    def prune(self) -> None:
+        """Actively drop expired/excess entries instead of just ignoring them on read —
+        is_fresh() only gates what get() returns, it never removes anything, so without
+        this the in-memory/disk cache grows forever for the life of the process."""
+        now = time.time()
+
+        # Named layers with a finite TTL (prices/prev_closes/info/fx)
+        for layer, ttl in _TTL.items():
+            if ttl is None:
+                continue
+            ts = self._data.get(f"{layer}:ts")
+            if ts is not None and now - ts > ttl:
+                self._data.pop(f"{layer}:value", None)
+                self._data.pop(f"{layer}:ts", None)
+
+        # Dynamic per-symbol layers (qs:SYMBOL, divs:SYMBOL)
+        for prefix, ttl in _PREFIX_TTL.items():
+            for ts_key in [k for k in self._data if k.startswith(prefix) and k.endswith(":ts")]:
+                ts = self._data.get(ts_key, 0)
+                if now - ts > ttl:
+                    layer = ts_key[: -len(":ts")]
+                    self._data.pop(f"{layer}:value", None)
+                    self._data.pop(ts_key, None)
+
+        # Cap distinct uploaded-CSV FIFO entries — keep only the most recently set N.
+        # "demo" is excluded — it's the bundled committed file, always kept.
+        fifo_hashes = sorted(
+            (k.split(":", 2)[1] for k in self._data
+             if k.startswith("fifo:") and k.endswith(":ts") and k != "fifo:ts"
+             and k.split(":", 2)[1] != "demo"),
+            key=lambda h: self._data.get(f"fifo:{h}:ts", 0),
+            reverse=True,
+        )
+        for stale_hash in fifo_hashes[_MAX_FIFO_HASHES:]:
+            for suffix in ("txns", "raw", "real", "lots", "version", "ts"):
+                self._data.pop(f"fifo:{stale_hash}:{suffix}", None)
 
     # ── Read / write ──────────────────────────────────────────────────────────
 
@@ -125,6 +178,7 @@ class Cache:
         self._data[f"fifo:{key}:real"]    = realized
         self._data[f"fifo:{key}:lots"]    = fx_lots or []
         self._data[f"fifo:{key}:version"] = self._FIFO_VERSION
+        self._data[f"fifo:{key}:ts"]      = time.time()
         self._data["fifo:ts"]             = time.time()
         self.save()
 
