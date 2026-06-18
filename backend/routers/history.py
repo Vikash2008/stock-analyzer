@@ -32,7 +32,10 @@ router = APIRouter()
 _series_cache: dict[str, dict] = {}     # yf_symbol -> {dates, prices, fetched_at, last_bar_date}
 _intraday_cache: dict[str, tuple[dict, float]] = {}
 _INTRADAY_TTL = 3600.0  # 1 hour  — intraday
-_sem          = asyncio.Semaphore(4)  # max 4 concurrent yfinance fetches
+_sem          = asyncio.Semaphore(8)  # max concurrent yfinance fetches — was 4; too low a cap meant
+                                       # a mass refetch burst (e.g. every symbol going stale at once
+                                       # after the app was backgrounded a while) trickled through far
+                                       # too slowly
 
 # Neither cache above ever had entries removed — every distinct symbol ever requested
 # (not just current portfolio holdings, but every Explore/Quick-Stats lookup too) stayed

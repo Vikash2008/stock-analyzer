@@ -734,6 +734,17 @@ export default function HoldingsPage({ currency }: Props) {
     if (!histLoading && loadedCount > 0) setHistLastSynced(new Date())
   }, [histLoading, loadedCount])
 
+  // Progress-bar "done" count must never visibly decrease — totalCount - histFetchingCount
+  // (used once everything has loaded at least once) tracks *currently in-flight* requests,
+  // which rises and falls non-monotonically as the backend's concurrency cap (4 at a time)
+  // works through a burst of refetches (e.g. every symbol going stale at once after the app
+  // was backgrounded a while). Clamp to the highest value seen this cycle; reset when a new
+  // fetch cycle actually starts.
+  const histMaxDoneRef = useRef(0)
+  const histWasFetchingRef = useRef(false)
+  if (histIsFetching && !histWasFetchingRef.current) histMaxDoneRef.current = 0
+  histWasFetchingRef.current = histIsFetching
+
   // Set benchLastSynced whenever benchmark data is available (initial load from cache OR after sync)
   useEffect(() => {
     if (!benchLoading && !benchFetching && benchSectors.length > 0) setBenchLastSynced(new Date())
@@ -1551,7 +1562,9 @@ export default function HoldingsPage({ currency }: Props) {
               aggregate "Total" view) any background refresh including 30-min auto-ticks */}
           {(histLoading || (syncing && histIsFetching) || (segment === 'total' && histIsFetching)) && (() => {
             const isFirst = loadedCount < totalCount
-            const done    = isFirst ? loadedCount : totalCount - histFetchingCount
+            const rawDone = isFirst ? loadedCount : totalCount - histFetchingCount
+            histMaxDoneRef.current = Math.max(histMaxDoneRef.current, rawDone)
+            const done    = histMaxDoneRef.current
             const pct     = totalCount > 0 ? done / totalCount * 100 : 0
             const color   = METRIC_STYLE[chartMetric].line
             return (
