@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -130,6 +131,7 @@ def build(
     from src.portfolio import calculate_holdings, enrich_holdings
     from src.price_fetcher import get_prices_and_prev_close, get_tickers_info, get_usd_inr_rate
 
+    _build_t0 = time.perf_counter()
     cache = Cache()
 
     # ── Layer 1: FIFO (permanent, mtime/hash-gated) ───────────────────────────
@@ -153,10 +155,14 @@ def build(
 
     # ── Layer 2: Prices + FX (30-min TTL) ────────────────────────────────────
     if force_refresh_prices or not cache.is_fresh("prices"):
-        print("[engine] Fetching live prices…")
         symbols = list(holdings_raw["yf_symbol"].unique())
+        print(f"[engine] Fetching live prices… ({len(symbols)} symbols)")
+        _t0 = time.perf_counter()
         prices, prev_closes = get_prices_and_prev_close(symbols)
+        print(f"[engine] get_prices_and_prev_close took {time.perf_counter() - _t0:.2f}s")
+        _t0 = time.perf_counter()
         usd_inr = get_usd_inr_rate()
+        print(f"[engine] get_usd_inr_rate took {time.perf_counter() - _t0:.2f}s")
         cache.set("prices", prices)
         cache.set("prev_closes", prev_closes)
         cache.set("fx", usd_inr)
@@ -282,7 +288,7 @@ def build(
         if _v is not None:
             xirr_by_portfolio[_p] = _v
 
-    return PortfolioBundle(
+    bundle = PortfolioBundle(
         selected_portfolios=selected_portfolios,
         currency=currency,
         usd_inr=usd_inr,
@@ -302,3 +308,5 @@ def build(
         all_portfolios=all_portfolios,
         cache_status=cache.status(),
     )
+    print(f"[engine] build() total took {time.perf_counter() - _build_t0:.2f}s")
+    return bundle

@@ -54,6 +54,6 @@ app.include_router(search_router)
 app.include_router(dividends_router)
 app.include_router(add_txn_router)
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health():
     return {"status": "ok"}
