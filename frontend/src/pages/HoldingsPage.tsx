@@ -683,6 +683,7 @@ export default function HoldingsPage({ currency }: Props) {
     currency,
     !!data,
     closedYfSymbolsArr,
+    closedYfSymbolsArr,
   )
 
   // Stop sync spinner once all history queries have finished refetching
@@ -1243,7 +1244,20 @@ export default function HoldingsPage({ currency }: Props) {
                     <span className="text-[11px] font-medium text-emerald-700">Charts</span>
                     <div className="flex flex-col items-center gap-0.5 shrink-0">
                       <button
-                        onClick={() => { if (syncing) return; setSyncing(true); qc.refetchQueries({ queryKey: ['history'], type: 'active' }) }}
+                        onClick={() => {
+                          if (syncing) return
+                          setSyncing(true)
+                          // Priority: the symbols of the view you clicked Refresh from finish first;
+                          // everything else (other portfolios already prefetched in the background) follows.
+                          const activeSymbols = new Set(filteredHoldings.map(h => h.yf_symbol))
+                          qc.refetchQueries({
+                            predicate: q => q.queryKey[0] === 'history' && activeSymbols.has(q.queryKey[1] as string),
+                            type: 'active',
+                          }).then(() => qc.refetchQueries({
+                            predicate: q => q.queryKey[0] === 'history' && !activeSymbols.has(q.queryKey[1] as string),
+                            type: 'active',
+                          }))
+                        }}
                         className="w-[70px] text-center bg-emerald-700 text-white text-[10px] font-semibold rounded-full px-3 py-1 active:bg-emerald-800"
                       >
                         {syncing ? 'Syncing…' : 'Refresh'}
@@ -1523,8 +1537,9 @@ export default function HoldingsPage({ currency }: Props) {
       {/* ── Charts tab ── */}
       {activeTab === 'charts' && (
         <div className="pt-1 pb-3">
-          {/* Progress bar — only when we have nothing cached to show yet, or a manual sync is actually still in flight */}
-          {(histLoading || (syncing && histIsFetching)) && (() => {
+          {/* Progress bar — true cold load, a manual sync in flight, or (for the heavier
+              aggregate "Total" view) any background refresh including 30-min auto-ticks */}
+          {(histLoading || (syncing && histIsFetching) || (segment === 'total' && histIsFetching)) && (() => {
             const isFirst = loadedCount < totalCount
             const done    = isFirst ? loadedCount : totalCount - histFetchingCount
             const pct     = totalCount > 0 ? done / totalCount * 100 : 0
@@ -1548,8 +1563,9 @@ export default function HoldingsPage({ currency }: Props) {
             )
           })()}
 
-          {/* Charts already rendered from cache — silent background revalidation, no blocking bar */}
-          {!histLoading && !syncing && histIsFetching && (
+          {/* Charts already rendered from cache — silent background revalidation, no blocking bar.
+              Aggregate "Total" view uses the fuller progress bar above instead (heavier, many symbols). */}
+          {!histLoading && !syncing && histIsFetching && segment !== 'total' && (
             <div className="flex justify-end text-[9px] text-slate-400 mb-2">
               <span className="flex items-center gap-1">
                 <span className="inline-block animate-spin leading-none text-[9px]">↻</span>

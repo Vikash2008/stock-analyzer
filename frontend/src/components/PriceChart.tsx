@@ -19,6 +19,7 @@ interface PriceChartProps {
   usdInr:       number
   hideLegend?:  boolean
   showZoom?:    boolean
+  isClosed?:    boolean
 }
 
 interface ChartPoint {
@@ -116,7 +117,7 @@ function SellDot(props: any) {
   return <circle cx={cx} cy={cy} r={r} fill="#f43f5e" stroke="#fff" strokeWidth={1.5} />
 }
 
-export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLegend = false, showZoom = false }: PriceChartProps) {
+export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLegend = false, showZoom = false, isClosed = false }: PriceChartProps) {
   const [range,  setRange]  = useState<ChartRange>('1y')
   const [zoomed, setZoomed] = useState(false)
 
@@ -138,7 +139,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
     if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
   }
   const start = '2015-01-01'
-  const { data: history,         isLoading: dailyLoading, isFetching: dailyFetching } = useHistory(yf_symbol, start)
+  const { data: history,         isLoading: dailyLoading, isFetching: dailyFetching } = useHistory(yf_symbol, start, undefined, isClosed)
   const { data: intradayHistory, isLoading: intLoading,   isFetching: intFetching   } = useHistory(yf_symbol, null, '1d')
 
   const allChartData = useMemo(() => {

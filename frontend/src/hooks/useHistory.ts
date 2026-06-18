@@ -10,16 +10,21 @@ interface HistoryData {
 
 const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
 const LS_PREFIX = 'hist:'
-const LS_TTL    = 7 * 24 * 60 * 60 * 1000 // 7 days
+const LS_TTL        = 7 * 24 * 60 * 60 * 1000  // 7 days — open/default holdings
+export const CLOSED_LS_TTL = 30 * 24 * 60 * 60 * 1000  // 30 days — fully-exited holdings
+
+// Same cadence as the portfolio price sync (usePortfolio.ts) — keep both auto-refresh
+// loops on one consistent mental model even though they remain separate triggers.
+export const REFRESH_MS = 30 * 60 * 1000
 
 // Exported so usePortfolioHistory.ts can share this same per-symbol cache —
 // all chart surfaces (price chart, holding/portfolio 7-charts) read/write one pool.
-export function lsGet(key: string): HistoryData | undefined {
+export function lsGet(key: string, ttlMs: number = LS_TTL): HistoryData | undefined {
   try {
     const raw = localStorage.getItem(LS_PREFIX + key)
     if (!raw) return undefined
     const { d, t } = JSON.parse(raw)
-    if (Date.now() - t > LS_TTL) { localStorage.removeItem(LS_PREFIX + key); return undefined }
+    if (Date.now() - t > ttlMs) { localStorage.removeItem(LS_PREFIX + key); return undefined }
     return d as HistoryData
   } catch { return undefined }
 }
@@ -89,12 +94,36 @@ export function usePrefetchHoldingCharts(yf_symbols: string[]) {
   }, [symbolsKey, qc])
 }
 
-export function useHistory(yf_symbol: string | null, start: string | null, period?: string) {
-  const lsKey  = `${yf_symbol}:${period ?? start}`
-  const cached = yf_symbol ? lsGet(lsKey) : undefined
+export function useHistory(yf_symbol: string | null, start: string | null, period?: string, isClosed?: boolean) {
+  const qc      = useQueryClient()
+  const lsKey   = `${yf_symbol}:${period ?? start}`
+  const ttl     = isClosed ? CLOSED_LS_TTL : LS_TTL
+  const cached  = yf_symbol ? lsGet(lsKey, ttl) : undefined
+  const queryKey = period ? ['history', yf_symbol, period] : ['history', yf_symbol]
+
+  // Closed holdings fetch fresh on every mount (per the Price chart's own "did I just
+  // open this stock" trigger) but don't keep auto-ticking every 30 min while viewed.
+  const autoRefresh = !isClosed
+
+  // Mobile browsers suspend JS timers when screen locks or app backgrounds — same
+  // visibilitychange + elapsed-check pattern usePortfolio.ts uses for price sync.
+  useEffect(() => {
+    if (!autoRefresh || !yf_symbol) return
+    const handleVisibility = () => {
+      if (document.visibilityState !== 'visible') return
+      const state = qc.getQueryState(queryKey)
+      const lastFetch = state?.dataUpdatedAt ?? 0
+      if (Date.now() - lastFetch >= REFRESH_MS) {
+        qc.refetchQueries({ queryKey, type: 'active' })
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRefresh, yf_symbol, period, start])
 
   return useQuery({
-    queryKey:  period ? ['history', yf_symbol, period] : ['history', yf_symbol],
+    queryKey,
     queryFn:   async () => {
       const data = await fetchHistory(yf_symbol!, start, period)
       // persist to localStorage so next cold-start shows data immediately
@@ -102,8 +131,10 @@ export function useHistory(yf_symbol: string | null, start: string | null, perio
       return data
     },
     enabled:         !!yf_symbol && (!!start || !!period),
-    staleTime:       Infinity,
+    staleTime:       autoRefresh ? REFRESH_MS : Infinity,
     gcTime:          Infinity,
+    refetchInterval:             autoRefresh ? REFRESH_MS : false,
+    refetchIntervalInBackground: false,
     retry:           3,
     retryDelay:      20_000,
     // show localStorage cache immediately while background fetch runs

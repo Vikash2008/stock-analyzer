@@ -1,10 +1,10 @@
-import { useQueries } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useQueries, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useMemo } from 'react'
 import type { Holding, Transaction, Realized } from '../api/types'
 import type { Currency } from '../App'
 import { USD_PORTS } from '../utils/segments'
 import { computeXIRR } from '../utils/xirr'
-import { lsGet, lsSet } from './useHistory'
+import { lsGet, lsSet, CLOSED_LS_TTL, REFRESH_MS } from './useHistory'
 
 const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
 
@@ -51,28 +51,67 @@ export function usePortfolioHistory(
   usdInr:        number,
   currency:      Currency,
   enabled:       boolean,
-  extraSymbols?: string[],  // additional symbols to fetch for symbolPriceMap (e.g. closed positions)
+  extraSymbols?:    string[],  // additional symbols to fetch for symbolPriceMap (e.g. closed positions)
+  closedSymbols?:   string[],  // subset of (holdings yf_symbols ∪ extraSymbols) that are fully exited
+  prioritySymbols?: string[],  // symbols belonging to the currently active view — fetched first
 ) {
-  const symbols = useMemo(
-    () => [...new Set([...holdings.map(h => h.yf_symbol), ...(extraSymbols ?? [])])],
-    [holdings, extraSymbols],
-  )
+  const qc = useQueryClient()
+  const closedSet = useMemo(() => new Set(closedSymbols ?? []), [closedSymbols])
+
+  const symbols = useMemo(() => {
+    const all = [...new Set([...holdings.map(h => h.yf_symbol), ...(extraSymbols ?? [])])]
+    if (!prioritySymbols?.length) return all
+    const prioritySet = new Set(prioritySymbols)
+    // Reorder so priority symbols' queries are issued first — both the browser's
+    // connection pool and the backend's concurrency cap then naturally service them first.
+    return [...all.filter(s => prioritySet.has(s)), ...all.filter(s => !prioritySet.has(s))]
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [holdings, extraSymbols, prioritySymbols])
 
   const queries = useQueries({
-    queries: symbols.map(sym => ({
-      queryKey:  ['history', sym],
-      queryFn:   () => fetchSymHistory(sym, '2015-01-01'),
-      enabled,
-      staleTime:    Infinity,  // never auto-refetch; cleared only on force refresh
-      gcTime:       Infinity,  // keep in memory for entire session
-      retry:        2,
-      retryDelay:   8_000,
-      retryOnMount: false,     // error-state queries stay counted on navigation; avoids backwards counter
-      // Show the cached chart (possibly a few days old) instantly instead of blocking on
-      // the live fetch — same cache the price chart already reads/writes (useHistory.ts).
-      placeholderData: () => lsGet(lsKey(sym)),
-    })),
+    queries: symbols.map(sym => {
+      const isClosed = closedSet.has(sym)
+      return {
+        queryKey:  isClosed ? ['history-closed', sym] : ['history', sym],
+        queryFn:   () => fetchSymHistory(sym, '2015-01-01'),
+        // Closed symbols: skip the network entirely once a still-fresh (<30 day) cache exists.
+        enabled:   enabled && (!isClosed || !lsGet(lsKey(sym), CLOSED_LS_TTL)),
+        staleTime:    isClosed ? CLOSED_LS_TTL : REFRESH_MS,
+        gcTime:       Infinity,  // keep in memory for entire session
+        refetchInterval:             isClosed ? false : REFRESH_MS,
+        refetchIntervalInBackground: false,
+        retry:        2,
+        retryDelay:   8_000,
+        retryOnMount: false,     // error-state queries stay counted on navigation; avoids backwards counter
+        // Show the cached chart (possibly a few days old) instantly instead of blocking on
+        // the live fetch — same cache the price chart already reads/writes (useHistory.ts).
+        placeholderData: () => lsGet(lsKey(sym), isClosed ? CLOSED_LS_TTL : undefined),
+      }
+    }),
   })
+
+  // Mobile browsers suspend JS timers when screen locks or app backgrounds — same
+  // visibilitychange + elapsed-check pattern usePortfolio.ts/useHistory.ts use.
+  const openSymbolsKey = useMemo(
+    () => symbols.filter(s => !closedSet.has(s)).slice().sort().join(','),
+    [symbols, closedSet],
+  )
+  useEffect(() => {
+    if (!enabled || !openSymbolsKey) return
+    const openSymbols = openSymbolsKey.split(',')
+    const handleVisibility = () => {
+      if (document.visibilityState !== 'visible') return
+      for (const sym of openSymbols) {
+        const state = qc.getQueryState(['history', sym])
+        const lastFetch = state?.dataUpdatedAt ?? 0
+        if (Date.now() - lastFetch >= REFRESH_MS) {
+          qc.refetchQueries({ queryKey: ['history', sym], type: 'active' })
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [enabled, openSymbolsKey, qc])
 
   const loadedCount   = queries.filter(q => q.status === 'success' || q.status === 'error').length
   const fetchingCount = queries.filter(q => q.fetchStatus === 'fetching').length

@@ -177,6 +177,16 @@ export default function TransactionsPage({ currency }: Props) {
     })
   }, [holdingArr, symTxns, data, decoded.symbol])
 
+  // Non-empty only when this stock has no open position (synthetic holdings above) —
+  // signals usePortfolioHistory/PriceChart to use the long-lived closed-holding cache tier.
+  const closedSymbolsArr = useMemo(
+    () => (holdingArr.length === 0 && holdingArrForCharts.length > 0)
+      ? [...new Set(holdingArrForCharts.map(h => h.yf_symbol))]
+      : [],
+    [holdingArr, holdingArrForCharts],
+  )
+  const isClosedStock = closedSymbolsArr.length > 0
+
   // Pre-compute yf_symbol before early returns so useQuickStats hook order is stable
   const yf_for_hook = useMemo(() => {
     if (!data) return decoded.symbol
@@ -285,6 +295,8 @@ export default function TransactionsPage({ currency }: Props) {
     data?.usd_inr ?? 95.5,
     currency,
     !!data,
+    undefined,
+    closedSymbolsArr,
   )
 
   const metricSeries = useMemo((): DatedSeries | null => {
@@ -772,6 +784,7 @@ export default function TransactionsPage({ currency }: Props) {
                 currency={dispCur}
                 usdInr={data.usd_inr}
                 showZoom
+                isClosed={isClosedStock}
               />
             </div>
           )}
@@ -933,7 +946,7 @@ export default function TransactionsPage({ currency }: Props) {
             </div>
             {chartMetric === 'Price' ? (
               <div style={{ flex: 1, minHeight: 0, background: '#fff', borderRadius: 12, padding: 10, overflow: 'hidden' }}>
-                <PriceChart transactions={symTxns} yf_symbol={yf} currency={dispCur} usdInr={data.usd_inr} />
+                <PriceChart transactions={symTxns} yf_symbol={yf} currency={dispCur} usdInr={data.usd_inr} isClosed={isClosedStock} />
               </div>
             ) : metricSeries && rechartsData.length > 0 ? (
               <>
