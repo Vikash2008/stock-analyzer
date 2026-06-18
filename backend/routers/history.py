@@ -34,6 +34,19 @@ _intraday_cache: dict[str, tuple[dict, float]] = {}
 _INTRADAY_TTL = 3600.0  # 1 hour  — intraday
 _sem          = asyncio.Semaphore(4)  # max 4 concurrent yfinance fetches
 
+# Neither cache above ever had entries removed — every distinct symbol ever requested
+# (not just current portfolio holdings, but every Explore/Quick-Stats lookup too) stayed
+# in memory for the life of the process. Cap each to the most-recently-fetched N symbols.
+_MAX_SERIES_SYMBOLS = 300
+_MAX_INTRADAY_SYMBOLS = 300
+
+
+def _evict_oldest(cache: dict, max_size: int, ts_of) -> None:
+    if len(cache) <= max_size:
+        return
+    for sym, _ in sorted(cache.items(), key=lambda kv: ts_of(kv[1]))[: len(cache) - max_size]:
+        cache.pop(sym, None)
+
 
 def _download(yf_symbol: str, start) -> dict:
     try:
@@ -70,6 +83,7 @@ def _fetch_incremental(yf_symbol: str, start: str) -> dict:
             "fetched_at": time.time(), "last_bar_date": fresh["dates"][-1],
         }
         _series_cache[yf_symbol] = entry
+        _evict_oldest(_series_cache, _MAX_SERIES_SYMBOLS, lambda e: e["fetched_at"])
         return entry
 
     # Defensive: caller wants data older than what we have cached.
@@ -82,6 +96,7 @@ def _fetch_incremental(yf_symbol: str, start: str) -> dict:
             "fetched_at": time.time(), "last_bar_date": fresh["dates"][-1] if fresh["dates"] else cached["last_bar_date"],
         }
         _series_cache[yf_symbol] = entry
+        _evict_oldest(_series_cache, _MAX_SERIES_SYMBOLS, lambda e: e["fetched_at"])
         return entry
 
     # Delta fetch — re-pull from the last cached bar onward (yfinance can revise
@@ -102,6 +117,7 @@ def _fetch_incremental(yf_symbol: str, start: str) -> dict:
         "last_bar_date": dates[-1] if dates else cached["last_bar_date"],
     }
     _series_cache[yf_symbol] = entry
+    _evict_oldest(_series_cache, _MAX_SERIES_SYMBOLS, lambda e: e["fetched_at"])
     return entry
 
 
@@ -172,6 +188,7 @@ async def get_history(
         async with _sem:
             data = await _fetch_intraday(yf_symbol)
         _intraday_cache[cache_key] = (data, now)
+        _evict_oldest(_intraday_cache, _MAX_INTRADAY_SYMBOLS, lambda v: v[1])
         return JSONResponse(content=data)
 
     if not start:

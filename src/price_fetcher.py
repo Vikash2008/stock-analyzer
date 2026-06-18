@@ -16,19 +16,22 @@ if _NAMES_FILE.exists():
 
 _QUOTE_CHUNK = 50
 _QUOTE_URL = "https://query1.finance.yahoo.com/v7/finance/quote"
+_QUOTE_TIMEOUT = 8  # seconds — fail fast and fall back rather than hang on yfinance's 30s default
 
 
 def _fetch_quote_batch(symbols: List[str]) -> Tuple[Dict[str, Optional[float]], Dict[str, Optional[float]]]:
     """Fetch last price + previous close via Yahoo's lightweight quote endpoint."""
     t = yf.Ticker(symbols[0])
-    _ = t.fast_info  # establishes yfinance's cookie/crumb session, cached across calls
     d = t._data
+    # Establish cookie/crumb directly with a short timeout — avoids fast_info's extra
+    # (unused) network round trip and its unbounded default timeout.
+    d._get_cookie_and_crumb(timeout=_QUOTE_TIMEOUT)
 
     prices: Dict[str, Optional[float]] = {s: None for s in symbols}
     prev_closes: Dict[str, Optional[float]] = {s: None for s in symbols}
     for i in range(0, len(symbols), _QUOTE_CHUNK):
         chunk = symbols[i:i + _QUOTE_CHUNK]
-        resp = d.get(_QUOTE_URL, params={"symbols": ",".join(chunk)})
+        resp = d.get(_QUOTE_URL, params={"symbols": ",".join(chunk)}, timeout=_QUOTE_TIMEOUT)
         results = resp.json().get("quoteResponse", {}).get("result", [])
         for r in results:
             sym = r.get("symbol")
@@ -125,14 +128,15 @@ def get_tickers_info(symbols: List[str]) -> Dict[str, dict]:
 
 def get_usd_inr_rate() -> float:
     """Return live USD/INR rate, trying multiple methods, falling back to 85.5."""
-    for ticker in ("INR=X", "USDINR=X"):
-        try:
-            info = yf.Ticker(ticker).fast_info
-            rate = getattr(info, "last_price", None) or getattr(info, "regular_market_price", None)
-            if rate and 70 < rate < 120:
-                return float(rate)
-        except Exception:
-            pass
+    # Lightweight quote endpoint first — bounded timeout (_QUOTE_TIMEOUT), avoids
+    # fast_info's unbounded default (was causing long stalls on flaky networks).
+    try:
+        prices, _ = _fetch_quote_batch(["INR=X"])
+        rate = prices.get("INR=X")
+        if rate and 70 < rate < 120:
+            return float(rate)
+    except Exception:
+        pass
     for ticker in ("INR=X", "USDINR=X"):
         try:
             raw = yf.download(ticker, period="5d", auto_adjust=True, progress=False)
