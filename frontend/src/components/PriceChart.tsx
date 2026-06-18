@@ -168,20 +168,45 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
     return v.toFixed(0)
   }
 
-  // Only block with full loader when there is truly no data (no cache, no placeholder)
+  const rangeBar = (
+    <div className="flex bg-slate-100 rounded-lg p-0.5 mt-3">
+      {RANGES.map(r => (
+        <button
+          key={r}
+          onClick={() => setRange(r)}
+          className={`flex-1 text-[10px] py-1 rounded-md font-medium transition-all ${
+            range === r
+              ? 'bg-white text-[#2563eb] shadow-sm'
+              : 'text-slate-400'
+          }`}
+        >
+          {r}
+        </button>
+      ))}
+    </div>
+  )
+
+  // Only block with full loader when there is truly no data (no cache, no placeholder).
+  // Range bar still renders so the user can tap to another range instead of getting stuck.
   if (isLoading && !chartData.length) {
     return (
-      <div className="h-48 flex items-center justify-center">
-        <div className="text-slate-400 text-xs animate-pulse">Loading chart…</div>
+      <div className="mt-2">
+        <div className="h-48 flex items-center justify-center">
+          <div className="text-slate-400 text-xs animate-pulse">Loading chart…</div>
+        </div>
+        {rangeBar}
       </div>
     )
   }
 
   if (!chartData.length) {
     return (
-      <div className="h-36 flex flex-col items-center justify-center gap-1">
-        <p className="text-slate-400 text-xs">No price history available</p>
-        {isBgFetch && <p className="text-slate-300 text-xs animate-pulse">Retrying…</p>}
+      <div className="mt-2">
+        <div className="h-36 flex flex-col items-center justify-center gap-1">
+          <p className="text-slate-400 text-xs">No price history available</p>
+          {isBgFetch && <p className="text-slate-300 text-xs animate-pulse">Retrying…</p>}
+        </div>
+        {rangeBar}
       </div>
     )
   }
@@ -299,21 +324,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
       </ResponsiveContainer>
 
       {/* Range selector */}
-      <div className="flex bg-slate-100 rounded-lg p-0.5 mt-3">
-        {RANGES.map(r => (
-          <button
-            key={r}
-            onClick={() => setRange(r)}
-            className={`flex-1 text-[10px] py-1 rounded-md font-medium transition-all ${
-              range === r
-                ? 'bg-white text-[#2563eb] shadow-sm'
-                : 'text-slate-400'
-            }`}
-          >
-            {r}
-          </button>
-        ))}
-      </div>
+      {rangeBar}
 
       {/* Zoom overlay — ZoomChartOverlay (lightweight-charts) */}
       {showZoom && zoomed && (

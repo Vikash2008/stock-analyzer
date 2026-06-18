@@ -25,6 +25,7 @@ from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
 from backend.market_hours import is_stale
+from src.price_fetcher import get_prices_and_prev_close
 
 router = APIRouter()
 
@@ -112,7 +113,7 @@ def _slice_response(entry: dict, start: str) -> dict:
     return {"dates": dates[i:], "prices": prices[i:]}
 
 
-def _fetch_intraday(yf_symbol: str) -> dict:
+def _fetch_intraday_bars(yf_symbol: str) -> dict:
     try:
         df = yf.download(yf_symbol, period="1d", interval="5m", progress=False, auto_adjust=True)
         if df.empty:
@@ -126,26 +127,33 @@ def _fetch_intraday(yf_symbol: str) -> dict:
         else:
             idx = idx.tz_localize('UTC').tz_convert('Asia/Kolkata')
 
-        # Fetch prev_close from recent daily data (second-to-last completed day)
-        prev_close = None
-        try:
-            daily = yf.download(yf_symbol, period="5d", interval="1d", progress=False, auto_adjust=True)
-            if not daily.empty:
-                if isinstance(daily.columns, pd.MultiIndex):
-                    daily.columns = [c[0] for c in daily.columns]
-                daily_closes = daily["Close"].dropna()
-                if len(daily_closes) >= 2:
-                    prev_close = round(float(daily_closes.iloc[-2]), 4)
-        except Exception:
-            pass
-
         return {
-            "dates":     idx.strftime("%H:%M").tolist(),
-            "prices":    [round(float(p), 4) for p in closes.tolist()],
-            "prev_close": prev_close,
+            "dates":  idx.strftime("%H:%M").tolist(),
+            "prices": [round(float(p), 4) for p in closes.tolist()],
         }
     except Exception as exc:
         return {"dates": [], "prices": [], "error": str(exc)}
+
+
+def _fetch_prev_close(yf_symbol: str) -> Optional[float]:
+    # Lightweight quote endpoint instead of a second full OHLCV download —
+    # single small JSON response vs 5 days of bars just to read one number.
+    try:
+        _, prev_closes = get_prices_and_prev_close([yf_symbol])
+        return prev_closes.get(yf_symbol)
+    except Exception:
+        return None
+
+
+async def _fetch_intraday(yf_symbol: str) -> dict:
+    bars, prev_close = await asyncio.gather(
+        asyncio.to_thread(_fetch_intraday_bars, yf_symbol),
+        asyncio.to_thread(_fetch_prev_close, yf_symbol),
+    )
+    if "error" in bars:
+        return bars
+    bars["prev_close"] = prev_close
+    return bars
 
 
 @router.get("/api/history")
@@ -162,7 +170,7 @@ async def get_history(
         if cached and (now - cached[1]) < _INTRADAY_TTL:
             return JSONResponse(content=cached[0])
         async with _sem:
-            data = await asyncio.to_thread(_fetch_intraday, yf_symbol)
+            data = await _fetch_intraday(yf_symbol)
         _intraday_cache[cache_key] = (data, now)
         return JSONResponse(content=data)
 
