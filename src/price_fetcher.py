@@ -1,4 +1,5 @@
 import json
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -16,7 +17,25 @@ if _NAMES_FILE.exists():
 
 _QUOTE_CHUNK = 50
 _QUOTE_URL = "https://query1.finance.yahoo.com/v7/finance/quote"
-_QUOTE_TIMEOUT = 8  # seconds — fail fast and fall back rather than hang on yfinance's 30s default
+_QUOTE_TIMEOUT = 8  # seconds — passed to yfinance's own per-request timeout where it's honored
+_HARD_TIMEOUT = 10  # seconds — outer wall-clock cap; yfinance's cookie-fetch step ignores the
+                     # timeout param entirely in some code paths (always 30s), so this thread-pool
+                     # wrapper is the only way to actually bound worst-case latency.
+_executor = ThreadPoolExecutor(max_workers=8)  # extra headroom — abandoned/hung calls occupy a
+                                                # worker until their underlying network call gives
+                                                # up on its own; too few workers would queue fresh
+                                                # requests behind those stragglers
+
+
+def _with_hard_timeout(fn, *args, timeout=_HARD_TIMEOUT):
+    """Run fn in a worker thread and give up waiting after `timeout`s.
+    The abandoned thread may keep running in the background (Python has no clean
+    way to kill a thread), but the caller is freed to fall back immediately."""
+    future = _executor.submit(fn, *args)
+    try:
+        return future.result(timeout=timeout)
+    except FutureTimeoutError:
+        raise TimeoutError(f"{fn.__name__} exceeded {timeout}s")
 
 
 def _fetch_quote_batch(symbols: List[str]) -> Tuple[Dict[str, Optional[float]], Dict[str, Optional[float]]]:
@@ -54,7 +73,7 @@ def get_prices_and_prev_close(
     if not symbols:
         return {}, {}
     try:
-        return _fetch_quote_batch(symbols)
+        return _with_hard_timeout(_fetch_quote_batch, symbols)
     except Exception:
         pass
 
@@ -128,10 +147,10 @@ def get_tickers_info(symbols: List[str]) -> Dict[str, dict]:
 
 def get_usd_inr_rate() -> float:
     """Return live USD/INR rate, trying multiple methods, falling back to 85.5."""
-    # Lightweight quote endpoint first — bounded timeout (_QUOTE_TIMEOUT), avoids
+    # Lightweight quote endpoint first — hard-bounded via _with_hard_timeout, avoids
     # fast_info's unbounded default (was causing long stalls on flaky networks).
     try:
-        prices, _ = _fetch_quote_batch(["INR=X"])
+        prices, _ = _with_hard_timeout(_fetch_quote_batch, ["INR=X"])
         rate = prices.get("INR=X")
         if rate and 70 < rate < 120:
             return float(rate)
