@@ -34,7 +34,7 @@ interface Props {
   sections: SectionInfo[]
   useLite: boolean
   use31: boolean
-  useKey: 0 | 1
+  useKey: 0 | 1 | 2
 }
 
 const CHAT_TTL = 7 * 24 * 3600 * 1000

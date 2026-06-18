@@ -20,7 +20,7 @@ export default function DebugOverlay() {
   if (!open) {
     return (
       <button
-        onClick={() => setEntries(getDebugLog()) || setOpen(true)}
+        onClick={() => { setEntries(getDebugLog()); setOpen(true) }}
         aria-label="Open debug log"
         className="fixed bottom-2 left-2 z-[9999] w-11 h-11 rounded-full bg-slate-800 text-white text-[16px] flex items-center justify-center opacity-60 active:opacity-100"
       >

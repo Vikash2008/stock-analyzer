@@ -63,18 +63,19 @@ def _shares_on_date(txns: pd.DataFrame, yf_symbol: str, ex_date: pd.Timestamp) -
     return max(0.0, float(buys - sells))
 
 
-def _fetch_symbol_divs(yf_sym: str) -> pd.Series | None:
+def _fetch_symbol_divs(yf_sym: str, force: bool = False) -> pd.Series | None:
     """Fetch dividends for one symbol with 30-day disk cache. Returns tz-stripped Series."""
     cache_key = f"divs:{yf_sym}"
-    try:
-        entry = Cache().get(cache_key)
-        if entry and (time.time() - entry.get("ts", 0)) < _SYM_DIV_TTL:
-            d = entry.get("data")
-            if not d:
-                return None
-            return pd.Series(d["values"], index=pd.to_datetime(d["dates"]))
-    except Exception:
-        pass
+    if not force:
+        try:
+            entry = Cache().get(cache_key)
+            if entry and (time.time() - entry.get("ts", 0)) < _SYM_DIV_TTL:
+                d = entry.get("data")
+                if not d:
+                    return None
+                return pd.Series(d["values"], index=pd.to_datetime(d["dates"]))
+        except Exception:
+            pass
 
     try:
         raw = yf.Ticker(yf_sym).dividends
@@ -117,7 +118,7 @@ def _cache_sym_divs(yf_sym: str, series: pd.Series | None) -> None:
         pass
 
 
-def _compute(txns: pd.DataFrame, usd_inr: float, portfolio: str | None = None) -> dict:
+def _compute(txns: pd.DataFrame, usd_inr: float, portfolio: str | None = None, force: bool = False) -> dict:
     if "portfolio" in txns.columns:
         txns = txns[~txns["portfolio"].isin(_SKIP_PORTS)].copy()
     if portfolio and "portfolio" in txns.columns:
@@ -142,7 +143,7 @@ def _compute(txns: pd.DataFrame, usd_inr: float, portfolio: str | None = None) -
     # Fetch all symbols in parallel — each call hits disk cache if within 30 days
     sym_keys = list(sym_meta.keys())
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as ex:
-        divs_list = list(ex.map(_fetch_symbol_divs, sym_keys))
+        divs_list = list(ex.map(lambda s: _fetch_symbol_divs(s, force=force), sym_keys))
     divs_map = dict(zip(sym_keys, divs_list))
 
     by_symbol: list[dict] = []
@@ -294,7 +295,7 @@ def get_dividends(
 
     txns    = _load_txns(csv_hash)
     usd_inr = get_usd_inr_rate()
-    result  = _compute(txns, usd_inr, portfolio=portfolio)
+    result  = _compute(txns, usd_inr, portfolio=portfolio, force=force_refresh)
 
     _mem[cache_key] = (result, now)
     return JSONResponse(content=result)

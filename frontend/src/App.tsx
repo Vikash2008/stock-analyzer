@@ -4,6 +4,7 @@ import { QueryClient, useIsRestoring } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
 import { usePortfolio } from './hooks/usePortfolio'
+import { useRefreshAllDividends, getLastDividendAutoRefreshMonth, setLastDividendAutoRefreshMonth } from './hooks/useDividends'
 import PortfoliosPage   from './pages/PortfoliosPage'
 import HoldingsPage     from './pages/HoldingsPage'
 import TransactionsPage from './pages/TransactionsPage'
@@ -90,6 +91,18 @@ function AppRoutes({ currency, onCurrencyChange }: { currency: Currency; onCurre
   const isRestoring = useIsRestoring()
   const { data } = usePortfolio()
   const loggedRestore = useRef(false)
+  const refreshAllDividends = useRefreshAllDividends()
+
+  // Once-per-calendar-month automatic dividends refresh — no other auto-refresh exists for
+  // dividends (no interval, no focus refetch); this is the only scheduled freshness trigger.
+  useEffect(() => {
+    if (!data?.all_portfolios) return
+    const thisMonth = new Date().toISOString().slice(0, 7) // "YYYY-MM"
+    if (getLastDividendAutoRefreshMonth() === thisMonth) return
+    setLastDividendAutoRefreshMonth(thisMonth)
+    refreshAllDividends(data.all_portfolios, undefined)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.all_portfolios])
 
   // One-time log of exactly what the gate saw right as restore finished — lets us tell,
   // after the fact, whether a blocking FetchingScreen was justified (nothing cached yet)

@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react'
 import { AddTransactionModal } from '../components/AddTransactionModal'
 import { DividendsTab } from '../components/DividendsTab'
 import { FxGainsTab } from '../components/FxGainsTab'
-import { useDividends, getIncludeDividends, getIncludeFxGains } from '../hooks/useDividends'
+import { useDividends, useRefreshAllDividends, getIncludeDividends, getIncludeFxGains } from '../hooks/useDividends'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   LineChart, Line, BarChart, Bar, ComposedChart,
@@ -201,6 +201,7 @@ export default function HoldingsPage({ currency }: Props) {
   )
   usePrefetchHoldingCharts(allSymbols)
   const { data: divData, isLoading: divLoading, isFetching: divFetching } = useDividends(portfolio)
+  const refreshAllDividends = useRefreshAllDividends()
   const [includeDivs, setIncludeDivs] = useState(getIncludeDividends)
   useEffect(() => {
     const handler = () => setIncludeDivs(getIncludeDividends())
@@ -1271,7 +1272,11 @@ export default function HoldingsPage({ currency }: Props) {
                     <span className="text-[11px] font-medium text-emerald-700">Dividends</span>
                     <div className="flex flex-col items-center gap-0.5 shrink-0">
                       <button
-                        onClick={() => { if (divSyncing) return; setDivSyncing(true); qc.refetchQueries({ queryKey: ['dividends'], type: 'active' }) }}
+                        onClick={() => {
+                          if (divSyncing) return
+                          setDivSyncing(true)
+                          refreshAllDividends(data?.all_portfolios ?? [], portfolio).finally(() => setDivSyncing(false))
+                        }}
                         className="w-[70px] text-center bg-emerald-700 text-white text-[10px] font-semibold rounded-full px-3 py-1 active:bg-emerald-800"
                       >
                         {divSyncing ? 'Syncing…' : 'Update'}
