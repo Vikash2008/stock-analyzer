@@ -1,4 +1,4 @@
-import { useQueries } from '@tanstack/react-query'
+import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { computeXIRR } from '../utils/xirr'
 import { getSectorForHolding, SECTOR_BENCHMARK, type SectorKey } from '../utils/sectors'
@@ -10,6 +10,38 @@ const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
 
 // Benchmark indices quoted in USD — need conversion to INR when displaying in INR
 const USD_BENCH_SYMS = new Set(['^NDX', '^GSPC', '^DJI', '^RUT'])
+
+// Fixed anchor (matches useHistory.ts's chart-fetch start) rather than a per-view earliest-
+// transaction date — keeps the cache key portfolio/segment-agnostic so switching views never
+// re-fetches the same benchmark index, and lets one refresh-all pass cover every view at once.
+const BENCH_START = '2015-01-01'
+const AUTO_KEY     = 'benchmark:autoRefreshDay'
+
+export function getLastBenchmarkAutoRefreshDay(): string | null {
+  return localStorage.getItem(AUTO_KEY)
+}
+
+export function setLastBenchmarkAutoRefreshDay(day: string): void {
+  try { localStorage.setItem(AUTO_KEY, day) } catch {}
+}
+
+/**
+ * Force-refreshes every benchmark index in SECTOR_BENCHMARK (a small fixed set, not derived
+ * from the user's holdings) — covers every portfolio/segment view in one pass since the cache
+ * key is no longer per-view. Fetches directly + writes via setQueryData rather than
+ * qc.fetchQuery/refetchQueries to avoid racing any already-mounted useQueries observer for the
+ * same key (same lesson learned from the dividends refresh fix).
+ */
+export function useRefreshAllBenchmarks() {
+  const qc = useQueryClient()
+  return async () => {
+    const syms = [...new Set(Object.values(SECTOR_BENCHMARK))]
+    await Promise.all(syms.map(async sym => {
+      const d = await fetchBenchHistory(sym, BENCH_START)
+      qc.setQueryData(['benchmark-hist', sym], d)
+    }))
+  }
+}
 
 async function fetchBenchHistory(yf_symbol: string, start: string): Promise<{ dates: string[]; prices: number[] }> {
   const params = new URLSearchParams({ yf_symbol, start })
@@ -77,8 +109,8 @@ export function useBenchmarkXirr(
   symbolPriceMap: Map<string, Map<string, number>> | null = null,
 ): BenchmarkOutput {
 
-  // Derive sector map + unique bench symbols + earliest date
-  const { yfToSector, uniqueBenchSyms, startDate } = useMemo(() => {
+  // Derive sector map + unique bench symbols
+  const { yfToSector, uniqueBenchSyms } = useMemo(() => {
     const m = new Map<string, SectorKey>()
     const benchSet = new Set<string>()
     const add = (yf: string) => {
@@ -88,22 +120,15 @@ export function useBenchmarkXirr(
     }
     for (const h of filteredHoldings) add(h.yf_symbol)
     for (const yf of closedYfSymbols) add(yf)
-    const dates = transactions
-      .filter(t => m.has(t.yf_symbol) && (t.type === 'BUY' || t.type === 'SELL'))
-      .map(t => t.date.slice(0, 10))
-      .sort()
-    return {
-      yfToSector:      m,
-      uniqueBenchSyms: [...benchSet],
-      startDate:       dates[0] ?? '2019-01-01',
-    }
-  }, [filteredHoldings, closedYfSymbols, transactions])
+    return { yfToSector: m, uniqueBenchSyms: [...benchSet] }
+  }, [filteredHoldings, closedYfSymbols])
 
-  // Fetch all benchmark histories in parallel
+  // Fetch all benchmark histories in parallel — fixed BENCH_START anchor (not a per-view
+  // earliest-transaction date) so the cache key is shared across every portfolio/segment view
   const histResults = useQueries({
     queries: uniqueBenchSyms.map(sym => ({
-      queryKey:  ['benchmark-hist', sym, startDate],
-      queryFn:   () => fetchBenchHistory(sym, startDate),
+      queryKey:  ['benchmark-hist', sym],
+      queryFn:   () => fetchBenchHistory(sym, BENCH_START),
       enabled:   enabled && uniqueBenchSyms.length > 0,
       staleTime: Infinity,
       gcTime:    Infinity,

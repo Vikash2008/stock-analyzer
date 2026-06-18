@@ -22,7 +22,7 @@ import { aggRealized, realizedForPorts } from '../utils/realized'
 import { filterBySegment, getSegmentType, SKIP_PORTS, SEGMENT_LABELS, USD_PORTS } from '../utils/segments'
 import { fmt, fmtGainLine, fmtCompact } from '../utils/fmt'
 import { getSectorForHolding, SECTOR_COLOR, BENCHMARK_LABEL, type SectorKey, getMarketCapForHolding, MARKET_CAP_COLOR, type MarketCapKey } from '../utils/sectors'
-import { useBenchmarkXirr } from '../hooks/useBenchmarkXirr'
+import { useBenchmarkXirr, useRefreshAllBenchmarks } from '../hooks/useBenchmarkXirr'
 import { computeXIRR } from '../utils/xirr'
 import type { Holding } from '../api/types'
 import type { Currency } from '../App'
@@ -254,6 +254,7 @@ export default function HoldingsPage({ currency }: Props) {
   }, [holdingFilter, showClosed, activeTab, viewMode, sortField, sortDir, sectorFilter])
   const [syncing,        setSyncing]        = useState(false)
   const [benchSyncing,   setBenchSyncing]   = useState(false)
+  const refreshAllBenchmarks = useRefreshAllBenchmarks()
   const [histLastSynced,  setHistLastSynced]  = useState<Date | null>(null)
   const [benchLastSynced, setBenchLastSynced] = useState<Date | null>(null)
   const [divSyncing,      setDivSyncing]      = useState(false)
@@ -1290,7 +1291,11 @@ export default function HoldingsPage({ currency }: Props) {
                     <span className="text-[11px] font-medium text-emerald-700">Benchmarking analysis</span>
                     <div className="flex flex-col items-center gap-0.5 shrink-0">
                       <button
-                        onClick={() => { if (benchSyncing) return; setBenchSyncing(true); qc.invalidateQueries({ queryKey: ['history'] }); qc.invalidateQueries({ queryKey: ['benchmark-hist'] }) }}
+                        onClick={() => {
+                          if (benchSyncing) return
+                          setBenchSyncing(true)
+                          refreshAllBenchmarks().finally(() => setBenchSyncing(false))
+                        }}
                         className="w-[70px] text-center bg-emerald-700 text-white text-[10px] font-semibold rounded-full px-3 py-1 active:bg-emerald-800"
                       >
                         {benchSyncing ? 'Syncing…' : 'Refresh'}

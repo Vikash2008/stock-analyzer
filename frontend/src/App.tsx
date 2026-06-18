@@ -5,6 +5,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
 import { usePortfolio } from './hooks/usePortfolio'
 import { useRefreshAllDividends, getLastDividendAutoRefreshMonth, setLastDividendAutoRefreshMonth } from './hooks/useDividends'
+import { useRefreshAllBenchmarks, getLastBenchmarkAutoRefreshDay, setLastBenchmarkAutoRefreshDay } from './hooks/useBenchmarkXirr'
 import PortfoliosPage   from './pages/PortfoliosPage'
 import HoldingsPage     from './pages/HoldingsPage'
 import TransactionsPage from './pages/TransactionsPage'
@@ -103,6 +104,18 @@ function AppRoutes({ currency, onCurrencyChange }: { currency: Currency; onCurre
     refreshAllDividends(data.all_portfolios, undefined)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.all_portfolios])
+
+  const refreshAllBenchmarks = useRefreshAllBenchmarks()
+
+  // Once-per-calendar-day automatic benchmark-index refresh — covers every portfolio/segment
+  // view in one pass since SECTOR_BENCHMARK is a fixed set, not derived from holdings, so this
+  // doesn't need to wait on portfolio data like the dividends effect above does.
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10) // "YYYY-MM-DD"
+    if (getLastBenchmarkAutoRefreshDay() === today) return
+    setLastBenchmarkAutoRefreshDay(today)
+    refreshAllBenchmarks()
+  }, [])
 
   // One-time log of exactly what the gate saw right as restore finished — lets us tell,
   // after the fact, whether a blocking FetchingScreen was justified (nothing cached yet)
