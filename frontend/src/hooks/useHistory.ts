@@ -17,16 +17,27 @@ export const CLOSED_LS_TTL = 30 * 24 * 60 * 60 * 1000  // 30 days — fully-exit
 // loops on one consistent mental model even though they remain separate triggers.
 export const REFRESH_MS = 30 * 60 * 1000
 
-// Exported so usePortfolioHistory.ts can share this same per-symbol cache —
-// all chart surfaces (price chart, holding/portfolio 7-charts) read/write one pool.
-export function lsGet(key: string, ttlMs: number = LS_TTL): HistoryData | undefined {
+function readLsEntry(key: string, ttlMs: number): { d: HistoryData; t: number } | undefined {
   try {
     const raw = localStorage.getItem(LS_PREFIX + key)
     if (!raw) return undefined
     const { d, t } = JSON.parse(raw)
     if (Date.now() - t > ttlMs) { localStorage.removeItem(LS_PREFIX + key); return undefined }
-    return d as HistoryData
+    return { d, t }
   } catch { return undefined }
+}
+
+// Exported so usePortfolioHistory.ts can share this same per-symbol cache —
+// all chart surfaces (price chart, holding/portfolio 7-charts) read/write one pool.
+export function lsGet(key: string, ttlMs: number = LS_TTL): HistoryData | undefined {
+  return readLsEntry(key, ttlMs)?.d
+}
+
+// Real wall-clock timestamp the cached entry was written — fed to React Query as
+// `initialDataUpdatedAt` so staleTime is judged against the actual last-fetch time
+// instead of "just mounted" (which would otherwise look stale on every app reopen).
+export function lsGetTimestamp(key: string, ttlMs: number = LS_TTL): number | undefined {
+  return readLsEntry(key, ttlMs)?.t
 }
 
 // Quota errors here can otherwise go silent and starve more critical writes (the React
@@ -137,7 +148,12 @@ export function useHistory(yf_symbol: string | null, start: string | null, perio
     refetchIntervalInBackground: false,
     retry:           3,
     retryDelay:      20_000,
-    // show localStorage cache immediately while background fetch runs
-    placeholderData: cached,
+    // Open symbols: seed with the real cache timestamp so React Query's own staleTime
+    // check decides whether a fetch is needed (skips it entirely if cache is <30min old —
+    // previously placeholderData always kicked off a background fetch regardless of age).
+    // Closed symbols intentionally always fetch fresh on mount — keep placeholderData there.
+    ...(autoRefresh
+      ? { initialData: cached, initialDataUpdatedAt: yf_symbol ? lsGetTimestamp(lsKey, ttl) : undefined }
+      : { placeholderData: cached }),
   })
 }

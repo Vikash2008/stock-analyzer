@@ -4,7 +4,7 @@ import type { Holding, Transaction, Realized } from '../api/types'
 import type { Currency } from '../App'
 import { USD_PORTS } from '../utils/segments'
 import { computeXIRR } from '../utils/xirr'
-import { lsGet, lsSet, CLOSED_LS_TTL, REFRESH_MS } from './useHistory'
+import { lsGet, lsSet, lsGetTimestamp, CLOSED_LS_TTL, REFRESH_MS } from './useHistory'
 
 const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
 
@@ -83,9 +83,17 @@ export function usePortfolioHistory(
         retry:        2,
         retryDelay:   8_000,
         retryOnMount: false,     // error-state queries stay counted on navigation; avoids backwards counter
-        // Show the cached chart (possibly a few days old) instantly instead of blocking on
-        // the live fetch — same cache the price chart already reads/writes (useHistory.ts).
-        placeholderData: () => lsGet(lsKey(sym), isClosed ? CLOSED_LS_TTL : undefined),
+        // Open symbols: seed with the real cache timestamp so staleTime is judged against
+        // actual last-fetch time — on app reopen within 30min this skips the fetch entirely
+        // instead of always kicking one off in the background (placeholderData's behavior).
+        // Closed symbols keep placeholderData — their fetch is already gated off by `enabled`
+        // above once a fresh cache exists, so there's nothing for initialData to skip.
+        ...(isClosed
+          ? { placeholderData: () => lsGet(lsKey(sym), CLOSED_LS_TTL) }
+          : {
+              initialData:          () => lsGet(lsKey(sym)),
+              initialDataUpdatedAt: () => lsGetTimestamp(lsKey(sym)),
+            }),
       }
     }),
   })
