@@ -14,16 +14,47 @@ if _NAMES_FILE.exists():
         pass
 
 
+_QUOTE_CHUNK = 50
+_QUOTE_URL = "https://query1.finance.yahoo.com/v7/finance/quote"
+
+
+def _fetch_quote_batch(symbols: List[str]) -> Tuple[Dict[str, Optional[float]], Dict[str, Optional[float]]]:
+    """Fetch last price + previous close via Yahoo's lightweight quote endpoint."""
+    t = yf.Ticker(symbols[0])
+    _ = t.fast_info  # establishes yfinance's cookie/crumb session, cached across calls
+    d = t._data
+
+    prices: Dict[str, Optional[float]] = {s: None for s in symbols}
+    prev_closes: Dict[str, Optional[float]] = {s: None for s in symbols}
+    for i in range(0, len(symbols), _QUOTE_CHUNK):
+        chunk = symbols[i:i + _QUOTE_CHUNK]
+        resp = d.get(_QUOTE_URL, params={"symbols": ",".join(chunk)})
+        results = resp.json().get("quoteResponse", {}).get("result", [])
+        for r in results:
+            sym = r.get("symbol")
+            if sym in prices:
+                prices[sym] = r.get("regularMarketPrice")
+                prev_closes[sym] = r.get("regularMarketPreviousClose")
+    return prices, prev_closes
+
+
 def get_prices_and_prev_close(
     symbols: List[str],
 ) -> Tuple[Dict[str, Optional[float]], Dict[str, Optional[float]]]:
     """
-    Batch-fetch current price and previous-session close in one download.
+    Batch-fetch current price and previous-session close.
     Returns (prices, prev_closes) — both keyed by yf_symbol.
-    prev_close is None when fewer than 2 trading days exist in the window.
+    Tries Yahoo's lightweight quote endpoint first (single small JSON response per
+    chunk); falls back to the old 5-day OHLCV download if that endpoint errors or
+    gets locked down further.
     """
     if not symbols:
         return {}, {}
+    try:
+        return _fetch_quote_batch(symbols)
+    except Exception:
+        pass
+
     try:
         raw = yf.download(
             symbols,
