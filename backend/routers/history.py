@@ -100,6 +100,9 @@ def _persist_series_cache() -> None:
 _series_cache: dict[str, dict] = _load_series_cache()  # yf_symbol -> {dates, prices, fetched_at, last_bar_date}
 _intraday_cache: dict[str, tuple[dict, float]] = {}
 _INTRADAY_TTL = 3600.0  # 1 hour  — intraday
+_FETCH_TIMEOUT = 20.0   # per-request cap on the underlying yfinance call — a single slow/stuck
+                        # symbol can no longer hang a request indefinitely; the background thread
+                        # still finishes and populates the cache for the next request either way.
 _sem          = asyncio.Semaphore(3)  # max concurrent yfinance fetches — was briefly raised to 8 to
                                        # clear mass-refetch bursts faster, but each concurrent
                                        # yf.download() holds a full OHLCV DataFrame in memory; 8 at
@@ -321,8 +324,13 @@ async def get_history(
         cached = _intraday_cache.get(cache_key)
         if cached and (now - cached[1]) < _INTRADAY_TTL:
             return JSONResponse(content=cached[0])
-        async with _sem:
-            data = await _fetch_intraday(yf_symbol)
+        try:
+            async with _sem:
+                data = await asyncio.wait_for(_fetch_intraday(yf_symbol), timeout=_FETCH_TIMEOUT)
+        except asyncio.TimeoutError:
+            # Underlying thread keeps running and will populate the cache for next request —
+            # this just stops the current one from hanging on a single slow/stuck symbol.
+            return JSONResponse(content={"dates": [], "prices": [], "error": "timeout"})
         _intraday_cache[cache_key] = (data, now)
         _evict_oldest(_intraday_cache, _MAX_INTRADAY_SYMBOLS, lambda v: v[1])
         return JSONResponse(content=data)
@@ -341,8 +349,17 @@ async def get_history(
     ):
         return JSONResponse(content=_slice_response(cached, start))
 
-    async with _sem:
-        entry = await asyncio.to_thread(_fetch_incremental, yf_symbol, start, since)
+    try:
+        async with _sem:
+            entry = await asyncio.wait_for(
+                asyncio.to_thread(_fetch_incremental, yf_symbol, start, since), timeout=_FETCH_TIMEOUT
+            )
+    except asyncio.TimeoutError:
+        # Same as above — the thread isn't killed, it'll finish and cache in the background.
+        # Serve whatever we already had rather than hanging the request indefinitely.
+        if cached:
+            return JSONResponse(content=_slice_response(cached, start))
+        return JSONResponse(content={"dates": [], "prices": [], "error": "timeout"})
     if "error" in entry:
         return JSONResponse(content=entry)
     if entry.get("partial_since"):

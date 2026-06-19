@@ -11,6 +11,7 @@ import {
   PieChart, Pie, Cell, LabelList,
 } from 'recharts'
 import { usePortfolio } from '../hooks/usePortfolio'
+import { logDebug } from '../utils/debugLog'
 import { useQueryClient } from '@tanstack/react-query'
 import { usePortfolioHistory, sliceSeries } from '../hooks/usePortfolioHistory'
 import { usePrefetchHoldingCharts, REFRESH_MS } from '../hooks/useHistory'
@@ -260,6 +261,8 @@ export default function HoldingsPage({ currency }: Props) {
   const [benchLastSynced, setBenchLastSynced] = useState<Date | null>(null)
   const [divSyncing,      setDivSyncing]      = useState(false)
   const [divLastSynced,   setDivLastSynced]   = useState<Date | null>(null)
+  const [divUpToDate,     setDivUpToDate]     = useState(false)
+  const [divSkipped,      setDivSkipped]      = useState<string[]>([])
   const [expandedSectors,     setExpandedSectors]     = useState<Set<string>>(new Set())
   const [benchSectorSectionOpen, setBenchSectorSectionOpen] = useState(true)
   const [concentrationTop, setConcentrationTop] = useState<5 | 10 | 20>(10)
@@ -755,10 +758,6 @@ export default function HoldingsPage({ currency }: Props) {
   useEffect(() => {
     if (!divLoading && !divFetching && divData) setDivLastSynced(new Date())
   }, [divLoading, divFetching, divData])
-  useEffect(() => {
-    if (divSyncing && !divFetching) setDivSyncing(false)
-  }, [divSyncing, divFetching])
-
   const xirrMap = useMemo(() => {
     if (!data) return new Map<string, number | null>()
     const today = new Date()
@@ -1189,8 +1188,18 @@ export default function HoldingsPage({ currency }: Props) {
   return (
     <div className="max-w-xl mx-auto flex flex-col h-[100dvh]">
       {chartsUpToDate && (
-        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[9999] bg-slate-800 text-white text-[12px] font-medium px-4 py-2 rounded-full shadow-lg whitespace-nowrap">
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[9999] bg-emerald-600 text-white font-bold text-[12px] px-4 py-2 rounded-full shadow-lg whitespace-nowrap">
           Charts already up to date
+        </div>
+      )}
+      {divUpToDate && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[9999] bg-emerald-600 text-white font-bold text-[12px] px-4 py-2 rounded-full shadow-lg whitespace-nowrap">
+          Dividends recently updated
+        </div>
+      )}
+      {divSkipped.length > 0 && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[9999] bg-amber-600 text-white font-bold text-[12px] px-4 py-2 rounded-full shadow-lg max-w-[90vw] truncate">
+          {divSkipped.length} symbol{divSkipped.length > 1 ? 's' : ''} didn't refresh: {divSkipped.join(', ')}
         </div>
       )}
       <div className="shrink-0 px-2 pt-4 bg-white relative z-20">
@@ -1297,8 +1306,20 @@ export default function HoldingsPage({ currency }: Props) {
                       <button
                         onClick={() => {
                           if (divSyncing) return
+                          if (divLastSynced && Date.now() - divLastSynced.getTime() < REFRESH_MS) {
+                            setDivUpToDate(true)
+                            setTimeout(() => setDivUpToDate(false), 3000)
+                            return
+                          }
                           setDivSyncing(true)
-                          refreshAllDividends(data?.all_portfolios ?? [], portfolio).finally(() => setDivSyncing(false))
+                          refreshAllDividends(data?.all_portfolios ?? [], portfolio)
+                            .then(skipped => {
+                              if (skipped.length === 0) return
+                              logDebug(`Dividends refresh: skipped ${skipped.length} symbol(s) — ${skipped.join(', ')}`)
+                              setDivSkipped(skipped)
+                              setTimeout(() => setDivSkipped([]), 6000)
+                            })
+                            .finally(() => setDivSyncing(false))
                         }}
                         className="w-[70px] text-center bg-emerald-700 text-white text-[10px] font-semibold rounded-full px-3 py-1 active:bg-emerald-800"
                       >

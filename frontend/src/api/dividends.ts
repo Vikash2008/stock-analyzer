@@ -40,13 +40,17 @@ export interface DividendsData {
   by_year: Record<string, number>
   by_month: Record<string, number>
   timeline: DividendTimelineEntry[]
+  skipped_symbols?: string[]  // didn't finish fetching within the batch budget — served stale/no data
 }
 
-export async function fetchDividends(forceRefresh = false, portfolio?: string, csvHash?: string): Promise<DividendsData> {
+export async function fetchDividends(
+  forceRefresh = false, portfolio?: string, csvHash?: string, sinceHints?: Record<string, string>,
+): Promise<DividendsData> {
   const params = new URLSearchParams()
   if (forceRefresh) params.set('force_refresh', 'true')
   if (portfolio) params.set('portfolio', portfolio)
   params.set('csv_hash', csvHash ?? 'demo')
+  if (sinceHints && Object.keys(sinceHints).length) params.set('since_hints', JSON.stringify(sinceHints))
   const url = `${BASE}/dividends?${params}`
   const res = await fetch(url)
   if (!res.ok) {

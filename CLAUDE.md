@@ -31,7 +31,7 @@
 | Editing any `backend/*.py` | Remind user to restart uvicorn after. |
 | Session ends with code changed | Offer `/save_state`. |
 | Cannot determine approach in ~15s | STOP. Ask ONE question. No more thinking in circles. |
-| Render OOM / memory / logs investigation | Ask for a fresh Render API key each session (never reuse/store one) — see `reference_render_api_access` memory for service ID + endpoints. Report all timestamps converted to IST, not raw UTC. |
+| Render OOM / memory / logs investigation | Use `RENDER_API_KEY` from `.env` (persisted, user-approved 2026-06-19) — see `reference_render_api_access` memory for service ID + endpoints. Report all timestamps converted to IST, not raw UTC. |
 | Any task that would use an Explore/Agent subagent | Don't. Use direct Read/Grep/Bash instead — subagents burn disproportionate tokens for this project. |
 | File is >300 lines and edit location is unknown | Grep the symbol/text for a line number first, then `Read` with `offset`/`limit` around it. Never full-read a large file when Grep can find the spot. See `FEATURE_MAP.md` Hot-Spot Line Anchors for `HoldingsPage.tsx`/`PortfoliosPage.tsx`. |
 | Task is a single-file, single-step fix | Don't use TaskCreate/TaskUpdate — that overhead is for genuinely multi-file/multi-step work only. |

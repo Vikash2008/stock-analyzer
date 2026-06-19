@@ -16,6 +16,7 @@ Caching:
 from __future__ import annotations
 
 import concurrent.futures
+import json
 import sys
 import time
 from collections import defaultdict
@@ -32,9 +33,17 @@ from src.data_loader import load_transactions
 from src.price_fetcher import get_usd_inr_rate
 
 _DATA_FILE   = Path("data/demo_msp_v2.csv")
+_DIVS_START  = "2015-01-01"  # matches chart/benchmark start convention elsewhere in the app
 _SKIP_PORTS  = {"Equity", "MF_Portfolio"}
 _CACHE_TTL   = 86400.0        # 24h in-memory for computed result
 _SYM_DIV_TTL = 30 * 86400.0  # 30 days disk cache per symbol
+_FORCE_DEDUPE_SEC = 300.0     # a force-refresh batch hits the same symbol once per portfolio it
+                              # appears in (sequential HTTP calls) — within this window, treat an
+                              # already-just-refreshed symbol as done rather than refetching it
+                              # again for every portfolio that holds it.
+_DIVS_BATCH_TIMEOUT = 30.0    # total wall-clock budget for one /api/dividends call's symbol
+                              # fetches — a slow/stuck symbol just gets skipped for this response
+                              # rather than the whole request (and the Render instance) hanging.
 
 router = APIRouter()
 
@@ -63,64 +72,134 @@ def _shares_on_date(txns: pd.DataFrame, yf_symbol: str, ex_date: pd.Timestamp) -
     return max(0.0, float(buys - sells))
 
 
-def _fetch_symbol_divs(yf_sym: str, force: bool = False) -> pd.Series | None:
-    """Fetch dividends for one symbol with 30-day disk cache. Returns tz-stripped Series."""
-    cache_key = f"divs:{yf_sym}"
-    if not force:
-        try:
-            entry = Cache().get(cache_key)
-            if entry and (time.time() - entry.get("ts", 0)) < _SYM_DIV_TTL:
-                d = entry.get("data")
-                if not d:
-                    return None
-                return pd.Series(d["values"], index=pd.to_datetime(d["dates"]))
-        except Exception:
-            pass
+def _strip_tz(idx: pd.Index) -> pd.Index:
+    if hasattr(idx, "tz") and idx.tz is not None:
+        return idx.tz_localize(None)
+    return idx
+
+
+def _read_cache_entry(yf_sym: str) -> dict | None:
+    try:
+        return Cache().get(f"divs:{yf_sym}")
+    except Exception:
+        return None
+
+
+def _read_cached_divs(yf_sym: str) -> pd.Series | None:
+    """Synchronous, no-network read of whatever's already cached for a symbol — used to
+    pre-seed the batch fallback so a fetch that doesn't finish in time degrades to
+    last-known-good data instead of silently dropping the symbol from the response."""
+    entry = _read_cache_entry(yf_sym)
+    if entry and entry.get("data"):
+        d = entry["data"]
+        return pd.Series(d["values"], index=pd.to_datetime(d["dates"]))
+    return None
+
+
+def _fetch_symbol_divs(
+    yf_sym: str, force: bool = False, is_closed: bool = False, client_since: str | None = None
+) -> pd.Series | None:
+    """Dividends for one symbol, cached on disk and fetched incrementally — same model as
+    history.py's chart cache: closed holdings are fetched once and never refetched (no new
+    dividends can ever land on a position you no longer hold); open holdings only fetch the
+    window since the last cached ex-date instead of re-pulling full history every refresh.
+
+    `client_since` is the caller's own last-known ex-date for this symbol (their IndexedDB
+    cache, which survives a Render redeploy — this backend's disk cache doesn't). When this
+    backend's own cache is empty (e.g. right after a deploy) but the client already has data,
+    use their date as the fetch-from point instead of re-pulling the full 2015-onward history.
+    Single-user app assumption: the one browser that supplies this hint is the cache's only
+    real consumer, so a hint-seeded entry never needs to be "completed" for anyone else."""
+    entry = _read_cache_entry(yf_sym)
+
+    cached_series = None
+    if entry and entry.get("data"):
+        d = entry["data"]
+        cached_series = pd.Series(d["values"], index=pd.to_datetime(d["dates"]))
+
+    # Closed position — already fetched once, nothing new can ever land on it.
+    if entry and entry.get("closed"):
+        return cached_series
+
+    # Open position still within its freshness window — serve cache as-is, no network call.
+    # Forced refreshes use a much shorter window so a symbol held across several portfolios
+    # gets fetched once per refresh batch, not once per portfolio that holds it.
+    fresh_window = _FORCE_DEDUPE_SEC if force else _SYM_DIV_TTL
+    if cached_series is not None and (time.time() - entry.get("ts", 0)) < fresh_window:
+        return cached_series
 
     try:
-        raw = yf.Ticker(yf_sym).dividends
+        if cached_series is not None and not cached_series.empty:
+            since = cached_series.index.max() + pd.Timedelta(days=1)
+        elif client_since:
+            since = pd.Timestamp(client_since) + pd.Timedelta(days=1)
+        else:
+            since = pd.Timestamp(_DIVS_START)
+        # Bounded start — `Ticker.dividends` has no start param and walks back to a symbol's
+        # full listing history (seen fetching from 1927 for old US tickers); `history(start=...)`
+        # keeps every fetch (first or incremental) capped to what the app actually needs.
+        hist = yf.Ticker(yf_sym).history(start=since.strftime("%Y-%m-%d"), actions=True)
+        raw  = hist["Dividends"] if "Dividends" in hist.columns else pd.Series(dtype=float)
+        raw  = raw[raw > 0]
     except Exception as e:
         print(f"[dividends] {yf_sym}: fetch error — {e}", file=sys.stderr)
-        return None
+        return cached_series
 
     if raw is None or (hasattr(raw, "empty") and raw.empty):
-        _cache_sym_divs(yf_sym, None)
-        return None
+        # No new events — still refresh ts/closed flag so we don't hit yfinance again until TTL.
+        _cache_sym_divs(yf_sym, cached_series, closed=is_closed)
+        return cached_series
 
     if isinstance(raw, pd.DataFrame):
         col = "Dividends" if "Dividends" in raw.columns else raw.columns[0]
         raw = raw[col]
 
-    if raw.empty:
-        _cache_sym_divs(yf_sym, None)
-        return None
+    new_series = pd.Series(raw.values, index=_strip_tz(raw.index))
+    merged = (
+        pd.concat([cached_series, new_series]).sort_index()
+        if cached_series is not None else new_series
+    )
+    merged = merged[~merged.index.duplicated(keep="last")]
 
-    # Strip timezone without converting — preserves local market date
-    idx = raw.index
-    if hasattr(idx, "tz") and idx.tz is not None:
-        idx = idx.tz_localize(None)
-    series = pd.Series(raw.values, index=idx)
-
-    _cache_sym_divs(yf_sym, series)
-    return series
+    _cache_sym_divs(yf_sym, merged, closed=is_closed)
+    return merged
 
 
-def _cache_sym_divs(yf_sym: str, series: pd.Series | None) -> None:
+def _cache_sym_divs(yf_sym: str, series: pd.Series | None, closed: bool = False) -> None:
     try:
         Cache().set(f"divs:{yf_sym}", {
             "data": {
                 "dates":  [str(d) for d in series.index],
                 "values": [float(v) for v in series.values],
-            } if series is not None else None,
+            } if series is not None and not series.empty else None,
             "ts": time.time(),
+            "closed": closed,
         })
     except Exception:
         pass
 
 
-def _compute(txns: pd.DataFrame, usd_inr: float, portfolio: str | None = None, force: bool = False) -> dict:
+def _current_shares(txns: pd.DataFrame, yf_symbol: str) -> float:
+    """Total shares currently held for yf_symbol across whatever portfolio scope `txns`
+    already represents — no date cutoff, unlike `_shares_on_date`."""
+    sub   = txns[(txns["yf_symbol"] == yf_symbol) & txns["type"].isin(["BUY", "SELL"])]
+    buys  = sub[sub["type"] == "BUY"]["quantity"].sum()
+    sells = sub[sub["type"] == "SELL"]["quantity"].sum()
+    return max(0.0, float(buys - sells))
+
+
+def _compute(
+    txns: pd.DataFrame, usd_inr: float, portfolio: str | None = None, force: bool = False,
+    since_hints: dict[str, str] | None = None,
+) -> dict:
+    since_hints = since_hints or {}
     if "portfolio" in txns.columns:
         txns = txns[~txns["portfolio"].isin(_SKIP_PORTS)].copy()
+
+    # Closed/open status is symbol-level (the disk cache is shared across every portfolio
+    # scope), so it must be decided from the full non-skip txn set, not the portfolio filter
+    # applied below — a symbol still held in another portfolio isn't "closed" for caching.
+    all_txns = txns
     if portfolio and "portfolio" in txns.columns:
         txns = txns[txns["portfolio"] == portfolio].copy()
 
@@ -140,11 +219,32 @@ def _compute(txns: pd.DataFrame, usd_inr: float, portfolio: str | None = None, f
 
     cutoff_trailing = pd.Timestamp.now() - pd.DateOffset(years=1)
 
-    # Fetch all symbols in parallel — each call hits disk cache if within 30 days
+    # Fetch all symbols in parallel — symbol-level disk cache (shared across every portfolio
+    # scope) means a symbol held in 5 portfolios is fetched once total, not once per portfolio;
+    # closed symbols are fetched once ever, open symbols only pull the window since last fetch.
+    # Bounded to a total wall-clock budget rather than per-symbol: a slow/stuck symbol just
+    # gets skipped (None — it'll fall back to whatever was last cached) instead of the whole
+    # request hanging on it. The executor is shut down without waiting so a still-running
+    # symbol fetch finishes in the background and caches itself for next time regardless.
     sym_keys = list(sym_meta.keys())
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as ex:
-        divs_list = list(ex.map(lambda s: _fetch_symbol_divs(s, force=force), sym_keys))
-    divs_map = dict(zip(sym_keys, divs_list))
+    closed_map = {s: _current_shares(all_txns, s) <= 0 for s in sym_keys}
+    # Pre-seed with whatever's already cached (cheap, no network) so a symbol whose fetch
+    # doesn't finish within the batch budget falls back to last-known-good data instead of
+    # silently dropping out of the response (and out of the aggregate totals) entirely.
+    divs_map: dict[str, pd.Series | None] = {s: _read_cached_divs(s) for s in sym_keys}
+    ex = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+    futures = {
+        ex.submit(_fetch_symbol_divs, s, force, closed_map[s], since_hints.get(s)): s
+        for s in sym_keys
+    }
+    done, _pending = concurrent.futures.wait(futures, timeout=_DIVS_BATCH_TIMEOUT)
+    _pending_syms = {futures[f] for f in _pending}
+    for fut in done:
+        try:
+            divs_map[futures[fut]] = fut.result()
+        except Exception as e:
+            print(f"[dividends] {futures[fut]}: future error — {e}", file=sys.stderr)
+    ex.shutdown(wait=False)
 
     by_symbol: list[dict] = []
     timeline:  list[dict] = []
@@ -225,6 +325,10 @@ def _compute(txns: pd.DataFrame, usd_inr: float, portfolio: str | None = None, f
     by_symbol.sort(key=lambda x: x["total_dividends"], reverse=True)
     timeline.sort(key=lambda x: x["date"], reverse=True)
 
+    skipped_symbols = sorted(
+        sym_meta[s]["symbol"] for s in _pending_syms if s in sym_meta
+    )
+
     return {
         "summary": {
             "total_dividends_inr":    round(grand_total, 2),
@@ -236,6 +340,7 @@ def _compute(txns: pd.DataFrame, usd_inr: float, portfolio: str | None = None, f
         "by_year":   {k: round(v, 2) for k, v in sorted(by_year.items())},
         "by_month":  {k: round(v, 2) for k, v in sorted(by_month.items())},
         "timeline":  timeline,
+        "skipped_symbols": skipped_symbols,
     }
 
 
@@ -284,6 +389,9 @@ def get_dividends(
     force_refresh: bool = Query(False),
     portfolio: str = Query(None),
     csv_hash: str = Query("demo"),
+    since_hints: str = Query(None, description="JSON map of yf_symbol -> caller's last-known "
+                                                  "ex-date, used when this backend's own disk "
+                                                  "cache is empty (e.g. just redeployed)"),
 ):
     cache_key = f"dividends:{csv_hash}:{portfolio or ''}"
     now       = time.monotonic()
@@ -293,9 +401,16 @@ def get_dividends(
         if cached and (now - cached[1]) < _CACHE_TTL:
             return JSONResponse(content=cached[0])
 
+    hints: dict[str, str] = {}
+    if since_hints:
+        try:
+            hints = json.loads(since_hints)
+        except Exception:
+            hints = {}
+
     txns    = _load_txns(csv_hash)
     usd_inr = get_usd_inr_rate()
-    result  = _compute(txns, usd_inr, portfolio=portfolio, force=force_refresh)
+    result  = _compute(txns, usd_inr, portfolio=portfolio, force=force_refresh, since_hints=hints)
 
     _mem[cache_key] = (result, now)
     return JSONResponse(content=result)
