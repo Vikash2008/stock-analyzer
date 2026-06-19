@@ -31,6 +31,8 @@
 | Editing any `backend/*.py` | Remind user to restart uvicorn after. |
 | Session ends with code changed | Offer `/save_state`. |
 | Cannot determine approach in ~15s | STOP. Ask ONE question. No more thinking in circles. |
+| Render OOM / memory / logs investigation | Ask for a fresh Render API key each session (never reuse/store one) — see `reference_render_api_access` memory for service ID + endpoints. Report all timestamps converted to IST, not raw UTC. |
+| Any task that would use an Explore/Agent subagent | Don't. Use direct Read/Grep/Bash instead — subagents burn disproportionate tokens for this project. |
 
 ---
 
@@ -43,6 +45,9 @@
 5. **No auto-ship.** Only run `/ship` when user explicitly asks.
 6. **Prompt contract.** User provides Type + Problem + Expected. Fewer than 2 → ask first.
 7. **Ask before complex tasks.** Ambiguous or failed once → ask. Two failures = mandatory pause.
+8. **Ask questions frequently.** Not just before complex tasks — check in often rather than defaulting to autonomous proceeding.
+9. **Never use Explore/Agent subagents for this project.** Direct Read/Grep/Bash only.
+10. **Render API timestamps are UTC.** Always convert to IST before reporting times back to the user.
 
 ---
 
@@ -74,6 +79,7 @@ Cold start: Render free tier spins down after inactivity — first hit takes 60�
 3. `validate.py` is terminal-only — no Streamlit imports.
 4. No features added unless user requests them.
 5. UI changes = edit files only. No git/deploy unless `/ship` invoked.
+6. Local dev: `src/engine.py`'s `_DATA_FILE` defaults to `data/msp_v2.csv` (real data) every session. `/ship` always reverts it to `data/demo_msp_v2.csv` first — the real file is gitignored and doesn't exist on Render.
 
 ---
 

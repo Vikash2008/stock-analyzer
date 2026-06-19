@@ -378,6 +378,12 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-06-05
 
+### 2026-06-19 (session 139)
+
+**Charts "Refresh" button — "already up to date" toast for the no-op case**
+- Clicking Refresh within the existing 30-min staleness window (`REFRESH_MS`) previously did nothing visible — the request still went out but the backend served cached data unchanged, leaving the user unsure if it had worked
+- Added a transient toast (`fixed top-3 left-1/2 -translate-x-1/2`, dark `bg-slate-800` pill, 3s auto-dismiss via `setTimeout`) reading "Charts already up to date", shown instead of firing the refetch at all when `Date.now() - histLastSynced < REFRESH_MS` — same visual language as other ephemeral status banners (dark pill, white text, rounded-full), distinct from the emerald "new version available" banner style used for persistent/actionable banners in `App.tsx`
+
 ### 2026-06-18 (session 132)
 
 **Background-sync UI pattern — "Refreshing…" indicator**
