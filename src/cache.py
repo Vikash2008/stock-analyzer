@@ -24,11 +24,29 @@ Usage
 from __future__ import annotations
 
 import pickle
+import threading
 import time
 from pathlib import Path
 from typing import Any, Optional
 
 _FILE = Path("data/.cache.pkl")
+
+# Guards all mutation of the shared _data dict and the pickle.dump below — set() is now
+# called from multiple real OS threads at once (backend/routers/history.py's chart-fetch
+# concurrency runs each request via asyncio.to_thread), and without this, one thread's
+# prune()/dict-mutation could race another's pickle.dump() iterating the same dict
+# ("RuntimeError: dictionary changed size during iteration").
+_lock = threading.Lock()
+
+# pickle.dump serializes the ENTIRE cache dict on every write, not just the changed key —
+# fine for occasional writes (CSV upload, quickstats/dividends on their own cooldowns), but
+# a multi-symbol chart-history burst calling set() once per symbol turned this into dozens
+# of full re-serializations of an increasingly large dict within seconds. Coalesce rapid
+# set() calls into far fewer actual disk writes; the in-memory _data dict (shared by every
+# Cache() instance) still updates immediately either way, so get() always sees the latest
+# value — only the disk write itself is debounced.
+_SAVE_DEBOUNCE = 5.0  # seconds
+_last_disk_write = 0.0
 
 _TTL: dict[str, Optional[float]] = {
     "fifo":        None,        # never expires — mtime-gated instead
@@ -83,10 +101,18 @@ class Cache:
         return {}
 
     def save(self) -> None:
+        """Force an immediate disk write, bypassing the debounce below — used for
+        infrequent, latency-sensitive writes (CSV upload, explicit invalidate)."""
+        with _lock:
+            self._write_to_disk()
+
+    def _write_to_disk(self) -> None:
+        global _last_disk_write
         self.prune()
         _FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(_FILE, "wb") as f:
             pickle.dump(self._data, f)
+        _last_disk_write = time.time()
 
     def prune(self) -> None:
         """Actively drop expired/excess entries instead of just ignoring them on read —
@@ -134,10 +160,14 @@ class Cache:
         return self._data.get(f"{layer}:value")
 
     def set(self, layer: str, value: Any) -> None:
-        """Write value and record timestamp. Saves to disk immediately."""
-        self._data[f"{layer}:value"] = value
-        self._data[f"{layer}:ts"]    = time.time()
-        self.save()
+        """Write value and record timestamp. The in-memory dict updates immediately
+        (visible to every Cache() instance/get() call); the disk write itself is
+        debounced — see _SAVE_DEBOUNCE above."""
+        with _lock:
+            self._data[f"{layer}:value"] = value
+            self._data[f"{layer}:ts"]    = time.time()
+            if time.time() - _last_disk_write >= _SAVE_DEBOUNCE:
+                self._write_to_disk()
 
     def is_fresh(self, layer: str) -> bool:
         ttl = _TTL.get(layer)
@@ -155,8 +185,9 @@ class Cache:
 
     def invalidate(self, layer: str) -> None:
         """Force-expire a layer so the next get() triggers a re-fetch."""
-        self._data.pop(f"{layer}:ts", None)
-        self.save()
+        with _lock:
+            self._data.pop(f"{layer}:ts", None)
+            self._write_to_disk()
 
     # ── FIFO mtime / hash gate ────────────────────────────────────────────────
     # source is either a Path (keyed by mtime) or a str MD5 hash (uploaded CSV)
@@ -175,16 +206,17 @@ class Cache:
 
     def set_fifo(self, source: "Path | str", txns, holdings_raw, realized, fx_lots=None) -> None:
         key = source if isinstance(source, str) else "demo"
-        if isinstance(source, Path):
-            self._data["fifo:demo:mtime"] = source.stat().st_mtime
-        self._data[f"fifo:{key}:txns"]    = txns
-        self._data[f"fifo:{key}:raw"]     = holdings_raw
-        self._data[f"fifo:{key}:real"]    = realized
-        self._data[f"fifo:{key}:lots"]    = fx_lots or []
-        self._data[f"fifo:{key}:version"] = self._FIFO_VERSION
-        self._data[f"fifo:{key}:ts"]      = time.time()
-        self._data["fifo:ts"]             = time.time()
-        self.save()
+        with _lock:
+            if isinstance(source, Path):
+                self._data["fifo:demo:mtime"] = source.stat().st_mtime
+            self._data[f"fifo:{key}:txns"]    = txns
+            self._data[f"fifo:{key}:raw"]     = holdings_raw
+            self._data[f"fifo:{key}:real"]    = realized
+            self._data[f"fifo:{key}:lots"]    = fx_lots or []
+            self._data[f"fifo:{key}:version"] = self._FIFO_VERSION
+            self._data[f"fifo:{key}:ts"]      = time.time()
+            self._data["fifo:ts"]             = time.time()
+            self._write_to_disk()
 
     def get_fifo(self, source: "Path | str" = "demo"):
         """Return (txns, holdings_raw, realized, fx_lots) or None."""
