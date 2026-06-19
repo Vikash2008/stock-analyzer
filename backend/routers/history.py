@@ -25,17 +25,27 @@ from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
 from backend.market_hours import is_stale
+from src.cache import Cache
 from src.price_fetcher import get_prices_and_prev_close
 
 router = APIRouter()
 
+_disk_cache = Cache()  # persists _series_cache across process restarts (OOM-kill, redeploy
+                        # within the same container) under the "hist:{symbol}" key prefix —
+                        # without this, every restart forced a full yfinance re-download for
+                        # every symbol on its next request, even though nothing about the
+                        # already-fetched history had actually changed.
+
 _series_cache: dict[str, dict] = {}     # yf_symbol -> {dates, prices, fetched_at, last_bar_date}
 _intraday_cache: dict[str, tuple[dict, float]] = {}
 _INTRADAY_TTL = 3600.0  # 1 hour  — intraday
-_sem          = asyncio.Semaphore(8)  # max concurrent yfinance fetches — was 4; too low a cap meant
-                                       # a mass refetch burst (e.g. every symbol going stale at once
-                                       # after the app was backgrounded a while) trickled through far
-                                       # too slowly
+_sem          = asyncio.Semaphore(4)  # max concurrent yfinance fetches — was briefly raised to 8 to
+                                       # clear mass-refetch bursts faster, but each concurrent
+                                       # yf.download() holds a full OHLCV DataFrame in memory; 8 at
+                                       # once pinned Render's 512MB free-tier instance at its ceiling
+                                       # (~15.4MB/call observed). Reverted to 4; see _download()'s
+                                       # del df + the disk-backed cache below for the actual fix to
+                                       # the slow-burst problem this was trying to solve.
 
 # Neither cache above ever had entries removed — every distinct symbol ever requested
 # (not just current portfolio holdings, but every Explore/Quick-Stats lookup too) stayed
@@ -63,7 +73,8 @@ def _download(yf_symbol: str, start) -> dict:
         # Flatten multi-level columns (yfinance ≥ 0.2.38)
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = [c[0] for c in df.columns]
-        closes = df["Close"].dropna()
+        closes = df["Close"].dropna().copy()
+        del df  # full OHLCV frame no longer needed — free it before returning, not on GC
         return {
             "dates":  closes.index.strftime("%Y-%m-%d").tolist(),
             "prices": [round(float(p), 4) for p in closes.tolist()],
@@ -72,12 +83,58 @@ def _download(yf_symbol: str, start) -> dict:
         return {"dates": [], "prices": [], "error": str(exc)}
 
 
-def _fetch_incremental(yf_symbol: str, start: str) -> dict:
+_SINCE_FLOOR = pd.Timestamp("2000-01-01")
+
+
+def _valid_since(since: Optional[str], start_dt: pd.Timestamp) -> Optional[pd.Timestamp]:
+    """Parse+sanity-check a client-supplied `since` hint. Returns None (ignore the hint
+    and do a normal fetch) unless it's a real date, not in the future, not absurdly old,
+    and actually later than the range we'd fetch anyway — never trusted beyond that."""
+    if not since:
+        return None
+    try:
+        dt = pd.Timestamp(since)
+    except (ValueError, TypeError):
+        return None
+    if dt < _SINCE_FLOOR or dt > pd.Timestamp.now().normalize():
+        return None
+    if dt <= start_dt:
+        return None
+    return dt
+
+
+def _save_entry(yf_symbol: str, entry: dict) -> dict:
+    _series_cache[yf_symbol] = entry
+    _evict_oldest(_series_cache, _MAX_SERIES_SYMBOLS, lambda e: e["fetched_at"])
+    _disk_cache.set(f"hist:{yf_symbol}", entry)
+    return entry
+
+
+def _fetch_incremental(yf_symbol: str, start: str, since: Optional[str] = None) -> dict:
     """Fetch full or delta history for yf_symbol and merge into _series_cache."""
     cached = _series_cache.get(yf_symbol)
     start_dt = pd.Timestamp(start) - pd.Timedelta(days=30)
 
     if not cached:
+        # Survives process restarts (OOM-kill, redeploy within the same container) —
+        # seed the in-memory cache from disk so we only need a delta fetch below,
+        # not a full 2015-to-now re-download.
+        cached = _disk_cache.get(f"hist:{yf_symbol}")
+        if cached:
+            _series_cache[yf_symbol] = cached
+
+    if not cached:
+        since_dt = _valid_since(since, start_dt)
+        if since_dt is not None:
+            # Caller's own browser already has data through `since_dt` — fetch only the
+            # delta and let the caller merge it client-side. Deliberately NOT written into
+            # _series_cache/disk: `since` is per-browser, not representative of what other
+            # callers (or this same cache, for someone else's request) already have.
+            delta = _download(yf_symbol, since_dt)
+            if not delta.get("error") and delta["dates"]:
+                delta["partial_since"] = since_dt.strftime("%Y-%m-%d")
+                return delta
+            # fall through to a normal full fetch on error/empty
         fresh = _download(yf_symbol, start_dt)
         if fresh.get("error") or not fresh["dates"]:
             return fresh
@@ -85,9 +142,7 @@ def _fetch_incremental(yf_symbol: str, start: str) -> dict:
             "dates": fresh["dates"], "prices": fresh["prices"],
             "fetched_at": time.time(), "last_bar_date": fresh["dates"][-1],
         }
-        _series_cache[yf_symbol] = entry
-        _evict_oldest(_series_cache, _MAX_SERIES_SYMBOLS, lambda e: e["fetched_at"])
-        return entry
+        return _save_entry(yf_symbol, entry)
 
     # Defensive: caller wants data older than what we have cached.
     if start_dt < pd.Timestamp(cached["dates"][0]):
@@ -98,9 +153,7 @@ def _fetch_incremental(yf_symbol: str, start: str) -> dict:
             "dates": fresh["dates"], "prices": fresh["prices"],
             "fetched_at": time.time(), "last_bar_date": fresh["dates"][-1] if fresh["dates"] else cached["last_bar_date"],
         }
-        _series_cache[yf_symbol] = entry
-        _evict_oldest(_series_cache, _MAX_SERIES_SYMBOLS, lambda e: e["fetched_at"])
-        return entry
+        return _save_entry(yf_symbol, entry)
 
     # Delta fetch — re-pull from the last cached bar onward (yfinance can revise
     # an in-progress daily bar), merge into the existing series.
@@ -119,9 +172,7 @@ def _fetch_incremental(yf_symbol: str, start: str) -> dict:
         "fetched_at": time.time(),
         "last_bar_date": dates[-1] if dates else cached["last_bar_date"],
     }
-    _series_cache[yf_symbol] = entry
-    _evict_oldest(_series_cache, _MAX_SERIES_SYMBOLS, lambda e: e["fetched_at"])
-    return entry
+    return _save_entry(yf_symbol, entry)
 
 
 def _slice_response(entry: dict, start: str) -> dict:
@@ -139,7 +190,8 @@ def _fetch_intraday_bars(yf_symbol: str) -> dict:
             return {"dates": [], "prices": []}
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = [c[0] for c in df.columns]
-        closes = df["Close"].dropna()
+        closes = df["Close"].dropna().copy()
+        del df  # full OHLCV frame no longer needed — free it before returning, not on GC
         idx = closes.index
         if idx.tz is not None:
             idx = idx.tz_convert('Asia/Kolkata')
@@ -180,6 +232,9 @@ async def get_history(
     yf_symbol: str = Query(...),
     start:     Optional[str] = Query(None, description="First transaction date (YYYY-MM-DD)"),
     period:    Optional[str] = Query(None, description="'1d' for intraday 5-min bars"),
+    since:     Optional[str] = Query(None, description="Caller's last locally-cached date (YYYY-MM-DD) — "
+                                                          "optimization hint only, used to narrow a cold "
+                                                          "fetch; ignored once a server-side cache exists"),
 ):
     now = time.monotonic()
 
@@ -202,7 +257,11 @@ async def get_history(
         return JSONResponse(content=_slice_response(cached, start))
 
     async with _sem:
-        entry = await asyncio.to_thread(_fetch_incremental, yf_symbol, start)
+        entry = await asyncio.to_thread(_fetch_incremental, yf_symbol, start, since)
     if "error" in entry:
+        return JSONResponse(content=entry)
+    if entry.get("partial_since"):
+        # Delta-only result for a cold cache, sized off the caller's own `since` hint —
+        # not a full range, the caller must merge it into what it already has, not replace.
         return JSONResponse(content=entry)
     return JSONResponse(content=_slice_response(entry, start))

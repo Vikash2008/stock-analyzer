@@ -6,6 +6,18 @@ interface HistoryData {
   prices:     number[]
   prev_close?: number | null
   error?:     string
+  partial_since?: string  // delta-only response — merge into existing cache, don't replace
+}
+
+// Merge a delta-only (`partial_since`) response into an existing cached entry — same
+// dedupe-by-date-then-sort pattern the backend itself uses to merge incremental fetches.
+// Exported so usePortfolioHistory.ts's separate fetch path can reuse it too.
+export function mergeHistory(existing: HistoryData, delta: HistoryData): HistoryData {
+  const merged: Record<string, number> = {}
+  existing.dates.forEach((d, i) => { merged[d] = existing.prices[i] })
+  delta.dates.forEach((d, i) => { merged[d] = delta.prices[i] })
+  const dates = Object.keys(merged).sort()
+  return { dates, prices: dates.map(d => merged[d]), prev_close: delta.prev_close ?? existing.prev_close }
 }
 
 const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
@@ -71,10 +83,11 @@ export function lsSet(key: string, data: HistoryData) {
   }
 }
 
-async function fetchHistory(yf_symbol: string, start: string | null, period?: string): Promise<HistoryData> {
+async function fetchHistory(yf_symbol: string, start: string | null, period?: string, since?: string): Promise<HistoryData> {
   const params = new URLSearchParams({ yf_symbol })
   if (start) params.set('start', start)
   if (period) params.set('period', period)
+  if (since) params.set('since', since)
   const res = await fetch(`${BASE}/history?${params}`)
   if (!res.ok) throw new Error(`History API ${res.status}`)
   return res.json() as Promise<HistoryData>
@@ -93,8 +106,12 @@ export function usePrefetchHoldingCharts(yf_symbols: string[]) {
       qc.prefetchQuery({
         queryKey:  ['history', sym],
         queryFn:   async () => {
-          const data = await fetchHistory(sym, '2015-01-01')
-          if (data.dates?.length) lsSet(`${sym}:2015-01-01`, data)
+          const lsk = `${sym}:2015-01-01`
+          const existing = lsGet(lsk)
+          const since = existing?.dates?.[existing.dates.length - 1]
+          const fetched = await fetchHistory(sym, '2015-01-01', undefined, since)
+          const data = fetched.partial_since && existing ? mergeHistory(existing, fetched) : fetched
+          if (data.dates?.length) lsSet(lsk, data)
           return data
         },
         staleTime: Infinity,
@@ -136,7 +153,11 @@ export function useHistory(yf_symbol: string | null, start: string | null, perio
   return useQuery({
     queryKey,
     queryFn:   async () => {
-      const data = await fetchHistory(yf_symbol!, start, period)
+      // Intraday entries key off time-of-day strings, not calendar dates — only
+      // meaningful to hint `since` on the daily-history path.
+      const since = !period ? cached?.dates?.[cached.dates.length - 1] : undefined
+      const fetched = await fetchHistory(yf_symbol!, start, period, since)
+      const data = fetched.partial_since && cached ? mergeHistory(cached, fetched) : fetched
       // persist to localStorage so next cold-start shows data immediately
       if (data.dates?.length) lsSet(lsKey, data)
       return data
