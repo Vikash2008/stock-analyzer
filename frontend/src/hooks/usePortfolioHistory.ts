@@ -129,6 +129,10 @@ export function usePortfolioHistory(
   const loadedCount   = queries.filter(q => q.status === 'success' || q.status === 'error').length
   const fetchingCount = queries.filter(q => q.fetchStatus === 'fetching').length
   const isFetching    = fetchingCount > 0
+  // Real last-fetch time across every symbol's query (each seeded with the actual cache
+  // timestamp via initialDataUpdatedAt above) — not "now", so reopening the app with a
+  // cache that's hours old shows its true age instead of looking freshly synced.
+  const lastFetchedAt = queries.reduce((max, q) => Math.max(max, q.dataUpdatedAt ?? 0), 0) || null
   // "Nothing to show yet" — true only when at least one symbol has neither a real/cached
   // result nor has finished failing. A symbol that errors out (no cache, retries exhausted —
   // e.g. a transient mobile network drop) counts as resolved too, so one bad symbol doesn't
@@ -343,5 +347,5 @@ export function usePortfolioHistory(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, loadedCount, holdings, transactions, realized, usdInr, currency, symbols, symbolPriceMap])
 
-  return { series, isLoading, isFetching, loadedCount, totalCount: symbols.length, fetchingCount, symbolPriceMap }
+  return { series, isLoading, isFetching, loadedCount, totalCount: symbols.length, fetchingCount, symbolPriceMap, lastFetchedAt }
 }

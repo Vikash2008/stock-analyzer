@@ -29,6 +29,17 @@ function lsGet(key: string): DividendsData | undefined {
   return Date.now() - entry.ts < STALE_MS ? entry.data : undefined
 }
 
+function lsGetTimestamp(key: string): number | undefined {
+  return idbGet<{ data: DividendsData; ts: number }>(key)?.ts
+}
+
+/** Real cache-write time for a portfolio's dividends, independent of whether the current
+ * render came from placeholderData or a fresh fetch — used instead of "now" so reopening the
+ * app with hours/days-old cached data shows its true age, not a freshly-synced look. */
+export function getDividendsLastFetched(portfolio?: string): number | undefined {
+  return lsGetTimestamp(LS_KEY(portfolio ?? ''))
+}
+
 function lsSet(key: string, data: DividendsData) {
   idbSet(key, { data, ts: Date.now() })
 }

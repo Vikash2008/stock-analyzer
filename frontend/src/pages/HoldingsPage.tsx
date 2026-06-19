@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react'
 import { AddTransactionModal } from '../components/AddTransactionModal'
 import { DividendsTab } from '../components/DividendsTab'
 import { FxGainsTab } from '../components/FxGainsTab'
-import { useDividends, useRefreshAllDividends, getIncludeDividends, getIncludeFxGains } from '../hooks/useDividends'
+import { useDividends, useRefreshAllDividends, getIncludeDividends, getIncludeFxGains, getDividendsLastFetched } from '../hooks/useDividends'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   LineChart, Line, BarChart, Bar, ComposedChart,
@@ -177,6 +177,22 @@ function buildRows(
         existing.todayGain = (existing.todayGain ?? 0) + h.disp_today_gain
       }
       if (!existing.portfolios.includes(h.portfolio)) existing.portfolios.push(h.portfolio)
+    }
+  }
+
+  // Backfill portfolios that no longer hold this symbol (fully closed position) but still
+  // contributed realized gain/cost — otherwise their transaction history silently drops out
+  // of the merged card's nav target and its realized total understates the true gain.
+  for (const [key, [rg, rc]] of realizedMap) {
+    const ci   = key.indexOf(':')
+    const port = key.slice(0, ci)
+    const sym  = key.slice(ci + 1)
+    if (SKIP_PORTS.has(port)) continue
+    const existing = map.get(sym)
+    if (existing && !existing.portfolios.includes(port)) {
+      existing.portfolios.push(port)
+      existing.realGain += rg
+      existing.realCost += rc
     }
   }
 
@@ -681,7 +697,7 @@ export default function HoldingsPage({ currency }: Props) {
   }, [data, filtPorts, segment, portfolio])
 
   // Placed before useBenchmarkXirr so symbolPriceMap is available for period XIRR opening balance
-  const { series: portSeries, isLoading: histLoading, isFetching: histIsFetching, loadedCount, totalCount, fetchingCount: histFetchingCount, symbolPriceMap } = usePortfolioHistory(
+  const { series: portSeries, isLoading: histLoading, isFetching: histIsFetching, loadedCount, totalCount, fetchingCount: histFetchingCount, symbolPriceMap, lastFetchedAt: histLastFetchedAt } = usePortfolioHistory(
     filteredHoldings,
     filtTxns,
     filtRealized,
@@ -733,10 +749,11 @@ export default function HoldingsPage({ currency }: Props) {
     return `${hh}:${mm} ${dd} ${mon}`
   }
 
-  // Set histLastSynced whenever history data is available (initial load from cache OR after sync)
+  // Set histLastSynced to the real cache timestamp (not "now") whenever it's available —
+  // reopening the app with hours-old cached data should show its true age, not look freshly synced.
   useEffect(() => {
-    if (!histLoading && loadedCount > 0) setHistLastSynced(new Date())
-  }, [histLoading, loadedCount])
+    if (!histLoading && histLastFetchedAt) setHistLastSynced(new Date(histLastFetchedAt))
+  }, [histLoading, histLastFetchedAt])
 
   // Progress-bar "done" count must never visibly decrease — totalCount - histFetchingCount
   // (used once everything has loaded at least once) tracks *currently in-flight* requests,
@@ -754,10 +771,13 @@ export default function HoldingsPage({ currency }: Props) {
     if (!benchLoading && !benchFetching && benchSectors.length > 0) setBenchLastSynced(new Date())
   }, [benchLoading, benchFetching, benchSectors.length])
 
-  // Set divLastSynced whenever dividend data is available (initial load from cache OR after sync)
+  // Set divLastSynced to the real cache timestamp (not "now") whenever dividend data is
+  // available — reopening the app with hours/days-old cached data shows its true age.
   useEffect(() => {
-    if (!divLoading && !divFetching && divData) setDivLastSynced(new Date())
-  }, [divLoading, divFetching, divData])
+    if (divLoading || divFetching || !divData) return
+    const ts = getDividendsLastFetched(portfolio)
+    if (ts) setDivLastSynced(new Date(ts))
+  }, [divLoading, divFetching, divData, portfolio])
   const xirrMap = useMemo(() => {
     if (!data) return new Map<string, number | null>()
     const today = new Date()
