@@ -378,6 +378,12 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-06-05
 
+### 2026-06-19 (session 141)
+
+**Sync-status banners — green for confirmations, amber for warnings**
+- "Charts/Dividends already up to date"/"recently updated" banners changed from dark `bg-slate-800` to `bg-emerald-600 text-white font-bold` per user request — green reads as a positive confirmation
+- New "N symbols didn't refresh" banner (dividends) uses `bg-amber-600` instead, deliberately distinct from the green ones — it's a warning (data may be stale/incomplete for those symbols), not a confirmation
+
 ### 2026-06-19 (session 139)
 
 **Charts "Refresh" button — "already up to date" toast for the no-op case**
