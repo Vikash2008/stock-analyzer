@@ -73,22 +73,33 @@ export function usePrefetchHoldingCharts(yf_symbols: string[]) {
 
   useEffect(() => {
     if (!yf_symbols.length) return
-    for (const sym of yf_symbols) {
-      qc.prefetchQuery({
-        queryKey:  ['history', sym],
-        queryFn:   async () => {
-          const lsk = `${sym}:2015-01-01`
-          const existing = lsGet(lsk)
-          const since = existing?.dates?.[existing.dates.length - 1]
-          const fetched = await fetchHistory(sym, '2015-01-01', undefined, since)
-          const data = fetched.partial_since && existing ? mergeHistory(existing, fetched) : fetched
-          if (data.dates?.length) lsSet(lsk, data)
-          return data
-        },
-        staleTime: Infinity,
-        gcTime:    Infinity,
-      })
+    let cancelled = false
+    const BATCH = 20  // firing all ~150-200 requests at once piles up pending connections on
+                       // the backend during a cold-cache burst; the backend's own concurrency
+                       // limit already gates real throughput, so batching here just avoids
+                       // having that many requests in flight simultaneously, with no added delay.
+    async function run() {
+      for (let i = 0; i < yf_symbols.length; i += BATCH) {
+        if (cancelled) return
+        const batch = yf_symbols.slice(i, i + BATCH)
+        await Promise.allSettled(batch.map(sym => qc.prefetchQuery({
+          queryKey:  ['history', sym],
+          queryFn:   async () => {
+            const lsk = `${sym}:2015-01-01`
+            const existing = lsGet(lsk)
+            const since = existing?.dates?.[existing.dates.length - 1]
+            const fetched = await fetchHistory(sym, '2015-01-01', undefined, since)
+            const data = fetched.partial_since && existing ? mergeHistory(existing, fetched) : fetched
+            if (data.dates?.length) lsSet(lsk, data)
+            return data
+          },
+          staleTime: Infinity,
+          gcTime:    Infinity,
+        })))
+      }
     }
+    run()
+    return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbolsKey, qc])
 }

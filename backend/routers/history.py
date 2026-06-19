@@ -18,6 +18,8 @@ only recheck once per exchange close.
 from __future__ import annotations
 
 import asyncio
+import ctypes
+import gc
 import pickle
 import threading
 import time
@@ -33,6 +35,33 @@ from backend.market_hours import is_stale
 from src.price_fetcher import get_prices_and_prev_close
 
 router = APIRouter()
+
+# glibc's malloc doesn't hand freed memory back to the OS on its own — after a multi-symbol
+# chart-fetch burst, the process's reported RSS can stay elevated near its peak for a long
+# time even though the actual resident cache (trimmed to _RETENTION_DAYS) is tiny. Forcing a
+# trim after each burst settles closes that gap. Debounced — malloc_trim itself walks the
+# whole heap and isn't free, so it shouldn't run on every single fetch.
+try:
+    _libc: Optional[ctypes.CDLL] = ctypes.CDLL("libc.so.6")
+except OSError:
+    _libc = None  # not Linux (e.g. local Windows dev) — no-op
+
+_TRIM_DEBOUNCE = 30.0
+_last_trim = 0.0
+
+
+def _trim_memory() -> None:
+    global _last_trim
+    now = time.time()
+    if now - _last_trim < _TRIM_DEBOUNCE:
+        return
+    _last_trim = now
+    gc.collect()
+    if _libc is not None:
+        try:
+            _libc.malloc_trim(0)
+        except Exception:
+            pass
 
 # _series_cache is persisted directly to its own file (not mirrored into src.cache's shared
 # Cache singleton) — that singleton stays resident in RAM for the whole process, so mirroring
@@ -71,13 +100,16 @@ def _persist_series_cache() -> None:
 _series_cache: dict[str, dict] = _load_series_cache()  # yf_symbol -> {dates, prices, fetched_at, last_bar_date}
 _intraday_cache: dict[str, tuple[dict, float]] = {}
 _INTRADAY_TTL = 3600.0  # 1 hour  — intraday
-_sem          = asyncio.Semaphore(4)  # max concurrent yfinance fetches — was briefly raised to 8 to
+_sem          = asyncio.Semaphore(3)  # max concurrent yfinance fetches — was briefly raised to 8 to
                                        # clear mass-refetch bursts faster, but each concurrent
                                        # yf.download() holds a full OHLCV DataFrame in memory; 8 at
                                        # once pinned Render's 512MB free-tier instance at its ceiling
-                                       # (~15.4MB/call observed). Reverted to 4; see _download()'s
-                                       # del df + the disk-backed cache below for the actual fix to
-                                       # the slow-burst problem this was trying to solve.
+                                       # (~15.4MB/call observed). Reverted to 4, then to 3 — a first
+                                       # post-deploy cold burst (every symbol cold on both client and
+                                       # server caches at once) still plateaued at ~513MB; trading a
+                                       # bit more burst-clear time for a lower peak. See _download()'s
+                                       # del df + the disk-backed cache + _trim_memory() for the rest
+                                       # of the fix to the slow-burst problem this was trying to solve.
 
 # Neither cache above ever had entries removed — every distinct symbol ever requested
 # (not just current portfolio holdings, but every Explore/Quick-Stats lookup too) stayed
@@ -157,6 +189,7 @@ def _save_entry(yf_symbol: str, entry: dict) -> dict:
     _series_cache[yf_symbol] = _trim(entry)
     _evict_oldest(_series_cache, _MAX_SERIES_SYMBOLS, lambda e: e["fetched_at"])
     _persist_series_cache()
+    _trim_memory()
     return entry  # caller gets the untrimmed entry for this response
 
 

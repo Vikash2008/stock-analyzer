@@ -13,7 +13,7 @@ import {
 import { usePortfolio } from '../hooks/usePortfolio'
 import { useQueryClient } from '@tanstack/react-query'
 import { usePortfolioHistory, sliceSeries } from '../hooks/usePortfolioHistory'
-import { usePrefetchHoldingCharts } from '../hooks/useHistory'
+import { usePrefetchHoldingCharts, REFRESH_MS } from '../hooks/useHistory'
 import type { DatedSeries, PortfolioSeries } from '../hooks/usePortfolioHistory'
 import { HoldingCard } from '../components/HoldingCard'
 import { SummaryCard } from '../components/SummaryCard'
@@ -256,6 +256,7 @@ export default function HoldingsPage({ currency }: Props) {
   const [benchSyncing,   setBenchSyncing]   = useState(false)
   const refreshAllBenchmarks = useRefreshAllBenchmarks()
   const [histLastSynced,  setHistLastSynced]  = useState<Date | null>(null)
+  const [chartsUpToDate,  setChartsUpToDate]  = useState(false)
   const [benchLastSynced, setBenchLastSynced] = useState<Date | null>(null)
   const [divSyncing,      setDivSyncing]      = useState(false)
   const [divLastSynced,   setDivLastSynced]   = useState<Date | null>(null)
@@ -1187,6 +1188,11 @@ export default function HoldingsPage({ currency }: Props) {
 
   return (
     <div className="max-w-xl mx-auto flex flex-col h-[100dvh]">
+      {chartsUpToDate && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[9999] bg-slate-800 text-white text-[12px] font-medium px-4 py-2 rounded-full shadow-lg whitespace-nowrap">
+          Charts already up to date
+        </div>
+      )}
       <div className="shrink-0 px-2 pt-4 bg-white relative z-20">
       {/* Nav bar */}
       <div className="flex items-center justify-between px-3 py-2 mb-3 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl">
@@ -1259,6 +1265,11 @@ export default function HoldingsPage({ currency }: Props) {
                       <button
                         onClick={() => {
                           if (syncing) return
+                          if (histLastSynced && Date.now() - histLastSynced.getTime() < REFRESH_MS) {
+                            setChartsUpToDate(true)
+                            setTimeout(() => setChartsUpToDate(false), 3000)
+                            return
+                          }
                           setSyncing(true)
                           // Priority: the symbols of the view you clicked Refresh from finish first;
                           // everything else (other portfolios already prefetched in the background) follows.
