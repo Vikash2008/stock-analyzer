@@ -33,6 +33,9 @@
 | Cannot determine approach in ~15s | STOP. Ask ONE question. No more thinking in circles. |
 | Render OOM / memory / logs investigation | Ask for a fresh Render API key each session (never reuse/store one) — see `reference_render_api_access` memory for service ID + endpoints. Report all timestamps converted to IST, not raw UTC. |
 | Any task that would use an Explore/Agent subagent | Don't. Use direct Read/Grep/Bash instead — subagents burn disproportionate tokens for this project. |
+| File is >300 lines and edit location is unknown | Grep the symbol/text for a line number first, then `Read` with `offset`/`limit` around it. Never full-read a large file when Grep can find the spot. See `FEATURE_MAP.md` Hot-Spot Line Anchors for `HoldingsPage.tsx`/`PortfoliosPage.tsx`. |
+| Task is a single-file, single-step fix | Don't use TaskCreate/TaskUpdate — that overhead is for genuinely multi-file/multi-step work only. |
+| A memory/doc file is accumulating one entry per session (history log pattern) | Cap it — once it would exceed ~100 lines, move the oldest entries to a `_archive.md` sibling file (same pattern as `ROADMAP_ARCHIVE.md` / `project_react_fastapi_archive.md`) before appending. Never let a file read at boot grow unbounded. |
 
 ---
 
@@ -48,6 +51,7 @@
 8. **Ask questions frequently.** Not just before complex tasks — check in often rather than defaulting to autonomous proceeding.
 9. **Never use Explore/Agent subagents for this project.** Direct Read/Grep/Bash only.
 10. **Render API timestamps are UTC.** Always convert to IST before reporting times back to the user.
+11. **Prompt contract is checked before the first tool call, not after a speculative read.** Decide if Type+Problem are present from the message text alone; only read a file once that check passes.
 
 ---
 

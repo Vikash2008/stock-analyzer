@@ -135,3 +135,142 @@
 | HoldingsPage sort control â€” 7 fields, asc/desc | 2026-05-24 |
 | Overview By Type as default breakdown | 2026-05-24 |
 | TransactionsPage back label via nav state; header shows company name only | 2026-05-24 |
+
+---
+
+## Archived sections from ROADMAP.md (moved 2026-06-19 — boot-cost trim)
+
+### Phase 4 — Data Accuracy & Charts
+
+| # | Item | What's needed | Status |
+|---|------|---------------|--------|
+| 1 | Fix P&L and realized values showing wrong numbers | SKIP_PORTS excluded from totals; realized included in portfolio/segment cards | done |
+| 2 | XIRR at portfolio + segment level | Bundle now carries xirr_total, xirr_stk, xirr_mf, xirr_by_portfolio | done |
+| 2b | XIRR per individual holding card | Client-side per-symbol computation; also on Overview BreakCards | done |
+| 3 | HoldingsPage — Charts tab | 7 line charts (Value, Invested, Unrealized, Realized, Total, Return%, XIRR Trend); client-side computation via usePortfolioHistory | done |
+| 4 | SummaryPage removed | Unreachable dead page — deleted | done |
+
+### Backlog — Benchmarking Accuracy
+
+| # | Item | Notes | Status |
+|---|------|-------|--------|
+| 1 | UI 2pp alpha gap | Root cause found: debug_benchmark.py was including MON100/MAFANG (us_stock ETFs in Zerodha) in Indian stocks pool, inflating debug actual XIRR by ~4pp. UI correctly excludes them via getSegmentType. Fixed debug script with US_ETF_SYMS filter. UI 3.1% alpha is the correct Indian-stocks-only figure. | done |
+
+### Backlog — Cold Start UX
+
+| # | Item | Notes | Status |
+|---|------|-------|--------|
+| 1 | Keep-alive ping (GitHub Actions cron) | Added then later removed (superseded by UptimeRobot) — see App Launch & Chart Caching #16 below | done |
+| 2 | Returns tab per-period gains — use portSeries.total | sectorValueSeries only tracks open positions; closed positions create mismatch. Fixed by using portSeries.total differences for "All Sectors". | done |
+
+> Note: Render free tier spin-down (15 min idle) is not configurable. Paid Starter plan ($7/month) gives always-on. Keep-alive + UI messaging is the free solution.
+
+### Backlog — Report Tab Redesign
+
+| # | Item | Notes | Status |
+|---|------|-------|--------|
+| 1 | Report tab — Section 1 fundamentals grid | 4×4 grid (Valuation/Returns/Growth/Context); Screener.in data source; PEG fallback; D/E; Rev 1Y/3Y; EPS 1Y/3Y; ↻ sync + progress bar; PE History chart | done |
+| 2 | Report tab — Revenue Segments Perplexity card | Direct search query; site:nsearchives.nseindia.com for Indian; table format instruction | done |
+| 7 | Report tab — Gemini 2.5 Flash inline answers | Perplexity replaced; POST /api/gemini with Google Search grounding; react-markdown; elapsed timer; force-refresh; localStorage cache | done |
+| 5 | Report tab — Section 2 Research Links | Screener/Trendlyne/NSE pills for Indian; Finviz/Macrotrends/EDGAR for US | done |
+| 8 | Deep Research — 8-card redesign | 8 sections: Business Overview & Moat, Industry Outlook & Macro, Latest Earnings & Guidance, Valuation Metrics, Peer Comparison Matrix, Financial Health & Trends, News/Sentiment/Red Flags, Technical Analysis Setup | done |
+
+### Backlog — Explore & Deep Research
+
+| # | Item | Notes | Status |
+|---|------|-------|--------|
+| 1 | Report tab Section 2 — Research Links | Indian: Screener/Trendlyne/NSE; US: Finviz/Macrotrends/EDGAR | done |
+| 3 | Better prompts for Deep Research cards | Audited and improved all 8 section prompts (Indian + US) | done |
+| 4 | Custom search on Deep Research | Free-form question input; Gemini answers via Google Search grounding | done |
+
+### Backlog — Upcoming (resolved item)
+
+| # | Item | Notes | Status |
+|---|------|-------|--------|
+| 2 | FX conversion new feature | Toggle in PortfoliosPage gear (amber) + 5th tab in HoldingsPage; per-lot FX gain; XIRR recalculated with actual INR at purchase time; fx_lots in bundle | done |
+
+### Backlog — App Launch & Chart Caching
+
+| # | Item | Notes | Status |
+|---|------|-------|--------|
+| 1 | App-launch loader gate | App.tsx renders instantly from cached real portfolio data on reopen unless nothing cached yet | done |
+| 2 | Chart data caching (3 surfaces) | Price chart, Holding 7-charts, Portfolio 7-charts share one per-symbol localStorage cache (hist:*, useHistory.ts) | done |
+| 3 | localStorage quota eviction for chart cache | lsSet evicts oldest 20 hist:* entries and retries once on QuotaExceededError | done |
+| 4 | Backend cache memory growth | src/cache.py prune() drops expired layers, caps fifo:{hash}:* to 5 entries | done |
+| 5 | Verify app-launch loader gate on real device | Confirmed via real close-reopen test | done |
+| 6 | Incremental chart fetch | _fetch_incremental() re-fetches only from last cached bar forward | done |
+| 7 | Chart auto-refresh unified with 30-min price-sync cadence | useHistory.ts/usePortfolioHistory.ts auto-refresh every 30 min | done |
+| 8 | Market-hours-aware chart staleness | backend/market_hours.py — 30 min while exchange open, cached until next close otherwise | done |
+| 9 | Closed-holding chart cache tiering | 30-day localStorage TTL, separate query key, excluded from auto-refresh | done |
+| 10 | Priority fetch ordering on manual chart refresh | Active portfolio/segment's symbols awaited first | done |
+| 11 | Chart-cache RAM duplication removed | _series_cache no longer mirrored into src.cache singleton; own dedicated file | done |
+| 12 | Chart-cache rolling-window retention | Trimmed to last 15 days per symbol; symbol caps 300→120 | done |
+| 13 | Frontend caches migrated localStorage → IndexedDB | New utils/idbStore.ts; hist:*/qs:*/dividends:cache:*/gemini:* migrated | done |
+| 14 | Chart-burst peak/plateau reduction | _sem 4→3; _trim_memory() malloc_trim debounced 30s; prefetch batched in groups of 20 | done |
+| 15 | Chart Refresh button — "already up to date" toast | Shows 3s toast instead of silent no-op within staleness window | done |
+| 16 | Dead code removed | keepalive.yml + 6 throwaway Playwright test scripts | done |
+
+### Backlog — Mobile CSV Persistence (RESOLVED)
+
+| # | Item | Notes | Status |
+|---|------|-------|--------|
+| 1 | Portfolio CSV reverts to demo data unpredictably on Android | RESOLVED 2026-06-17 (session 129) — see reference_mobile_csv_persistence.md memory | done |
+| 2 | In-memory CSV cache (attempted, reverted) | Reverted (commit c8abf26) — full app close/OS reclaim still resets JS memory | reverted |
+
+### Done (historical log, pre-2026-06-19 trim)
+
+| Item | Completed |
+|------|-----------|
+| Render OOM — second root cause + IndexedDB migration — chart-cache RAM duplication fixed, 15-day retention, IndexedDB migration, malloc_trim+semaphore tuning | 2026-06-19 |
+| Render OOM fix — chart-burst memory safety + disk-persisted chart cache — _sem reverted 4→4, del df per-request trim, disk-persisted _series_cache, threading.Lock + debounce | 2026-06-19 |
+| Live sync reliability overhaul — ThreadPoolExecutor hard timeout, lightweight quote endpoint, LRU symbol caps, monotonic progress clamp | 2026-06-19 |
+| /health route 405 fix — @app.api_route GET+HEAD for UptimeRobot | 2026-06-19 |
+| Chart auto-refresh reopen fix — initialData+initialDataUpdatedAt seeded from real cache timestamp | 2026-06-18 |
+| Benchmark XIRR refresh overhaul — fixed cache key, useRefreshAllBenchmarks(), daily auto-refresh gate | 2026-06-18 |
+| Dividends refresh overhaul — force-refresh all portfolios, monthly auto-refresh, force_refresh bypass fix | 2026-06-18 |
+| Add Transaction from UI — AddTransactionModal + useAddTransaction hook + backend add_txn.py | 2026-06-16 |
+| Dividends feature — full build, Dividends tab, FIFO cache-first pattern, IST timezone fix | 2026-06-12 |
+| Deep Research Chat — bottom-sheet modal, per-card Ask button, Google Search grounding | 2026-06-05 |
+| Demo mode (CSV upload) — backend defaults to demo CSV, settings popover import/download | 2026-06-05 |
+| Explore page Charts tab — Research|Charts|Notes tabs, ZoomChartOverlay | 2026-06-04 |
+| Explore page overview card — CAGR 1Y/5Y, sector, 52W | 2026-06-04 |
+| Explore page UI improvements — banner redesign, autocomplete dropdown | 2026-06-04 |
+| Explore New Holdings — search section + ResearchPage | 2026-06-04 |
+| PWA update toast — built-time injection, controllerchange reload toast | 2026-06-04 |
+| Quick Stats cold-start fix — throw on partial, no caching of partial results | 2026-06-04 |
+| Gemini API keys — moved to Render env vars | 2026-06-03 |
+| Deep Research 8-card redesign — new prompts, color system, header attribution | 2026-06-03 |
+| 30-min auto-refresh fix — setInterval-based force_refresh | 2026-06-03 |
+| Research tab Quick Stats button color | 2026-06-03 |
+| Gemini API keys moved to env vars (squashed git history) | 2026-06-03 |
+| Tab UI overhaul — active tab colors, Charts strip fix | 2026-06-03 |
+| quickstats reliability — TimeoutAdapter, partial JSON instead of 503 | 2026-06-03 |
+| Research tab renamed from Report; emerald design language | 2026-06-03 |
+| Report tab — Deep Research/Quick Stats sub-tabs | 2026-06-03 |
+| Report tab — API key toggle, quickstats 503 fix | 2026-06-03 |
+| Report tab — model toggle, accordion, fallback | 2026-06-03 |
+| Report tab — Gemini model stabilised (3.1-flash-lite) | 2026-06-02 |
+| Report tab — Gemini card UX collapsible, 7-day cache | 2026-06-02 |
+| Report tab — Gemini 2.5 Flash inline answers replacing Perplexity | 2026-06-02 |
+| Report tab Section 1 — 4×4 fundamentals grid | 2026-06-02 |
+| Report tab Revenue Segments card | 2026-06-02 |
+| Report tab Section 1 — 3×4 fundamentals grid | 2026-06-01 |
+| HoldingsPage search/filter | 2026-06-01 |
+| HoldingsPage Allocation tab rows clickable | 2026-06-01 |
+| TxRow 2-column mobile layout | 2026-06-01 |
+| PriceChart BUY/SELL dot size by txn value | 2026-06-01 |
+| Closed holdings charts — holdingArrForCharts synthetic Holding[] | 2026-06-01 |
+| TypeScript cleanup — BenchmarkOutput interface, zero tsc errors | 2026-06-01 |
+| Boot context reduction — archived design decisions + done items | 2026-06-01 |
+| US stocks benchmarking ^NDX fix | 2026-05-31 |
+| Charts + Analysis tab padding fix | 2026-05-31 |
+| Returns pill — histogram border card + bar value labels | 2026-05-31 |
+| Allocation accordion 4-column layout | 2026-05-31 |
+| Analysis tab holding rows clickable | 2026-05-31 |
+| HoldingsPage Analysis strip styling | 2026-05-31 |
+| TransactionsPage full makeover | 2026-05-31 |
+| HoldingsPage Charts strip styling | 2026-05-31 |
+| HoldingsPage "Light Banking" overhaul | 2026-05-31 |
+| Overview 3-color scheme | 2026-05-31 |
+| Visual design overhaul | 2026-05-31 |
+| Sync pill relocations + styling | 2026-05-31 |

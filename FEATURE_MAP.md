@@ -37,6 +37,37 @@
 | **Symbol search autocomplete** | `frontend/src/pages/PortfoliosPage.tsx` | `backend/routers/search.py` |
 | **Notes (any page)** | `frontend/src/components/AnalysisTab.tsx` | — |
 
+## Hot-Spot Line Anchors (oversized files)
+
+> `HoldingsPage.tsx` (2472 lines) and `PortfoliosPage.tsx` (1289 lines) are too big to read in full for a targeted fix. Grep the symbol first to confirm the line hasn't moved, then `Read` with `offset`/`limit` around the anchor — don't read the whole file.
+
+**HoldingsPage.tsx**
+| Section | ~Line |
+|---|---|
+| Component start / state (activeTab etc.) | 190–230 |
+| Allocation tab logic | 442 |
+| Benchmarking logic (benchTxns etc.) | 634 |
+| Settings / gear popover | 1313 |
+| Tab bar + tab switch | 1369–1392 |
+| Holdings tab content | 1413–1532 |
+| Charts tab content | 1392, 1570 |
+| Analysis tab (Allocation/Benchmarking/Returns sub-tabs) | 1503–1726 |
+| Dividends tab | 2416 |
+| FX tab | 2419 |
+
+**PortfoliosPage.tsx**
+| Section | ~Line |
+|---|---|
+| BreakCard component | 161 |
+| Main component start | 227 |
+| Explore New Holdings search | 393–433 |
+| Stocks/MF tile XIRR computation | 494–613 |
+| Settings / gear popover | 867 |
+| Currency toggle | 1018 |
+| Hero card | 1057 |
+| Card rendering loop | 1191 |
+| Explore FAB + modal | 1200–1243 |
+
 ## Usage Rule
 
 ```
