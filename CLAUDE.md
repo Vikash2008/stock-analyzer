@@ -94,3 +94,4 @@ Cold start: Render free tier spins down after inactivity — first hit takes 60�
 | `/get_ready` | Session start — reads 3 boot files, shows pending, confirms ready |
 | `/save_state` | Updates doc + memory files → git commit (no push) |
 | `/ship` | git commit → git push → Vercel + Render auto-deploy |
+| `/check_efficiency` | Scores the immediately preceding task against the trigger table/critical rules — no redo, no new fetches |

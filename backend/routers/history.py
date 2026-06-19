@@ -243,7 +243,12 @@ def _fetch_incremental(yf_symbol: str, start: str, since: Optional[str] = None) 
         "fetched_at": time.time(),
         "last_bar_date": dates[-1] if dates else cached["last_bar_date"],
     }
-    return _save_entry(yf_symbol, entry)
+    result = _save_entry(yf_symbol, entry)
+    if since_dt is not None:
+        # `cached` here is only the trimmed resident window, not the caller's full
+        # history — flag delta-only so the caller merges instead of replacing its cache.
+        result["partial_since"] = since_dt.strftime("%Y-%m-%d")
+    return result
 
 
 def _slice_response(entry: dict, start: str) -> dict:
