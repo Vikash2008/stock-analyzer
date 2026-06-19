@@ -2,6 +2,7 @@ import React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { streamGeminiChat } from '../api/gemini'
+import { idbGet, idbSet, idbDelete } from '../utils/idbStore'
 
 interface ChatMessage {
   id: string
@@ -55,14 +56,15 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
   const inputRef = React.useRef<HTMLTextAreaElement>(null)
 
   React.useEffect(() => {
-    const raw = localStorage.getItem(`gemini:chat:${yf_symbol}`)
+    const key = `gemini:chat:${yf_symbol}`
+    const raw = idbGet<string>(key)
     if (!raw) { setMessages([]); return }
     try {
       const p = JSON.parse(raw)
       if (p.savedAt && Date.now() - p.savedAt < CHAT_TTL) {
         setMessages(p.messages ?? [])
       } else {
-        localStorage.removeItem(`gemini:chat:${yf_symbol}`)
+        idbDelete(key)
         setMessages([])
       }
     } catch {
@@ -125,7 +127,7 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
           const finalMsg: ChatMessage = { id: asstId, role: 'assistant', text: accText, contextLabel: ctx.label, contextEmoji: ctx.emoji, timestamp: Date.now(), model: chunk.model, grounded: chunk.grounded, sources: chunk.sources, streaming: false }
           setMessages(prev => {
             const updated = prev.map(m => m.id === asstId ? finalMsg : m)
-            try { localStorage.setItem(`gemini:chat:${yf_symbol}`, JSON.stringify({ messages: updated, savedAt: Date.now() })) } catch {}
+            idbSet(`gemini:chat:${yf_symbol}`, JSON.stringify({ messages: updated, savedAt: Date.now() }))
             return updated
           })
         }

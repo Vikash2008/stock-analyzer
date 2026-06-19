@@ -62,13 +62,11 @@ _TTL: dict[str, Optional[float]] = {
 # permanent — they were never actually evicted. TTLs here must match the routers that
 # write them (backend/routers/quickstats.py _DISK_TTL, backend/routers/dividends.py
 # _SYM_DIV_TTL) so prune() can age them out the same way those routers already intend to.
-# hist: (backend/routers/history.py _series_cache) — actual re-fetch necessity is judged
-# by market_hours.is_stale(), not this TTL; this just ages out symbols nobody's looked
-# at in a week so the disk file doesn't grow forever.
+# (hist: used to be mirrored here too — moved to its own dedicated file in
+# backend/routers/history.py to stop double-holding the same data in RAM.)
 _PREFIX_TTL: dict[str, float] = {
     "qs:":   86400.0,
     "divs:": 30 * 86400.0,
-    "hist:": 7 * 86400.0,
 }
 
 # Each uploaded CSV gets its own permanent fifo:{hash}:* entry that's never otherwise

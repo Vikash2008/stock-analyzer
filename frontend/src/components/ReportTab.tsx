@@ -7,6 +7,7 @@ import type { QuickStats } from '../api/types'
 import { SECTIONS, buildGeminiPrompt } from '../utils/reportLinks'
 import { streamGeminiSection } from '../api/gemini'
 import { DeepResearchChat } from './DeepResearchChat'
+import { idbGet, idbSet, idbDelete } from '../utils/idbStore'
 
 const API_URL = (import.meta.env.VITE_API_URL ?? '') as string
 
@@ -23,13 +24,7 @@ interface Props {
 }
 
 function safeLocalSet(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value)
-  } catch {
-    const geminiKeys = Object.keys(localStorage).filter(k => k.startsWith('gemini:'))
-    for (const k of geminiKeys) localStorage.removeItem(k)
-    try { localStorage.setItem(key, value) } catch {}
-  }
+  idbSet(key, value)
 }
 
 function fmtPe(v: number | null | undefined): string {
@@ -119,14 +114,15 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
     const TTL = 7 * 24 * 3600 * 1000
     for (const s of SECTIONS) {
       for (const [suffix, target] of [['', initial], [':alt', initialAlt]] as const) {
-        const raw = localStorage.getItem(`gemini:${yf_symbol}:${s.id}${suffix}`)
+        const key = `gemini:${yf_symbol}:${s.id}${suffix}`
+        const raw = idbGet<string>(key)
         if (!raw) continue
         try {
           const p = JSON.parse(raw)
           if (p.savedAt && Date.now() - p.savedAt < TTL) {
             (target as Record<string, SectionResult>)[s.id] = { text: p.text, sources: p.sources, savedAt: p.savedAt, grounded: p.grounded, model: p.model, requestedLite: p.requestedLite }
           } else {
-            localStorage.removeItem(`gemini:${yf_symbol}:${s.id}${suffix}`)
+            idbDelete(key)
           }
         } catch {}
       }

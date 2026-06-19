@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo } from 'react'
+import { idbGet, idbSet } from '../utils/idbStore'
 
 interface HistoryData {
   dates:      string[]
@@ -30,13 +31,10 @@ export const CLOSED_LS_TTL = 30 * 24 * 60 * 60 * 1000  // 30 days — fully-exit
 export const REFRESH_MS = 30 * 60 * 1000
 
 function readLsEntry(key: string, ttlMs: number): { d: HistoryData; t: number } | undefined {
-  try {
-    const raw = localStorage.getItem(LS_PREFIX + key)
-    if (!raw) return undefined
-    const { d, t } = JSON.parse(raw)
-    if (Date.now() - t > ttlMs) { localStorage.removeItem(LS_PREFIX + key); return undefined }
-    return { d, t }
-  } catch { return undefined }
+  const entry = idbGet<{ d: HistoryData; t: number }>(LS_PREFIX + key)
+  if (!entry) return undefined
+  if (Date.now() - entry.t > ttlMs) return undefined
+  return entry
 }
 
 // Exported so usePortfolioHistory.ts can share this same per-symbol cache —
@@ -52,35 +50,8 @@ export function lsGetTimestamp(key: string, ttlMs: number = LS_TTL): number | un
   return readLsEntry(key, ttlMs)?.t
 }
 
-// Quota errors here can otherwise go silent and starve more critical writes (the React
-// Query persister's portfolio cache, this same debug log) of room — evict the oldest
-// chart-history entries first and retry once, instead of just swallowing the error.
-function evictOldestHist(count: number) {
-  const entries: { key: string; t: number }[] = []
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i)
-    if (!k || !k.startsWith(LS_PREFIX)) continue
-    try {
-      const { t } = JSON.parse(localStorage.getItem(k) ?? '{}')
-      entries.push({ key: k, t: t ?? 0 })
-    } catch { entries.push({ key: k, t: 0 }) }
-  }
-  entries.sort((a, b) => a.t - b.t)
-  for (const e of entries.slice(0, count)) localStorage.removeItem(e.key)
-}
-
 export function lsSet(key: string, data: HistoryData) {
-  const payload = JSON.stringify({ d: data, t: Date.now() })
-  try {
-    localStorage.setItem(LS_PREFIX + key, payload)
-  } catch {
-    try {
-      evictOldestHist(20)
-      localStorage.setItem(LS_PREFIX + key, payload)
-    } catch {
-      // still over quota after eviction — give up, same as before
-    }
-  }
+  idbSet(LS_PREFIX + key, { d: data, t: Date.now() })
 }
 
 async function fetchHistory(yf_symbol: string, start: string | null, period?: string, since?: string): Promise<HistoryData> {

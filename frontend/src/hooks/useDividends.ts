@@ -2,6 +2,7 @@ import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-quer
 import { fetchDividends } from '../api/dividends'
 import type { DividendsData, DividendSymbol } from '../api/dividends'
 import { SKIP_PORTS } from '../utils/segments'
+import { idbGet, idbSet, idbDelete, idbKeys } from '../utils/idbStore'
 
 const STALE_MS = 30 * 24 * 60 * 60 * 1000          // 30 days — matches backend disk cache TTL
 const LS_KEY   = (p: string) => p ? `dividends:cache:v2:${p}` : `dividends:cache:`
@@ -23,17 +24,13 @@ async function forceRefreshOne(qc: QueryClient, key: string, csvHash: string): P
 }
 
 function lsGet(key: string): DividendsData | undefined {
-  try {
-    const raw = localStorage.getItem(key)
-    if (!raw) return undefined
-    const { data, ts } = JSON.parse(raw)
-    if (Date.now() - ts < STALE_MS) return data as DividendsData
-  } catch {}
-  return undefined
+  const entry = idbGet<{ data: DividendsData; ts: number }>(key)
+  if (!entry) return undefined
+  return Date.now() - entry.ts < STALE_MS ? entry.data : undefined
 }
 
 function lsSet(key: string, data: DividendsData) {
-  try { localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() })) } catch {}
+  idbSet(key, { data, ts: Date.now() })
 }
 
 export function useDividends(portfolio?: string) {
@@ -100,10 +97,9 @@ export function useDividendForSymbol(symbol: string): DividendSymbol | undefined
   return data?.by_symbol.find(s => s.symbol === symbol)
 }
 
-/** Wipe all dividend localStorage entries (call after CSV upload to force fresh fetch). */
+/** Wipe all dividend cache entries (call after CSV upload to force fresh fetch). */
 export function clearDividendLocalCache(): void {
-  const keys = Object.keys(localStorage).filter(k => k.startsWith('dividends:cache:'))
-  keys.forEach(k => localStorage.removeItem(k))
+  idbKeys('dividends:cache:').forEach(k => idbDelete(k))
 }
 
 /** Returns whether dividends should be included in returns (persisted in localStorage). */

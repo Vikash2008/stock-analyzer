@@ -1,22 +1,20 @@
 import { useQuery } from '@tanstack/react-query'
 import type { QuickStats } from '../api/types'
+import { idbGet, idbSet } from '../utils/idbStore'
 
 const API_URL  = (import.meta.env.VITE_API_URL ?? '') as string
 const LS_PREFIX = 'qs:'
 const LS_TTL    = 12 * 60 * 60 * 1000 // 12 hours
 
 function lsGet(sym: string): QuickStats | undefined {
-  try {
-    const raw = localStorage.getItem(LS_PREFIX + sym)
-    if (!raw) return undefined
-    const { d, t } = JSON.parse(raw)
-    if (Date.now() - t > LS_TTL) { localStorage.removeItem(LS_PREFIX + sym); return undefined }
-    return d as QuickStats
-  } catch { return undefined }
+  const entry = idbGet<{ d: QuickStats; t: number }>(LS_PREFIX + sym)
+  if (!entry) return undefined
+  if (Date.now() - entry.t > LS_TTL) return undefined
+  return entry.d
 }
 
 function lsSet(sym: string, data: QuickStats) {
-  try { localStorage.setItem(LS_PREFIX + sym, JSON.stringify({ d: data, t: Date.now() })) } catch {}
+  idbSet(LS_PREFIX + sym, { d: data, t: Date.now() })
 }
 
 async function fetchQuickStats(yf_symbol: string): Promise<QuickStats> {
