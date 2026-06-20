@@ -378,6 +378,11 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-06-05
 
+### 2026-06-21 (session 145)
+
+**XIRR 0(0%)-not-dash rule moved from display layer to the math layer**
+- Session 143 established "default to 0(0%) instead of —" for no-data XIRR, but each card was implementing this differently — `BreakCard` defaulted `null`→`0.0%` at render time while `SummaryCard` didn't, so the same null computation showed inconsistently across pages. Fixed by making `computeXIRR`/`xirr()` themselves return `0` for "no signal yet" (too few cashflows, no sign mix, sub-1-day span) — every card now renders identically off one source of truth, and `—` is reserved for an actual solver failure
+
 ### 2026-06-20 (session 143)
 
 **Manage Portfolio: Add/Delete/Copy split into a landing menu**

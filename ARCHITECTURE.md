@@ -52,7 +52,8 @@ frontend/
     hooks/useAddTransaction.ts   useMutation: POST /api/portfolio/add-txn?csv_hash={hash}; onSuccess: saves portfolio:csv, portfolio:csv:hash, portfolio:csv:meta to localStorage; qc.setQueryData(['portfolio'], data.portfolio); clears dividend localStorage cache; qc.invalidateQueries(['dividends'])
     hooks/useDeleteHolding.ts    useMutation: POST /api/portfolio/delete-holding?csv_hash={hash}; body {deletions: [{portfolio, symbol?, date?, type?, quantity?, price?}]}; same onSuccess cache-update shape as useAddTransaction/useSetTags
     components/ManagePortfolioModal.tsx   Landing menu opened from HoldingsPage Settings → "Manage Portfolio" row; 3 options (Add/Delete/Copy) each open their own full modal (AddTransactionModal / DeleteHoldingModal / PullHoldingsModal); Add disabled when not on a real broker page (bucket/label or Total), Copy disabled when on a real broker page
-    components/DeleteHoldingModal.tsx     Portfolio/Bucket-Label scope picker (optgroups: real portfolios + every bucket's labels) → "All Holdings" toggle (fast whole-portfolio/whole-label wipe, no symbol/date narrowing) or per-holding checklist with a "Show txn" expand revealing individual transactions (date/type/qty@price), each independently checkable; holding checkbox selects/clears all its txns; deletions always resolve to portfolio+symbol(+date/type/qty/price when granular) pairs
+    components/DeleteHoldingModal.tsx     Portfolio/Bucket-Label scope picker (optgroups: real portfolios + every bucket's labels), auto-filled+locked (disabled select) when opened with preFilledPortfolio or preFilledBucket+preFilledLabel from the current page. Portfolio scope = real permanent delete (POST delete-holding) via per-holding checklist with "Show txn" per-transaction granularity. Label/Bucket scope = untag only (POST set-tags, label='') — never deletes real transactions, since the same symbol can be tagged in from multiple brokers; selection is whole-holding only (no per-transaction picks, since a tag isn't transaction-scoped). Holdings list (`holdingsInScope`) includes closed (fully-sold) positions synthesized from transactions, not just `data.holdings`, so a closed holding can still be found/untagged/deleted
+    components/PullHoldingsModal.tsx (Copy Holdings)  Bucket+Label select/input locked (disabled) when opened with preFilledBucket+preFilledLabel from a Bucket/Label page — destination is unambiguous from navigation context
     utils/fmt.ts                 fmtINR/fmtUSD/fmtPct/fmtGainLine
     utils/segments.ts            classify.py TypeScript port
     utils/realized.ts            _agg_realized() TypeScript port
@@ -133,6 +134,7 @@ msp_v2.csv
 | POST | `/api/portfolio/add-txn` | `csv_hash` query param; body: `{date, symbol, exchange, type, quantity, price, portfolios[], currency, charges, name, tags?}` | Appends new txn row(s) to existing CSV (one per portfolio); rebuilds FIFO + bundle; returns `{portfolio, csv, csv_hash}`; client saves new CSV to localStorage and updates ['portfolio'] query cache |
 | POST | `/api/portfolio/set-tags` | `csv_hash` query param; body: `{assignments: [{portfolio, symbol?, bucket, label}]}` | Merges `bucket=label` into the `tags` column for matching rows — `symbol` omitted = bulk push (whole portfolio), present = override one holding; merges into existing tags (other Buckets on that row survive); empty `label` clears that Bucket's tag (used for unassign/delete flows); rebuilds FIFO + bundle, same return shape as add-txn |
 | POST | `/api/portfolio/delete-holding` | `csv_hash` query param; body: `{deletions: [{portfolio, symbol?, date?, type?, quantity?, price?}]}` | Drops every transaction row matching portfolio(+symbol); if date/type/quantity/price also given, narrows to one exact row (no stable row ID in the CSV schema). Rebuilds FIFO + bundle, same return shape as add-txn |
+| POST | `/api/portfolio/import-merge-tags` | body: `{old_csv, new_csv}` | Re-importing a fresh broker export (`PortfoliosPage.tsx` Settings CSV upload) usually has no `tags` column, which would wipe Bucket/Label assignments. Carries `tags` forward from `old_csv` into `new_csv` by portfolio+symbol wherever the new row has none; returns `{csv}` only (no bundle) — client uses this merged CSV as the one it persists/sends to `POST /api/portfolio` |
 | POST | `/api/gemini` | body: `{symbol, section_id, prompt, force_refresh?, force_lite?, key_index?}` | Attempt 1: gemini-2.5-flash + Google Search grounding; attempt 2 fallback: gemini-3.1-flash-lite plain; returns {text, sources[], grounded, model}; 1h cache per (symbol, section_id, force_lite); key_index selects Main(0), Backup(1), or Key3(2) API key |
 | POST | `/api/gemini/chat` | body: `{symbol, question, context_text, force_lite?, key_index?}` | Free-form Q&A; same grounding cascade as /api/gemini; prompt forces web search beyond context; no caching; returns {text, sources[], grounded, model} |
 | GET | `/api/search` | `q` | Yahoo Finance symbol search; returns [{symbol, name, exchange}] for EQUITY+ETF; used by Explore New Holdings autocomplete |
@@ -156,7 +158,7 @@ msp_v2.csv
 | total_current | float | Sum of disp_current, SKIP_PORTS excluded |
 | total_gain | float | total_current − total_invested |
 | return_pct | float | total_gain / total_invested × 100 |
-| xirr_total | float\|null | Annualised XIRR % across all non-SKIP portfolios |
+| xirr_total | float\|null | Annualised XIRR % across all non-SKIP portfolios. Convention (both `src/xirr.py` and frontend `utils/xirr.ts`): `0` means "no return signal yet" (too few cashflows, no sign mix, or cashflows spanning under 1 day — e.g. a holding bought today, or bought+sold same day; annualizing near-zero elapsed time is numerically unstable, checked by span not exact-day-equality since a midnight rollover mid-session can put same-day flows on different calendar days). `null` is reserved for a genuine solver failure and should be rare; UI renders it as `—`, never silently as `0.0%` |
 | xirr_stk | float\|null | XIRR % for non-MF_ portfolios (stocks + US) |
 | xirr_mf | float\|null | XIRR % for MF_ portfolios |
 | xirr_by_portfolio | object | portfolio → XIRR % (non-SKIP only) |
@@ -184,8 +186,8 @@ msp_v2.csv
 | disp_current | float | current_value in display currency |
 | disp_gain | float | disp_current − disp_invested |
 | disp_pnl_pct | float | disp_gain / disp_invested × 100 |
-| today_gain | float\|null | (current_price − prev_close) × qty |
-| today_pct | float\|null | (current_price − prev_close) / prev_close × 100 |
+| today_gain | float\|null | Blended: shares held before today use (current_price − prev_close) × qty; shares bought today (`qty_bought_today`/`avg_cost_today` from `_run_fifo`) use (current_price − today's buy price) instead, since prev_close isn't a gain you actually held through |
+| today_pct | float\|null | today_gain / blended baseline value × 100 (baseline uses prev_close for old qty, buy price for today's qty) |
 | disp_today_gain | float\|null | today_gain in display currency |
 | avg_buy_fx_rate | float\|null | FIFO-weighted INR/USD rate at purchase; null/1.0 for INR portfolios |
 | fx_gain | float\|null | Extra INR return from USD/INR appreciation: `total_invested_usd × (usd_inr − avg_buy_fx_rate)` |
