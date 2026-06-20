@@ -71,7 +71,12 @@ async def post_portfolio(
         if cached and (now - cached[1]) < _MEM_TTL:
             return JSONResponse(content=cached[0])
 
-    bundle = build(currency=currency, force_refresh_prices=force_refresh, csv_content=csv_content)
+    try:
+        bundle = build(currency=currency, force_refresh_prices=force_refresh, csv_content=csv_content)
+    except ValueError as e:
+        # Schema validation (missing required columns, unrecognised transaction types) —
+        # surface the real message instead of a generic 500.
+        return JSONResponse(status_code=400, content={"error": str(e)})
     data = serialize_bundle(bundle)
     data["csv_hash"] = csv_hash
     _mem_cache[cache_key] = (data, now)

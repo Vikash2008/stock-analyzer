@@ -25,9 +25,11 @@ from backend.serializers import serialize_bundle
 router = APIRouter()
 
 _DATA_FILE   = Path("data/demo_msp_v2.csv")
+# currency/buy_fx_rate/name/yf_symbol/charges are all regenerable on the next load (derived
+# from exchange, re-fetched from yfinance, or simply not load-bearing) — dropped so the
+# exported backup CSV matches the same minimal schema the app now requires on import.
 _EXPORT_COLS = [
-    "date", "symbol", "exchange", "type", "quantity", "price",
-    "charges", "portfolio", "currency", "buy_fx_rate", "name", "yf_symbol", "tags",
+    "date", "symbol", "exchange", "type", "quantity", "price", "portfolio", "tags",
 ]
 
 
