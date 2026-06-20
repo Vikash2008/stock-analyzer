@@ -378,6 +378,21 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-06-05
 
+### 2026-06-20 (session 143)
+
+**Manage Portfolio: Add/Delete/Copy split into a landing menu**
+- Settings → "Manage Portfolio" now opens a small menu modal (3 options) instead of jumping straight to one action — picking an option opens its own full modal. Add disabled (greyed, opacity-60, not opacity-50 — user wanted the row still readable) on bucket/label/Total pages; Copy disabled on real broker pages, since copy/tag changes from a single-broker page didn't make sense
+
+**Delete Holding modal — light/subtle red, not alarming red**
+- Initial red-600/rose-500 gradient felt too aggressive for a destructive-but-routine action; switched to rose-400/red-300 gradient + rose-100 borders/text throughout, keeping the red *family* (still reads as destructive) without it being jarring
+
+**Asset Class tiles & generic Bucket cards — shades of green only, zero-state shows real zeros**
+- Per user request, Stocks/Mutual Funds/any other Asset Class label tile share one exact green (no per-label color cycling); MF_Vikash/MF_Mahak broker cards switched from blue to the same green family, dropped the blue XIRR pill special-case for MF
+- 1D and XIRR on every summary/holding/break card now default to `0 (0%)`/`0.0%` instead of `—`/gray when there's no data — matches how `ALL` already defaults to 0 rather than showing "no data"
+
+**Compact modal density pass**
+- `AddTransactionModal.tsx` brought down to the same density as the newer modals (DeleteHoldingModal/PullHoldingsModal/ManageBucketsModal): `p-3`→`p-2.5`, label-to-input `mb-2`→`mb-1`, stock symbol/Total font 13px→12px
+
 ### 2026-06-19 (session 141)
 
 **Sync-status banners — green for confirmations, amber for warnings**

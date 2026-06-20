@@ -274,3 +274,9 @@
 | Overview 3-color scheme | 2026-05-31 |
 | Visual design overhaul | 2026-05-31 |
 | Sync pill relocations + styling | 2026-05-31 |
+
+### Backlog — Delete/Reorder Buckets & Labels (resolved item, 2026-06-20)
+
+| # | Item | Notes | Status |
+|---|------|-------|--------|
+| 6 | Delete/unassign Buckets & Labels | ManageBucketsModal can now delete a Bucket or Label (with confirm + unassign of affected holdings via tag-clear) and reorder Labels within a Bucket (▲▼, persisted order drives card order everywhere) | done |
