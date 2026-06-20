@@ -866,7 +866,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                       <input
                         ref={fileInputRef}
                         type="file"
-                        accept=".csv"
+                        accept=".csv,text/csv,text/comma-separated-values,application/vnd.ms-excel,text/plain"
                         className="hidden"
                         onChange={e => { const f = e.target.files?.[0]; if (f) handleImport(f); e.target.value = '' }}
                       />
