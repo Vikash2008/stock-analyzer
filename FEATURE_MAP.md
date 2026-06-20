@@ -28,6 +28,9 @@
 | **Portfolio bundle build** | — | `src/engine.py` |
 | **API routing** | — | `backend/main.py` |
 | **Buckets & Labels (user-defined classification)** | `frontend/src/utils/buckets.ts`, `frontend/src/components/ManageBucketsModal.tsx`, `frontend/src/hooks/useSetTags.ts` | `backend/routers/add_txn.py` (`set_tags` endpoint), `src/portfolio.py`/`src/price_fetcher.py` (`tags`/`quote_type` fields) |
+| **Manage Portfolio menu (Add/Delete/Copy landing)** | `frontend/src/components/ManagePortfolioModal.tsx` | — |
+| **Delete Holding modal** | `frontend/src/components/DeleteHoldingModal.tsx` | `backend/routers/add_txn.py` (`delete-holding` endpoint) |
+| **Copy Holdings modal** | `frontend/src/components/PullHoldingsModal.tsx` | `backend/routers/add_txn.py` (`set_tags` endpoint) |
 | **Currency/skip-portfolio helpers (USD_PORTS/SKIP_PORTS only)** | `frontend/src/utils/segments.ts` | — |
 | **Sectors / benchmark** | `frontend/src/utils/sectors.ts` | `frontend/src/hooks/useBenchmarkXirr.ts` |
 | **XIRR calculation** | `frontend/src/utils/xirr.ts` | `src/xirr.py` |

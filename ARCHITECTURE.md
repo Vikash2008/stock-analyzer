@@ -5,6 +5,20 @@
 
 ---
 
+## Line Anchors (for "Backend fix" boot reads)
+
+> CLAUDE.md says backend-fix tasks read "Active File Map + API Endpoints + Data Flow + Key Functions" — grep to confirm, then `Read` with offset/limit on just these ranges instead of the whole 340+ line file.
+
+| Section | ~Line |
+|---|---|
+| Active File Map | 8–93 |
+| Navigation Flow | 94–106 |
+| Data Flow | 107–122 |
+| API Endpoints | 123–146 |
+| Key Functions — Edit Anchors | 322–340 |
+
+---
+
 ## Active File Map
 
 ```
