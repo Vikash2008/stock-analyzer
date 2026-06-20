@@ -149,7 +149,17 @@ def build(
         txns = _fill_usd_fx_rates(txns)
         holdings_raw, realized_all, fx_lots_all = calculate_holdings(txns)
         cache.set_fifo(fifo_key, txns, holdings_raw, realized_all, fx_lots_all)
-        force_refresh_prices = True   # symbol list may have changed
+        # A pure tag edit (Copy Holdings, Manage Buckets) or a holding delete that doesn't
+        # touch other symbols still mints a brand-new content hash, so FIFO always looks
+        # "stale" here even though prices/quantities never changed — that alone shouldn't
+        # force a live yfinance refetch for every symbol on every such edit. Only force it
+        # when the actual symbol set changed; otherwise let the price cache's own 30-min TTL
+        # govern as usual.
+        new_symbols = set(holdings_raw["yf_symbol"].unique())
+        old_symbols = cache.get("known_symbols")
+        if old_symbols is None or new_symbols != set(old_symbols):
+            force_refresh_prices = True
+        cache.set("known_symbols", sorted(new_symbols))
     else:
         txns, holdings_raw, realized_all, fx_lots_all = cache.get_fifo(fifo_key)
 
