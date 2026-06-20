@@ -1,5 +1,8 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react'
 import { AddTransactionModal } from '../components/AddTransactionModal'
+import { PullHoldingsModal } from '../components/PullHoldingsModal'
+import { DeleteHoldingModal } from '../components/DeleteHoldingModal'
+import { ManagePortfolioModal } from '../components/ManagePortfolioModal'
 import { DividendsTab } from '../components/DividendsTab'
 import { FxGainsTab } from '../components/FxGainsTab'
 import { useDividends, useRefreshAllDividends, getIncludeDividends, getIncludeFxGains, getDividendsLastFetched } from '../hooks/useDividends'
@@ -20,7 +23,8 @@ import { HoldingCard } from '../components/HoldingCard'
 import { SummaryCard } from '../components/SummaryCard'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
 import { aggRealized, realizedForPorts } from '../utils/realized'
-import { filterBySegment, getSegmentType, SKIP_PORTS, SEGMENT_LABELS, USD_PORTS } from '../utils/segments'
+import { SKIP_PORTS, USD_PORTS } from '../utils/segments'
+import { getLabel, resolveLabel, filterByLabel } from '../utils/buckets'
 import { fmt, fmtGainLine, fmtCompact } from '../utils/fmt'
 import { getSectorForHolding, SECTOR_COLOR, BENCHMARK_LABEL, type SectorKey, getMarketCapForHolding, MARKET_CAP_COLOR, type MarketCapKey } from '../utils/sectors'
 import { useBenchmarkXirr, useRefreshAllBenchmarks } from '../hooks/useBenchmarkXirr'
@@ -207,7 +211,9 @@ function buildRows(
 export default function HoldingsPage({ currency }: Props) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { portfolio, segment } = useParams<{ portfolio?: string; segment?: string }>()
+  const { portfolio, segment, bucket: bucketParam, label: labelParam } = useParams<{ portfolio?: string; segment?: string; bucket?: string; label?: string }>()
+  const bucket = bucketParam ? decodeURIComponent(bucketParam) : undefined
+  const label  = labelParam  ? decodeURIComponent(labelParam)  : undefined
   const { data, isLoading, error } = usePortfolio(currency)
   // Pre-fetch history for ALL holdings across all portfolios so switching portfolio views
   // hits cache instead of waiting for per-symbol fetches to restart.
@@ -257,6 +263,9 @@ export default function HoldingsPage({ currency }: Props) {
   const [sectorOpen,   setSectorOpen]   = useState(false)
   const [settingsOpen,   setSettingsOpen]   = useState(false)
   const [addHoldingOpen, setAddHoldingOpen] = useState(false)
+  const [manageOpen, setManageOpen] = useState(false)
+  const [deleteHoldingOpen, setDeleteHoldingOpen] = useState(false)
+  const [manageMenuOpen, setManageMenuOpen] = useState(false)
   const [showClosed,   setShowClosed]   = useState(
     () => localStorage.getItem('hp:showClosed') === 'true'
   )
@@ -321,13 +330,22 @@ export default function HoldingsPage({ currency }: Props) {
     [data],
   )
 
+  // Realized rows don't carry quote_type — resolve a symbol's Asset Class via any holding/
+  // transaction that has it, same "first matching row" precedent used elsewhere in this file.
+  const quoteTypeBySymbol = useMemo(() => {
+    const map = new Map<string, string>()
+    if (!data) return map
+    for (const h of data.holdings) map.set(h.symbol, h.quote_type)
+    return map
+  }, [data])
+
   const filteredHoldings = useMemo(() => {
     if (!data) return []
     let h = data.holdings.filter(r => !SKIP_PORTS.has(r.portfolio))
     if (portfolio) h = h.filter(r => r.portfolio === portfolio)
-    else if (segment) h = filterBySegment(h, segment)
+    else if (bucket && label) h = filterByLabel(h, bucket, label)
     return h
-  }, [data, portfolio, segment])
+  }, [data, portfolio, bucket, label])
 
   const sectorData = useMemo(() => {
     const map = new Map<SectorKey, { value: number; count: number; todayGain: number }>()
@@ -366,23 +384,19 @@ export default function HoldingsPage({ currency }: Props) {
 
     let realGain = 0, realCost = 0
 
-    if (segment && data) {
-      // Build symbol → yf_symbol from transactions (realized records lack yf_symbol).
-      // This ensures fully-exited positions (not in filteredHoldings) are included.
-      const symToYf = new Map<string, string>()
-      for (const tx of data.transactions) symToYf.set(tx.symbol, tx.yf_symbol)
-
-      const segFilter = new Set(
-        segment === 'total' ? ['indian_stock', 'us_stock', 'indian_mf', 'us_mf'] :
-        segment === 'stk'   ? ['indian_stock', 'us_stock'] :
-        segment === 'mf'    ? ['indian_mf',   'us_mf']    :
-        [segment],
-      )
-
+    if (segment === 'total') {
+      // Every realized record, regardless of Bucket/Label — this is the "ALL holdings" view.
+      for (const r of data?.realized ?? []) {
+        if (SKIP_PORTS.has(r.portfolio)) continue
+        const fx = r.currency === 'USD' ? data!.usd_inr : 1.0
+        realGain += r.realized_pnl * fx
+        realCost += r.quantity * r.buy_price * fx
+      }
+    } else if (bucket && label && data) {
+      // Includes fully-exited positions (not in filteredHoldings) via quoteTypeBySymbol fallback.
       for (const r of data.realized) {
         if (SKIP_PORTS.has(r.portfolio)) continue
-        const yf = symToYf.get(r.symbol) ?? r.symbol
-        if (!segFilter.has(getSegmentType(r.portfolio, yf))) continue
+        if (resolveLabel(r.tags, bucket, quoteTypeBySymbol.get(r.symbol)) !== label) continue
         const fx = r.currency === 'USD' ? data.usd_inr : 1.0
         realGain += r.realized_pnl * fx
         realCost += r.quantity * r.buy_price * fx
@@ -397,7 +411,7 @@ export default function HoldingsPage({ currency }: Props) {
       todayPct: prior !== 0 ? (tg / prior) * 100 : null,
       realGain, realCost,
     }
-  }, [filteredHoldings, realizedMap, segment, data])
+  }, [filteredHoldings, realizedMap, segment, bucket, label, data, quoteTypeBySymbol])
 
   const rows = useMemo(
     () => buildRows(filteredHoldings, realizedMap, viewMode, !!segment),
@@ -435,21 +449,16 @@ export default function HoldingsPage({ currency }: Props) {
 
   // Segment filter only — portfolio filtering is handled by the backend via the portfolio param
   const filteredDivSymbols = useMemo(() => {
-    if (!segment || segment === 'total') return undefined
+    if (!bucket || !label) return undefined
     if (!divData || !data) return new Set<string>()
-    const allowed = segment === 'stk'
-      ? new Set(['indian_stock', 'us_stock'])
-      : segment === 'mf'
-      ? new Set(['indian_mf', 'us_mf'])
-      : new Set([segment])
     const syms = new Set<string>()
     for (const s of divData.by_symbol) {
       const tx = data.transactions.find(t => t.symbol === s.symbol)
-      const seg = tx ? getSegmentType(tx.portfolio, s.yf_symbol) : getSegmentType('', s.yf_symbol)
-      if (allowed.has(seg)) syms.add(s.symbol)
+      const lbl = tx ? getLabel(tx, bucket) : resolveLabel('', bucket, quoteTypeBySymbol.get(s.symbol))
+      if (lbl === label) syms.add(s.symbol)
     }
     return syms
-  }, [segment, divData, data])
+  }, [bucket, label, divData, data, quoteTypeBySymbol])
 
   const totalDivForView = useMemo(() => {
     if (!includeDivs || !divData) return 0
@@ -575,24 +584,11 @@ export default function HoldingsPage({ currency }: Props) {
     const nameMap = new Map<string, string>()
     for (const tx of data.transactions) { if (tx.name) nameMap.set(tx.symbol, tx.name) }
 
-    // For segment views, build segment filter to classify realized records
-    const symToYf = new Map<string, string>()
-    for (const tx of data.transactions) symToYf.set(tx.symbol, tx.yf_symbol)
-    const segFilter = segment ? new Set(
-      segment === 'stk'   ? ['indian_stock', 'us_stock']              :
-      segment === 'mf'    ? ['indian_mf',    'us_mf']                 :
-      segment === 'total' ? ['indian_stock', 'us_stock', 'indian_mf', 'us_mf'] :
-      [segment],
-    ) : null
-
     const symMap = new Map<string, { rg: number; rc: number; firstPort: string; ports: string[] }>()
     for (const r of data.realized) {
       if (SKIP_PORTS.has(r.portfolio)) continue
       if (portfolio && r.portfolio !== portfolio) continue
-      if (segFilter) {
-        const yf = symToYf.get(r.symbol) ?? r.symbol
-        if (!segFilter.has(getSegmentType(r.portfolio, yf))) continue
-      }
+      if (bucket && label && resolveLabel(r.tags, bucket, quoteTypeBySymbol.get(r.symbol)) !== label) continue
       const fx = r.currency === 'USD' ? data.usd_inr : 1.0
       const e  = symMap.get(r.symbol) ?? { rg: 0, rc: 0, firstPort: r.portfolio, ports: [] }
       if (!e.ports.includes(r.portfolio)) e.ports.push(r.portfolio)
@@ -616,7 +612,7 @@ export default function HoldingsPage({ currency }: Props) {
         portfolios: ports,
       }))
       .sort((a, b) => b.realGain - a.realGain)
-  }, [data, portfolio, segment, filteredHoldings])
+  }, [data, portfolio, bucket, label, filteredHoldings, quoteTypeBySymbol])
 
   const closedYfSymbolsArr = useMemo(() => {
     if (!data) return []
@@ -680,21 +676,12 @@ export default function HoldingsPage({ currency }: Props) {
   const filtRealized = useMemo(() => {
     if (!data) return []
     if (portfolio) return data.realized.filter(r => r.portfolio === portfolio)
-    if (!segment)  return data.realized.filter(r => filtPorts.has(r.portfolio))
-    const symToYf = new Map<string, string>()
-    for (const tx of data.transactions) symToYf.set(tx.symbol, tx.yf_symbol)
-    const segFilter = new Set(
-      segment === 'stk'   ? ['indian_stock', 'us_stock']                        :
-      segment === 'mf'    ? ['indian_mf',    'us_mf']                           :
-      segment === 'total' ? ['indian_stock', 'us_stock', 'indian_mf', 'us_mf'] :
-      [segment],
+    if (segment === 'total') return data.realized.filter(r => !SKIP_PORTS.has(r.portfolio))
+    if (!bucket || !label) return data.realized.filter(r => filtPorts.has(r.portfolio))
+    return data.realized.filter(r =>
+      !SKIP_PORTS.has(r.portfolio) && resolveLabel(r.tags, bucket, quoteTypeBySymbol.get(r.symbol)) === label,
     )
-    return data.realized.filter(r => {
-      if (SKIP_PORTS.has(r.portfolio)) return false
-      const yf = symToYf.get(r.symbol) ?? r.symbol
-      return segFilter.has(getSegmentType(r.portfolio, yf))
-    })
-  }, [data, filtPorts, segment, portfolio])
+  }, [data, filtPorts, segment, bucket, label, portfolio, quoteTypeBySymbol])
 
   // Placed before useBenchmarkXirr so symbolPriceMap is available for period XIRR opening balance
   const { series: portSeries, isLoading: histLoading, isFetching: histIsFetching, loadedCount, totalCount, fetchingCount: histFetchingCount, symbolPriceMap, lastFetchedAt: histLastFetchedAt } = usePortfolioHistory(
@@ -1167,28 +1154,23 @@ export default function HoldingsPage({ currency }: Props) {
     if (!includeFxGains && activeTab === 'fx') setActiveTab('holdings')
   }, [includeFxGains]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-switch to "closed" filter when a portfolio has no open holdings (e.g. fully-exited Upstox)
+  // Auto-switch to "closed" filter when a page has no open holdings (e.g. fully-exited Upstox),
+  // and switch back when navigating to a page that does have open holdings — otherwise a
+  // "closed" filter forced on a fully-exited page would stick and hide real holdings on the
+  // next bucket/portfolio page visited, since this component doesn't remount on route changes.
   useEffect(() => {
     if (!isLoading && data && filteredHoldings.length === 0 && closedRows.length > 0 && holdingFilter !== 'closed') {
       setHoldingFilter('closed')
+    } else if (!isLoading && data && filteredHoldings.length > 0 && holdingFilter === 'closed') {
+      setHoldingFilter('all')
     }
   }, [isLoading, data, filteredHoldings.length, closedRows.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (isLoading) return <LoadingSkeleton />
   if (error || !data) return <ErrorState message={(error as Error)?.message ?? 'Unknown error'} />
-  if (!filteredHoldings.length && !closedRows.length) {
-    return (
-      <div className="max-w-xl mx-auto px-2 py-4">
-        <button onClick={() => navigate('/')} className="text-[11px] text-[#2563eb] mb-4">
-          ← All Portfolios
-        </button>
-        <p className="text-slate-500 text-sm">No holdings found.</p>
-      </div>
-    )
-  }
 
-  const label      = portfolio ?? SEGMENT_LABELS[segment ?? ''] ?? 'Holdings'
-  const backLabel  = segment ? '← Overview' : '← All Portfolios'
+  const pageTitle  = portfolio ?? label ?? (segment === 'total' ? 'All Holdings' : 'Holdings')
+  const backLabel  = (segment || bucket) ? '← Overview' : '← All Portfolios'
   const isPct      = PCT_METRICS.has(chartMetric)
   const chartLast  = metricSeries?.values[metricSeries.values.length - 1] ?? null
   const chartFirst = metricSeries?.values[0] ?? null
@@ -1281,10 +1263,10 @@ export default function HoldingsPage({ currency }: Props) {
                   )}
                   <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-widest px-1 pt-0.5">Actions</p>
                   <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-medium text-emerald-700">Add New Holdings</span>
+                    <span className="text-[11px] font-medium text-emerald-700">Manage Portfolio</span>
                     <div className="flex flex-col items-center gap-0.5 shrink-0">
-                      <button onClick={() => { setSettingsOpen(false); setAddHoldingOpen(true) }} className="w-[70px] text-center bg-emerald-700 text-white text-[10px] font-semibold rounded-full px-3 py-1 active:bg-emerald-800">
-                        Add
+                      <button onClick={() => { setSettingsOpen(false); setManageMenuOpen(true) }} className="w-[70px] text-center bg-emerald-700 text-white text-[10px] font-semibold rounded-full px-3 py-1 active:bg-emerald-800">
+                        Manage
                       </button>
                     </div>
                   </div>
@@ -1385,7 +1367,7 @@ export default function HoldingsPage({ currency }: Props) {
           : 0
         return (
       <SummaryCard
-        label={label}
+        label={pageTitle}
         current={displayStats.cur * summFx}
         invested={displayStats.inv * summFx}
         realGain={displayStats.realGain * summFx}
@@ -1572,6 +1554,9 @@ export default function HoldingsPage({ currency }: Props) {
       {/* ── Holdings tab ── */}
       {activeTab === 'holdings' && (
         <div>
+          {visibleRows.length === 0 && (
+            <p className="text-slate-400 text-sm text-center py-6">No holdings</p>
+          )}
           <div className="space-y-2">
             {visibleRows.map(r => {
               const usdInr   = data?.usd_inr ?? 95.5
@@ -2508,6 +2493,41 @@ export default function HoldingsPage({ currency }: Props) {
           preFilledPortfolio={portfolio ?? undefined}
         />
       )}
+
+      {data && (
+        <PullHoldingsModal
+          open={manageOpen}
+          onClose={() => setManageOpen(false)}
+          data={data}
+          preFilledPortfolio={portfolio ?? undefined}
+          preFilledBucket={bucket}
+          preFilledLabel={label}
+        />
+      )}
+
+      {data && (
+        <DeleteHoldingModal
+          open={deleteHoldingOpen}
+          onClose={() => setDeleteHoldingOpen(false)}
+          data={data}
+          preFilledPortfolio={portfolio ?? undefined}
+          preFilledBucket={bucket}
+          preFilledLabel={label}
+        />
+      )}
+
+      <ManagePortfolioModal
+        open={manageMenuOpen}
+        onClose={() => setManageMenuOpen(false)}
+        disableAdd={!portfolio}
+        disableCopy={!!portfolio}
+        onSelect={action => {
+          setManageMenuOpen(false)
+          if (action === 'add') setAddHoldingOpen(true)
+          if (action === 'delete') setDeleteHoldingOpen(true)
+          if (action === 'copy') setManageOpen(true)
+        }}
+      />
     </div>
   )
 }

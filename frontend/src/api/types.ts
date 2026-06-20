@@ -27,6 +27,8 @@ export interface Holding {
   avg_buy_fx_rate:  number | null   // FIFO-weighted INR/USD rate at purchase; null for INR
   fx_gain:          number | null   // extra INR return from USD/INR appreciation
   disp_fx_gain:     number | null   // display-currency FX gain
+  quote_type:       string          // yfinance instrument type, e.g. EQUITY / MUTUALFUND / ETF
+  tags:             string          // Bucket->Label assignments, e.g. "Asset Class=Stocks;Type=Indian Stocks"
 }
 
 export interface FxLot {
@@ -52,6 +54,7 @@ export interface Transaction {
   charges:      number
   name:         string | null
   buy_fx_rate:  number | null    // INR/USD rate at purchase time; null for INR or SELL/DIVIDEND
+  tags:         string           // Bucket->Label assignments, e.g. "Asset Class=Stocks;Type=Indian Stocks"
 }
 
 export interface Realized {
@@ -66,6 +69,7 @@ export interface Realized {
   buy_price:    number
   sell_price:   number
   realized_pnl: number
+  tags:         string           // Bucket->Label assignments, e.g. "Asset Class=Stocks;Type=Indian Stocks"
 }
 
 export interface QuickStats {

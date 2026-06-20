@@ -363,7 +363,7 @@ export default function TransactionsPage({ currency }: Props) {
   const tg    = tgRaw
   const prior = cur - (tgRaw ?? 0)
   const tp    = tgRaw !== null && prior !== 0 ? (tgRaw / prior) * 100 : null
-  const tgC   = tg !== null ? (tg >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8'
+  const tgC   = (tg ?? 0) >= 0 ? '#0a7a42' : '#be1c1c'
 
   const aggQty    = holdingList.reduce((s, h) => s + h.quantity, 0)
   const aggAvgCost = aggQty > 0 ? holdingList.reduce((s, h) => s + h.avg_cost * h.quantity, 0) / aggQty : 0
@@ -433,7 +433,7 @@ export default function TransactionsPage({ currency }: Props) {
           <span className="flex items-center gap-1 whitespace-nowrap justify-self-end">
             <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
             <span className="text-[10px]" style={{ color: tgC }}>
-              {tg !== null ? fmtCompactGainLine(tg, tp, dispCur) : '—'}
+              {fmtCompactGainLine(tg ?? 0, tg !== null ? tp : 0, dispCur)}
             </span>
           </span>
           <div className="-ml-1.5">

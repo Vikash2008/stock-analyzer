@@ -10,14 +10,29 @@ def xirr(cash_flows: List[Tuple[pd.Timestamp, float]], guess: float = 0.1) -> Op
     Outflows (investments) are negative; inflows (proceeds, current value) are positive.
     Returns None if the calculation fails to converge.
     """
+    # Too few cashflows, or no terminal/offsetting flow yet (e.g. a holding bought moments
+    # ago whose live price hasn't been fetched yet, so there's no positive flow at all) —
+    # there's no return signal to compute, but this is "no data yet", not "broken": show 0%
+    # rather than a dash so a freshly-added or just-closed holding doesn't look like an error.
     if len(cash_flows) < 2:
-        return None
+        return 0.0
 
     dates = [cf[0] for cf in cash_flows]
     amounts = [cf[1] for cf in cash_flows]
+    if not (any(a < 0 for a in amounts) and any(a > 0 for a in amounts)):
+        return 0.0
 
     d0 = min(d.toordinal() for d in dates)
+    d1 = max(d.toordinal() for d in dates)
     years = [(d.toordinal() - d0) / 365.0 for d in dates]
+
+    # Cashflows spanning under a day (e.g. bought today, so the terminal current-value flow
+    # lands hours later) — annualizing a sub-day return is numerically unstable: npv(rate) is
+    # nearly flat across the whole solver range when the span is tiny, so both brentq (same
+    # sign at both ends) and newton (near-zero derivative causing huge, divergent steps) fail
+    # to converge.
+    if (d1 - d0) < 1:
+        return 0.0
 
     def npv(rate: float) -> float:
         return sum(a / (1.0 + rate) ** t for a, t in zip(amounts, years))

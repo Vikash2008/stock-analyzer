@@ -77,6 +77,9 @@ def _transform_msp(df: pd.DataFrame) -> pd.DataFrame:
     if "portfolio" in df.columns:
         out["portfolio"] = df["portfolio"].fillna("").str.strip()
 
+    # Bucket/Label assignments ("Asset Class=Stocks;Type=Indian Stocks"), if present
+    out["tags"] = df["tags"].fillna("").str.strip() if "tags" in df.columns else ""
+
     # Preserve name for display
     if "name" in df.columns:
         out["name"] = df["name"].fillna("").str.strip()
@@ -135,5 +138,11 @@ def load_transactions(source: Union[str, Path, object]) -> pd.DataFrame:
         df["currency"] = df["exchange"].apply(
             lambda x: "INR" if x in ("NSE", "BSE") else "USD"
         )
+
+    # Bucket/Label assignments ("Asset Class=Stocks;Type=Indian Stocks"), if present
+    if "tags" in df.columns:
+        df["tags"] = df["tags"].fillna("").astype(str).str.strip()
+    else:
+        df["tags"] = ""
 
     return df.sort_values("date").reset_index(drop=True)

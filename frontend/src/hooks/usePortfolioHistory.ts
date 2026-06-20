@@ -167,8 +167,8 @@ export function usePortfolioHistory(
     const allDates = [...dateSet].sort()
     if (!allDates.length) return null
 
-    // qty deltas: `portfolio:yf_symbol` → dateStr → netDelta
-    const qtyDelta  = new Map<string, Map<string, number>>()
+    // qty deltas: `portfolio:yf_symbol` → sorted [dateStr, netDelta][]
+    const qtyDelta  = new Map<string, [string, number][]>()
     const firstDate = new Map<string, string>()
 
     for (const tx of transactions) {
@@ -176,11 +176,14 @@ export function usePortfolioHistory(
       const delta   = tx.type === 'BUY' ? tx.quantity : -tx.quantity
       const key     = `${tx.portfolio}:${tx.yf_symbol}`
       const dateStr = tx.date.slice(0, 10)
-      if (!qtyDelta.has(key)) qtyDelta.set(key, new Map())
-      const dm = qtyDelta.get(key)!
-      dm.set(dateStr, (dm.get(dateStr) ?? 0) + delta)
+      if (!qtyDelta.has(key)) qtyDelta.set(key, [])
+      const arr = qtyDelta.get(key)!
+      const existing = arr.find(e => e[0] === dateStr)
+      if (existing) existing[1] += delta
+      else arr.push([dateStr, delta])
       if (!firstDate.has(key) || dateStr < firstDate.get(key)!) firstDate.set(key, dateStr)
     }
+    for (const arr of qtyDelta.values()) arr.sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)
 
     const n      = allDates.length
     const valArr = new Array<number>(n).fill(0)
@@ -189,7 +192,7 @@ export function usePortfolioHistory(
     for (const h of holdings) {
       const pm     = priceMap.get(h.yf_symbol)
       const key    = `${h.portfolio}:${h.yf_symbol}`
-      const deltas = qtyDelta.get(key) ?? new Map<string, number>()
+      const deltas = qtyDelta.get(key) ?? []
       const first  = firstDate.get(key) ?? allDates[0]
       const isUsd  = USD_PORTS.has(h.portfolio)
       const fx     = isUsd ? (currency === 'INR' ? usdInr : 1) : (currency === 'USD' ? 1 / usdInr : 1)
@@ -202,17 +205,19 @@ export function usePortfolioHistory(
       // yfinance history may start later than the first BUY (e.g. 2018-01-01 but
       // first BUY was 2017-07-24) — those deltas never appear in allDates otherwise.
       let qty = 0
-      for (const [dateStr, delta] of deltas) {
-        if (dateStr < allDates[0]) qty += delta
-      }
+      let di  = 0
+      while (di < deltas.length && deltas[di][0] < allDates[0]) { qty += deltas[di][1]; di++ }
       qty = Math.max(0, qty)
       let lastPx: number | null = null
 
       for (let i = 0; i < n; i++) {
         const d = allDates[i]
         if (d < first) continue
-        const dlt = deltas.get(d)
-        if (dlt !== undefined) qty = Math.max(0, qty + dlt)
+        // Catch up any deltas dated on/before `d` that fell on a non-trading day
+        // (market holiday) and so never landed exactly on an allDates entry —
+        // otherwise that BUY/SELL's effect on qty is silently dropped from the
+        // whole rest of the series, undercounting invested/value vs the live total.
+        while (di < deltas.length && deltas[di][0] <= d) { qty = Math.max(0, qty + deltas[di][1]); di++ }
         if (pm?.size) {
           const px = pm.get(d)
           if (px !== undefined) lastPx = px

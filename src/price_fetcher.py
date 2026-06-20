@@ -1,4 +1,5 @@
 import json
+import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -113,6 +114,15 @@ def get_current_prices(symbols: List[str]) -> Dict[str, Optional[float]]:
     return prices
 
 
+def _infer_quote_type_from_symbol(sym: str) -> str:
+    """Fallback when yfinance's quoteType is unavailable (throttled/failed request).
+    Yahoo's own ticker convention assigns mutual fund instruments a 0P-prefixed fund
+    identifier regardless of which broker/account holds it — an instrument fact, not a
+    naming choice the user made for their accounts."""
+    base = sym.split(".")[0]
+    return "MUTUALFUND" if base.startswith("0P") else "EQUITY"
+
+
 def get_tickers_info(symbols: List[str]) -> Dict[str, dict]:
     """
     Fetch sector / company-name metadata for all symbols.
@@ -121,27 +131,35 @@ def get_tickers_info(symbols: List[str]) -> Dict[str, dict]:
     result: Dict[str, dict] = {}
     missing = []
     for sym in symbols:
-        if sym in _static_names:
+        # Static cache predates the quote_type field — treat an entry missing it as stale
+        # so Stocks-vs-Mutual-Funds bucket detection gets a real value instead of silently
+        # defaulting every cached symbol to "EQUITY".
+        if sym in _static_names and "quote_type" in _static_names[sym]:
             result[sym] = _static_names[sym]
         else:
             missing.append(sym)
 
     for sym in missing:
-        try:
-            t = yf.Ticker(sym)
-            fi = t.fast_info
-            name = (
-                getattr(fi, "display_name", None)
-                or getattr(fi, "short_name", None)
-            )
-            info = t.info
-            result[sym] = {
-                "sector":   info.get("sector")   or "Unknown",
-                "industry": info.get("industry") or "Unknown",
-                "name":     info.get("longName") or info.get("shortName") or name or None,
-            }
-        except Exception:
-            result[sym] = {"sector": "Unknown", "industry": "Unknown", "name": None}
+        name, info = None, {}
+        for attempt in range(2):
+            try:
+                t = yf.Ticker(sym)
+                fi = t.fast_info
+                name = (
+                    getattr(fi, "display_name", None)
+                    or getattr(fi, "short_name", None)
+                )
+                info = t.info
+                break
+            except Exception:
+                if attempt == 0:
+                    time.sleep(0.5)  # brief backoff — Yahoo throttles long sequential .info runs
+        result[sym] = {
+            "sector":     info.get("sector")   or "Unknown",
+            "industry":   info.get("industry") or "Unknown",
+            "name":       info.get("longName") or info.get("shortName") or name or None,
+            "quote_type": info.get("quoteType") or _infer_quote_type_from_symbol(sym),
+        }
     return result
 
 

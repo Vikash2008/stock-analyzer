@@ -1,10 +1,24 @@
 export interface Cashflow { date: Date; amount: number }
 
 export function computeXIRR(cashflows: Cashflow[]): number | null {
-  if (cashflows.length < 2) return null
+  // Too few cashflows, or no terminal/offsetting flow yet (e.g. a holding bought moments ago
+  // whose live price hasn't loaded yet, so there's no positive flow at all) — there's no
+  // return signal to compute, but this is "no data yet", not "broken": show 0% rather than a
+  // dash so a freshly-added or just-closed holding doesn't look like an error.
+  if (cashflows.length < 2) return 0
   const hasNeg = cashflows.some(c => c.amount < 0)
   const hasPos = cashflows.some(c => c.amount > 0)
-  if (!hasNeg || !hasPos) return null
+  if (!hasNeg || !hasPos) return 0
+
+  // Cashflows spanning under a day (e.g. bought today, so the terminal "current value" lands
+  // a few hours later) — annualizing a sub-day return is numerically unstable: (1+r)^yrs is
+  // nearly flat across the whole solver range when yrs is tiny, so both bisection (same sign
+  // at both ends) and Newton (near-zero derivative causing huge, divergent steps) fail to
+  // converge. A same-calendar-day check isn't enough — a buy just before midnight and a
+  // terminal flow just after it land on different days but are still only hours apart.
+  const times = cashflows.map(c => c.date.getTime())
+  const spanDays = (Math.max(...times) - Math.min(...times)) / 86_400_000
+  if (spanDays < 1) return 0
 
   const t0  = cashflows.reduce((m, c) => Math.min(m, c.date.getTime()), Infinity)
   const yrs = cashflows.map(c => (c.date.getTime() - t0) / (365.25 * 86_400_000))

@@ -3,30 +3,26 @@ import { clearDividendLocalCache } from './useDividends'
 
 const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
 
-export interface AddTxnBody {
-  date:       string
-  symbol:     string
-  exchange:   string
-  type:       'BUY' | 'SELL'
-  quantity:   number
-  price:      number
-  portfolios: string[]
-  currency:   string
-  charges:    number
-  name:       string
-  tags?:      Record<string, string>   // Bucket -> Label assignments for the new row(s)
+export interface HoldingDeletion {
+  portfolio: string
+  symbol?:   string   // omitted = delete every symbol in this portfolio
+  // When also given, narrows to one specific transaction row instead of the whole symbol.
+  date?:     string   // YYYY-MM-DD
+  type?:     string   // BUY / SELL / DIVIDEND
+  quantity?: number
+  price?:    number
 }
 
-export function useAddTransaction() {
+export function useDeleteHolding() {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: async (body: AddTxnBody) => {
+    mutationFn: async (deletions: HoldingDeletion[]) => {
       const csvHash = localStorage.getItem('portfolio:csv:hash') ?? 'demo'
-      const res = await fetch(`${BASE}/portfolio/add-txn?csv_hash=${csvHash}`, {
+      const res = await fetch(`${BASE}/portfolio/delete-holding?csv_hash=${csvHash}`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
+        body:    JSON.stringify({ deletions }),
       })
       if (!res.ok) {
         const text = await res.text().catch(() => '')
@@ -36,7 +32,6 @@ export function useAddTransaction() {
     },
     onSuccess: (data) => {
       try { localStorage.setItem('portfolio:csv', data.csv) } catch {
-        // Quota exceeded — evict gemini + history caches and retry
         for (const k of Object.keys(localStorage)) {
           if (k.startsWith('gemini:') || k.startsWith('history:')) localStorage.removeItem(k)
         }
@@ -50,7 +45,6 @@ export function useAddTransaction() {
           importedAt: Date.now(),
         }))
       } catch {}
-      // Update portfolio query + clear stale dividends
       qc.setQueryData(['portfolio'], data.portfolio)
       clearDividendLocalCache()
       qc.invalidateQueries({ queryKey: ['dividends'] })

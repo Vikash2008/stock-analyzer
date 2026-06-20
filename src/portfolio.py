@@ -55,6 +55,7 @@ def _run_fifo(
                     "buy_price": lot.cost_per_share,
                     "sell_price": net_sell_price,
                     "realized_pnl": sold * (net_sell_price - lot.cost_per_share),
+                    "tags": tx.get("tags", ""),
                 }
                 if portfolio is not None:
                     row["portfolio"] = portfolio
@@ -81,6 +82,7 @@ def _run_fifo(
                 "buy_price": 0.0,
                 "sell_price": price,
                 "realized_pnl": qty * price,
+                "tags": tx.get("tags", ""),
             }
             if portfolio is not None:
                 row["portfolio"] = portfolio
@@ -105,15 +107,27 @@ def _run_fifo(
         total_fx_weight = sum(l.quantity * l.buy_fx_rate for l in queue)
         avg_buy_fx_rate = total_fx_weight / total_qty if total_qty > 1e-9 else 1.0
         meta = meta_lookup[sym]
+
+        # Lots bought today have no real "previous close" to compare against — the position
+        # didn't exist yesterday — so today's gain for that slice must use the buy price as
+        # its baseline instead, not the market's prior-day close.
+        today_norm        = pd.Timestamp.now().normalize()
+        today_lots         = [l for l in queue if pd.Timestamp(l.date).normalize() == today_norm]
+        qty_bought_today   = sum(l.quantity for l in today_lots)
+        cost_bought_today  = sum(l.quantity * l.cost_per_share for l in today_lots)
+
         row = {
-            "symbol":          meta["symbol"],
-            "exchange":        meta["exchange"],
-            "yf_symbol":       sym,
-            "currency":        meta["currency"],
-            "quantity":        total_qty,
-            "avg_cost":        total_cost / total_qty,
-            "total_invested":  total_cost,
-            "avg_buy_fx_rate": avg_buy_fx_rate,
+            "symbol":           meta["symbol"],
+            "exchange":         meta["exchange"],
+            "yf_symbol":        sym,
+            "currency":         meta["currency"],
+            "quantity":         total_qty,
+            "avg_cost":         total_cost / total_qty,
+            "total_invested":   total_cost,
+            "avg_buy_fx_rate":  avg_buy_fx_rate,
+            "tags":             meta.get("tags", ""),
+            "qty_bought_today": qty_bought_today,
+            "avg_cost_today":   (cost_bought_today / qty_bought_today) if qty_bought_today > 1e-9 else None,
         }
         if portfolio is not None:
             row["portfolio"] = portfolio
@@ -153,8 +167,8 @@ def calculate_holdings(
     realized : DataFrame
         One row per closed lot or dividend event.
     """
-    _HOLDING_COLS = ["symbol", "exchange", "yf_symbol", "currency", "quantity", "avg_cost", "total_invested", "avg_buy_fx_rate"]
-    _REALIZED_COLS = ["symbol", "exchange", "currency", "type", "buy_date", "sell_date", "quantity", "buy_price", "sell_price", "realized_pnl"]
+    _HOLDING_COLS = ["symbol", "exchange", "yf_symbol", "currency", "quantity", "avg_cost", "total_invested", "avg_buy_fx_rate", "tags", "qty_bought_today", "avg_cost_today"]
+    _REALIZED_COLS = ["symbol", "exchange", "currency", "type", "buy_date", "sell_date", "quantity", "buy_price", "sell_price", "realized_pnl", "tags"]
 
     if "portfolio" in transactions.columns:
         all_holdings: List[dict] = []
@@ -202,11 +216,29 @@ def enrich_holdings(
     df["company"] = df["yf_symbol"].map(
         lambda s: (ticker_info.get(s) or {}).get("name") or None
     )
+    df["quote_type"] = df["yf_symbol"].map(
+        lambda s: (ticker_info.get(s) or {}).get("quote_type") or "EQUITY"
+    )
 
     pc = prev_closes or {}
     df["previous_close"] = df["yf_symbol"].map(pc)
-    price_change = df["current_price"] - df["previous_close"]
-    df["today_gain"] = price_change * df["quantity"]
-    df["today_pct"]  = (price_change / df["previous_close"] * 100).round(2)
+
+    # Shares bought today have no real previous close — they didn't exist in the portfolio
+    # yesterday — so their slice of today's gain is priced off today's buy cost instead of
+    # the market's prior-day close. Shares held since before today still use previous_close.
+    qty_today  = df["qty_bought_today"].fillna(0) if "qty_bought_today" in df.columns else pd.Series(0.0, index=df.index)
+    cost_today = df["avg_cost_today"] if "avg_cost_today" in df.columns else pd.Series(float("nan"), index=df.index)
+    qty_old    = df["quantity"] - qty_today
+
+    # `.where(cond, 0.0)` forces the zero-quantity side to exactly 0 instead of NaN — otherwise
+    # 0 * NaN (e.g. previous_close missing for a symbol with no prior trading history) would
+    # poison the whole sum even though that slice has no quantity to contribute.
+    gain_old = (qty_old * (df["current_price"] - df["previous_close"])).where(qty_old > 1e-9, 0.0)
+    gain_new = (qty_today * (df["current_price"] - cost_today)).where(qty_today > 1e-9, 0.0)
+    baseline_old = (qty_old * df["previous_close"]).where(qty_old > 1e-9, 0.0)
+    baseline_new = (qty_today * cost_today).where(qty_today > 1e-9, 0.0)
+
+    df["today_gain"] = gain_old + gain_new
+    df["today_pct"]  = (df["today_gain"] / (baseline_old + baseline_new) * 100).round(2)
 
     return df

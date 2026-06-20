@@ -36,9 +36,7 @@ export function HoldingCard({
   const bgColor     = gain ? '#f7fef9' : '#fffbfb'
   const textColor   = gain ? '#0a7a42' : '#be1c1c'
 
-  const tgColor = todayGain !== null
-    ? (todayGain >= 0 ? '#0a7a42' : '#be1c1c')
-    : '#94a3b8'
+  const tgColor = (todayGain ?? 0) >= 0 ? '#0a7a42' : '#be1c1c'
 
   return (
     <div
@@ -66,7 +64,7 @@ export function HoldingCard({
         <span className="flex items-center gap-1 whitespace-nowrap justify-self-end">
           <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
           <span className="text-[10px]" style={{ color: tgColor }}>
-            {todayGain !== null ? fmtCompactGainLine(todayGain, todayPct, currency) : '—'}
+            {fmtCompactGainLine(todayGain ?? 0, todayGain !== null ? todayPct : 0, currency)}
           </span>
         </span>
         <div className="-ml-1.5">

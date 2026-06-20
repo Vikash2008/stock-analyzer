@@ -6,12 +6,14 @@ import { usePortfolio, useForceRefresh } from '../hooks/usePortfolio'
 import { usePrefetchHoldingCharts } from '../hooks/useHistory'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
 import { fmt, fmtCompact } from '../utils/fmt'
-import { SKIP_PORTS, getSegmentType, filterBySegment, USD_PORTS } from '../utils/segments'
+import { SKIP_PORTS, USD_PORTS } from '../utils/segments'
+import { getLabel, resolveLabel, filterByLabel, getAllLabelsInBucket, getBuckets } from '../utils/buckets'
+import { ManageBucketsModal } from '../components/ManageBucketsModal'
 import { aggRealized, realizedForPorts } from '../utils/realized'
 import { computeXIRR } from '../utils/xirr'
 import type { RealizedMap } from '../utils/realized'
 import type { Currency } from '../App'
-import type { Holding } from '../api/types'
+import type { Holding, PortfolioData } from '../api/types'
 import { logDebug } from '../utils/debugLog'
 
 interface Props {
@@ -31,7 +33,7 @@ function fmtCompactGainLine1(gain: number, pct: number | null, currency: Currenc
   return `${valStr} (${fmtPct1(pct)})`
 }
 
-type BreakdownMode = 'broker' | 'type'
+type BreakdownMode = 'broker' | string   // 'broker' or a Bucket name (e.g. 'Asset Class')
 
 interface CardStats {
   key:       string
@@ -44,11 +46,6 @@ interface CardStats {
   navPath:   string
 }
 
-const TYPE_GROUPS = [
-  { key: 'stocks', label: 'Stocks',       keys: ['indian_stock', 'us_stock'], color: '#10b981' },
-  { key: 'mf',     label: 'Mutual Funds', keys: ['indian_mf',    'us_mf'],    color: '#6366f1' },
-]
-
 const BROKER_GROUPS = [
   { key: 'indian', label: 'Indian Stocks', test: (p: string) => !USD_PORTS.has(p) && !p.startsWith('MF_'), color: '#10b981' },
   { key: 'us',     label: 'US Stocks',     test: (p: string) => USD_PORTS.has(p),                          color: '#0ea5e9' },
@@ -58,11 +55,17 @@ const BROKER_GROUPS = [
 const STOCK_CARD_STYLE = { accent: '#34d399', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' }
 const MF_CARD_STYLE    = { accent: '#93c5fd', bg: 'linear-gradient(to right, #dbeafe, #eff6ff 45%, #f8faff)' }
 
-const TYPE_CARD_STYLE: Record<string, { accent: string; bg: string }> = {
-  indian_stock: STOCK_CARD_STYLE,
-  us_stock:     STOCK_CARD_STYLE,
-  indian_mf:    MF_CARD_STYLE,
-  us_mf:        MF_CARD_STYLE,
+// Asset Class tiles (below Hero card) — every tile (Stocks, Mutual Funds, Gold, ...) shares
+// the same shade of green, no per-label distinction.
+const ASSET_TILE_PALETTE: { accent: string; bg: string }[] = [
+  { accent: '#34d399', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
+]
+
+// Default styling for the auto-seeded "Asset Class" bucket's Labels — any other custom
+// Bucket's Labels fall through to BreakCard's default (unstyled) look.
+const LABEL_CARD_STYLE: Record<string, { accent: string; bg: string }> = {
+  Stocks:        STOCK_CARD_STYLE,
+  'Mutual Funds': MF_CARD_STYLE,
 }
 
 const PORTFOLIO_CARD_STYLE: Record<string, { accent: string; bg: string }> = {
@@ -74,23 +77,9 @@ const PORTFOLIO_CARD_STYLE: Record<string, { accent: string; bg: string }> = {
   Vested:            STOCK_CARD_STYLE,
   'IndMoney US':     STOCK_CARD_STYLE,
   'IndMoney Mummy':  STOCK_CARD_STYLE,
-  MF_Vikash:         MF_CARD_STYLE,
-  MF_Mahak:          MF_CARD_STYLE,
+  MF_Vikash:         STOCK_CARD_STYLE,
+  MF_Mahak:          STOCK_CARD_STYLE,
 }
-
-const TYPE_ACCENT: Record<string, string> = {
-  indian_stock: '#10b981',
-  us_stock:     '#0ea5e9',
-  indian_mf:    '#f59e0b',
-  us_mf:        '#8b5cf6',
-}
-
-const TYPE_SEGMENTS = [
-  { key: 'indian_stock', label: 'Indian Stocks' },
-  { key: 'us_stock',     label: 'US Stocks'     },
-  { key: 'indian_mf',   label: 'Indian MF'      },
-  { key: 'us_mf',       label: 'US MF'          },
-] as const
 
 function portfolioCards(holdings: Holding[], rmap: RealizedMap): CardStats[] {
   const agg = new Map<string, { current: number; invested: number; todayGain: number | null }>()
@@ -121,39 +110,44 @@ function portfolioCards(holdings: Holding[], rmap: RealizedMap): CardStats[] {
   }).sort((a, b) => b.current - a.current)
 }
 
-// Clean-symbol sets for realized-entry classification (rmap keys use clean symbol, not yf_symbol)
-const US_ETF_CLEAN = new Set(['MON100', 'MAFANG'])
-const US_MF_CLEAN  = new Set(['0P0001NCLP', '0P0001JMZB'])
-
-function classifyClean(portfolio: string, sym: string): string {
-  if (SKIP_PORTS.has(portfolio)) return 'skip'
-  if (USD_PORTS.has(portfolio))  return 'us_stock'
-  if (portfolio.startsWith('MF_')) return US_MF_CLEAN.has(sym) ? 'us_mf' : 'indian_mf'
-  if (US_ETF_CLEAN.has(sym))     return 'us_stock'
-  return 'indian_stock'
+// Realized rows don't carry quote_type, and rmap keys use the clean symbol — build a
+// (portfolio:symbol) -> {tags, quote_type} lookup from transactions/holdings so a realized
+// entry can be classified the same way an open holding is (first-matching-row precedent,
+// same pattern already used for dividend classification elsewhere in this file).
+function buildTagLookup(data: PortfolioData): Map<string, { tags: string; quote_type?: string }> {
+  const lookup = new Map<string, { tags: string; quote_type?: string }>()
+  for (const tx of data.transactions) {
+    const k = `${tx.portfolio}:${tx.symbol}`
+    if (!lookup.has(k)) lookup.set(k, { tags: tx.tags })
+  }
+  for (const h of data.holdings) {
+    lookup.set(`${h.portfolio}:${h.symbol}`, { tags: h.tags, quote_type: h.quote_type })
+  }
+  return lookup
 }
 
-function typeCards(holdings: Holding[], rmap: RealizedMap): CardStats[] {
-  return TYPE_SEGMENTS.map(({ key, label }) => {
-    const hs = holdings.filter(h => getSegmentType(h.portfolio, h.yf_symbol) === key)
-    if (!hs.length) return null
+function bucketCards(
+  holdings: Holding[], rmap: RealizedMap, bucket: string, labels: string[], tagLookup: Map<string, { tags: string; quote_type?: string }>,
+): CardStats[] {
+  return labels.map(label => {
+    const hs = holdings.filter(h => getLabel(h, bucket) === label)
     let current = 0, invested = 0, todayGain: number | null = null
     for (const h of hs) {
       current  += h.disp_current
       invested += h.disp_invested
       if (h.disp_today_gain !== null) todayGain = (todayGain ?? 0) + h.disp_today_gain
     }
-    // Classify each realized entry by (portfolio, cleanSymbol) to avoid double-counting
-    // portfolios that span multiple segment types (e.g. Zerodha holds Indian stocks + MON100/MAFANG)
     let rg = 0, rc = 0
     for (const [mapKey, [g, c]] of rmap) {
-      const ci   = mapKey.indexOf(':')
-      const port = mapKey.slice(0, ci)
-      const sym  = mapKey.slice(ci + 1)
-      if (classifyClean(port, sym) === key) { rg += g; rc += c }
+      const meta = tagLookup.get(mapKey)
+      const lbl  = meta ? resolveLabel(meta.tags, bucket, meta.quote_type) : 'Unassigned'
+      if (lbl === label) { rg += g; rc += c }
     }
-    return { key, label, current, invested, realGain: rg, realCost: rc, todayGain, navPath: `/holdings/segment/${key}` }
-  }).filter(Boolean) as CardStats[]
+    return {
+      key: label, label, current, invested, realGain: rg, realCost: rc, todayGain,
+      navPath: `/holdings/bucket/${encodeURIComponent(bucket)}/${encodeURIComponent(label)}`,
+    }
+  })
 }
 
 function isPos(v: number) { return v >= 0 }
@@ -187,15 +181,12 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
         <span className={`${valSize} font-bold text-slate-900`}>{fmt(card.current * scale, currency)}</span>
         <span className={`flex items-center ${gap} whitespace-nowrap justify-self-end`}>
           <span className={`inline-block w-[16px] text-right ${lblSize} font-semibold`} style={{color:'#065f46'}}>1D</span>
-          <span className={gainSize} style={{ color: card.todayGain !== null ? (card.todayGain >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8' }}>
-            {' '}{card.todayGain !== null ? fmtCompactGainLine1(card.todayGain * scale, todayPct, currency) : '—'}
+          <span className={gainSize} style={{ color: (card.todayGain ?? 0) >= 0 ? '#0a7a42' : '#be1c1c' }}>
+            {' '}{fmtCompactGainLine1((card.todayGain ?? 0) * scale, card.todayGain !== null ? todayPct : 0, currency)}
           </span>
         </span>
         <div className="flex items-center -ml-1.5">
-          {xirr !== null
-            ? <span className={`${lblSize} font-semibold rounded-full px-1.5 py-0.5 whitespace-nowrap leading-none`} style={{ background: xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR{' '}{xirr.toFixed(1)}%</span>
-            : <span className={`${lblSize} text-slate-400`}>{fmtCompact(card.invested * scale, currency)} inv</span>
-          }
+          <span className={`${lblSize} font-semibold rounded-full px-1.5 py-0.5 whitespace-nowrap leading-none`} style={{ background: xirr == null ? '#e2e8f0' : (xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2'), color: xirr == null ? '#64748b' : (xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b') }}>XIRR{' '}{xirr == null ? '—' : `${xirr.toFixed(1)}%`}</span>
         </div>
         <span className={`flex items-center ${gap} whitespace-nowrap justify-self-end`}>
           <span className={`inline-block w-[16px] text-right ${lblSize} font-semibold`} style={{color:'#065f46'}}>ALL</span>
@@ -239,8 +230,15 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     [data?.holdings.length],
   )
   usePrefetchHoldingCharts(holdingSymbols)
-  const [mode, setMode]       = useState<BreakdownMode>(
-    () => (localStorage.getItem('pp:mode') as BreakdownMode) ?? 'type'
+  const [mode, setMode]       = useState<BreakdownMode>(() => {
+    const saved = localStorage.getItem('pp:mode')
+    return saved === 'type' || !saved || saved === 'Asset Class' ? 'broker' : saved   // 'type' = pre-Buckets value; Asset Class has its own tiles, not a breakdown mode
+  })
+  const [bucketsModalOpen, setBucketsModalOpen] = useState(false)
+  const [bucketsVersion,   setBucketsVersion]   = useState(0)   // bumped to refresh after catalog edits
+  const toggleModes = useMemo(
+    () => ['broker', ...getBuckets().filter(b => b.showToggle && b.name !== 'Asset Class').map(b => b.name)],
+    [bucketsVersion],
   )
   useEffect(() => { localStorage.setItem('pp:mode', mode) }, [mode])
   const [pullY, setPullY]     = useState(0)
@@ -269,10 +267,30 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     setImportProgress(0)
     setImportDone(false)
     setImportStatus('Reading rows…')
+    const oldCsv = localStorage.getItem('portfolio:csv') ?? ''
     const reader = new FileReader()
     reader.onload = async (e) => {
-      const text = e.target?.result as string
+      const rawText = e.target?.result as string
       const meta: CsvMeta = { name: file.name, size: file.size, importedAt: Date.now() }
+
+      // A fresh broker export usually has no `tags` column — carry forward existing
+      // Bucket/Label assignments (by portfolio+symbol) from the previous CSV so they survive
+      // a re-import instead of being silently wiped. Best-effort: fall back to the raw upload
+      // if the merge call fails, since a missing tag carry-forward shouldn't block the import.
+      let text = rawText
+      if (oldCsv.trim()) {
+        try {
+          const res = await fetch(`${API_URL_SETTINGS}/api/portfolio/import-merge-tags`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ old_csv: oldCsv, new_csv: rawText }),
+          })
+          if (res.ok) {
+            const merged = await res.json() as { csv: string }
+            text = merged.csv
+          }
+        } catch { /* fall back to rawText below */ }
+      }
 
       // Persist CSV — remove old entry first (frees the largest item), then retry with full eviction if needed.
       // Meta (filename/size shown in settings) must only be written if the content write actually succeeded —
@@ -459,6 +477,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
 
   const rmap = useMemo(() => data ? aggRealized(data.realized, data.usd_inr) : new Map(), [data])
+  const tagLookup = useMemo(() => data ? buildTagLookup(data) : new Map(), [data])
 
   // All holdings excluding aggregate-duplicate portfolios
   const active = useMemo(
@@ -491,72 +510,52 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     }
   }, [active, rmap, includeDivs, divData, includeFxGainsState])
 
-  // Stocks + MF tile XIRR: recompute client-side with dividends when toggle is ON
-  const stkXirr = useMemo(() => {
-    if (!data) return null
-    if (!includeDivs && !includeFxGainsState) return data.xirr_stk ?? null
-    const today = new Date()
-    const cfs: { date: Date; amount: number }[] = []
-    const yfMap = new Map<string, string>()
-    for (const h of data.holdings) yfMap.set(`${h.portfolio}:${h.symbol}`, h.yf_symbol)
-    for (const tx of data.transactions) {
-      if (tx.type === 'DIVIDEND' || SKIP_PORTS.has(tx.portfolio)) continue
-      const yf  = yfMap.get(`${tx.portfolio}:${tx.symbol}`) ?? tx.symbol
-      const seg = getSegmentType(tx.portfolio, yf)
-      if (seg !== 'indian_stock' && seg !== 'us_stock') continue
-      const isUsd = USD_PORTS.has(tx.portfolio)
-      const fx = isUsd
-        ? (includeFxGainsState && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10 ? tx.buy_fx_rate : data.usd_inr)
-        : 1
-      const amt = tx.quantity * tx.price * fx
-      const chg = (tx.charges ?? 0) * fx
-      if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
-      if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
-    }
-    if (includeDivs && divData) {
-      for (const s of divData.by_symbol) {
-        const tx = data.transactions.find(t => t.symbol === s.symbol)
-        const seg = tx ? getSegmentType(tx.portfolio, s.yf_symbol) : getSegmentType('', s.yf_symbol)
-        if (seg !== 'indian_stock' && seg !== 'us_stock') continue
-        for (const ev of s.events) cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
-      }
-    }
-    const totalCurrent = filterBySegment(active, 'stk').reduce((s, h) => s + h.disp_current, 0)
-    if (totalCurrent > 0) cfs.push({ date: today, amount: totalCurrent })
-    const r = computeXIRR(cfs)
-    return r !== null ? r * 100 : null
-  }, [data, divData, includeDivs, includeFxGainsState, active])
+  // Asset Class tiles (Stocks / Mutual Funds / any user-added label, e.g. Gold) — one tile per
+  // label found in the "Asset Class" bucket, rendered below the Hero card (never in Breakdown).
+  // Order follows the catalog's saved Label order (user-reorderable in Manage Buckets) —
+  // no hardcoded Stocks/Mutual Funds-first pinning.
+  const assetClassLabels = useMemo(
+    () => (data ? getAllLabelsInBucket(data, 'Asset Class') : []),
+    [data, bucketsVersion],
+  )
 
-  const mfXirr = useMemo(() => {
-    if (!data) return null
-    if (!includeDivs || !divData) return data.xirr_mf ?? null
-    const today = new Date()
-    const cfs: { date: Date; amount: number }[] = []
-    const yfMap = new Map<string, string>()
-    for (const h of data.holdings) yfMap.set(`${h.portfolio}:${h.symbol}`, h.yf_symbol)
-    for (const tx of data.transactions) {
-      if (tx.type === 'DIVIDEND' || SKIP_PORTS.has(tx.portfolio)) continue
-      const yf  = yfMap.get(`${tx.portfolio}:${tx.symbol}`) ?? tx.symbol
-      const seg = getSegmentType(tx.portfolio, yf)
-      if (seg !== 'indian_mf' && seg !== 'us_mf') continue
-      const isUsd = USD_PORTS.has(tx.portfolio)
-      const fx = isUsd ? data.usd_inr : 1
-      const amt = tx.quantity * tx.price * fx
-      const chg = (tx.charges ?? 0) * fx
-      if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
-      if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
+  // Asset Class tile XIRR: recompute client-side with dividends/FX when those toggles are ON
+  const assetClassXirrMap = useMemo(() => {
+    const out = new Map<string, number | null>()
+    if (!data) return out
+    for (const label of assetClassLabels) {
+      // No backend xirr_stk/xirr_mf shortcut — those are precomputed from the old
+      // quote_type-based classification and would show stale numbers for a label that's
+      // purely tag-driven now (e.g. a freshly emptied/recreated "Stocks" label).
+      const today = new Date()
+      const cfs: { date: Date; amount: number }[] = []
+      for (const tx of data.transactions) {
+        if (tx.type === 'DIVIDEND' || SKIP_PORTS.has(tx.portfolio)) continue
+        if (getLabel(tx, 'Asset Class') !== label) continue
+        const isUsd = USD_PORTS.has(tx.portfolio)
+        const fx = isUsd
+          ? (includeFxGainsState && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10 ? tx.buy_fx_rate : data.usd_inr)
+          : 1
+        const amt = tx.quantity * tx.price * fx
+        const chg = (tx.charges ?? 0) * fx
+        if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
+        if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
+      }
+      if (includeDivs && divData) {
+        for (const s of divData.by_symbol) {
+          const tx = data.transactions.find(t => t.symbol === s.symbol)
+          const lbl = tx ? getLabel(tx, 'Asset Class') : 'Unassigned'
+          if (lbl !== label) continue
+          for (const ev of s.events) cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
+        }
+      }
+      const totalCurrent = filterByLabel(active, 'Asset Class', label).reduce((s, h) => s + h.disp_current, 0)
+      if (totalCurrent > 0) cfs.push({ date: today, amount: totalCurrent })
+      const r = computeXIRR(cfs)
+      out.set(label, r !== null ? r * 100 : null)
     }
-    for (const s of divData.by_symbol) {
-      const tx = data.transactions.find(t => t.symbol === s.symbol)
-      const seg = tx ? getSegmentType(tx.portfolio, s.yf_symbol) : getSegmentType('', s.yf_symbol)
-      if (seg !== 'indian_mf' && seg !== 'us_mf') continue
-      for (const ev of s.events) cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
-    }
-    const totalCurrent = filterBySegment(active, 'mf').reduce((s, h) => s + h.disp_current, 0)
-    if (totalCurrent > 0) cfs.push({ date: today, amount: totalCurrent })
-    const r = computeXIRR(cfs)
-    return r !== null ? r * 100 : null
-  }, [data, divData, includeDivs, active])
+    return out
+  }, [data, divData, includeDivs, includeFxGainsState, active, assetClassLabels])
 
   // Hero XIRR: recompute client-side with dividends / FX buy-rate when toggles are ON
   const heroXirr = useMemo(() => {
@@ -584,58 +583,43 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     return r !== null ? r * 100 : null
   }, [data, divData, includeDivs, includeFxGainsState, active])
 
-  // Stocks tile
-  const stk = useMemo(() => {
-    const hs  = filterBySegment(active, 'stk')
-    const cur = hs.reduce((s, h) => s + h.disp_current,  0)
-    const inv = hs.reduce((s, h) => s + h.disp_invested, 0)
-    const tg  = hs.reduce((s, h) => h.disp_today_gain !== null ? s + h.disp_today_gain : s, 0)
-    let rg = 0, rc = 0
-    for (const [mapKey, [g, c]] of rmap) {
-      const ci  = mapKey.indexOf(':')
-      const seg = classifyClean(mapKey.slice(0, ci), mapKey.slice(ci + 1))
-      if (seg === 'indian_stock' || seg === 'us_stock') { rg += g; rc += c }
+  // Asset Class tile stats — one entry per label (Stocks, Mutual Funds, Gold, ...)
+  const assetClassStatsMap = useMemo(() => {
+    const out = new Map<string, { cur: number; inv: number; gain: number; pct: number; todayGain: number; todayPct: number | null }>()
+    for (const label of assetClassLabels) {
+      const hs  = filterByLabel(active, 'Asset Class', label)
+      const cur = hs.reduce((s, h) => s + h.disp_current,  0)
+      const inv = hs.reduce((s, h) => s + h.disp_invested, 0)
+      const tg  = hs.reduce((s, h) => h.disp_today_gain !== null ? s + h.disp_today_gain : s, 0)
+      let rg = 0, rc = 0
+      for (const [mapKey, [g, c]] of rmap) {
+        const meta = tagLookup.get(mapKey)
+        const lbl  = meta ? resolveLabel(meta.tags, 'Asset Class', meta.quote_type) : 'Unassigned'
+        if (lbl === label) { rg += g; rc += c }
+      }
+      const labelDivs = (includeDivs && divData && data)
+        ? divData.by_symbol
+            .filter(s => { const tx = data.transactions.find(t => t.symbol === s.symbol); const lbl = tx ? getLabel(tx, 'Asset Class') : 'Unassigned'; return lbl === label })
+            .reduce((sum, s) => sum + s.total_dividends, 0)
+        : 0
+      const labelFxGain = includeFxGainsState
+        ? hs.filter(h => USD_PORTS.has(h.portfolio)).reduce((s, h) => s + (h.disp_fx_gain ?? 0), 0)
+        : 0
+      const gain = (cur - inv) + rg + labelDivs + labelFxGain
+      const cost = inv + rc
+      const prior = cur - tg
+      out.set(label, { cur, inv, gain, pct: cost !== 0 ? gain / cost * 100 : 0, todayGain: tg, todayPct: tg !== 0 && prior !== 0 ? (tg / prior) * 100 : null })
     }
-    const stkDivs = (includeDivs && divData && data)
-      ? divData.by_symbol
-          .filter(s => { const tx = data.transactions.find(t => t.symbol === s.symbol); const seg = tx ? getSegmentType(tx.portfolio, s.yf_symbol) : getSegmentType('', s.yf_symbol); return seg === 'indian_stock' || seg === 'us_stock' })
-          .reduce((sum, s) => sum + s.total_dividends, 0)
-      : 0
-    const stkFxGain = includeFxGainsState
-      ? hs.filter(h => USD_PORTS.has(h.portfolio)).reduce((s, h) => s + (h.disp_fx_gain ?? 0), 0)
-      : 0
-    const gain = (cur - inv) + rg + stkDivs + stkFxGain
-    const cost = inv + rc
-    const prior = cur - tg
-    return { cur, inv, gain, pct: cost !== 0 ? gain / cost * 100 : 0, todayGain: tg, todayPct: tg !== 0 && prior !== 0 ? (tg / prior) * 100 : null }
-  }, [active, rmap, includeDivs, divData, data, includeFxGainsState])
+    return out
+  }, [active, rmap, tagLookup, includeDivs, divData, data, includeFxGainsState, assetClassLabels])
 
-  // MF tile
-  const mf = useMemo(() => {
-    const hs  = filterBySegment(active, 'mf')
-    const cur = hs.reduce((s, h) => s + h.disp_current,  0)
-    const inv = hs.reduce((s, h) => s + h.disp_invested, 0)
-    const tg  = hs.reduce((s, h) => h.disp_today_gain !== null ? s + h.disp_today_gain : s, 0)
-    let rg = 0, rc = 0
-    for (const [mapKey, [g, c]] of rmap) {
-      const ci  = mapKey.indexOf(':')
-      const seg = classifyClean(mapKey.slice(0, ci), mapKey.slice(ci + 1))
-      if (seg === 'indian_mf' || seg === 'us_mf') { rg += g; rc += c }
-    }
-    const mfDivs = (includeDivs && divData && data)
-      ? divData.by_symbol
-          .filter(s => { const tx = data.transactions.find(t => t.symbol === s.symbol); const seg = tx ? getSegmentType(tx.portfolio, s.yf_symbol) : getSegmentType('', s.yf_symbol); return seg === 'indian_mf' || seg === 'us_mf' })
-          .reduce((sum, s) => sum + s.total_dividends, 0)
-      : 0
-    const gain = (cur - inv) + rg + mfDivs
-    const cost = inv + rc
-    const prior = cur - tg
-    return { cur, inv, gain, pct: cost !== 0 ? gain / cost * 100 : 0, todayGain: tg, todayPct: tg !== 0 && prior !== 0 ? (tg / prior) * 100 : null }
-  }, [active, rmap, includeDivs, divData, data])
-
+  const bucketLabels = useMemo(
+    () => (data && mode !== 'broker' ? getAllLabelsInBucket(data, mode) : []),
+    [data, mode, bucketsVersion],
+  )
   const cards = useMemo(
-    () => mode === 'broker' ? portfolioCards(active, rmap) : typeCards(active, rmap),
-    [active, rmap, mode],
+    () => mode === 'broker' ? portfolioCards(active, rmap) : bucketCards(active, rmap, mode, bucketLabels, tagLookup),
+    [active, rmap, mode, bucketLabels, tagLookup],
   )
 
   // XIRR per card — broker uses bundle values, type is computed client-side
@@ -700,19 +684,15 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         }
       }
     } else {
-      // Build port:symbol → yf_symbol from all holdings (open positions)
-      const yfMap = new Map<string, string>()
-      for (const h of data.holdings) yfMap.set(`${h.portfolio}:${h.symbol}`, h.yf_symbol)
-      // Dividend events grouped by segment type
-      const divEventsBySegment = new Map<string, { date: Date; amount: number }[]>()
+      // Dividend events grouped by this Bucket's Label
+      const divEventsByLabel = new Map<string, { date: Date; amount: number }[]>()
       if (includeDivs && divData) {
         for (const s of divData.by_symbol) {
-          // Use any transaction to infer portfolio for this symbol (to get segment type)
           const firstTx = data.transactions.find(t => t.symbol === s.symbol)
-          const segKey = firstTx ? getSegmentType(firstTx.portfolio, s.yf_symbol) : getSegmentType('', s.yf_symbol)
-          const bucket = divEventsBySegment.get(segKey) ?? []
+          const lbl = firstTx ? getLabel(firstTx, mode) : 'Unassigned'
+          const bucket = divEventsByLabel.get(lbl) ?? []
           for (const ev of s.events) bucket.push({ date: new Date(ev.ex_date), amount: ev.amount })
-          divEventsBySegment.set(segKey, bucket)
+          divEventsByLabel.set(lbl, bucket)
         }
       }
 
@@ -720,8 +700,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         const cfs: { date: Date; amount: number }[] = []
         for (const tx of data.transactions) {
           if (tx.type === 'DIVIDEND') continue
-          const yf  = yfMap.get(`${tx.portfolio}:${tx.symbol}`) ?? tx.symbol
-          if (getSegmentType(tx.portfolio, yf) !== card.key) continue
+          if (getLabel(tx, mode) !== card.key) continue
           const isUsd = USD_PORTS.has(tx.portfolio)
           const fx = isUsd
             ? (currency === 'INR'
@@ -734,10 +713,10 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
         }
         if (includeDivs) {
-          for (const ev of divEventsBySegment.get(card.key) ?? []) cfs.push(ev)
+          for (const ev of divEventsByLabel.get(card.key) ?? []) cfs.push(ev)
         }
         // Terminal value: open positions only
-        const hs = active.filter(h => getSegmentType(h.portfolio, h.yf_symbol) === card.key)
+        const hs = active.filter(h => getLabel(h, mode) === card.key)
         const totalCurrent = hs.reduce((s, h) => s + (currency === 'USD' ? h.disp_current / data.usd_inr : h.disp_current), 0)
         if (totalCurrent > 0) cfs.push({ date: today, amount: totalCurrent })
         const r = computeXIRR(cfs)
@@ -752,11 +731,11 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     const map = new Map<string, number>()
     if (!includeDivs || !divData || !data) return map
     if (mode !== 'broker') {
-      // Type mode: group by segment key using total_dividends (INR, correct amount)
+      // Bucket mode: group by this Bucket's Label using total_dividends (INR, correct amount)
       for (const s of divData.by_symbol) {
         const tx = data.transactions.find(t => t.symbol === s.symbol)
-        const segKey = tx ? getSegmentType(tx.portfolio, s.yf_symbol) : getSegmentType('', s.yf_symbol)
-        map.set(segKey, (map.get(segKey) ?? 0) + s.total_dividends)
+        const lbl = tx ? getLabel(tx, mode) : 'Unassigned'
+        map.set(lbl, (map.get(lbl) ?? 0) + s.total_dividends)
       }
     } else {
       // Broker mode: proportion by shares held at each ex-date (same logic as divCfsByPort)
@@ -790,7 +769,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     if (!includeFxGainsState || !data) return map
     for (const h of active) {
       if (h.currency !== 'USD' || !h.disp_fx_gain) continue
-      const key = mode === 'broker' ? h.portfolio : getSegmentType(h.portfolio, h.yf_symbol)
+      const key = mode === 'broker' ? h.portfolio : getLabel(h, mode)
       map.set(key, (map.get(key) ?? 0) + h.disp_fx_gain)
     }
     return map
@@ -1032,6 +1011,24 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                           >$ USD</button>
                         </div>
                       </div>
+
+                      {/* Manage Buckets */}
+                      <div className="px-3 py-2 flex items-center justify-between gap-3 bg-emerald-50 border border-emerald-100 rounded-lg">
+                        <div className="min-w-0">
+                          <p className="text-[12px] font-medium text-slate-700 leading-tight">Manage Buckets</p>
+                          <p className="text-[11px] text-slate-400 leading-tight mt-0.5">Buckets &amp; Labels for holdings</p>
+                        </div>
+                        <button
+                          onClick={() => { setSettingsOpen(false); setBucketsModalOpen(true) }}
+                          title="Manage Buckets"
+                          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-emerald-200 text-emerald-700 active:bg-emerald-300"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+                            <path d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" />
+                            <path d="M13.5 3.5v7.5h7.5a7.5 7.5 0 0 0-7.5-7.5Z" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
 
                     {/* ── Updated on ── */}
@@ -1086,18 +1083,20 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       </div>
       </div>
 
-      {/* Stocks + MF summary tiles — side by side */}
+      {/* Asset Class summary tiles — Stocks, Mutual Funds, and any other label (e.g. Gold) */}
       <div className="grid grid-cols-2 gap-1.5">
-        {[
-          { label: 'Stocks',       stats: stk, seg: 'stk', xirr: stkXirr, tileBg: STOCK_CARD_STYLE.bg, tileAccent: STOCK_CARD_STYLE.accent },
-          { label: 'Mutual Funds', stats: mf,  seg: 'mf',  xirr: mfXirr,  tileBg: MF_CARD_STYLE.bg,  tileAccent: MF_CARD_STYLE.accent },
-        ].map(({ label, stats, seg, xirr, tileBg, tileAccent }) => {
+        {assetClassLabels.map((label, idx) => {
+          const style = ASSET_TILE_PALETTE[idx % ASSET_TILE_PALETTE.length]
+          const stats = assetClassStatsMap.get(label) ?? { cur: 0, inv: 0, gain: 0, pct: 0, todayGain: 0, todayPct: null }
+          const xirr  = assetClassXirrMap.get(label) ?? null
+          const tileBg = style.bg
+          const tileAccent = style.accent
           const pos = isPos(stats.gain)
           const tc  = pos ? '#0a7a42' : '#be1c1c'
           const tgC = stats.todayGain !== null ? (stats.todayGain >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8'
           return (
             <div
-              key={seg}
+              key={label}
               className="rounded-[10px] p-2.5 border cursor-pointer active:opacity-80 transition-opacity"
               style={{
                 background:      tileBg,
@@ -1105,7 +1104,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 borderLeftWidth: 4,
                 borderLeftColor: tileAccent,
               }}
-              onClick={() => navigate(`/holdings/segment/${seg}`)}
+              onClick={() => navigate(`/holdings/bucket/${encodeURIComponent('Asset Class')}/${encodeURIComponent(label)}`)}
             >
               <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1.5">{label}</p>
               <div className="grid grid-cols-[auto_1fr] items-center gap-y-2">
@@ -1113,14 +1112,11 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 <span className="flex items-center gap-0.5 whitespace-nowrap justify-self-end">
                   <span className="inline-block w-[16px] text-right text-[9px] font-semibold" style={{color:'#065f46'}}>1D</span>
                   <span className="text-[10px]" style={{ color: tgC }}>
-                    {' '}{stats.todayGain !== 0 ? fmtCompactGainLine1(stats.todayGain, stats.todayPct, 'INR') : '—'}
+                    {' '}{fmtCompactGainLine1(stats.todayGain, stats.todayPct ?? 0, 'INR')}
                   </span>
                 </span>
                 <div className="flex items-center -ml-1.5">
-                  {xirr !== null && xirr !== undefined
-                    ? <span className="text-[9px] font-semibold rounded-full px-1.5 py-0.5 whitespace-nowrap leading-none" style={{ background: xirr >= 0 ? (seg === 'mf' ? '#bfdbfe' : '#d1fae5') : '#fee2e2', color: xirr >= 0 ? (seg === 'mf' ? '#1e40af' : '#065f46') : '#991b1b' }}>XIRR{' '}{xirr.toFixed(1)}%</span>
-                    : <span className="text-[9px] text-slate-400">XIRR —</span>
-                  }
+                  <span className="text-[9px] font-semibold rounded-full px-1.5 py-0.5 whitespace-nowrap leading-none" style={{ background: xirr == null ? '#e2e8f0' : (xirr >= 0 ? '#d1fae5' : '#fee2e2'), color: xirr == null ? '#64748b' : (xirr >= 0 ? '#065f46' : '#991b1b') }}>XIRR{' '}{xirr == null ? '—' : `${xirr.toFixed(1)}%`}</span>
                 </div>
                 <span className="flex items-center gap-0.5 whitespace-nowrap justify-self-end">
                   <span className="inline-block w-[16px] text-right text-[9px] font-semibold" style={{color:'#065f46'}}>ALL</span>
@@ -1134,46 +1130,30 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         })}
       </div>
 
-      {/* Breakdown toggle */}
-      <div className="flex items-center justify-between px-0.5">
+      {/* Breakdown toggle — one button per Bucket with its toggle enabled, plus Broker */}
+      <div className="flex items-center justify-between px-0.5 gap-2">
         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Breakdown</p>
-        <div className="relative flex bg-slate-100 rounded-full p-[2px]">
-          <div
-            className="absolute top-[2px] bottom-[2px] w-1/2 rounded-full bg-emerald-500 shadow-sm transition-transform duration-150"
-            style={{ transform: `translateX(${mode === 'broker' ? '100%' : '0%'})` }}
-          />
-          {(['type', 'broker'] as BreakdownMode[]).map(m => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={`relative z-10 flex-1 text-[10px] px-3 py-[4px] whitespace-nowrap transition-colors ${mode === m ? 'text-white font-semibold' : 'text-slate-400'}`}
-            >
-              {m === 'broker' ? 'By Broker' : 'By Type'}
-            </button>
-          ))}
+        <div className="flex items-center gap-1.5">
+          <div className="flex bg-slate-100 rounded-full p-[2px] gap-[2px]">
+            {toggleModes.map(m => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`relative z-10 flex-1 text-[10px] px-3 py-[4px] rounded-full whitespace-nowrap transition-colors ${mode === m ? 'bg-emerald-500 text-white font-semibold shadow-sm' : 'text-slate-400'}`}
+              >
+                {m === 'broker' ? 'By Broker' : `By ${m}`}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Breakdown cards */}
-      {mode === 'type' ? (
-        <div className="space-y-3">
-          {TYPE_GROUPS.map(group => {
-            const gc = cards.filter(c => group.keys.includes(c.key))
-            if (!gc.length) return null
-            return (
-              <div key={group.key}>
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: group.color }} />
-                  <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: group.color }}>{group.label}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {gc.map(card => (
-                    <BreakCard key={card.key} card={card} currency={usdCur(card.key === 'us_stock' || card.key === 'us_mf')} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={TYPE_CARD_STYLE[card.key]?.accent} cardBg={TYPE_CARD_STYLE[card.key]?.bg} pillBlue={card.key === 'indian_mf' || card.key === 'us_mf'} scale={usdScale(card.key === 'us_stock' || card.key === 'us_mf')} divGain={cardDivGainMap.get(card.key) ?? 0} fxGain={cardFxGainMap.get(card.key) ?? 0} />
-                  ))}
-                </div>
-              </div>
-            )
-          })}
+      {mode !== 'broker' ? (
+        <div className="grid grid-cols-2 gap-1.5">
+          {cards.map(card => (
+            <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={LABEL_CARD_STYLE[card.key]?.accent} cardBg={LABEL_CARD_STYLE[card.key]?.bg} divGain={cardDivGainMap.get(card.key) ?? 0} fxGain={cardFxGainMap.get(card.key) ?? 0} />
+          ))}
         </div>
       ) : (
         <div className="space-y-3">
@@ -1188,7 +1168,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 </div>
                 <div className="grid grid-cols-2 gap-1.5">
                   {gc.map(card => (
-                    <BreakCard key={card.key} card={card} currency={usdCur(USD_PORTS.has(card.key))} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={PORTFOLIO_CARD_STYLE[card.key]?.accent} cardBg={PORTFOLIO_CARD_STYLE[card.key]?.bg} pillBlue={card.key.startsWith('MF_')} scale={usdScale(USD_PORTS.has(card.key))} divGain={cardDivGainMap.get(card.key) ?? 0} fxGain={cardFxGainMap.get(card.key) ?? 0} />
+                    <BreakCard key={card.key} card={card} currency={usdCur(USD_PORTS.has(card.key))} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={PORTFOLIO_CARD_STYLE[card.key]?.accent} cardBg={PORTFOLIO_CARD_STYLE[card.key]?.bg} scale={usdScale(USD_PORTS.has(card.key))} divGain={cardDivGainMap.get(card.key) ?? 0} fxGain={cardFxGainMap.get(card.key) ?? 0} />
                   ))}
                 </div>
               </div>
@@ -1283,6 +1263,15 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           </div>
         </div>
       </div>
+
+      {data && (
+        <ManageBucketsModal
+          open={bucketsModalOpen}
+          onClose={() => setBucketsModalOpen(false)}
+          data={data}
+          onChanged={() => setBucketsVersion(v => v + 1)}
+        />
+      )}
 
     </div>
   )
