@@ -378,6 +378,14 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-06-05
 
+### 2026-06-21 (session 146)
+
+**In-app dialogs replace native browser confirm()/select() in Delete/Copy Holdings modals**
+- `window.confirm()` and a native `<select>` for "Add a broker" looked like a system popup, not part of the app. Replaced with a rose-styled in-app confirm overlay (Cancel/Continue) in Delete Holding, and a custom button+list dropdown in Copy Holdings, matching each modal's existing visual language.
+
+**Manage Buckets: label reorder via drag handle, not tiny ▲▼ buttons**
+- The old up/down buttons were small (9px text) and fiddly on mobile. Replaced with a single grip handle (≡, 44px touch target) using native Pointer Events — press and drag, list reorders live as you cross another row's midpoint, no new dependency added.
+
 ### 2026-06-21 (session 145)
 
 **XIRR 0(0%)-not-dash rule moved from display layer to the math layer**

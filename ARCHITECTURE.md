@@ -263,12 +263,13 @@ as many Buckets as the user creates.
 - **Catalog vs. assignments**: the *list* of Buckets/Labels (so pickers have something to show pre-assignment)
   is a small client-side catalog in `localStorage['buckets:catalog']` — not portable, trivial to recreate.
   The actual assignments live in `tags` (the portable source of truth). Label *order* within a Bucket is
-  also stored here (`setLabelOrder()`), user-reorderable via ▲▼ in ManageBucketsModal, and drives card
-  order everywhere (`getAllLabelsInBucket()` no longer alphabetizes — catalog order first, then any
-  live-only labels appended sorted).
+  also stored here (`setLabelOrder()`), user-reorderable via a drag handle (Pointer Events, see
+  Key Bug Fixes) in ManageBucketsModal, and drives card order everywhere (`getAllLabelsInBucket()`
+  no longer alphabetizes — catalog order first, then any live-only labels appended sorted).
 - **Manage Portfolio menu** (HoldingsPage Settings → "Manage Portfolio"): a landing menu
   (`ManagePortfolioModal.tsx`) offering 3 actions — **Add Holding** (`AddTransactionModal.tsx`),
-  **Delete Holding** (`DeleteHoldingModal.tsx`, supports per-transaction granularity, see Active File Map),
+  **Delete Holding** (`DeleteHoldingModal.tsx`, supports per-transaction granularity in both
+  Portfolio and Label/Bucket scope, see Active File Map),
   **Copy Holdings** (`PullHoldingsModal.tsx`, bulk-push one or more brokers — each with its own
   All-Holdings-or-pick-holdings toggle — into a Bucket/Label; calls `POST /api/portfolio/set-tags`). Add is
   disabled on bucket/label/Total pages (no real portfolio to add into); Copy is disabled on a real broker
@@ -305,6 +306,11 @@ Keep-alive: GitHub Actions cron pings `/health` every 14 min to reduce cold star
 - Render OOM-killed repeatedly (confirmed via Render API: events showed `oomKilled: memoryLimit:512Mi` roughly every 10-20 min) — root-caused to `history.py`'s `_sem` concurrency cap being raised 4→8 the prior session: each concurrent `yf.download()` holds a full OHLCV DataFrame, and 8 at once (~15.4MB/call, measured against real Render memory metrics: 413MB baseline → 536MB at concurrency 8) pinned the instance at its 512MB ceiling during any multi-symbol Charts-tab burst. Fixed by reverting to 4 and having `_download()`/`_fetch_intraday_bars()` `del df` immediately after extracting `Close`.
 - `frontend/src/pages/HoldingsPage.tsx` `buildRows()`: the Mutual Funds aggregate card merged `portfolios`/realized-gain only from currently-*open* holdings — once one portfolio fully sold a symbol (qty hits 0, excluded from `data.holdings`), that portfolio silently dropped out of the merged card's nav target and realized-gain total, even though it still had a real, correctly-computed sell transaction. Root cause traced through several false leads (suspected stale aggregate-portfolio CSV duplication, suspected FIFO oversell, suspected stale cache) before finding the actual closed-position gap. Fixed by backfilling any portfolio with a `realizedMap` entry for that symbol into the merged row, not just open-holding portfolios.
 - Disk-cache crash + fresh OOM introduced *while fixing the above* — persisting `_series_cache` to disk on every chart fetch (new this session) called `Cache.set()` → `pickle.dump()` of the *entire* cache dict (which also holds `fifo:*`/`qs:*`/`divs:*` data) once per symbol, with no thread lock. A multi-symbol burst running 4 concurrent `asyncio.to_thread()` calls raced on the shared dict — `RuntimeError: dictionary changed size during iteration` (confirmed live in Render logs) — and the repeated full-dict re-serialization itself triggered another OOM kill within 2 minutes of deploying. Fixed in `src/cache.py`: a module-level `threading.Lock` around all `_data` mutation/`pickle.dump`, plus debouncing the actual disk write to once per 5s regardless of `set()` call frequency (in-memory reads stay immediately consistent either way).
+- `frontend/src/components/DeleteHoldingModal.tsx`: a symbol tagged into the same Label from two brokers showed as two separate (portfolio, symbol) rows; checking only one row left the other broker's tag intact, so the symbol kept reappearing on the Label page after "deleting." Fixed by merging same-symbol rows into one checkbox (`displayRows`/`rowKey`) for Label scope, untagging every backing portfolio at once.
+- `frontend/src/pages/HoldingsPage.tsx` `buildRows()`: the "Grouped" viewMode toggle was supposed to merge a symbol across brokers into one card, but the merge branch only ran when `hasSegment` was also true — on the plain Holdings tab (no segment selected, the default state) it silently fell back to one row per portfolio regardless of the toggle. Fixed condition to only split per-portfolio when `mode === 'standalone'`.
+- `frontend/src/components/DeleteHoldingModal.tsx`: per-transaction delete checkboxes were hidden in Label/Bucket scope entirely (only whole-holding untag was possible there) — now shown in both scopes; selecting individual transactions in Label scope permanently deletes them from their real broker portfolio (same mechanism as Portfolio-scope delete), while the whole-row checkbox still only untags.
+- `DeleteHoldingModal.tsx`/`PullHoldingsModal.tsx`: native `window.confirm()` and a native `<select>` for "Add a broker" looked like OS popups rather than part of the app — replaced with in-app dialogs (rose confirm overlay, custom dropdown list) matching each modal's styling.
+- `ManageBucketsModal.tsx`: ▲▼ label-reorder buttons (9px text, tiny tap target) weren't usable on mobile — replaced with a 44px drag handle using native Pointer Events (no new dependency); list reorders live as the dragged row crosses another row's midpoint.
 
 ## Pending
 
@@ -323,7 +329,7 @@ Keep-alive: GitHub Actions cron pings `/health` every 14 min to reduce cold star
 | `src/portfolio.py` | `_run_fifo()` | FIFO logic, realized_pnl |
 | `src/cache.py` | `Cache` | Change cache TTLs |
 | `frontend/src/pages/PortfoliosPage.tsx` | `PortfoliosPage`, `bucketCards()`, `buildTagLookup()` | Overview / hero card; bucketCards = one card per Label in the active Bucket; buildTagLookup = (portfolio:symbol)→{tags,quote_type} for classifying realized entries |
-| `frontend/src/pages/HoldingsPage.tsx` | `HoldingsPage`, `buildRows()` | Holdings list + sort + XIRR; `benchTxns` (extends filtPorts with closedRows portfolios); `benchTxnsDate` (BUY-date-filtered benchTxns); `txnYears` (available years from transactions); `buildRows()` merges open holdings by symbol for segment/bucket views — also backfills closed-but-realized portfolios (see Key Bug Fixes) |
+| `frontend/src/pages/HoldingsPage.tsx` | `HoldingsPage`, `buildRows()` | Holdings list + sort + XIRR; `benchTxns` (extends filtPorts with closedRows portfolios); `benchTxnsDate` (BUY-date-filtered benchTxns); `txnYears` (available years from transactions); `buildRows()` merges open holdings by symbol whenever viewMode is "Grouped" (was incorrectly gated on a segment being selected too — see Key Bug Fixes), "Standalone" keeps one row per portfolio — also backfills closed-but-realized portfolios |
 | `frontend/src/pages/TransactionsPage.tsx` | `TransactionsPage` | Tx list + 8-metric charts |
 | `frontend/src/utils/buckets.ts` | `getLabel()`, `resolveLabel()`, `filterByLabel()` | Bucket/Label classification — replaces old `segments.ts` `getSegmentType`/`filterBySegment` (removed) |
 | `frontend/src/utils/sectors.ts` | `getSectorForHolding()` | Sector classification for Analysis tab |
