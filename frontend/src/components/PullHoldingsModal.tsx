@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { PortfolioData } from '../api/types'
 import { useSetTags } from '../hooks/useSetTags'
 import { getBuckets, addLabel, getAllLabelsInBucket, getLabel } from '../utils/buckets'
@@ -39,8 +39,23 @@ export function PullHoldingsModal({ open, onClose, data, preFilledPortfolio, pre
   const [label,  setLabel]  = useState('')
   const [brokerConfigs, setBrokerConfigs] = useState<BrokerConfig[]>([])
   const [brokerPickerOpen, setBrokerPickerOpen] = useState(false)
+  const [brokerPickerUp, setBrokerPickerUp] = useState(false)
+  const brokerPickerBtnRef = useRef<HTMLButtonElement>(null)
+  const modalBodyRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState('')
   const [done,  setDone]  = useState(false)
+
+  // Decide drop direction so the picker stays visible inside the modal's scroll body
+  // instead of spilling past its bottom edge (modal can't expand to contain it otherwise).
+  function toggleBrokerPicker() {
+    if (!brokerPickerOpen && brokerPickerBtnRef.current && modalBodyRef.current) {
+      const btnRect = brokerPickerBtnRef.current.getBoundingClientRect()
+      const bodyRect = modalBodyRef.current.getBoundingClientRect()
+      const spaceBelow = bodyRect.bottom - btnRect.bottom
+      setBrokerPickerUp(spaceBelow < 192)
+    }
+    setBrokerPickerOpen(v => !v)
+  }
 
   // Re-derive whenever the modal opens or the page's context changes — this modal stays
   // mounted across page navigations, so a stale Bucket/Label/broker from a previous page
@@ -122,7 +137,7 @@ export function PullHoldingsModal({ open, onClose, data, preFilledPortfolio, pre
           <button onClick={onClose} className="text-emerald-200 active:text-white text-xl leading-none">×</button>
         </div>
 
-        <div className="flex-1 overflow-y-auto bg-white px-4 py-4 space-y-3">
+        <div ref={modalBodyRef} className="flex-1 overflow-y-auto bg-white px-4 py-4 space-y-3">
 
           {/* Bucket + Label */}
           <p className="text-[10px] text-emerald-700 font-semibold uppercase tracking-widest">Bucket &amp; Label</p>
@@ -192,8 +207,9 @@ export function PullHoldingsModal({ open, onClose, data, preFilledPortfolio, pre
           {availableBrokers.length > 0 && (
             <div className="relative">
               <button
+                ref={brokerPickerBtnRef}
                 type="button"
-                onClick={() => setBrokerPickerOpen(v => !v)}
+                onClick={toggleBrokerPicker}
                 className="w-full px-2 py-2 text-[12px] border border-emerald-200 rounded-lg bg-white text-slate-500 flex items-center justify-between"
               >
                 <span>+ Add a broker…</span>
@@ -202,7 +218,7 @@ export function PullHoldingsModal({ open, onClose, data, preFilledPortfolio, pre
               {brokerPickerOpen && (
                 <>
                   <div className="fixed inset-0 z-[205]" onClick={() => setBrokerPickerOpen(false)} />
-                  <div className="absolute left-0 right-0 mt-1 z-[206] bg-white border border-emerald-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  <div className={`absolute left-0 right-0 z-[206] bg-white border border-emerald-200 rounded-lg shadow-lg max-h-48 overflow-y-auto ${brokerPickerUp ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
                     {availableBrokers.map(p => (
                       <button
                         key={p}

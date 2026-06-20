@@ -109,8 +109,14 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
     const pointerId = e.pointerId
     setDrag({ bucket, label, pointerId, startY: e.clientY, y: e.clientY })
 
+    const prevBodyOverflow = document.body.style.overflow
+    const prevBodyTouchAction = document.body.style.touchAction
+    document.body.style.overflow = 'hidden'
+    document.body.style.touchAction = 'none'
+
     function onMove(ev: PointerEvent) {
       if (ev.pointerId !== pointerId) return
+      ev.preventDefault()
       setDrag(prev => (prev ? { ...prev, y: ev.clientY } : prev))
       reorderForPointer(bucket, label, ev.clientY)
     }
@@ -118,9 +124,11 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
       if (ev.pointerId !== pointerId) return
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
+      document.body.style.overflow = prevBodyOverflow
+      document.body.style.touchAction = prevBodyTouchAction
       setDrag(null)
     }
-    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointermove', onMove, { passive: false })
     window.addEventListener('pointerup', onUp)
   }
 
