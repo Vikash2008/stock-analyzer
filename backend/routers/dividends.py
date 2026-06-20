@@ -412,5 +412,11 @@ def get_dividends(
     usd_inr = get_usd_inr_rate()
     result  = _compute(txns, usd_inr, portfolio=portfolio, force=force_refresh, since_hints=hints)
 
-    _mem[cache_key] = (result, now)
+    # Don't lock in an incomplete result for the full 24h — skipped_symbols means some
+    # symbols' fetches didn't finish within the batch budget (typically a cold disk cache,
+    # e.g. right after a deploy), so this response under/over-counts. The background fetches
+    # keep running and will have finished by the next request; caching this one would otherwise
+    # serve the wrong numbers for a full day until force_refresh bypassed it.
+    if not result["skipped_symbols"]:
+        _mem[cache_key] = (result, now)
     return JSONResponse(content=result)

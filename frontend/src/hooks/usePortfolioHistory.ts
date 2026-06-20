@@ -83,11 +83,19 @@ export function usePortfolioHistory(
         enabled:   enabled && (!isClosed || !lsGet(lsKey(sym), CLOSED_LS_TTL)),
         staleTime:    isClosed ? CLOSED_LS_TTL : REFRESH_MS,
         gcTime:       Infinity,  // keep in memory for entire session
-        refetchInterval:             isClosed ? false : REFRESH_MS,
-        refetchIntervalInBackground: false,
+        // No refetchInterval here — a flat interval is mount-relative (fires N minutes after
+        // mount, not N minutes after the real last fetch), which lets the actual gap drift up
+        // to ~2x REFRESH_MS. The elapsed-time poll below checks against the real dataUpdatedAt
+        // instead, so a fetch only ever happens once REFRESH_MS has truly passed.
         retry:        2,
         retryDelay:   8_000,
         retryOnMount: false,     // error-state queries stay counted on navigation; avoids backwards counter
+        // Without this, React Query's default refetch-on-mount-if-stale silently refetches
+        // as soon as the app reopens with cache older than REFRESH_MS, instantly overwriting
+        // dataUpdatedAt to "now" before the user ever sees the cache's true age. The
+        // elapsed-time poll + visibilitychange handler below already cover staleness
+        // while the app stays open — mount itself should never force it.
+        refetchOnMount: false,
         // Open symbols: seed with the real cache timestamp so staleTime is judged against
         // actual last-fetch time — on app reopen within 30min this skips the fetch entirely
         // instead of always kicking one off in the background (placeholderData's behavior).
@@ -112,8 +120,7 @@ export function usePortfolioHistory(
   useEffect(() => {
     if (!enabled || !openSymbolsKey) return
     const openSymbols = openSymbolsKey.split(',')
-    const handleVisibility = () => {
-      if (document.visibilityState !== 'visible') return
+    const refetchStaleSymbols = () => {
       for (const sym of openSymbols) {
         const state = qc.getQueryState(['history', sym])
         const lastFetch = state?.dataUpdatedAt ?? 0
@@ -122,8 +129,23 @@ export function usePortfolioHistory(
         }
       }
     }
+    // `visibilitychange` never fires on a fresh page load (the document is already
+    // "visible" at mount) — it only catches background→foreground transitions on an
+    // already-open app. A cold reopen needs its own elapsed-time check at mount, or a
+    // cache older than REFRESH_MS would sit there indefinitely with refetchOnMount off.
+    refetchStaleSymbols()
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') refetchStaleSymbols()
+    }
     document.addEventListener('visibilitychange', handleVisibility)
-    return () => document.removeEventListener('visibilitychange', handleVisibility)
+    // Backstop for a continuously-foregrounded session (no visibilitychange transition ever
+    // fires): poll the real elapsed time every minute rather than relying on a single timer
+    // fired N minutes after mount, so the fetch always lands at the true REFRESH_MS mark.
+    const pollId = window.setInterval(refetchStaleSymbols, 60_000)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.clearInterval(pollId)
+    }
   }, [enabled, openSymbolsKey, qc])
 
   const loadedCount   = queries.filter(q => q.status === 'success' || q.status === 'error').length

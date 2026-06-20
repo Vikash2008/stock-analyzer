@@ -4,7 +4,7 @@ import { QueryClient, useIsRestoring } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
 import { usePortfolio } from './hooks/usePortfolio'
-import { useRefreshAllDividends, getLastDividendAutoRefreshMonth, setLastDividendAutoRefreshMonth } from './hooks/useDividends'
+import { useRefreshAllDividends, isDividendsAutoRefreshDue } from './hooks/useDividends'
 import { useRefreshAllBenchmarks, getLastBenchmarkAutoRefreshDay, setLastBenchmarkAutoRefreshDay } from './hooks/useBenchmarkXirr'
 import PortfoliosPage   from './pages/PortfoliosPage'
 import HoldingsPage     from './pages/HoldingsPage'
@@ -94,13 +94,13 @@ function AppRoutes({ currency, onCurrencyChange }: { currency: Currency; onCurre
   const loggedRestore = useRef(false)
   const refreshAllDividends = useRefreshAllDividends()
 
-  // Once-per-calendar-month automatic dividends refresh — no other auto-refresh exists for
-  // dividends (no interval, no focus refetch); this is the only scheduled freshness trigger.
+  // Rolling 30-day automatic dividends refresh, gated off the real last-fetch timestamp — no
+  // other auto-refresh exists for dividends (no interval, no focus refetch); this is the only
+  // scheduled freshness trigger. No separate bookkeeping needed — once useDividends() actually
+  // fetches, lsSet() updates this same timestamp.
   useEffect(() => {
     if (!data?.all_portfolios) return
-    const thisMonth = new Date().toISOString().slice(0, 7) // "YYYY-MM"
-    if (getLastDividendAutoRefreshMonth() === thisMonth) return
-    setLastDividendAutoRefreshMonth(thisMonth)
+    if (!isDividendsAutoRefreshDue()) return
     refreshAllDividends(data.all_portfolios, undefined)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.all_portfolios])

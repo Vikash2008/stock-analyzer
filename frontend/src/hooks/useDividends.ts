@@ -4,9 +4,8 @@ import type { DividendsData, DividendSymbol } from '../api/dividends'
 import { SKIP_PORTS } from '../utils/segments'
 import { idbGet, idbSet, idbDelete, idbKeys } from '../utils/idbStore'
 
-const STALE_MS = 30 * 24 * 60 * 60 * 1000          // 30 days — matches backend disk cache TTL
+export const STALE_MS = 30 * 24 * 60 * 60 * 1000   // 30 days — matches backend disk cache TTL
 const LS_KEY   = (p: string) => p ? `dividends:cache:v2:${p}` : `dividends:cache:`
-const AUTO_KEY = 'dividends:autoRefreshMonth'
 
 function getCsvHash(): string {
   return localStorage.getItem('portfolio:csv:hash') ?? 'demo'
@@ -65,9 +64,18 @@ export function useDividends(portfolio?: string) {
       lsSet(LS_KEY(key), data)
       return data
     },
-    placeholderData: () => lsGet(LS_KEY(key)),
+    // initialData (not placeholderData) + initialDataUpdatedAt seeds the query's real
+    // dataUpdatedAt from the cache-write timestamp — placeholderData never sets
+    // dataUpdatedAt, so it was always "instantly stale" and silently refetching (and
+    // overwriting the cache timestamp to "now") on every single mount, regardless of how
+    // recently dividends had actually been fetched. refetchOnMount:false then stops that
+    // mount-time refetch outright — the once-a-month check in App.tsx is the only thing
+    // that should trigger an automatic dividends fetch.
+    initialData:          () => lsGet(LS_KEY(key)),
+    initialDataUpdatedAt: () => lsGetTimestamp(LS_KEY(key)),
     staleTime: STALE_MS,
     gcTime: Infinity,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     retry: 2,
     retryDelay: 5_000,
@@ -112,12 +120,13 @@ export function useRefreshAllDividends() {
   }
 }
 
-export function getLastDividendAutoRefreshMonth(): string | null {
-  return localStorage.getItem(AUTO_KEY)
-}
-
-export function setLastDividendAutoRefreshMonth(month: string): void {
-  try { localStorage.setItem(AUTO_KEY, month) } catch {}
+/** True once the global dividends cache is genuinely older than STALE_MS (or has never been
+ * fetched) — a real rolling 30-day window off the actual last-fetch timestamp, replacing the
+ * old calendar-month check (which could fire after just 1 day across a month boundary, or
+ * sit for up to 2 months if the boundary fell right after a fetch). */
+export function isDividendsAutoRefreshDue(): boolean {
+  const ts = getDividendsLastFetched()
+  return !ts || Date.now() - ts >= STALE_MS
 }
 
 /** Lookup a single symbol's dividend data from cached query state (global, no portfolio filter). */

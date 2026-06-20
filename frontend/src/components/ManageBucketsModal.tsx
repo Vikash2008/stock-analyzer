@@ -114,6 +114,18 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
     document.body.style.overflow = 'hidden'
     document.body.style.touchAction = 'none'
 
+    // PortfoliosPage's own pull-to-refresh is wired via native onTouchStart/onTouchMove on an
+    // ancestor div this modal renders inside of — those are a separate event stream from
+    // Pointer Events, so preventDefault()/body-overflow above never stopped them from bubbling
+    // up and moving the page underneath. Block them at the window in the capture phase (fires
+    // before the gesture reaches that ancestor) for the duration of the drag.
+    function blockTouch(ev: TouchEvent) {
+      ev.stopPropagation()
+      ev.preventDefault()
+    }
+    window.addEventListener('touchstart', blockTouch, { capture: true, passive: false })
+    window.addEventListener('touchmove', blockTouch, { capture: true, passive: false })
+
     function onMove(ev: PointerEvent) {
       if (ev.pointerId !== pointerId) return
       ev.preventDefault()
@@ -124,6 +136,8 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
       if (ev.pointerId !== pointerId) return
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('touchstart', blockTouch, { capture: true })
+      window.removeEventListener('touchmove', blockTouch, { capture: true })
       document.body.style.overflow = prevBodyOverflow
       document.body.style.touchAction = prevBodyTouchAction
       setDrag(null)
