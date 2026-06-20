@@ -10,17 +10,35 @@ export interface TagAssignment {
   label:     string
 }
 
+async function postSetTags(assignments: TagAssignment[], csvHash: string) {
+  return fetch(`${BASE}/portfolio/set-tags?csv_hash=${csvHash}`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ assignments }),
+  })
+}
+
 export function useSetTags() {
   const qc = useQueryClient()
 
   return useMutation({
     mutationFn: async (assignments: TagAssignment[]) => {
       const csvHash = localStorage.getItem('portfolio:csv:hash') ?? 'demo'
-      const res = await fetch(`${BASE}/portfolio/set-tags?csv_hash=${csvHash}`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ assignments }),
-      })
+      let res = await postSetTags(assignments, csvHash)
+
+      // The backend's FIFO cache only keeps a capped number of distinct uploaded-CSV hashes —
+      // a long editing session (many Bucket/Label/delete actions, each minting a new content
+      // hash) can evict the current one between actions, turning this into a dead-end "re-import
+      // your CSV" error even though the browser still has the full CSV in localStorage. Re-seed
+      // the backend from that local copy and retry once instead of surfacing a hard failure.
+      if (res.status === 404) {
+        const csv = localStorage.getItem('portfolio:csv')
+        if (csv) {
+          await fetch(`${BASE}/portfolio`, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: csv })
+          res = await postSetTags(assignments, csvHash)
+        }
+      }
+
       if (!res.ok) {
         const text = await res.text().catch(() => '')
         throw new Error(text || `HTTP ${res.status}`)

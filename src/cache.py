@@ -71,8 +71,12 @@ _PREFIX_TTL: dict[str, float] = {
 
 # Each uploaded CSV gets its own permanent fifo:{hash}:* entry that's never otherwise
 # removed — cap how many distinct hashes we keep so repeated re-uploads/testing don't
-# accumulate forever.
-_MAX_FIFO_HASHES = 5
+# accumulate forever. Every Bucket/Label tag edit, holding delete, or Copy Holdings apply
+# changes the CSV content and therefore mints a new hash — a single active editing session
+# routinely produces more than 5 of these in a row, evicting the user's own current/most-recent
+# hash mid-session and turning their next action into a cache-miss ("re-import your CSV") even
+# though nothing went wrong. Raised well past realistic same-session edit counts.
+_MAX_FIFO_HASHES = 30
 
 # Module-level singleton: loaded from disk once per process lifetime.
 # Mutations (set/invalidate) update this dict in-place, so all Cache

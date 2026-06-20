@@ -910,14 +910,14 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                       {/* Portfolio file */}
                       <div className="px-3 py-2 flex items-center justify-between gap-3 bg-emerald-50 border border-emerald-100 rounded-lg">
                         <div className="min-w-0">
-                          <p className="text-[12px] font-medium text-slate-700 leading-tight">Portfolio file</p>
+                          <p className="text-[12px] font-medium text-slate-700 leading-tight">Backup (with tags)</p>
                           <p className="text-[11px] text-slate-400 leading-tight mt-0.5 truncate">
                             {csvMeta ? `${csvMeta.name} · ${fmtBytes(csvMeta.size)}` : 'Demo Data · Sample portfolio'}
                           </p>
                         </div>
                         <button
                           onClick={handleDownload}
-                          title={`Download ${csvMeta ? 'CSV' : 'Demo CSV'}`}
+                          title="Download a backup CSV — includes your Bucket/Label tags; re-import this (not your raw broker export) to restore them"
                           className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-slate-200 text-slate-600 active:bg-slate-300"
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
