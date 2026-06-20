@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import type { PortfolioData } from '../api/types'
 import { useSetTags } from '../hooks/useSetTags'
 import {
@@ -78,15 +78,50 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
     clearTagsThen(affected, bucket, () => { deleteLabel(bucket, label); refreshBuckets() })
   }
 
-  function handleMoveLabel(bucket: string, label: string, dir: 'up' | 'down') {
-    const current = getAllLabelsInBucket(data, bucket)
-    const i = current.indexOf(label)
-    const j = dir === 'up' ? i - 1 : i + 1
-    if (i === -1 || j < 0 || j >= current.length) return
-    const next = [...current]
-    ;[next[i], next[j]] = [next[j], next[i]]
-    setLabelOrder(bucket, next)
-    refreshBuckets()
+  // Drag-to-reorder for Labels — a dedicated grip handle (rather than long-press anywhere on
+  // the row) so it doesn't fight with scrolling the modal on mobile. The list reorders live as
+  // the finger crosses a row's midpoint; the dragged row tracks the finger via a transform
+  // offset (total pointer movement since pointerdown) so it stays visually under the touch
+  // point regardless of where it lands in the underlying array.
+  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+  const [drag, setDrag] = useState<{ bucket: string; label: string; pointerId: number; startY: number; y: number } | null>(null)
+
+  function reorderForPointer(bucket: string, label: string, pointerY: number) {
+    const order   = getAllLabelsInBucket(data, bucket)
+    const without = order.filter(l => l !== label)
+    let insertAt  = without.length
+    for (let i = 0; i < without.length; i++) {
+      const el = rowRefs.current.get(`${bucket}:${without[i]}`)
+      if (!el) continue
+      const rect = el.getBoundingClientRect()
+      if (pointerY < rect.top + rect.height / 2) { insertAt = i; break }
+    }
+    const next = [...without]
+    next.splice(insertAt, 0, label)
+    if (next.join('|') !== order.join('|')) {
+      setLabelOrder(bucket, next)
+      refreshBuckets()
+    }
+  }
+
+  function handleDragPointerDown(bucket: string, label: string, e: ReactPointerEvent) {
+    e.preventDefault()
+    const pointerId = e.pointerId
+    setDrag({ bucket, label, pointerId, startY: e.clientY, y: e.clientY })
+
+    function onMove(ev: PointerEvent) {
+      if (ev.pointerId !== pointerId) return
+      setDrag(prev => (prev ? { ...prev, y: ev.clientY } : prev))
+      reorderForPointer(bucket, label, ev.clientY)
+    }
+    function onUp(ev: PointerEvent) {
+      if (ev.pointerId !== pointerId) return
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      setDrag(null)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
   }
 
   if (!open) return null
@@ -135,26 +170,23 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
                 </div>
               </div>
               <div className="space-y-1">
-                {getAllLabelsInBucket(data, b.name).map((l, i, arr) => (
-                  <div key={l} className="flex items-center gap-1.5 bg-white border border-emerald-200 rounded-lg px-2 py-1">
-                    <div className="flex flex-col -my-0.5 shrink-0">
-                      <button
-                        onClick={() => handleMoveLabel(b.name, l, 'up')}
-                        disabled={i === 0}
-                        className="text-slate-400 active:text-emerald-600 disabled:opacity-25 leading-none text-[9px]"
-                        title="Move up"
-                      >
-                        ▲
-                      </button>
-                      <button
-                        onClick={() => handleMoveLabel(b.name, l, 'down')}
-                        disabled={i === arr.length - 1}
-                        className="text-slate-400 active:text-emerald-600 disabled:opacity-25 leading-none text-[9px]"
-                        title="Move down"
-                      >
-                        ▼
-                      </button>
-                    </div>
+                {getAllLabelsInBucket(data, b.name).map(l => {
+                  const isDragging = drag?.bucket === b.name && drag.label === l
+                  return (
+                  <div
+                    key={l}
+                    ref={el => { if (el) rowRefs.current.set(`${b.name}:${l}`, el); else rowRefs.current.delete(`${b.name}:${l}`) }}
+                    className={`flex items-center gap-1.5 bg-white border rounded-lg px-2 py-1 ${isDragging ? 'border-emerald-400 shadow-lg relative z-50' : 'border-emerald-200'}`}
+                    style={isDragging ? { transform: `translateY(${drag.y - drag.startY}px)`, touchAction: 'none' } : undefined}
+                  >
+                    <button
+                      onPointerDown={e => handleDragPointerDown(b.name, l, e)}
+                      className="text-slate-400 active:text-emerald-600 leading-none shrink-0 w-11 h-11 flex items-center justify-center text-[14px] cursor-grab active:cursor-grabbing"
+                      style={{ touchAction: 'none' }}
+                      title="Drag to reorder"
+                    >
+                      ≡
+                    </button>
                     <span className="flex-1 text-[11px] text-slate-700">{l}</span>
                     <button
                       onClick={() => handleDeleteLabel(b.name, l)}
@@ -165,7 +197,8 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
                       ×
                     </button>
                   </div>
-                ))}
+                  )
+                })}
               </div>
               <div className="flex gap-1.5">
                 <input

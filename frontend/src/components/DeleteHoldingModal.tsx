@@ -6,7 +6,30 @@ import { getBuckets, getAllLabelsInBucket, filterByLabel, getLabel } from '../ut
 
 // Display-only row for the picker — lighter than the full `Holding` type since closed
 // positions (sold out entirely) don't have one: they only exist in `data.transactions`.
-type Row = { portfolio: string; symbol: string; company: string | null; name: string | null }
+// `portfolios` covers every broker this row represents — usually one, but a Label-scope row
+// merges every portfolio holding that symbol under the Label into a single entry.
+type Row = { portfolio: string; symbol: string; company: string | null; name: string | null; portfolios: string[] }
+
+// A symbol tagged into the same Label from more than one broker would otherwise show up as
+// several rows that look identical except for a small portfolio name — easy to select only
+// one and assume the whole symbol was removed. Merge them so one checkbox covers every
+// portfolio backing that symbol within this Label.
+function mergeRowsBySymbol(rows: Row[]): Row[] {
+  const map = new Map<string, Row>()
+  for (const r of rows) {
+    const existing = map.get(r.symbol)
+    if (existing) {
+      for (const p of r.portfolios) if (!existing.portfolios.includes(p)) existing.portfolios.push(p)
+    } else {
+      map.set(r.symbol, { ...r, portfolios: [...r.portfolios] })
+    }
+  }
+  return [...map.values()]
+}
+
+function rowKey(scope: Scope, h: Row): string {
+  return scope?.kind === 'label' ? h.symbol : holdingKey(h.portfolio, h.symbol)
+}
 
 interface Props {
   open:    boolean
@@ -71,6 +94,7 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
   const [selectedHoldings, setSelectedHoldings] = useState<Set<string>>(new Set())
   const [error, setError] = useState('')
   const [done,  setDone]  = useState(false)
+  const [confirmState, setConfirmState] = useState<{ message: string; run: () => void } | null>(null)
 
   // Re-derive whenever the modal opens or the page's portfolio/bucket-label changes — this
   // modal stays mounted across page navigations, so a stale scope from a previous page would
@@ -89,7 +113,7 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
   const openRows: Row[] = (!scope ? [] : scope.kind === 'portfolio'
     ? data.holdings.filter(h => h.portfolio === scope.portfolio)
     : filterByLabel(data.holdings, scope.bucket, scope.label)
-  ).map(h => ({ portfolio: h.portfolio, symbol: h.symbol, company: h.company, name: h.name }))
+  ).map(h => ({ portfolio: h.portfolio, symbol: h.symbol, company: h.company, name: h.name, portfolios: [h.portfolio] }))
 
   // A symbol can be fully closed (zero open quantity) under this scope but still have
   // historical transactions/realized gain — it won't appear in data.holdings (open positions
@@ -105,13 +129,14 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
       const key = holdingKey(t.portfolio, t.symbol)
       if (openKeys.has(key) || seen.has(key)) continue
       seen.add(key)
-      closedRows.push({ portfolio: t.portfolio, symbol: t.symbol, company: null, name: t.name })
+      closedRows.push({ portfolio: t.portfolio, symbol: t.symbol, company: null, name: t.name, portfolios: [t.portfolio] })
     }
   }
   const holdingsInScope: Row[] = [...openRows, ...closedRows]
+  const displayRows: Row[] = scope?.kind === 'label' ? mergeRowsBySymbol(holdingsInScope) : holdingsInScope
 
   function txnsFor(h: Row): Transaction[] {
-    return data.transactions.filter(t => t.portfolio === h.portfolio && t.symbol === h.symbol)
+    return data.transactions.filter(t => h.portfolios.includes(t.portfolio) && t.symbol === h.symbol)
   }
 
   function toggleExpand(key: string) {
@@ -136,7 +161,7 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
   // Label scope removes the holding from the pseudo-portfolio (untags it) rather than
   // deleting any transactions, so selection is whole-holding only — no per-transaction picks.
   function toggleSelectedHolding(h: Row) {
-    const k = holdingKey(h.portfolio, h.symbol)
+    const k = rowKey(scope, h)
     setSelectedHoldings(prev => {
       const next = new Set(prev)
       if (next.has(k)) next.delete(k); else next.add(k)
@@ -156,19 +181,44 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
     if (!scope) { setError('Pick a portfolio.'); return }
     setError('')
 
-    // Label/Bucket scope is a pseudo-portfolio view — "deleting" here must only clear the
-    // Label tag, never touch the real transactions, which stay intact in their actual broker
-    // portfolio(s) (the same symbol can be tagged into this Label from more than one broker).
+    // Label/Bucket scope is a pseudo-portfolio view — checking the whole-holding row only
+    // clears the Label tag, never touching the real transactions (the same symbol can be
+    // tagged into this Label from more than one broker). Picking individual transactions via
+    // "Show txn" is a real, permanent delete from their actual broker portfolio(s) instead —
+    // same mechanism as a Portfolio-scope delete, just reachable from the Label view too.
     if (scope.kind === 'label') {
-      const targets = allHoldings ? holdingsInScope : holdingsInScope.filter(h => selectedHoldings.has(holdingKey(h.portfolio, h.symbol)))
+      if (!allHoldings && selectedTxns.size > 0) {
+        const targets = displayRows.flatMap(txnsFor).filter(t => selectedTxns.has(txnKey(t)))
+        const holdingCount = new Set(targets.map(t => holdingKey(t.portfolio, t.symbol))).size
+        const confirmMsg = `This will permanently delete ${targets.length} transaction(s) across ${holdingCount} holding(s) — removed from their real broker portfolio(s), not just "${scopeLabel(scope)}". This cannot be undone. Continue?`
+        setConfirmState({
+          message: confirmMsg,
+          run: () => {
+            const deletions = targets.map(t => ({
+              portfolio: t.portfolio, symbol: t.symbol,
+              date: t.date.slice(0, 10), type: t.type, quantity: t.quantity, price: t.price,
+            }))
+            mutate(deletions, {
+              onSuccess: () => { setDone(true); setSelectedTxns(new Set()); setTimeout(() => { setDone(false); onClose() }, 1200) },
+              onError: (e: Error) => setError(e.message || 'Failed to delete.'),
+            })
+          },
+        })
+        return
+      }
+
+      const targets = allHoldings ? displayRows : displayRows.filter(h => selectedHoldings.has(rowKey(scope, h)))
       if (targets.length === 0) { setError('Select at least one holding, or turn on All Holdings.'); return }
       const confirmMsg = `This will remove ${targets.length} holding(s) from "${scopeLabel(scope)}". They stay untouched in their original broker portfolio(s) — only the Label tag is cleared. Continue?`
-      if (!window.confirm(confirmMsg)) return
-
-      const assignments = targets.map(h => ({ portfolio: h.portfolio, symbol: h.symbol, bucket: scope.bucket, label: '' }))
-      setTags(assignments, {
-        onSuccess: () => { setDone(true); setSelectedHoldings(new Set()); setTimeout(() => { setDone(false); onClose() }, 1200) },
-        onError: (e: Error) => setError(e.message || 'Failed to remove.'),
+      setConfirmState({
+        message: confirmMsg,
+        run: () => {
+          const assignments = targets.flatMap(h => h.portfolios.map(p => ({ portfolio: p, symbol: h.symbol, bucket: scope.bucket, label: '' })))
+          setTags(assignments, {
+            onSuccess: () => { setDone(true); setSelectedHoldings(new Set()); setTimeout(() => { setDone(false); onClose() }, 1200) },
+            onError: (e: Error) => setError(e.message || 'Failed to remove.'),
+          })
+        },
       })
       return
     }
@@ -177,11 +227,14 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
       const count = holdingsInScope.length
       if (count === 0) { setError('No holdings here.'); return }
       const confirmMsg = `This will permanently delete all ${count} holding(s) and their full transaction history from "${scopeLabel(scope)}". This cannot be undone. Continue?`
-      if (!window.confirm(confirmMsg)) return
-
-      mutate([{ portfolio: scope.portfolio }], {
-        onSuccess: () => { setDone(true); setTimeout(() => { setDone(false); onClose() }, 1200) },
-        onError: (e: Error) => setError(e.message || 'Failed to delete.'),
+      setConfirmState({
+        message: confirmMsg,
+        run: () => {
+          mutate([{ portfolio: scope.portfolio }], {
+            onSuccess: () => { setDone(true); setTimeout(() => { setDone(false); onClose() }, 1200) },
+            onError: (e: Error) => setError(e.message || 'Failed to delete.'),
+          })
+        },
       })
       return
     }
@@ -191,20 +244,23 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
     const targets = holdingsInScope.flatMap(txnsFor).filter(t => selectedTxns.has(txnKey(t)))
     const holdingCount = new Set(targets.map(t => holdingKey(t.portfolio, t.symbol))).size
     const confirmMsg = `This will permanently delete ${targets.length} transaction(s) across ${holdingCount} holding(s) from "${scopeLabel(scope)}". This cannot be undone. Continue?`
-    if (!window.confirm(confirmMsg)) return
+    setConfirmState({
+      message: confirmMsg,
+      run: () => {
+        const deletions = targets.map(t => ({
+          portfolio: t.portfolio, symbol: t.symbol,
+          date: t.date.slice(0, 10), type: t.type, quantity: t.quantity, price: t.price,
+        }))
 
-    const deletions = targets.map(t => ({
-      portfolio: t.portfolio, symbol: t.symbol,
-      date: t.date.slice(0, 10), type: t.type, quantity: t.quantity, price: t.price,
-    }))
-
-    mutate(deletions, {
-      onSuccess: () => {
-        setDone(true)
-        setSelectedTxns(new Set())
-        setTimeout(() => { setDone(false); onClose() }, 1200)
+        mutate(deletions, {
+          onSuccess: () => {
+            setDone(true)
+            setSelectedTxns(new Set())
+            setTimeout(() => { setDone(false); onClose() }, 1200)
+          },
+          onError: (e: Error) => setError(e.message || 'Failed to delete.'),
+        })
       },
-      onError: (e: Error) => setError(e.message || 'Failed to delete.'),
     })
   }
 
@@ -262,9 +318,9 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
               </label>
               {!allHoldings && (
                 <div className="max-h-56 overflow-y-auto border border-rose-100 rounded-lg bg-white divide-y divide-rose-50">
-                  {holdingsInScope.length === 0 && <p className="px-2.5 py-2 text-[11px] text-slate-400">No holdings here.</p>}
-                  {holdingsInScope.map(h => {
-                    const hKey = holdingKey(h.portfolio, h.symbol)
+                  {displayRows.length === 0 && <p className="px-2.5 py-2 text-[11px] text-slate-400">No holdings here.</p>}
+                  {displayRows.map(h => {
+                    const hKey = rowKey(scope, h)
                     const txns = txnsFor(h)
                     const keys = txns.map(txnKey)
                     const isLabelScope = scope.kind === 'label'
@@ -282,7 +338,7 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
                             className="shrink-0"
                           />
                           <span className="font-semibold text-slate-700 shrink-0">{h.symbol}</span>
-                          {isLabelScope && <span className="text-slate-400 shrink-0">{h.portfolio}</span>}
+                          {isLabelScope && <span className="text-slate-400 shrink-0">{h.portfolios.join(', ')}</span>}
                           <span className="text-slate-400 truncate flex-1">{h.company ?? h.name ?? ''}</span>
                           <button
                             onClick={() => toggleExpand(hKey)}
@@ -298,9 +354,7 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
                               const tKey = txnKey(t)
                               return (
                                 <label key={tKey} className="flex items-center gap-2 pr-2.5 py-1 text-[10px] cursor-pointer active:bg-rose-50">
-                                  {!isLabelScope && (
-                                    <input type="checkbox" checked={selectedTxns.has(tKey)} onChange={() => toggleTxn(tKey)} className="shrink-0" />
-                                  )}
+                                  <input type="checkbox" checked={selectedTxns.has(tKey)} onChange={() => toggleTxn(tKey)} className="shrink-0" />
                                   <span className="text-slate-500 shrink-0 w-14">{DATE_FMT(t.date)}</span>
                                   <span className="font-semibold shrink-0 w-14" style={{ color: TYPE_COLOR[t.type] ?? '#64748b' }}>{t.type}</span>
                                   <span className="text-slate-400 truncate">{t.quantity} sh @ {t.price}</span>
@@ -330,6 +384,33 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
           </button>
         </div>
       </div>
+
+      {confirmState && (
+        <>
+          <div className="fixed inset-0 bg-black/50 z-[210]" onClick={() => setConfirmState(null)} />
+          <div
+            className="fixed inset-x-6 z-[211] bg-white rounded-2xl shadow-2xl p-4 space-y-3 border border-rose-100"
+            style={{ top: '30dvh', maxWidth: 380, margin: '0 auto' }}
+          >
+            <p className="text-[12px] text-slate-700 leading-relaxed">{confirmState.message}</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmState(null)}
+                className="flex-1 py-2 rounded-lg text-[12px] font-semibold text-slate-600 bg-slate-100 active:bg-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { const run = confirmState.run; setConfirmState(null); run() }}
+                className="flex-1 py-2 rounded-lg text-[12px] font-semibold text-white active:opacity-80"
+                style={{ background: 'linear-gradient(to right, #fb7185, #f87171)' }}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </>
   )
 }

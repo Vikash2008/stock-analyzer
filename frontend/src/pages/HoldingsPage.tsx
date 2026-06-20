@@ -129,9 +129,8 @@ function buildRows(
   holdings: Holding[],
   realizedMap: ReturnType<typeof aggRealized>,
   mode: 'cumulative' | 'standalone',
-  hasSegment: boolean,
 ): CardRow[] {
-  if (!hasSegment || mode === 'standalone') {
+  if (mode === 'standalone') {
     return holdings
       .map(h => {
         const [rg, rc] = realizedMap.get(`${h.portfolio}:${h.symbol}`) ?? [0, 0]
@@ -414,8 +413,8 @@ export default function HoldingsPage({ currency }: Props) {
   }, [filteredHoldings, realizedMap, segment, bucket, label, data, quoteTypeBySymbol])
 
   const rows = useMemo(
-    () => buildRows(filteredHoldings, realizedMap, viewMode, !!segment),
-    [filteredHoldings, realizedMap, viewMode, segment],
+    () => buildRows(filteredHoldings, realizedMap, viewMode),
+    [filteredHoldings, realizedMap, viewMode],
   )
 
   // FX gain per symbol — only populated when toggle is ON; sums across portfolios for cumulative views
@@ -469,7 +468,7 @@ export default function HoldingsPage({ currency }: Props) {
 
   // Allocation tab always uses one-per-symbol grouping regardless of viewMode
   const allocGroupedRows = useMemo(
-    () => buildRows(filteredHoldings, realizedMap, 'cumulative', true),
+    () => buildRows(filteredHoldings, realizedMap, 'cumulative'),
     [filteredHoldings, realizedMap],
   )
 

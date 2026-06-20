@@ -38,6 +38,7 @@ export function PullHoldingsModal({ open, onClose, data, preFilledPortfolio, pre
   const [bucket, setBucket] = useState('')
   const [label,  setLabel]  = useState('')
   const [brokerConfigs, setBrokerConfigs] = useState<BrokerConfig[]>([])
+  const [brokerPickerOpen, setBrokerPickerOpen] = useState(false)
   const [error, setError] = useState('')
   const [done,  setDone]  = useState(false)
 
@@ -53,6 +54,7 @@ export function PullHoldingsModal({ open, onClose, data, preFilledPortfolio, pre
     setBucket(defaultBucket)
     setLabel(defaultLabel)
     setBrokerConfigs(preFilledPortfolio ? [{ portfolio: preFilledPortfolio, allHoldings: true, selected: new Set() }] : [])
+    setBrokerPickerOpen(false)
     setError('')
   }, [open, preFilledPortfolio, preFilledBucket, preFilledLabel]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -188,14 +190,33 @@ export function PullHoldingsModal({ open, onClose, data, preFilledPortfolio, pre
           })}
 
           {availableBrokers.length > 0 && (
-            <select
-              value=""
-              onChange={e => handleAddBroker(e.target.value)}
-              className="w-full px-2 py-2 text-[12px] border border-emerald-200 rounded-lg bg-white text-slate-500"
-            >
-              <option value="">+ Add a broker…</option>
-              {availableBrokers.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setBrokerPickerOpen(v => !v)}
+                className="w-full px-2 py-2 text-[12px] border border-emerald-200 rounded-lg bg-white text-slate-500 flex items-center justify-between"
+              >
+                <span>+ Add a broker…</span>
+                <span className="text-emerald-400 text-[10px]">{brokerPickerOpen ? '▲' : '▼'}</span>
+              </button>
+              {brokerPickerOpen && (
+                <>
+                  <div className="fixed inset-0 z-[205]" onClick={() => setBrokerPickerOpen(false)} />
+                  <div className="absolute left-0 right-0 mt-1 z-[206] bg-white border border-emerald-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {availableBrokers.map(p => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => { handleAddBroker(p); setBrokerPickerOpen(false) }}
+                        className="w-full text-left px-2.5 py-2 text-[12px] text-slate-700 active:bg-emerald-50"
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           )}
 
           {error && <p className="text-[11px] text-red-600">{error}</p>}
