@@ -13,6 +13,7 @@
 | 3 | Yearly activity performance analysis | Analysis/visualisation of performance broken down by year — e.g. annual returns, P&L, invested vs realised per year | pending |
 | 4 | Research Links | Indian: Screener / Trendlyne / NSE pills; US: Finviz / Macrotrends / EDGAR pills | pending |
 | 5 | Better Deep Research prompts | Audit and improve all 8 section prompts (Indian + US variants) for depth, specificity, and output quality | pending |
+| 6 | Delete/unassign Buckets & Labels | Manage Buckets modal can create/push but not delete a Bucket, delete a Label, or unassign a single holding — plan exists at swift-dazzling-hummingbird.md | pending |
 
 ---
 

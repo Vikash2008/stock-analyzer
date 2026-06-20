@@ -27,7 +27,8 @@
 | **Price fetching / cache** | — | `src/price_fetcher.py`, `src/cache.py` |
 | **Portfolio bundle build** | — | `src/engine.py` |
 | **API routing** | — | `backend/main.py` |
-| **Segments / classification** | `frontend/src/utils/segments.ts` | `src/classify.py` |
+| **Buckets & Labels (user-defined classification)** | `frontend/src/utils/buckets.ts`, `frontend/src/components/ManageBucketsModal.tsx`, `frontend/src/hooks/useSetTags.ts` | `backend/routers/add_txn.py` (`set_tags` endpoint), `src/portfolio.py`/`src/price_fetcher.py` (`tags`/`quote_type` fields) |
+| **Currency/skip-portfolio helpers (USD_PORTS/SKIP_PORTS only)** | `frontend/src/utils/segments.ts` | — |
 | **Sectors / benchmark** | `frontend/src/utils/sectors.ts` | `frontend/src/hooks/useBenchmarkXirr.ts` |
 | **XIRR calculation** | `frontend/src/utils/xirr.ts` | `src/xirr.py` |
 | **Formatting helpers** | `frontend/src/utils/fmt.ts` | — |

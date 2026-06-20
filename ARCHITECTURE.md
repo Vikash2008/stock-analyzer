@@ -19,9 +19,9 @@ meta_filings_agent.py       Standalone research tool — fetches SEC EDGAR 10-Q/
 src/
   engine.py                 build(currency, force_refresh) → PortfolioBundle; computes fx_gain/disp_fx_gain per USD holding; filters fx_lots to selected portfolios ∩ _USD_PORTS; _fill_usd_fx_rates(txns) auto-fetches historical USDINR=X rates via yfinance for USD BUY rows where buy_fx_rate is missing or ≤1.5 (data_loader fillna=1.0 is the bad default); called in FIFO layer before calculate_holdings so rates bake into avg_buy_fx_rate and serialized transactions
   cache.py                  Disk cache (data/.cache.pkl) — prices/fx/prev_closes TTL 30min, info 7d; set_fifo(key, txns, holdings, realized, fx_lots) 4-tuple; get_fifo() → (txns, holdings_raw, realized, fx_lots); fifo_is_fresh() checks for "fifo:value:lots" key to force recompute on first deploy; _FIFO_VERSION = "2" class constant — increment to force recompute even when CSV hash unchanged (e.g. after engine logic changes); prune() called on every disk write — actively drops expired named layers, expired qs:/divs: per-symbol entries (_PREFIX_TTL, since dynamic keys fall outside _TTL and were previously treated as permanent), and caps fifo:{hash}:* entries to _MAX_FIFO_HASHES=5 (demo excluded) — fixes unbounded memory growth that was triggering Render's memory-limit alerts; chart history (`hist:*`) no longer lives here (moved to its own dedicated file in history.py — see below) — mirroring the same full-size daily series into this shared singleton duplicated that cache's entire memory footprint for no benefit, since the mirror was only ever read once (to reseed after a restart); module-level `threading.Lock` guards every mutation of the shared `_data` dict + the `pickle.dump` — `set()` is now called from multiple real OS threads at once (history.py's chart-fetch concurrency runs each request via `asyncio.to_thread`), and without it one thread's `prune()`/dict-mutation could race another's `pickle.dump()` iterating the same dict (`RuntimeError: dictionary changed size during iteration` — hit live in production); `set()`'s actual disk write (full re-pickle of `_data`) is debounced to once per `_SAVE_DEBOUNCE=5s` regardless of call frequency — the in-memory dict (shared singleton, all `Cache()` instances) still updates synchronously so `get()` always sees the latest value, only the disk flush is coalesced; `save()`/`set_fifo()`/`invalidate()` bypass the debounce (immediate write) since they're low-frequency
-  data_loader.py            CSV ingestion, MSP auto-detect; reads buy_fx_rate from col "purchase_exchange_rate" (snake_case — columns normalised to underscores at line 101 before _transform_msp; original bug used "purchase exchange rate" with spaces → always fell back to 1.0); fillna(1.0) for INR rows
-  portfolio.py              FIFO engine; _Lot dataclass has buy_fx_rate field; _run_fifo returns (holdings, realized, fx_lots); calculate_holdings aggregates fx_lots across portfolios
-  price_fetcher.py          yfinance wrappers; loads names from data/names.json first (Render-safe fallback); get_prices_and_prev_close()/get_usd_inr_rate() try Yahoo's lightweight v7/finance/quote endpoint first (single small JSON vs 5-day OHLCV download — ~10x faster), falling back to the old yf.download path on failure; both wrapped in `_with_hard_timeout()` (ThreadPoolExecutor, 10s wall-clock cap) — yfinance's own cookie/crumb fetch ignores the `timeout` kwarg on one internal code path (always its unbounded ~30s default), so this is the only way to actually bound worst-case latency; a hung attempt is abandoned (thread keeps running in background) and the fallback runs immediately
+  data_loader.py            CSV ingestion, MSP auto-detect; reads buy_fx_rate from col "purchase_exchange_rate" (snake_case — columns normalised to underscores at line 101 before _transform_msp; original bug used "purchase exchange rate" with spaces → always fell back to 1.0); fillna(1.0) for INR rows; optional `tags` column (Bucket=Label;Bucket=Label string) defaults to "" when absent
+  portfolio.py              FIFO engine; _Lot dataclass has buy_fx_rate field; _run_fifo returns (holdings, realized, fx_lots); calculate_holdings aggregates fx_lots across portfolios; carries `tags` through to holding/realized rows; `enrich_holdings()` adds `quote_type` (EQUITY/MUTUALFUND/ETF) from ticker_info
+  price_fetcher.py          yfinance wrappers; loads names from data/names.json first (Render-safe fallback); get_prices_and_prev_close()/get_usd_inr_rate() try Yahoo's lightweight v7/finance/quote endpoint first (single small JSON vs 5-day OHLCV download — ~10x faster), falling back to the old yf.download path on failure; both wrapped in `_with_hard_timeout()` (ThreadPoolExecutor, 10s wall-clock cap) — yfinance's own cookie/crumb fetch ignores the `timeout` kwarg on one internal code path (always its unbounded ~30s default), so this is the only way to actually bound worst-case latency; a hung attempt is abandoned (thread keeps running in background) and the fallback runs immediately; `get_tickers_info()` also fetches `quoteType` (1 retry + 0.5s backoff on throttle, then falls back to a `0P`-prefix symbol check for Indian MF — needed because Yahoo throttles the per-symbol `.info` loop on large portfolios, silently returning EQUITY for ~80% of MF holdings without the fallback); `_static_names` cache entries missing `quote_type` are treated as stale and re-fetched live
   schema.py                 Frozen schema + validation
   xirr.py                   XIRR calculation
 
@@ -92,7 +92,8 @@ data/
 ```
 /                            PortfoliosPage — hero + per-portfolio cards, By Type (default) / By Broker toggle + Explore New Holdings search section
 /holdings/portfolio/:name    HoldingsPage — holdings list + Charts tab + sort control
-/holdings/segment/:key       HoldingsPage — holdings for a segment (Stocks/MF/US)
+/holdings/segment/total      HoldingsPage — all holdings across every portfolio
+/holdings/bucket/:bucket/:label  HoldingsPage — holdings carrying that Bucket/Label (see Buckets & Labels below)
 /research/:symbol            ResearchPage — research any stock (not just held); Quick Stats + Deep Research + Notes tabs
 /transactions/:port/:sym     TransactionsPage — tx list + 8-metric Charts tab (Price + 7 historical)
 ```
@@ -126,7 +127,8 @@ msp_v2.csv
 | GET | `/api/quickstats` | `yf_symbol`, `force_refresh=false` | P/E, MCap, 52W range, analyst target from ticker.info; 60s in-memory + 24h per-symbol disk cache |
 | GET | `/api/filing/{symbol}` | — | Latest quarterly investor presentation PDF from BSE; 2h in-memory cache |
 | GET | `/api/filing/{symbol}/text` | — | Same filing as plain text (pdfplumber); prefers Financial Results PDF; 15MB cap; 30 pages max |
-| POST | `/api/portfolio/add-txn` | `csv_hash` query param; body: `{date, symbol, exchange, type, quantity, price, portfolios[], currency, charges, name}` | Appends new txn row(s) to existing CSV (one per portfolio); rebuilds FIFO + bundle; returns `{portfolio, csv, csv_hash}`; client saves new CSV to localStorage and updates ['portfolio'] query cache |
+| POST | `/api/portfolio/add-txn` | `csv_hash` query param; body: `{date, symbol, exchange, type, quantity, price, portfolios[], currency, charges, name, tags?}` | Appends new txn row(s) to existing CSV (one per portfolio); rebuilds FIFO + bundle; returns `{portfolio, csv, csv_hash}`; client saves new CSV to localStorage and updates ['portfolio'] query cache |
+| POST | `/api/portfolio/set-tags` | `csv_hash` query param; body: `{assignments: [{portfolio, symbol?, bucket, label}]}` | Merges `bucket=label` into the `tags` column for matching rows — `symbol` omitted = bulk push (whole portfolio), present = override one holding; merges into existing tags (other Buckets on that row survive); empty `label` clears that Bucket's tag (used for unassign/delete flows); rebuilds FIFO + bundle, same return shape as add-txn |
 | POST | `/api/gemini` | body: `{symbol, section_id, prompt, force_refresh?, force_lite?, key_index?}` | Attempt 1: gemini-2.5-flash + Google Search grounding; attempt 2 fallback: gemini-3.1-flash-lite plain; returns {text, sources[], grounded, model}; 1h cache per (symbol, section_id, force_lite); key_index selects Main(0), Backup(1), or Key3(2) API key |
 | POST | `/api/gemini/chat` | body: `{symbol, question, context_text, force_lite?, key_index?}` | Free-form Q&A; same grounding cascade as /api/gemini; prompt forces web search beyond context; no caching; returns {text, sources[], grounded, model} |
 | GET | `/api/search` | `q` | Yahoo Finance symbol search; returns [{symbol, name, exchange}] for EQUITY+ETF; used by Explore New Holdings autocomplete |
@@ -184,6 +186,8 @@ msp_v2.csv
 | avg_buy_fx_rate | float\|null | FIFO-weighted INR/USD rate at purchase; null/1.0 for INR portfolios |
 | fx_gain | float\|null | Extra INR return from USD/INR appreciation: `total_invested_usd × (usd_inr − avg_buy_fx_rate)` |
 | disp_fx_gain | float\|null | fx_gain in display currency |
+| quote_type | str | yfinance instrument type — `EQUITY`/`MUTUALFUND`/`ETF`; drives the auto-seeded "Asset Class" Bucket |
+| tags | str | Bucket=Label;Bucket=Label assignments, e.g. `Asset Class=Stocks;Type=Indian Stocks` (see Buckets & Labels) |
 
 ---
 
@@ -226,12 +230,34 @@ Disk writes are debounced (`_SAVE_DEBOUNCE=5s` in `cache.py`) — a burst of `se
 ## Key Invariants
 
 1. **FIFO isolation per portfolio** — `_run_fifo()` called once per portfolio group.
-2. **Equity is a duplicate** — processed in isolation; XIRR excludes `SKIP_PORTS`.
-3. **USD portfolios** — `Vested`, `IndMoney US`, `IndMoney Mummy`. FX fallback ~95.5.
-4. **classify.py** is single source of truth for `USD_PORTS`, `SKIP_PORTS`, `segment()`. Mirrored in `frontend/src/utils/segments.ts`.
+2. **`Equity`/`MF_Portfolio` pseudo-portfolios removed** (this session) — they were manually-duplicated aggregate rows that silently fell out of sync whenever a new transaction was added without hand-duplicating it. `SKIP_PORTS` in `frontend/src/utils/segments.ts` kept as a defensive no-op only.
+3. **USD portfolios** — `Vested`, `IndMoney US`, `IndMoney Mummy` (`USD_PORTS`, still in `segments.ts` — currency concern, unrelated to classification). FX fallback ~95.5.
+4. **Buckets & Labels are the classification system** (replaced the old hardcoded `MF_`-prefix / `USD_PORTS` Stock-vs-MF/Indian-vs-US rules this session) — see dedicated section below. `frontend/src/utils/buckets.ts` is the single source of truth; there is no backend equivalent (classification is resolved entirely client-side from the `tags`/`quote_type` fields already in the API response).
 5. **yf_symbol format** — NSE → `SYMBOL.NS`, BSE → `SYMBOL.BO`, US → uppercase.
 6. **Single API fetch** — entire bundle loaded once; all page transitions are client-side.
 7. **Chart auto-refresh cadence** — Price chart, Holdings 7-charts, and Portfolio 7-charts all auto-refresh every 30 min, matching `usePortfolio.ts`'s own cadence, but remain a *separate* trigger (manual price sync and manual chart Refresh are two distinct buttons by design — chart refresh is N-symbol-heavy and shouldn't fire just because prices synced). Closed/fully-exited holdings are excluded from the 30-min tick in the 7-charts (still refresh on every Price-chart visit).
+
+---
+
+## Buckets & Labels (user-defined classification)
+
+Replaced the hardcoded `MF_`-prefix / `USD_PORTS` Stock-vs-MF/Indian-vs-US rules. A **Bucket** is a
+named classification dimension (e.g. `Asset Class`, `Type`, `Risk`); a **Label** is a value within it
+(e.g. `Stocks`/`Mutual Funds` under `Asset Class`). A holding can carry one Label per Bucket, across
+as many Buckets as the user creates.
+
+- **Storage**: a single `tags` CSV column, e.g. `Asset Class=Stocks;Type=Indian Stocks` — portable
+  through export/re-import, no schema change as Buckets are added/removed (`frontend/src/utils/buckets.ts`'s
+  `parseTags`/`encodeTags`; backend mirror in `backend/routers/add_txn.py`'s `parse_tags`/`encode_tags`).
+- **Auto-seed**: exactly one Bucket, `Asset Class`, with Labels `Stocks`/`Mutual Funds`, derived from
+  `quote_type` (`EQUITY`/`ETF` → Stocks, `MUTUALFUND` → Mutual Funds) — resolved live, never written to
+  `tags` unless the user explicitly overrides it via push. Everything else is entirely user-created.
+- **Catalog vs. assignments**: the *list* of Buckets/Labels (so pickers have something to show pre-assignment)
+  is a small client-side catalog in `localStorage['buckets:catalog']` — not portable, trivial to recreate.
+  The actual assignments live in `tags` (the portable source of truth).
+- **Push UI**: `frontend/src/components/ManageBucketsModal.tsx` (opened from Settings) — bulk-push a whole
+  portfolio or multi-select individual holdings into a Label; calls `POST /api/portfolio/set-tags`.
+  `frontend/src/components/AddTransactionModal.tsx` also offers a per-Bucket selector when adding a new txn.
 
 ---
 
@@ -258,6 +284,7 @@ Keep-alive: GitHub Actions cron pings `/health` every 14 min to reduce cold star
 - Render "exceeded its memory limit" email — traced to `backend/routers/history.py`'s `_series_cache`/`_intraday_cache`, two unbounded in-memory dicts with no eviction (see Active File Map entry above for the fix).
 - Charts tab progress counter visibly counting backward (e.g. 47/147 → 37/147) after the app was backgrounded and resumed — `HoldingsPage.tsx`'s `done = totalCount - histFetchingCount` formula (used once everything has loaded at least once) tracks *currently in-flight* requests, which rises and falls non-monotonically as a burst of refetches (every symbol going stale at once) churns through the backend's concurrency cap. Reproduced the exact mechanism with a standalone script (fixed totalCount, varying histFetchingCount → displayed count swings 147→127→102→117→87→...→147 even though real progress never reverses). Fixed with a monotonic clamp (`histMaxDoneRef`, resets only when a new fetch cycle starts).
 - Render OOM-killed repeatedly (confirmed via Render API: events showed `oomKilled: memoryLimit:512Mi` roughly every 10-20 min) — root-caused to `history.py`'s `_sem` concurrency cap being raised 4→8 the prior session: each concurrent `yf.download()` holds a full OHLCV DataFrame, and 8 at once (~15.4MB/call, measured against real Render memory metrics: 413MB baseline → 536MB at concurrency 8) pinned the instance at its 512MB ceiling during any multi-symbol Charts-tab burst. Fixed by reverting to 4 and having `_download()`/`_fetch_intraday_bars()` `del df` immediately after extracting `Close`.
+- `frontend/src/pages/HoldingsPage.tsx` `buildRows()`: the Mutual Funds aggregate card merged `portfolios`/realized-gain only from currently-*open* holdings — once one portfolio fully sold a symbol (qty hits 0, excluded from `data.holdings`), that portfolio silently dropped out of the merged card's nav target and realized-gain total, even though it still had a real, correctly-computed sell transaction. Root cause traced through several false leads (suspected stale aggregate-portfolio CSV duplication, suspected FIFO oversell, suspected stale cache) before finding the actual closed-position gap. Fixed by backfilling any portfolio with a `realizedMap` entry for that symbol into the merged row, not just open-holding portfolios.
 - Disk-cache crash + fresh OOM introduced *while fixing the above* — persisting `_series_cache` to disk on every chart fetch (new this session) called `Cache.set()` → `pickle.dump()` of the *entire* cache dict (which also holds `fifo:*`/`qs:*`/`divs:*` data) once per symbol, with no thread lock. A multi-symbol burst running 4 concurrent `asyncio.to_thread()` calls raced on the shared dict — `RuntimeError: dictionary changed size during iteration` (confirmed live in Render logs) — and the repeated full-dict re-serialization itself triggered another OOM kill within 2 minutes of deploying. Fixed in `src/cache.py`: a module-level `threading.Lock` around all `_data` mutation/`pickle.dump`, plus debouncing the actual disk write to once per 5s regardless of `set()` call frequency (in-memory reads stay immediately consistent either way).
 
 ## Pending
@@ -276,10 +303,10 @@ Keep-alive: GitHub Actions cron pings `/health` every 14 min to reduce cold star
 | `src/engine.py` | `build()` | Add new bundle fields |
 | `src/portfolio.py` | `_run_fifo()` | FIFO logic, realized_pnl |
 | `src/cache.py` | `Cache` | Change cache TTLs |
-| `frontend/src/pages/PortfoliosPage.tsx` | `PortfoliosPage`, `classifyClean()`, `typeCards()` | Overview / hero card; classifyClean = per-entry realized classifier by (portfolio, cleanSymbol) |
-| `frontend/src/pages/HoldingsPage.tsx` | `HoldingsPage` | Holdings list + sort + XIRR; `benchTxns` (extends filtPorts with closedRows portfolios); `benchTxnsDate` (BUY-date-filtered benchTxns); `txnYears` (available years from transactions) |
+| `frontend/src/pages/PortfoliosPage.tsx` | `PortfoliosPage`, `bucketCards()`, `buildTagLookup()` | Overview / hero card; bucketCards = one card per Label in the active Bucket; buildTagLookup = (portfolio:symbol)→{tags,quote_type} for classifying realized entries |
+| `frontend/src/pages/HoldingsPage.tsx` | `HoldingsPage`, `buildRows()` | Holdings list + sort + XIRR; `benchTxns` (extends filtPorts with closedRows portfolios); `benchTxnsDate` (BUY-date-filtered benchTxns); `txnYears` (available years from transactions); `buildRows()` merges open holdings by symbol for segment/bucket views — also backfills closed-but-realized portfolios (see Key Bug Fixes) |
 | `frontend/src/pages/TransactionsPage.tsx` | `TransactionsPage` | Tx list + 8-metric charts |
-| `frontend/src/utils/segments.ts` | `getSegmentType()` | Segment classification |
+| `frontend/src/utils/buckets.ts` | `getLabel()`, `resolveLabel()`, `filterByLabel()` | Bucket/Label classification — replaces old `segments.ts` `getSegmentType`/`filterBySegment` (removed) |
 | `frontend/src/utils/sectors.ts` | `getSectorForHolding()` | Sector classification for Analysis tab |
 | `frontend/src/hooks/useBenchmarkXirr.ts` | `useBenchmarkXirr()` | Sector + per-holding benchmark XIRR computation |
 | `frontend/src/utils/fmt.ts` | `fmtINR/fmtUSD` | Number formatting |
