@@ -115,6 +115,41 @@ export function setLabelOrder(bucket: string, orderedLabels: string[]) {
   saveBuckets(getBuckets().map(b => (b.name === bucket ? { ...b, labels: orderedLabels } : b)))
 }
 
+/** Rebuild any Bucket/Label the catalog is missing by scanning every transaction's `tags`
+ * column — recovers from a wiped/cleared localStorage catalog after a CSV re-import, since
+ * `tags` (unlike the catalog) is portable and survives in the backup file. Only adds; never
+ * removes a catalog entry the CSV doesn't mention. */
+export function reconcileBucketsFromTags(data: PortfolioData): void {
+  const found = new Map<string, Set<string>>()
+  for (const tx of data.transactions) {
+    for (const [bucket, label] of Object.entries(parseTags(tx.tags))) {
+      if (!label) continue
+      if (!found.has(bucket)) found.set(bucket, new Set())
+      found.get(bucket)!.add(label)
+    }
+  }
+  if (found.size === 0) return
+
+  const buckets = getBuckets()
+  let changed = false
+  const merged = buckets.map(b => ({ ...b, labels: [...b.labels] }))
+  for (const [bucketName, labels] of found) {
+    let b = merged.find(b => b.name === bucketName)
+    if (!b) {
+      b = { name: bucketName, labels: [], showToggle: true }
+      merged.push(b)
+      changed = true
+    }
+    for (const label of labels) {
+      if (!b.labels.includes(label)) {
+        b.labels.push(label)
+        changed = true
+      }
+    }
+  }
+  if (changed) saveBuckets(merged)
+}
+
 /** The catalog's known Labels for a Bucket, in their saved order, followed by any label
  * that's only resolved live from transactions (not yet in the catalog) — so a Bucket shows
  * real data immediately, even pre-catalog, while still respecting user-chosen ordering. */

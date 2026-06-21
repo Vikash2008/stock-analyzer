@@ -21,6 +21,24 @@ export function mergeHistory(existing: HistoryData, delta: HistoryData): History
   return { dates, prices: dates.map(d => merged[d]), prev_close: delta.prev_close ?? existing.prev_close }
 }
 
+// The backend always re-fetches the boundary bar (the `since` date itself, or the last
+// cached bar) even on a delta-only response — so a delta always overlaps the cache by at
+// least one date. yfinance re-applies split/bonus adjustments retroactively across a
+// symbol's *entire* history on every download, so if a split happened since the cache was
+// written, that overlap date's price comes back changed too. Comparing it catches the rebase
+// without ever needing a routine full re-fetch — incremental stays the steady-state path,
+// this only fires the rare time a real corporate action invalidates the old cache's basis.
+export function detectDrift(existing: HistoryData, delta: HistoryData): boolean {
+  const deltaPrice = new Map(delta.dates.map((d, i) => [d, delta.prices[i]]))
+  for (let i = 0; i < existing.dates.length; i++) {
+    const dv = deltaPrice.get(existing.dates[i])
+    if (dv === undefined) continue
+    const ev = existing.prices[i]
+    if (ev > 0 && Math.abs(dv - ev) / ev > 0.005) return true
+  }
+  return false
+}
+
 const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
 const LS_PREFIX = 'hist:'
 const LS_TTL        = 7 * 24 * 60 * 60 * 1000  // 7 days — open/default holdings
@@ -54,7 +72,9 @@ export function lsSet(key: string, data: HistoryData) {
   idbSet(LS_PREFIX + key, { d: data, t: Date.now() })
 }
 
-async function fetchHistory(yf_symbol: string, start: string | null, period?: string, since?: string): Promise<HistoryData> {
+// Exported so usePortfolioHistory.ts's separate fetch path can reuse it (and so a detected
+// drift can be repaired with a clean `since`-less full fetch without duplicating this call).
+export async function fetchHistory(yf_symbol: string, start: string | null, period?: string, since?: string): Promise<HistoryData> {
   const params = new URLSearchParams({ yf_symbol })
   if (start) params.set('start', start)
   if (period) params.set('period', period)
@@ -89,7 +109,12 @@ export function usePrefetchHoldingCharts(yf_symbols: string[]) {
             const existing = lsGet(lsk)
             const since = existing?.dates?.[existing.dates.length - 1]
             const fetched = await fetchHistory(sym, '2015-01-01', undefined, since)
-            const data = fetched.partial_since && existing ? mergeHistory(existing, fetched) : fetched
+            let data = fetched
+            if (fetched.partial_since && existing) {
+              data = detectDrift(existing, fetched)
+                ? await fetchHistory(sym, '2015-01-01')  // basis shifted — discard cache, refetch clean
+                : mergeHistory(existing, fetched)
+            }
             if (data.dates?.length) lsSet(lsk, data)
             return data
           },
@@ -139,7 +164,12 @@ export function useHistory(yf_symbol: string | null, start: string | null, perio
       // meaningful to hint `since` on the daily-history path.
       const since = !period ? cached?.dates?.[cached.dates.length - 1] : undefined
       const fetched = await fetchHistory(yf_symbol!, start, period, since)
-      const data = fetched.partial_since && cached ? mergeHistory(cached, fetched) : fetched
+      let data = fetched
+      if (fetched.partial_since && cached) {
+        data = detectDrift(cached, fetched)
+          ? await fetchHistory(yf_symbol!, start, period)  // basis shifted — discard cache, refetch clean
+          : mergeHistory(cached, fetched)
+      }
       // persist to localStorage so next cold-start shows data immediately
       if (data.dates?.length) lsSet(lsKey, data)
       return data

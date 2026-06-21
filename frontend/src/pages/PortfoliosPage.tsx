@@ -7,7 +7,7 @@ import { usePrefetchHoldingCharts } from '../hooks/useHistory'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
 import { fmt, fmtCompact } from '../utils/fmt'
 import { SKIP_PORTS, USD_PORTS } from '../utils/segments'
-import { getLabel, resolveLabel, filterByLabel, getAllLabelsInBucket, getBuckets } from '../utils/buckets'
+import { getLabel, resolveLabel, filterByLabel, getAllLabelsInBucket, getBuckets, reconcileBucketsFromTags } from '../utils/buckets'
 import { ManageBucketsModal } from '../components/ManageBucketsModal'
 import { aggRealized, realizedForPorts } from '../utils/realized'
 import { computeXIRR } from '../utils/xirr'
@@ -15,6 +15,7 @@ import type { RealizedMap } from '../utils/realized'
 import type { Currency } from '../App'
 import type { Holding, PortfolioData } from '../api/types'
 import { logDebug } from '../utils/debugLog'
+import { idbDelete, idbKeys } from '../utils/idbStore'
 
 interface Props {
   currency: Currency
@@ -331,9 +332,6 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
       try { localStorage.setItem('portfolio:csv:meta', JSON.stringify(meta)); setCsvMeta(meta) } catch {}
 
-      clearDividendLocalCache()
-      qc.removeQueries({ queryKey: ['dividends'] })
-
       setImportProgress(30)
       setImportStatus('Running FIFO calculations…')
 
@@ -360,13 +358,24 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           if (newData.csv_hash) {
             try { localStorage.setItem('portfolio:csv:hash', newData.csv_hash) } catch {}
           }
+          // Only now is the new csv_hash actually in localStorage — clearing the dividends
+          // cache any earlier (e.g. right after the file read, before this POST resolves) risks
+          // an active ['dividends'] observer refetching immediately on the OLD hash (still
+          // reflecting pre-import holdings) and that stale result getting cached as if fresh,
+          // with nothing to ever correct it given the 30-day staleTime + refetchOnMount:false.
+          clearDividendLocalCache()
+          qc.removeQueries({ queryKey: ['dividends'] })
+          reconcileBucketsFromTags(newData)
           qc.setQueryData(['portfolio'], newData)
-          // Chart history queries (staleTime up to 30min for open holdings) don't know a
-          // reimport just happened — without this, the chart's recent points keep using
-          // whatever price was cached before the import while the Portfolio Value chart's
-          // "today" pin uses the freshly-imported live price, producing a visible gap/skew
-          // right at the recent end (same root cause as the prior CHART-MF-1 staleness bug).
-          // invalidateQueries (not removeQueries) keeps old data visible while it refetches.
+          // Wipe the cached per-symbol price series outright rather than just invalidating —
+          // useHistory/usePortfolioHistory's fetchSymHistory sends `since=<last cached date>`
+          // and merges the delta on top of whatever's still in IndexedDB. If a symbol's
+          // historical prices were ever adjusted retroactively (e.g. a stock split) between the
+          // old cache write and now, the un-adjusted old dates + adjusted new delta merge into a
+          // step right at the boundary — which is exactly what showed up as the chart suddenly
+          // jumping ~50% after a reimport. Clearing the cache forces a full, non-merged fetch so
+          // every reimport's chart is built from one internally consistent series.
+          for (const k of idbKeys('hist:')) idbDelete(k)
           qc.invalidateQueries({ predicate: q => q.queryKey[0] === 'history' || q.queryKey[0] === 'history-closed' })
           localStorage.removeItem('portfolio:import:lastError')
           setLastImportError(null)

@@ -4,9 +4,7 @@ import type { Holding, Transaction, Realized } from '../api/types'
 import type { Currency } from '../App'
 import { USD_PORTS } from '../utils/segments'
 import { computeXIRR } from '../utils/xirr'
-import { lsGet, lsSet, lsGetTimestamp, mergeHistory, CLOSED_LS_TTL, REFRESH_MS } from './useHistory'
-
-const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
+import { lsGet, lsSet, lsGetTimestamp, mergeHistory, detectDrift, fetchHistory, CLOSED_LS_TTL, REFRESH_MS } from './useHistory'
 
 // Same key format as useHistory.ts/usePrefetchHoldingCharts — one shared cache per symbol.
 const lsKey = (sym: string) => `${sym}:2015-01-01`
@@ -14,13 +12,14 @@ const lsKey = (sym: string) => `${sym}:2015-01-01`
 async function fetchSymHistory(sym: string, start: string) {
   const existing = lsGet(lsKey(sym))
   const since = existing?.dates?.[existing.dates.length - 1]
-  const params = new URLSearchParams({ yf_symbol: sym, start })
-  if (since) params.set('since', since)
-  const r = await fetch(`${BASE}/history?${params}`)
-  if (!r.ok) throw new Error(`History ${r.status}`)
-  const fetched = await r.json() as { dates: string[]; prices: number[]; partial_since?: string }
+  const fetched = await fetchHistory(sym, start, undefined, since)
   if (!fetched.dates?.length) return { dates: [] as string[], prices: [] as number[] }
-  const d = fetched.partial_since && existing ? mergeHistory(existing, fetched) : fetched
+  let d = fetched
+  if (fetched.partial_since && existing) {
+    d = detectDrift(existing, fetched)
+      ? await fetchHistory(sym, start)  // basis shifted — discard cache, refetch clean
+      : mergeHistory(existing, fetched)
+  }
   lsSet(lsKey(sym), d)
   return d
 }

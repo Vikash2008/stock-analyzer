@@ -657,13 +657,25 @@ export default function HoldingsPage({ currency }: Props) {
     [data, filtPorts],
   )
   // Benchmarking needs transactions from fully-closed portfolios too (e.g. Upstox)
-  // filtPorts only covers portfolios with open holdings; closedRows captures the rest
+  // filtPorts only covers portfolios with open holdings; closedRows captures the rest.
+  // Under a Bucket/Label filter, portfolio-level inclusion isn't enough: the same symbol can
+  // carry a different label in a different portfolio (e.g. AMZN tagged "Stocks" in one
+  // portfolio, something else in another) — including that portfolio wholesale would pull in
+  // (or drop) that other portfolio's same-symbol transactions and skew the qty/unit tracking.
+  // Resolve the label per-transaction instead, same as closedRows/filtRealized already do.
   const benchTxns = useMemo(() => {
     if (!data) return []
-    const ports = new Set(filtPorts)
-    for (const r of closedRows) for (const p of r.portfolios) ports.add(p)
-    return data.transactions.filter(t => ports.has(t.portfolio))
-  }, [data, filtPorts, closedRows])
+    if (portfolio) return data.transactions.filter(t => t.portfolio === portfolio)
+    if (segment === 'total') return data.transactions.filter(t => !SKIP_PORTS.has(t.portfolio))
+    if (!bucket || !label) {
+      const ports = new Set(filtPorts)
+      for (const r of closedRows) for (const p of r.portfolios) ports.add(p)
+      return data.transactions.filter(t => ports.has(t.portfolio))
+    }
+    return data.transactions.filter(t =>
+      !SKIP_PORTS.has(t.portfolio) && resolveLabel(t.tags, bucket, quoteTypeBySymbol.get(t.symbol)) === label,
+    )
+  }, [data, filtPorts, closedRows, portfolio, segment, bucket, label, quoteTypeBySymbol])
   const txnYears = useMemo(() => {
     if (!data) return [new Date().getFullYear()]
     const years = new Set(data.transactions.map(t => parseInt(t.date.slice(0, 4), 10)))
