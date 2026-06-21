@@ -4,7 +4,11 @@ import { idbGet, idbSet } from '../utils/idbStore'
 
 const API_URL  = (import.meta.env.VITE_API_URL ?? '') as string
 const LS_PREFIX = 'qs:'
-const LS_TTL    = 12 * 60 * 60 * 1000 // 12 hours
+// Fundamentals (P/E, ROE, sector, etc.) don't meaningfully change day to day — a long TTL
+// avoids re-running the expensive yfinance + Screener/Macrotrends/SEC fetch chain on every
+// stale check. Manual refresh (ReportTab's ↻) is the intended way to pull fresher numbers
+// sooner than this.
+const LS_TTL    = 30 * 24 * 60 * 60 * 1000 // 30 days
 
 function lsGet(sym: string): QuickStats | undefined {
   const entry = idbGet<{ d: QuickStats; t: number }>(LS_PREFIX + sym)
@@ -34,7 +38,7 @@ export function useQuickStats(yf_symbol: string, enabled: boolean) {
     queryKey:        ['quickstats', yf_symbol],
     queryFn:         () => fetchQuickStats(yf_symbol),
     enabled:         enabled && !!yf_symbol,
-    staleTime:       6 * 60 * 60 * 1000,  // 6h — refresh when stale rather than Infinity
+    staleTime:       LS_TTL,               // 30 days — see LS_TTL comment above
     gcTime:          Infinity,
     retry:           2,
     retryDelay:      5_000,               // 5s per retry (was 15s)

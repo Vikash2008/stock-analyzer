@@ -1,5 +1,4 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { clearDividendLocalCache } from './useDividends'
 
 const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
 
@@ -61,8 +60,9 @@ export function useSetTags() {
         }))
       } catch {}
       qc.setQueryData(['portfolio'], data.portfolio)
-      clearDividendLocalCache()
-      qc.invalidateQueries({ queryKey: ['dividends'] })
+      // Tag/bucket assignment never changes quantities or the symbol set, so dividend
+      // totals can't change here — unlike useAddTransaction/useDeleteHolding, this never
+      // needs to invalidate the dividends cache.
     },
   })
 }

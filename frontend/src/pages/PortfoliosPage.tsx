@@ -361,6 +361,13 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
             try { localStorage.setItem('portfolio:csv:hash', newData.csv_hash) } catch {}
           }
           qc.setQueryData(['portfolio'], newData)
+          // Chart history queries (staleTime up to 30min for open holdings) don't know a
+          // reimport just happened — without this, the chart's recent points keep using
+          // whatever price was cached before the import while the Portfolio Value chart's
+          // "today" pin uses the freshly-imported live price, producing a visible gap/skew
+          // right at the recent end (same root cause as the prior CHART-MF-1 staleness bug).
+          // invalidateQueries (not removeQueries) keeps old data visible while it refetches.
+          qc.invalidateQueries({ predicate: q => q.queryKey[0] === 'history' || q.queryKey[0] === 'history-closed' })
           localStorage.removeItem('portfolio:import:lastError')
           setLastImportError(null)
         } else {

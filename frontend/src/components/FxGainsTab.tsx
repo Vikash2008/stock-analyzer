@@ -6,6 +6,7 @@ interface Props {
   fxLots: FxLot[]
   usdInr: number
   currency: Currency
+  asOf?: string  // ISO-8601 — portfolio bundle's last-fetch time, same source as PortfoliosPage's bottom-bar timestamp
 }
 
 function getBucketKey(rate: number): string {
@@ -39,7 +40,30 @@ function fmtInr(v: number): string {
   return `${sign}₹${abs.toFixed(0)}`
 }
 
-export function FxGainsTab({ fxLots, usdInr }: Props) {
+function fmtUsdGain(v: number): string {
+  const abs = Math.abs(v)
+  const sign = v < 0 ? '-' : '+'
+  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(2)}M`
+  if (abs >= 1000) return `${sign}$${(abs / 1000).toFixed(1)}K`
+  return `${sign}$${abs.toFixed(0)}`
+}
+
+// FX gain amounts are computed in INR (they represent the rupee value change from rate
+// movement) — convert to USD for display when the app's currency toggle is USD, same as
+// every other tab respects the toggle.
+function fmtGain(v: number, currency: Currency, usdInr: number): string {
+  return currency === 'USD' ? fmtUsdGain(v / usdInr) : fmtInr(v)
+}
+
+function fmtSyncTime(d: Date): string {
+  const hh  = String(d.getHours()).padStart(2, '0')
+  const mm  = String(d.getMinutes()).padStart(2, '0')
+  const dd  = String(d.getDate()).padStart(2, '0')
+  const mon = d.toLocaleString('en-US', { month: 'short' })
+  return `${hh}:${mm} ${dd} ${mon}`
+}
+
+export function FxGainsTab({ fxLots, usdInr, currency, asOf }: Props) {
   const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set())
   const [expandedHoldings, setExpandedHoldings] = useState<Set<string>>(new Set())
 
@@ -116,11 +140,14 @@ export function FxGainsTab({ fxLots, usdInr }: Props) {
 
       {/* Section 1: Summary strip */}
       <div className="bg-teal-50 border border-teal-200 rounded-xl p-3">
-        <p className="text-[10px] font-bold text-teal-700 uppercase tracking-widest mb-2">FX Conversion Gains</p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] font-bold text-teal-700 uppercase tracking-widest">FX Conversion Gains</p>
+          {asOf && <span className="text-[9px] text-teal-600/70 whitespace-nowrap">Rate as of {fmtSyncTime(new Date(asOf))}</span>}
+        </div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
           <div>
             <p className="text-[10px] text-slate-400 mb-0.5">Total FX Gain</p>
-            <p className="text-[15px] font-bold text-teal-700">{fmtInr(stats.totalFxGain)}</p>
+            <p className="text-[15px] font-bold text-teal-700">{fmtGain(stats.totalFxGain, currency, usdInr)}</p>
           </div>
           <div>
             <p className="text-[10px] text-slate-400 mb-0.5">Current Rate</p>
@@ -148,7 +175,7 @@ export function FxGainsTab({ fxLots, usdInr }: Props) {
                 <div className="flex items-center mb-0.5">
                   <span className="text-[10px] font-medium text-slate-600 w-[54px]">₹{key}</span>
                   <span className="text-[10px] text-slate-400 flex-1">{fmtUsd(b.usd)}</span>
-                  <span className="text-[10px] font-semibold text-teal-700">{fmtInr(b.fxGain)}</span>
+                  <span className="text-[10px] font-semibold text-teal-700">{fmtGain(b.fxGain, currency, usdInr)}</span>
                 </div>
                 <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                   <div className="h-full rounded-full bg-teal-400 transition-all" style={{ width: `${barPct}%` }} />
@@ -180,7 +207,7 @@ export function FxGainsTab({ fxLots, usdInr }: Props) {
                   <span className="text-[11px] font-semibold text-slate-700">{year}</span>
                   <div className="flex items-center gap-3">
                     <span className="text-[10px] text-slate-400">{fmtUsd(yrUsd)}</span>
-                    <span className="text-[10px] font-semibold text-teal-700">{fmtInr(yrFx)}</span>
+                    <span className="text-[10px] font-semibold text-teal-700">{fmtGain(yrFx, currency, usdInr)}</span>
                     <span className="text-[10px] text-slate-300">{isOpen ? '▲' : '▼'}</span>
                   </div>
                 </button>
@@ -190,7 +217,7 @@ export function FxGainsTab({ fxLots, usdInr }: Props) {
                       <div key={m.mo} className="flex items-center px-3 py-1.5 border-b border-slate-100 last:border-0">
                         <span className="text-[10px] text-slate-600 w-[40px]">{MONTHS[parseInt(m.mo, 10) - 1]}</span>
                         <span className="text-[10px] text-slate-400 flex-1">{fmtUsd(m.usd)}</span>
-                        <span className="text-[10px] font-medium text-teal-700">{fmtInr(m.fxGain)}</span>
+                        <span className="text-[10px] font-medium text-teal-700">{fmtGain(m.fxGain, currency, usdInr)}</span>
                       </div>
                     ))}
                   </div>
@@ -228,7 +255,7 @@ export function FxGainsTab({ fxLots, usdInr }: Props) {
                     <span className="text-[10px] text-slate-400">{lots.length} lot{lots.length !== 1 ? 's' : ''}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`text-[11px] font-semibold ${h.fxGain >= 0 ? 'text-teal-700' : 'text-red-500'}`}>{fmtInr(h.fxGain)}</span>
+                    <span className={`text-[11px] font-semibold ${h.fxGain >= 0 ? 'text-teal-700' : 'text-red-500'}`}>{fmtGain(h.fxGain, currency, usdInr)}</span>
                     <span className="text-[10px] text-slate-300">{isOpen ? '▲' : '▼'}</span>
                   </div>
                 </button>
@@ -254,14 +281,14 @@ export function FxGainsTab({ fxLots, usdInr }: Props) {
                           <span className="text-[10px] text-slate-600 text-right tabular-nums">{lot.qty % 1 === 0 ? lot.qty : lot.qty.toFixed(3)}</span>
                           <span className="text-[10px] text-slate-600 text-right tabular-nums">{fmtUsd(lotUsd)}</span>
                           <span className="text-[10px] text-slate-600 text-right tabular-nums">₹{lot.buy_fx_rate.toFixed(1)}</span>
-                          <span className={`text-[10px] font-medium text-right tabular-nums ${lotFxGain >= 0 ? 'text-teal-700' : 'text-red-500'}`}>{fmtInr(lotFxGain)}</span>
+                          <span className={`text-[10px] font-medium text-right tabular-nums ${lotFxGain >= 0 ? 'text-teal-700' : 'text-red-500'}`}>{fmtGain(lotFxGain, currency, usdInr)}</span>
                         </div>
                       )
                     })}
                     {/* Total row */}
                     <div className="grid grid-cols-[90px_40px_52px_44px_1fr] gap-x-1 px-3 py-2 bg-teal-50 border-t border-teal-100">
                       <span className="text-[10px] font-bold text-slate-600 col-span-4">Total</span>
-                      <span className={`text-[10px] font-bold text-right tabular-nums ${h.fxGain >= 0 ? 'text-teal-700' : 'text-red-500'}`}>{fmtInr(h.fxGain)}</span>
+                      <span className={`text-[10px] font-bold text-right tabular-nums ${h.fxGain >= 0 ? 'text-teal-700' : 'text-red-500'}`}>{fmtGain(h.fxGain, currency, usdInr)}</span>
                     </div>
                   </div>
                 )}

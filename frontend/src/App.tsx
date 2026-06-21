@@ -152,7 +152,7 @@ function AppRoutes({ currency, onCurrencyChange }: { currency: Currency; onCurre
           element={<HoldingsPage currency={currency} />}
         />
         <Route
-          path="/holdings/segment/total"
+          path="/holdings/segment/:segment"
           element={<HoldingsPage currency={currency} />}
         />
         <Route

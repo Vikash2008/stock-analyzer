@@ -151,10 +151,16 @@ export function usePortfolioHistory(
   const loadedCount   = queries.filter(q => q.status === 'success' || q.status === 'error').length
   const fetchingCount = queries.filter(q => q.fetchStatus === 'fetching').length
   const isFetching    = fetchingCount > 0
-  // Real last-fetch time across every symbol's query (each seeded with the actual cache
-  // timestamp via initialDataUpdatedAt above) — not "now", so reopening the app with a
-  // cache that's hours old shows its true age instead of looking freshly synced.
-  const lastFetchedAt = queries.reduce((max, q) => Math.max(max, q.dataUpdatedAt ?? 0), 0) || null
+  // Real last-fetch time across OPEN symbols' queries only (each seeded with the actual cache
+  // timestamp via initialDataUpdatedAt above) — not "now", so reopening the app with a cache
+  // that's hours old shows its true age instead of looking freshly synced. Closed symbols are
+  // excluded: they intentionally fetch fresh on mount whenever their own cache is stale/missing
+  // (a different cadence from the 30-min open-symbol refresh cycle), so including them would let
+  // a single closed-holding fetch make this look "just synced" regardless of the open symbols' age.
+  const lastFetchedAt = symbols.reduce(
+    (max, sym, i) => closedSet.has(sym) ? max : Math.max(max, queries[i].dataUpdatedAt ?? 0),
+    0,
+  ) || null
   // "Nothing to show yet" — true only when at least one symbol has neither a real/cached
   // result nor has finished failing. A symbol that errors out (no cache, retries exhausted —
   // e.g. a transient mobile network drop) counts as resolved too, so one bad symbol doesn't

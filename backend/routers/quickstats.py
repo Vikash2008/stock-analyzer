@@ -7,7 +7,7 @@ Report tab. Lightweight — only ticker.info, no financial statements.
 
 Caching:
   In-memory : 30 min burst (same process)
-  Disk      : 24h per symbol (per-symbol key "qs:{SYMBOL}")
+  Disk      : 30 days per symbol (per-symbol key "qs:{SYMBOL}")
 """
 
 from __future__ import annotations
@@ -34,8 +34,9 @@ def _yf_ticker(symbol: str) -> yf.Ticker:
 router = APIRouter()
 
 _mem: dict[str, tuple[dict, float]] = {}
-_MEM_TTL  = 1800.0     # 30 min in-memory burst
-_DISK_TTL = 86400.0    # 24h per-symbol disk
+_MEM_TTL  = 1800.0           # 30 min in-memory burst — same-process duplicate-request guard
+_DISK_TTL = 30 * 86400.0     # 30 days per-symbol disk — fundamentals don't change daily;
+                             # force_refresh (manual ↻) is the way to pull sooner than this
 
 _cik_map: dict[str, str] | None = None  # ticker → 10-digit CIK, fetched once per process
 

@@ -50,6 +50,7 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
   const [messages, setMessages] = React.useState<ChatMessage[]>([])
   const [question, setQuestion] = React.useState('')
   const [selectedContext, setSelectedContext] = React.useState(initialContextId)
+  const [contextPickerOpen, setContextPickerOpen] = React.useState(false)
   const [chatLoading, setChatLoading] = React.useState(false)
   const [expandedSources, setExpandedSources] = React.useState<Record<string, boolean>>({})
   const threadRef = React.useRef<HTMLDivElement>(null)
@@ -86,6 +87,12 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
   }, [messages, chatLoading])
 
   const availableSections = sections.filter(s => s.text !== null)
+
+  function currentContextDisplay(): { label: string; emoji?: string } {
+    if (selectedContext === 'all') return { label: `All Cards (${availableSections.length})` }
+    const sec = availableSections.find(s => s.id === selectedContext)
+    return sec ? { label: sec.label, emoji: sec.emoji } : { label: `All Cards (${availableSections.length})` }
+  }
 
   function buildContext(): { text: string; label: string; emoji?: string } | null {
     if (selectedContext === 'all') {
@@ -298,6 +305,46 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
                 Generate at least one card to start asking questions
               </p>
             ) : (
+              <>
+              {/* Context scope picker — lets a question target one card instead of always
+                  grounding in every generated card; replaces the idea of a separate AI icon
+                  per card with one switchable scope inside this single chat. */}
+              <div className="relative mb-2">
+                <button
+                  onClick={() => setContextPickerOpen(o => !o)}
+                  className="flex items-center gap-1 text-[10px] font-medium text-violet-600 bg-violet-50 border border-violet-100 rounded-full px-2.5 py-1 active:bg-violet-100"
+                >
+                  <span>Asking about:</span>
+                  {currentContextDisplay().emoji && <span>{currentContextDisplay().emoji}</span>}
+                  <span className="font-semibold">{currentContextDisplay().label}</span>
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                    {contextPickerOpen ? <polyline points="18 15 12 9 6 15"/> : <polyline points="6 9 12 15 18 9"/>}
+                  </svg>
+                </button>
+                {contextPickerOpen && (
+                  <>
+                    <div className="fixed inset-0 z-[59]" onClick={() => setContextPickerOpen(false)} />
+                    <div className="absolute left-0 bottom-full mb-1.5 bg-white border border-violet-100 rounded-xl shadow-lg z-[60] py-1 min-w-[180px] max-h-[200px] overflow-y-auto">
+                      <button
+                        onClick={() => { setSelectedContext('all'); setContextPickerOpen(false) }}
+                        className={`w-full flex items-center gap-1.5 text-left text-[11px] px-3 py-1.5 ${selectedContext === 'all' ? 'bg-violet-50 text-violet-700 font-semibold' : 'text-slate-600 active:bg-slate-50'}`}
+                      >
+                        All Cards ({availableSections.length})
+                      </button>
+                      {availableSections.map(s => (
+                        <button
+                          key={s.id}
+                          onClick={() => { setSelectedContext(s.id); setContextPickerOpen(false) }}
+                          className={`w-full flex items-center gap-1.5 text-left text-[11px] px-3 py-1.5 whitespace-nowrap ${selectedContext === s.id ? 'bg-violet-50 text-violet-700 font-semibold' : 'text-slate-600 active:bg-slate-50'}`}
+                        >
+                          <span>{s.emoji}</span>
+                          <span>{s.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
               <div className="flex items-end gap-2">
                 <textarea
                   ref={inputRef}
@@ -321,6 +368,7 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
                   </svg>
                 </button>
               </div>
+              </>
             )}
           </div>
         </div>

@@ -279,6 +279,25 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
           </div>
           <div className="px-3 py-3 space-y-3">
 
+          {/* Last synced + manual refresh — auto-refresh is 30 days now, so a manual pull
+              is the only way to get fresher fundamentals sooner than that */}
+          <div className="flex items-center justify-between -mt-1 -mb-1">
+            <span className="text-[9px] text-slate-400 whitespace-nowrap">
+              {(() => {
+                const ts = qc.getQueryState(['quickstats', yf_symbol])?.dataUpdatedAt
+                return ts ? `Updated ${fmtSavedAt(ts)}` : ''
+              })()}
+            </span>
+            <button
+              onClick={() => handleSync(true)}
+              disabled={syncing}
+              className="flex items-center gap-1 text-[9px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 active:bg-emerald-100 disabled:opacity-50"
+            >
+              <span className={`inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
+              <span>Refresh</span>
+            </button>
+          </div>
+
           {/* Fundamentals grid — 4 rows × 4 cols */}
           <div className="grid grid-cols-4 gap-1.5">
             {[
@@ -378,38 +397,6 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
               )}
             </div>
           )}
-          {/* Footer — source link + analyst ratings */}
-          <div className="flex items-center justify-between pt-2 border-t border-emerald-100">
-            <a
-              href={isIndian
-                ? `https://www.screener.in/company/${yf_symbol.replace(/\.(NS|BO)$/i, '')}/`
-                : `https://finance.yahoo.com/quote/${encodeURIComponent(yf_symbol)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-[10px] font-medium text-sky-600 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-100 active:bg-sky-100"
-            >
-              <span>{isIndian ? 'Screener.in' : 'Yahoo Finance'}</span>
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
-                <polyline points="15 3 21 3 21 9"/>
-                <line x1="10" y1="14" x2="21" y2="3"/>
-              </svg>
-            </a>
-            <a
-              href={`https://finance.yahoo.com/quote/${encodeURIComponent(yf_symbol)}/analysis/`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 active:bg-emerald-100"
-            >
-              <span>Analyst Ratings</span>
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
-                <polyline points="15 3 21 3 21 9"/>
-                <line x1="10" y1="14" x2="21" y2="3"/>
-              </svg>
-            </a>
-          </div>
-
           </div>{/* inner px-3 */}
         </div>
       ) : (

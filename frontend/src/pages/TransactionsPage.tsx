@@ -401,11 +401,67 @@ export default function TransactionsPage({ currency }: Props) {
     <div className="max-w-xl mx-auto flex flex-col h-[100dvh]">
       <div className="shrink-0 px-2 pt-4 bg-white">
       {/* Nav bar */}
-      <div className="flex items-center px-3 py-2 mb-3 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl">
+      <div className="flex items-center justify-between px-3 py-2 mb-3 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl">
         <button onClick={() => navigate(-1)} className="shrink-0 flex items-center gap-0.5 text-white active:text-white/80 min-h-[44px]">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
           <span className="text-[15px] font-bold whitespace-nowrap">{backLabel.replace('← ', '')}</span>
         </button>
+        {activeTab === 'report' && reportSubTab === 'deep' && (
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setReportGearOpen(o => !o)}
+              className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${reportGearOpen ? 'bg-white/20 text-white' : 'text-emerald-100 active:bg-white/20 active:text-white'}`}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+              </svg>
+            </button>
+            {reportGearOpen && (
+              <>
+                <div className="fixed inset-0 z-[9]" onClick={() => setReportGearOpen(false)} />
+                <div className="absolute right-0 top-full mt-1.5 rounded-2xl shadow-xl overflow-hidden border border-violet-100 z-10 min-w-[230px]">
+                  <div className="bg-gradient-to-r from-violet-600 to-purple-600 px-3 py-2 flex items-center justify-between">
+                    <p className="text-[12px] font-semibold text-white tracking-tight">Deep Research Settings</p>
+                    <button onClick={() => setReportGearOpen(false)} className="text-violet-200 active:text-white text-lg leading-none">×</button>
+                  </div>
+                  <div className="bg-white px-2 py-1.5 flex flex-col gap-1.5">
+                    <div className="bg-violet-50/60 border border-violet-100 rounded-lg px-2.5 py-1.5">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Model</p>
+                      <div className="flex bg-white rounded-full p-0.5 gap-0.5 border border-violet-100">
+                        {([
+                          { label: '2.5 Flash', lite: false, is31: false },
+                          { label: '2.5 Lite',  lite: true,  is31: false },
+                          { label: '3.1 Lite',  lite: false, is31: true  },
+                        ] as const).map(opt => {
+                          const active = opt.is31 ? reportUse31 : (!reportUse31 && reportUseLite === opt.lite)
+                          return (
+                            <button key={opt.label}
+                              onClick={() => { setReportUse31(opt.is31); setReportUseLite(opt.lite) }}
+                              className={`flex-1 text-[10px] px-2 py-1 rounded-full font-medium transition-colors ${active ? 'bg-violet-600 text-white shadow-sm' : 'text-slate-400'}`}
+                            >{opt.label}</button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    <div className="bg-violet-50/60 border border-violet-100 rounded-lg px-2.5 py-1.5">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">API Key</p>
+                      <div className="flex bg-white rounded-full p-0.5 gap-0.5 border border-violet-100">
+                        {([0, 1, 2] as const).map(i => (
+                          <button
+                            key={i}
+                            onClick={() => { setReportUseKey(i); localStorage.setItem('gemini:key_index', String(i)) }}
+                            className={`flex-1 text-[10px] px-2 py-1 rounded-full font-medium transition-colors ${reportUseKey === i ? 'bg-violet-600 text-white shadow-sm' : 'text-slate-400 active:bg-violet-50'}`}
+                          >Key {i + 1}</button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Symbol overview card */}
@@ -525,62 +581,15 @@ export default function TransactionsPage({ currency }: Props) {
           </div>
           {/* Right controls */}
           {reportSubTab === 'links' ? null : reportSubTab === 'deep' ? (
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => chatOpenerRef.current?.open()}
-                className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium border bg-violet-600 text-white border-violet-700 active:bg-violet-700 shrink-0"
-              >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2c-.5 4-4 7.5-10 10 6 2.5 9.5 6 10 10 .5-4 4-7.5 10-10-6-2.5-9.5-6-10-10z"/>
-                </svg>
-                <span>AI Assistant</span>
-              </button>
-              <div className="relative">
-                <button onClick={() => setReportGearOpen(o => !o)} className="p-1 text-violet-400 active:text-violet-600" title="Settings">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="3"/>
-                    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
-                  </svg>
-                </button>
-                {reportGearOpen && (
-                  <>
-                  <div className="fixed inset-0 z-[9]" onClick={() => setReportGearOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-10 px-3 py-2.5 flex flex-col gap-2.5 whitespace-nowrap">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-[11px] text-slate-500">Model</span>
-                      <div className="flex bg-slate-100 rounded-full p-0.5 gap-0.5">
-                        {([
-                          { label: '2.5 Flash', lite: false, is31: false },
-                          { label: '2.5 Lite',  lite: true,  is31: false },
-                          { label: '3.1 Lite',  lite: false, is31: true  },
-                        ] as const).map(opt => {
-                          const active = opt.is31 ? reportUse31 : (!reportUse31 && reportUseLite === opt.lite)
-                          return (
-                            <button key={opt.label}
-                              onClick={() => { setReportUse31(opt.is31); setReportUseLite(opt.lite) }}
-                              className={`text-[12px] px-2.5 py-1 rounded-full font-medium transition-colors ${active ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-400'}`}
-                            >{opt.label}</button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <span className="text-[11px] text-slate-500">API Key</span>
-                      <div className="flex bg-slate-100 rounded-full p-0.5">
-                        {([0, 1, 2] as const).map(i => (
-                          <button
-                            key={i}
-                            onClick={() => { setReportUseKey(i); localStorage.setItem('gemini:key_index', String(i)) }}
-                            className={`flex-1 text-[10px] px-3 py-1 rounded-full font-medium transition-all duration-150 ${reportUseKey === i ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 active:bg-white/60'}`}
-                          >Key {i + 1}</button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  </>
-                )}
-              </div>
-            </div>
+            <button
+              onClick={() => chatOpenerRef.current?.open()}
+              className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full text-white shrink-0 bg-gradient-to-r from-fuchsia-600 via-violet-600 to-indigo-600 shadow-[0_2px_10px_rgba(124,58,237,0.45)] ring-1 ring-white/40 active:scale-95 transition-transform"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2c-.5 4-4 7.5-10 10 6 2.5 9.5 6 10 10 .5-4 4-7.5 10-10-6-2.5-9.5-6-10-10z"/>
+              </svg>
+              <span>AI Assistant</span>
+            </button>
           ) : (
             <button
               className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 border active:opacity-60 bg-gradient-to-br from-violet-600 to-purple-800 border-violet-700"

@@ -11,6 +11,8 @@ class _Lot:
     quantity: float
     cost_per_share: float  # price + prorated charges per share
     buy_fx_rate: float = 1.0  # INR/USD rate at purchase; 1.0 for INR lots
+    is_usd: bool = False  # True only when a real buy_fx_rate was present — guards the FX
+                          # Gains tab from treating an INR lot's price as a USD price
 
 
 def _run_fifo(
@@ -30,9 +32,10 @@ def _run_fifo(
         if tx["type"] == "BUY":
             cost_per_share = price + (charges / qty if qty else 0)
             raw_fx = tx.get("buy_fx_rate") if "buy_fx_rate" in tx.index else None
-            fx_rate = float(raw_fx) if (raw_fx is not None and pd.notna(raw_fx)) else 1.0
+            has_fx = raw_fx is not None and pd.notna(raw_fx) and float(raw_fx) > 1.5
+            fx_rate = float(raw_fx) if has_fx else 1.0
             lots.setdefault(sym, deque()).append(
-                _Lot(date=tx["date"], quantity=qty, cost_per_share=cost_per_share, buy_fx_rate=fx_rate)
+                _Lot(date=tx["date"], quantity=qty, cost_per_share=cost_per_share, buy_fx_rate=fx_rate, is_usd=has_fx)
             )
 
         elif tx["type"] == "SELL":
@@ -133,9 +136,12 @@ def _run_fifo(
             row["portfolio"] = portfolio
         holding_rows.append(row)
 
-        # Per-lot records for FX Gains tab (rate buckets / year-month breakdown)
+        # Per-lot records for FX Gains tab (rate buckets / year-month breakdown) — only for
+        # lots that actually carry a real USD buy_fx_rate. Without this, an INR lot's price
+        # gets multiplied by (usd_inr - 1.0) downstream as if it were a USD cost, producing a
+        # wildly inflated bogus FX gain for symbols/portfolios that hold no real USD lots.
         for lot in queue:
-            if lot.quantity <= 1e-9:
+            if lot.quantity <= 1e-9 or not lot.is_usd:
                 continue
             lot_row = {
                 "symbol":      meta["symbol"],

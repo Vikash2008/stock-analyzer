@@ -3,6 +3,8 @@ import { useMemo } from 'react'
 import { computeXIRR } from '../utils/xirr'
 import { getSectorForHolding, SECTOR_BENCHMARK, type SectorKey } from '../utils/sectors'
 import { USD_PORTS } from '../utils/segments'
+import { mergeHistory } from './useHistory'
+import { idbGet, idbSet } from '../utils/idbStore'
 import type { Holding, Transaction } from '../api/types'
 import type { Currency } from '../App'
 
@@ -16,6 +18,19 @@ const USD_BENCH_SYMS = new Set(['^NDX', '^GSPC', '^DJI', '^RUT'])
 // re-fetches the same benchmark index, and lets one refresh-all pass cover every view at once.
 const BENCH_START = '2015-01-01'
 const AUTO_KEY     = 'benchmark:autoRefreshDay'
+const LS_PREFIX    = 'bench:'
+
+type BenchHist = { dates: string[]; prices: number[]; partial_since?: string }
+
+function lsGet(sym: string): BenchHist | undefined {
+  return idbGet<{ d: BenchHist; t: number }>(LS_PREFIX + sym)?.d
+}
+function lsGetTimestamp(sym: string): number | undefined {
+  return idbGet<{ d: BenchHist; t: number }>(LS_PREFIX + sym)?.t
+}
+function lsSet(sym: string, data: BenchHist) {
+  idbSet(LS_PREFIX + sym, { d: data, t: Date.now() })
+}
 
 export function getLastBenchmarkAutoRefreshDay(): string | null {
   return localStorage.getItem(AUTO_KEY)
@@ -37,14 +52,19 @@ export function useRefreshAllBenchmarks() {
   return async () => {
     const syms = [...new Set(Object.values(SECTOR_BENCHMARK))]
     await Promise.all(syms.map(async sym => {
-      const d = await fetchBenchHistory(sym, BENCH_START)
+      const existing = lsGet(sym)
+      const since    = existing?.dates?.[existing.dates.length - 1]
+      const fetched  = await fetchBenchHistory(sym, BENCH_START, since)
+      const d = fetched.partial_since && existing ? mergeHistory(existing, fetched) : fetched
+      lsSet(sym, d)
       qc.setQueryData(['benchmark-hist', sym], d)
     }))
   }
 }
 
-async function fetchBenchHistory(yf_symbol: string, start: string): Promise<{ dates: string[]; prices: number[] }> {
+async function fetchBenchHistory(yf_symbol: string, start: string, since?: string): Promise<BenchHist> {
   const params = new URLSearchParams({ yf_symbol, start })
+  if (since) params.set('since', since)
   const res = await fetch(`${BASE}/history?${params}`)
   if (!res.ok) throw new Error(`Benchmark ${yf_symbol}: ${res.status}`)
   return res.json()
@@ -92,6 +112,7 @@ export interface BenchmarkOutput {
   loadedCount:       number
   totalCount:        number
   fetchingCount:     number
+  lastFetchedAt:     number | null
 }
 
 export function useBenchmarkXirr(
@@ -128,11 +149,22 @@ export function useBenchmarkXirr(
   const histResults = useQueries({
     queries: uniqueBenchSyms.map(sym => ({
       queryKey:  ['benchmark-hist', sym],
-      queryFn:   () => fetchBenchHistory(sym, BENCH_START),
+      queryFn:   async () => {
+        const existing = lsGet(sym)
+        const since    = existing?.dates?.[existing.dates.length - 1]
+        const fetched  = await fetchBenchHistory(sym, BENCH_START, since)
+        const d = fetched.partial_since && existing ? mergeHistory(existing, fetched) : fetched
+        lsSet(sym, d)
+        return d
+      },
       enabled:   enabled && uniqueBenchSyms.length > 0,
       staleTime: Infinity,
       gcTime:    Infinity,
       retry:     1,
+      // Seed from IndexedDB so reopening the app shows the real last-fetch time instead of
+      // looking freshly synced — same pattern as useHistory.ts/useDividends.ts.
+      initialData:          () => lsGet(sym),
+      initialDataUpdatedAt: () => lsGetTimestamp(sym),
     })),
   })
 
@@ -142,6 +174,9 @@ export function useBenchmarkXirr(
   const loadedCount   = histResults.filter(r => r.status === 'success').length
   const fetchingCount = histResults.filter(r => r.fetchStatus === 'fetching').length
   const totalCount    = uniqueBenchSyms.length
+  // Real last-fetch time across every benchmark index's query — not "now", so reopening the
+  // app shows the true age instead of always looking freshly synced.
+  const lastFetchedAt = histResults.reduce((max, q) => Math.max(max, q.dataUpdatedAt ?? 0), 0) || null
 
   const output = useMemo((): Omit<BenchmarkOutput, 'isLoading' | 'isFetching' | 'hasError' | 'loadedCount' | 'totalCount' | 'fetchingCount'> | null => {
     if (!enabled || isLoading) return null
@@ -452,5 +487,6 @@ export function useBenchmarkXirr(
     loadedCount,
     totalCount,
     fetchingCount,
+    lastFetchedAt,
   }
 }

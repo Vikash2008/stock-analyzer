@@ -428,7 +428,7 @@ export default function HoldingsPage({ currency }: Props) {
     return map
   }, [includeFxGains, filteredHoldings])
 
-  // fx_lots filtered to the current portfolio/segment view
+  // fx_lots filtered to the current portfolio/segment/bucket-label view
   const filteredFxLots = useMemo(() => {
     if (!data) return []
     const lots = data.fx_lots ?? []
@@ -437,8 +437,19 @@ export default function HoldingsPage({ currency }: Props) {
       const usdSegments = new Set(['us_stock', 'total', 'stk'])
       return usdSegments.has(segment) ? lots : []
     }
+    // Bucket/label views (e.g. Asset Class → "Mutual Fund") previously fell through to
+    // "show everything" — dumping the full USD fx-lots list onto views that hold no USD
+    // stocks at all. Resolve each lot's own label the same way dividends already do, and
+    // only keep lots that actually belong to the selected label.
+    if (bucket && label) {
+      return lots.filter(lot => {
+        const tx  = data.transactions.find(t => t.symbol === lot.symbol)
+        const lbl = tx ? getLabel(tx, bucket) : resolveLabel('', bucket, quoteTypeBySymbol.get(lot.symbol))
+        return lbl === label
+      })
+    }
     return lots
-  }, [data, portfolio, segment])
+  }, [data, portfolio, segment, bucket, label, quoteTypeBySymbol])
 
   // Dividend lookup maps — only populated when toggle is ON
   const divBySymbol = useMemo(() => {
@@ -711,6 +722,7 @@ export default function HoldingsPage({ currency }: Props) {
     loadedCount:       benchLoadedCount,
     totalCount:        benchTotalCount,
     fetchingCount:     benchFetchingCount,
+    lastFetchedAt:     benchLastFetchedAt,
   } = useBenchmarkXirr(
     filteredHoldings,
     closedYfSymbolsArr,
@@ -752,10 +764,11 @@ export default function HoldingsPage({ currency }: Props) {
   if (histIsFetching && !histWasFetchingRef.current) histMaxDoneRef.current = 0
   histWasFetchingRef.current = histIsFetching
 
-  // Set benchLastSynced whenever benchmark data is available (initial load from cache OR after sync)
+  // Set benchLastSynced to the real cache timestamp (not "now") whenever it's available —
+  // reopening the app with hours-old cached benchmark data should show its true age.
   useEffect(() => {
-    if (!benchLoading && !benchFetching && benchSectors.length > 0) setBenchLastSynced(new Date())
-  }, [benchLoading, benchFetching, benchSectors.length])
+    if (!benchLoading && benchLastFetchedAt) setBenchLastSynced(new Date(benchLastFetchedAt))
+  }, [benchLoading, benchLastFetchedAt])
 
   // Set divLastSynced to the real cache timestamp (not "now") whenever dividend data is
   // available — reopening the app with hours/days-old cached data shows its true age.
@@ -2118,7 +2131,7 @@ export default function HoldingsPage({ currency }: Props) {
                     {/* Histogram + cumulative return % line */}
                     <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3 mt-1">
                     <ResponsiveContainer width="100%" height={220}>
-                      <ComposedChart data={histData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="20%">
+                      <ComposedChart data={histData} margin={{ top: 16, right: 4, left: 0, bottom: 0 }} barCategoryGap="20%">
                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                         <XAxis
                           dataKey="label"
@@ -2296,11 +2309,11 @@ export default function HoldingsPage({ currency }: Props) {
                         <div className="flex-1" />
                         <div className="relative shrink-0">
                           <button
-                            className="flex items-center gap-1 bg-slate-50 border border-slate-100 rounded-lg px-2 py-1"
+                            className="flex items-center gap-1 bg-sky-50 border border-sky-100 rounded-lg px-2 py-1"
                             onClick={() => setBenchConfigOpen(o => !o)}
                           >
-                            <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400" style={{flexShrink:0}}><path d="M1.5 2h9L7 6.5V10l-2-1V6.5L1.5 2z"/></svg>
-                            <span className="text-[10px] text-slate-500 whitespace-nowrap">
+                            <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-sky-500" style={{flexShrink:0}}><path d="M1.5 2h9L7 6.5V10l-2-1V6.5L1.5 2z"/></svg>
+                            <span className="text-[10px] text-sky-700 whitespace-nowrap">
                               {benchDateEnabled
                                 ? `${MONTHS[benchStartMonth - 1]} ${benchStartYear} → ${benchPeriodEnd === null ? 'today' : `${MONTHS[benchEndMonth - 1]} ${benchEndYear}`}`
                                 : 'All dates'}
@@ -2442,7 +2455,7 @@ export default function HoldingsPage({ currency }: Props) {
         <DividendsTab key={`${portfolio ?? ''}:${segment ?? ''}`} currency={currency} portfolio={portfolio} filterSymbols={filteredDivSymbols} usdInr={data?.usd_inr ?? 95.5} />
       )}
       {activeTab === 'fx' && (
-        <FxGainsTab fxLots={filteredFxLots} usdInr={data.usd_inr} currency={currency} />
+        <FxGainsTab fxLots={filteredFxLots} usdInr={data.usd_inr} currency={currency} asOf={data.as_of} />
       )}
       </div>
 
