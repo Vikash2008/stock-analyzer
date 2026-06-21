@@ -246,6 +246,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const [bannerVisible, setBannerVisible] = useState(false)
   const [refreshError, setRefreshError] = useState(false)
   const [importFailBanner, setImportFailBanner] = useState(false)
+  const [importFailReason, setImportFailReason] = useState('')
   const importFailBannerTimer = useRef<ReturnType<typeof setTimeout>>()
 
   // Settings panel
@@ -319,6 +320,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         const ts = Date.now()
         try { localStorage.setItem('portfolio:import:lastError', String(ts)) } catch {}
         setLastImportError(ts)
+        setImportFailReason('Storage full — free up space')
         setImportFailBanner(true)
         clearTimeout(importFailBannerTimer.current)
         importFailBannerTimer.current = setTimeout(() => setImportFailBanner(false), 2000)
@@ -366,6 +368,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           const ts = Date.now()
           try { localStorage.setItem('portfolio:import:lastError', String(ts)) } catch {}
           setLastImportError(ts)
+          setImportFailReason(res.status === 400 ? 'Invalid CSV format' : `Server error (${res.status})`)
           setImportFailBanner(true)
           clearTimeout(importFailBannerTimer.current)
           importFailBannerTimer.current = setTimeout(() => setImportFailBanner(false), 2000)
@@ -376,6 +379,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         const ts = Date.now()
         try { localStorage.setItem('portfolio:import:lastError', String(ts)) } catch {}
         setLastImportError(ts)
+        setImportFailReason(controller.signal.aborted ? 'Request timed out' : 'Network error')
         setImportFailBanner(true)
         clearTimeout(importFailBannerTimer.current)
         importFailBannerTimer.current = setTimeout(() => setImportFailBanner(false), 2000)
@@ -812,7 +816,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
       {importFailBanner && (
         <div className="fixed top-2 left-1/2 -translate-x-1/2 z-[1000] bg-red-100 border border-red-300 text-red-700 text-[12px] font-medium px-4 py-2 rounded-full shadow-md">
-          ⚠ Import failed — try again
+          ⚠ Import failed — {importFailReason || 'try again'}
         </div>
       )}
 

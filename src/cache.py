@@ -69,14 +69,19 @@ _PREFIX_TTL: dict[str, float] = {
     "divs:": 30 * 86400.0,
 }
 
-# Each uploaded CSV gets its own permanent fifo:{hash}:* entry that's never otherwise
-# removed — cap how many distinct hashes we keep so repeated re-uploads/testing don't
-# accumulate forever. Every Bucket/Label tag edit, holding delete, or Copy Holdings apply
-# changes the CSV content and therefore mints a new hash — a single active editing session
-# routinely produces more than 5 of these in a row, evicting the user's own current/most-recent
-# hash mid-session and turning their next action into a cache-miss ("re-import your CSV") even
-# though nothing went wrong. Raised well past realistic same-session edit counts.
-_MAX_FIFO_HASHES = 30
+# Each uploaded CSV gets its own permanent fifo:{hash}:* entry (full txns/holdings/realized/
+# fx_lots DataFrames) that's never otherwise removed — cap how many distinct hashes we keep so
+# repeated re-uploads/testing don't accumulate forever. Every Bucket/Label tag edit, holding
+# delete, or Copy Holdings apply changes the CSV content and therefore mints a new hash — a
+# single active editing session can produce many of these in a row.
+#
+# This was raised 5→30 in session 148 to stop mid-session eviction turning into a dead-end
+# "re-import your CSV" error — but each entry pins a full portfolio snapshot in process memory,
+# and 30 of them OOM-killed the 512Mi Render instance during a long edit session (session 149).
+# Kept low again now that useSetTags.ts/dividends.py self-heal a cache-miss (re-seed from the
+# browser's local CSV copy + retry once) instead of surfacing it as a hard failure — a miss just
+# costs one extra round-trip, so we no longer need a large cap to avoid dead-ends.
+_MAX_FIFO_HASHES = 5
 
 # Module-level singleton: loaded from disk once per process lifetime.
 # Mutations (set/invalidate) update this dict in-place, so all Cache

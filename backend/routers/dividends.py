@@ -50,12 +50,19 @@ router = APIRouter()
 _mem: dict[str, tuple[Any, float]] = {}
 
 
+class _PortfolioNotCached(Exception):
+    """Raised when a non-demo csv_hash misses the FIFO cache — caller must not silently fall
+    back to demo data (same contract as add_txn.py's 404 on a cache miss)."""
+
+
 def _load_txns(csv_hash: str = "demo"):
     cached = Cache().get_fifo(csv_hash)
     if cached is not None:
         txns, _, _, _ = cached
         return txns
-    return load_transactions(_DATA_FILE)
+    if csv_hash == "demo":
+        return load_transactions(_DATA_FILE)
+    raise _PortfolioNotCached(csv_hash)
 
 
 def _shares_on_date(txns: pd.DataFrame, yf_symbol: str, ex_date: pd.Timestamp) -> float:
@@ -408,7 +415,13 @@ def get_dividends(
         except Exception:
             hints = {}
 
-    txns    = _load_txns(csv_hash)
+    try:
+        txns = _load_txns(csv_hash)
+    except _PortfolioNotCached:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "Portfolio not in cache. Please re-import your CSV first."},
+        )
     usd_inr = get_usd_inr_rate()
     result  = _compute(txns, usd_inr, portfolio=portfolio, force=force_refresh, since_hints=hints)
 
