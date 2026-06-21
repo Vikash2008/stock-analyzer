@@ -105,7 +105,7 @@ export interface BenchmarkOutput {
   overallActualXirr: number | null
   overallBenchXirr:  number | null
   overallAlpha:      number | null
-  holdingBenchXirr:  Map<string, number | null>  // yf_symbol → benchmark XIRR %
+  holdingBenchXirr:  Map<string, number | null>  // holdingKey(portfolio,yf_symbol) when not cumulative, else yf_symbol → benchmark XIRR %
   isLoading:         boolean
   isFetching:        boolean
   hasError:          boolean
@@ -128,7 +128,14 @@ export function useBenchmarkXirr(
   periodStart: string | null = null,
   periodEnd: string | null = null,
   symbolPriceMap: Map<string, Map<string, number>> | null = null,
+  // Must match the caller's own actual-XIRR aggregation level (HoldingsPage.tsx's
+  // `isCumulative`) — a symbol held across multiple portfolios otherwise gets its
+  // per-portfolio actual XIRR compared against a benchmark XIRR aggregated across every
+  // portfolio holding it, an apples-to-oranges mismatch that's invisible when every symbol
+  // happens to live in only one portfolio but wildly wrong (and wrong-signed) when not.
+  isCumulative: boolean = true,
 ): BenchmarkOutput {
+  const holdingKey = (portfolio: string, yfSymbol: string) => isCumulative ? yfSymbol : `${portfolio}:${yfSymbol}`
 
   // Derive sector map + unique bench symbols
   const { yfToSector, uniqueBenchSyms } = useMemo(() => {
@@ -200,7 +207,7 @@ export function useBenchmarkXirr(
     // Cashflow buckets — only populated for transactions in [T1, T2]
     const sectorActual = new Map<SectorKey, CF[]>()
     const sectorBench  = new Map<SectorKey, CF[]>()
-    const holdingBench = new Map<string, CF[]>()   // yf_symbol → simulated bench CFs
+    const holdingBench = new Map<string, CF[]>()   // holdingKey(portfolio,yf_symbol) → simulated bench CFs
     for (const s of new Set(yfToSector.values())) {
       sectorActual.set(s, [])
       sectorBench.set(s, [])
@@ -223,9 +230,10 @@ export function useBenchmarkXirr(
       const T1date = new Date(T1str)
       let totalActualOpen = 0
       let totalBenchOpen  = 0
-      const yfBenchOpen = new Map<string, number>()   // yfSymbol → bench opening value
+      const yfBenchOpen = new Map<string, number>()   // holdingKey(portfolio,yfSymbol) → bench opening value
 
       for (const [key, qty] of qtyHeld.entries()) {
+        const portfolio = key.split(':')[0]
         if (qty <= 0) continue
         const meta = keyMeta.get(key)
         if (!meta) continue
@@ -255,7 +263,8 @@ export function useBenchmarkXirr(
           const v = units * benchP
           sectorBench.get(sector)!.push({ date: T1date, amount: -v })
           if (sector !== 'Other') totalBenchOpen += v
-          yfBenchOpen.set(yfSymbol, (yfBenchOpen.get(yfSymbol) ?? 0) + v)
+          const hk = holdingKey(portfolio, yfSymbol)
+          yfBenchOpen.set(hk, (yfBenchOpen.get(hk) ?? 0) + v)
         }
 
         // Track holding count: positions open at T1 count in the period
@@ -296,7 +305,8 @@ export function useBenchmarkXirr(
       const isUsd  = USD_PORTS.has(tx.portfolio)
 
       if (!keyMeta.has(key)) keyMeta.set(key, { sector, benchSym: bSym, isUsd, yfSymbol: tx.yf_symbol })
-      if (!holdingBench.has(tx.yf_symbol)) holdingBench.set(tx.yf_symbol, [])
+      const hk = holdingKey(tx.portfolio, tx.yf_symbol)
+      if (!holdingBench.has(hk)) holdingBench.set(hk, [])
 
       const fx         = isUsd
         ? (currency === 'INR' ? usdInr : 1)
@@ -316,7 +326,7 @@ export function useBenchmarkXirr(
           const cf: CF = { date: new Date(tx.date), amount: -amount }
           sectorActual.get(sector)!.push({ ...cf })
           sectorBench.get(sector)!.push({ ...cf })
-          holdingBench.get(tx.yf_symbol)!.push({ ...cf })
+          holdingBench.get(hk)!.push({ ...cf })
           if (sector !== 'Other') { overallActual.push({ ...cf }); overallBench.push({ ...cf }) }
           if (!sectorYfSs.has(sector)) sectorYfSs.set(sector, new Set())
           sectorYfSs.get(sector)!.add(tx.yf_symbol)
@@ -336,7 +346,7 @@ export function useBenchmarkXirr(
           if (openingInjected && unitsSold > 0) {
             const benchSell = unitsSold * benchP
             sectorBench.get(sector)!.push({ date: new Date(tx.date), amount: benchSell })
-            holdingBench.get(tx.yf_symbol)!.push({ date: new Date(tx.date), amount: benchSell })
+            holdingBench.get(hk)!.push({ date: new Date(tx.date), amount: benchSell })
             if (sector !== 'Other') overallBench.push({ date: new Date(tx.date), amount: benchSell })
           }
         }
@@ -426,9 +436,9 @@ export function useBenchmarkXirr(
       const tv         = units * cur
       sectorBench.get(meta.sector)!.push({ date: termDate, amount: tv })
       if (meta.sector !== 'Other') overallBench.push({ date: termDate, amount: tv })
-      const ys = meta.yfSymbol
-      if (!holdingBench.has(ys)) holdingBench.set(ys, [])
-      holdingBench.get(ys)!.push({ date: termDate, amount: tv })
+      const hk = holdingKey(key.split(':')[0], meta.yfSymbol)
+      if (!holdingBench.has(hk)) holdingBench.set(hk, [])
+      holdingBench.get(hk)!.push({ date: termDate, amount: tv })
     }
 
     // ── Compute XIRRs ────────────────────────────────────────────────────────
@@ -458,8 +468,8 @@ export function useBenchmarkXirr(
     const oB = xirr(overallBench)
 
     const holdingBenchXirr = new Map<string, number | null>()
-    for (const [ys, cfs] of holdingBench.entries()) {
-      holdingBenchXirr.set(ys, xirr(cfs))
+    for (const [hk, cfs] of holdingBench.entries()) {
+      holdingBenchXirr.set(hk, xirr(cfs))
     }
 
     return {

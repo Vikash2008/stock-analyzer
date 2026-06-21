@@ -342,17 +342,40 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       const t4 = setTimeout(() => { setImportProgress(93) },                                              90_000)
       const clearTimers = () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4) }
 
-      const controller = new AbortController()
-      const abortTimer = setTimeout(() => controller.abort(), 120_000)
+      // A single fetch attempt — split out so a transient failure (tab backgrounded or
+      // navigated away from mid-request, which can abort/drop a fetch that's still mid-flight
+      // through the 90s+ FIFO-recompute-plus-live-price round trip) can be retried outright.
+      const attemptPost = async () => {
+        const controller = new AbortController()
+        const abortTimer = setTimeout(() => controller.abort(), 120_000)
+        try {
+          const params = new URLSearchParams({ currency: 'INR', force_refresh: 'true' })
+          const res = await fetch(`${API_URL_SETTINGS}/api/portfolio?${params}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: text,
+            signal: controller.signal,
+          })
+          return { ok: true as const, res }
+        } catch (e) {
+          return { ok: false as const, aborted: controller.signal.aborted, error: e }
+        } finally {
+          clearTimeout(abortTimer)
+        }
+      }
+
+      let attempt = await attemptPost()
+      // The CSV is already safely in localStorage and `text` is still in memory either way —
+      // retry once before giving up, instead of leaving the user at a dead-end error banner
+      // for something that just needed the tab back in focus.
+      if (!attempt.ok) {
+        logDebug(`IMPORT: first attempt failed (${attempt.aborted ? 'timeout' : 'network'}) — retrying once`)
+        attempt = await attemptPost()
+      }
+
       try {
-        const params = new URLSearchParams({ currency: 'INR', force_refresh: 'true' })
-        const res = await fetch(`${API_URL_SETTINGS}/api/portfolio?${params}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: text,
-          signal: controller.signal,
-        })
-        clearTimeout(abortTimer)
+        if (!attempt.ok) throw attempt.error
+        const res = attempt.res
         if (res.ok) {
           const newData = await res.json()
           if (newData.csv_hash) {
@@ -366,6 +389,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           clearDividendLocalCache()
           qc.removeQueries({ queryKey: ['dividends'] })
           reconcileBucketsFromTags(newData)
+          setBucketsVersion(v => v + 1)   // catalog may have just gained buckets — refresh toggleModes etc.
           qc.setQueryData(['portfolio'], newData)
           // Wipe the cached per-symbol price series outright rather than just invalidating —
           // useHistory/usePortfolioHistory's fetchSymHistory sends `since=<last cached date>`
@@ -390,18 +414,17 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           importFailBannerTimer.current = setTimeout(() => setImportFailBanner(false), 2000)
         }
       } catch (e) {
-        // timed out or network error — CSV in localStorage, next load will retry
-        logDebug(`IMPORT FAILED: backend fetch threw — ${String(e)}`)
+        // timed out or network error on both attempts — CSV in localStorage, next load will retry
+        logDebug(`IMPORT FAILED: backend fetch threw on retry too — ${String(e)}`)
         const ts = Date.now()
         try { localStorage.setItem('portfolio:import:lastError', String(ts)) } catch {}
         setLastImportError(ts)
-        setImportFailReason(controller.signal.aborted ? 'Request timed out' : 'Network error')
+        setImportFailReason(!attempt.ok && attempt.aborted ? 'Request timed out' : 'Network error')
         setImportFailBanner(true)
         clearTimeout(importFailBannerTimer.current)
         importFailBannerTimer.current = setTimeout(() => setImportFailBanner(false), 2000)
       }
       finally {
-        clearTimeout(abortTimer)
         clearTimers()
         setImportProgress(100)
         setImportStatus('')

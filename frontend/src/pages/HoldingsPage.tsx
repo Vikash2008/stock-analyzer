@@ -239,6 +239,11 @@ export default function HoldingsPage({ currency }: Props) {
   const [viewMode,    setViewMode]    = useState<'cumulative' | 'standalone'>(
     () => (localStorage.getItem('hp:viewMode') as 'cumulative' | 'standalone') ?? 'cumulative'
   )
+  // Grouped/cumulative aggregation only applies on the segment route — Bucket/Label and
+  // single-portfolio routes always show one row per portfolio, so a symbol held across
+  // multiple portfolios must be compared at the SAME granularity on both the actual-XIRR
+  // side (xirrMap below) and the benchmark side (useBenchmarkXirr) or alpha comes out wrong.
+  const isCumulative = !!segment && viewMode === 'cumulative'
   const [holdingFilter, setHoldingFilter] = useState<'open' | 'closed' | 'all'>(
     () => (localStorage.getItem('hp:holdingFilter') as 'open' | 'closed' | 'all') ?? 'all'
   )
@@ -745,6 +750,7 @@ export default function HoldingsPage({ currency }: Props) {
     benchPeriodStart,
     benchPeriodEnd,
     symbolPriceMap,
+    isCumulative,
   )
 
   useEffect(() => {
@@ -793,7 +799,6 @@ export default function HoldingsPage({ currency }: Props) {
     if (!data) return new Map<string, number | null>()
     const today = new Date()
     const map   = new Map<string, number | null>()
-    const isCumulative = !!segment && viewMode === 'cumulative'
     const divEventsMap = (includeDivs && divData)
       ? new Map(divData.by_symbol.map(s => [s.symbol, s.events]))
       : new Map<string, never[]>()
@@ -919,7 +924,6 @@ export default function HoldingsPage({ currency }: Props) {
 
   const filteredSummaryXirr = useMemo(() => {
     if (!data) return null
-    const isCumulative = !!segment && viewMode === 'cumulative'
     const targetRows =
       holdingFilter === 'closed' ? closedRows :
       holdingFilter === 'open'   ? rows :
@@ -2418,7 +2422,11 @@ export default function HoldingsPage({ currency }: Props) {
                                 {sectorRows.map(r => {
                                   const hXirr   = xirrMap.get(r.key) ?? null
                                   const yfSym   = symToYf.get(r.navSym) ?? r.navSym
-                                  const hBenchX = holdingBenchXirr.get(yfSym) ?? null
+                                  // Must match useBenchmarkXirr's own holdingKey() granularity — xirrMap's
+                                  // hXirr above is per-portfolio whenever isCumulative is false, so the
+                                  // bench lookup has to be too, or alpha compares mismatched aggregation levels.
+                                  const benchKey = isCumulative ? yfSym : `${r.navPort}:${yfSym}`
+                                  const hBenchX = holdingBenchXirr.get(benchKey) ?? null
                                   const hAlpha  = hXirr !== null && hBenchX !== null ? hXirr - hBenchX : null
                                   const hColor  = hXirr !== null ? hXirr >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'
                                   const hAlphaColor = hAlpha !== null ? hAlpha >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'

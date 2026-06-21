@@ -37,8 +37,15 @@ def _fill_usd_fx_rates(txns: pd.DataFrame) -> pd.DataFrame:
     """
     import yfinance as yf
 
-    if "buy_fx_rate" not in txns.columns or "currency" not in txns.columns:
+    if "currency" not in txns.columns:
         return txns
+    # The current CSV schema doesn't carry buy_fx_rate at all (trimmed in session 148) — every
+    # fresh import is missing the column outright, not just missing individual values. Create
+    # it at the CSV-default placeholder first so the mask below still catches every USD BUY row
+    # instead of silently no-op'ing forever just because the column was never present.
+    if "buy_fx_rate" not in txns.columns:
+        txns = txns.copy()
+        txns["buy_fx_rate"] = 1.0
 
     mask = (
         (txns["currency"] == "USD") &
