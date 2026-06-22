@@ -216,6 +216,9 @@ export function usePortfolioHistory(
     const n      = allDates.length
     const valArr = new Array<number>(n).fill(0)
     const invArr = new Array<number>(n).fill(0)
+    // TEMP DIAGNOSTIC (chart skew investigation) — index ~7 days back, used below to catch
+    // which single holding's contribution actually jumped within the last week.
+    const idx7DaysAgo = Math.max(0, n - 8)
 
     for (const h of holdings) {
       const pm     = priceMap.get(h.yf_symbol)
@@ -237,6 +240,7 @@ export function usePortfolioHistory(
       while (di < deltas.length && deltas[di][0] < allDates[0]) { qty += deltas[di][1]; di++ }
       qty = Math.max(0, qty)
       let lastPx: number | null = null
+      let invAt7DaysAgo: number | null = null  // TEMP DIAGNOSTIC
 
       for (let i = 0; i < n; i++) {
         const d = allDates[i]
@@ -255,6 +259,7 @@ export function usePortfolioHistory(
         if (lastPx === null || qty <= 0) continue
         valArr[i] += lastPx     * qty * fx
         invArr[i] += h.avg_cost * qty * fx
+        if (i === idx7DaysAgo) invAt7DaysAgo = h.avg_cost * qty * fx
       }
 
       // TEMP DIAGNOSTIC (chart skew investigation) — the series' running qty for this holding
@@ -264,6 +269,16 @@ export function usePortfolioHistory(
       // is caught with hard evidence instead of a guess. Remove once root-caused.
       if (Math.abs(qty - h.quantity) > Math.max(1e-6, h.quantity * 0.01)) {
         logDebug(`CHART-QTY-MISMATCH ${key}: series-qty=${qty} vs holding.quantity=${h.quantity} (ratio=${(h.quantity > 0 ? qty / h.quantity : 0).toFixed(2)})`)
+      }
+      // TEMP DIAGNOSTIC — final qty matching truth (above) doesn't rule out a holding whose
+      // OWN invested contribution jumped hugely within just the last ~week (e.g. a brand-new
+      // position, or a transient duplicate-then-corrected delta). Surface any holding whose
+      // last-week jump is large in absolute terms so the specific culprit symbol is named
+      // directly instead of inferred from the aggregate curve.
+      const invNow = h.avg_cost * qty * fx
+      const weekJump = invNow - (invAt7DaysAgo ?? 0)
+      if (weekJump > 20000) {
+        logDebug(`CHART-WEEK-JUMP ${key}: invested 7d-ago=${(invAt7DaysAgo ?? 0).toFixed(0)} now=${invNow.toFixed(0)} jump=${weekJump.toFixed(0)} qty=${qty} avg_cost=${h.avg_cost}`)
       }
     }
 
