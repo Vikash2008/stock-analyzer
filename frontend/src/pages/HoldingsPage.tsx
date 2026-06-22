@@ -18,6 +18,7 @@ import { logDebug } from '../utils/debugLog'
 import { useQueryClient } from '@tanstack/react-query'
 import { usePortfolioHistory, sliceSeries } from '../hooks/usePortfolioHistory'
 import { usePrefetchHoldingCharts, REFRESH_MS } from '../hooks/useHistory'
+import { idbFlush } from '../utils/idbStore'
 import type { DatedSeries, PortfolioSeries } from '../hooks/usePortfolioHistory'
 import { HoldingCard } from '../components/HoldingCard'
 import { SummaryCard } from '../components/SummaryCard'
@@ -722,9 +723,14 @@ export default function HoldingsPage({ currency }: Props) {
     closedYfSymbolsArr,
   )
 
-  // Stop sync spinner once all history queries have finished refetching
+  // Stop sync spinner once all history queries have finished refetching AND those results
+  // have actually been written to IndexedDB — otherwise the badge can claim "synced" a moment
+  // before a force-quit kills the app, losing writes that never reached disk (see idbFlush).
   useEffect(() => {
-    if (syncing && !histIsFetching) setSyncing(false)
+    if (!syncing || histIsFetching) return
+    let cancelled = false
+    idbFlush().then(() => { if (!cancelled) setSyncing(false) })
+    return () => { cancelled = true }
   }, [syncing, histIsFetching])
 
   const {
@@ -766,9 +772,16 @@ export default function HoldingsPage({ currency }: Props) {
   }
 
   // Set histLastSynced to the real cache timestamp (not "now") whenever it's available —
-  // reopening the app with hours-old cached data should show its true age, not look freshly synced.
+  // reopening the app with hours-old cached data should show its true age, not look freshly
+  // synced. Also gated on idbFlush(): dataUpdatedAt flips the instant a fetch resolves, but the
+  // write to disk is still in flight — showing "synced" before that write lands risks losing it
+  // to a force-quit moments later, leaving the next launch refetching everything despite the
+  // badge having said otherwise.
   useEffect(() => {
-    if (!histLoading && histLastFetchedAt) setHistLastSynced(new Date(histLastFetchedAt))
+    if (histLoading || !histLastFetchedAt) return
+    let cancelled = false
+    idbFlush().then(() => { if (!cancelled) setHistLastSynced(new Date(histLastFetchedAt)) })
+    return () => { cancelled = true }
   }, [histLoading, histLastFetchedAt])
 
   // Progress-bar "done" count must never visibly decrease — totalCount - histFetchingCount
@@ -804,11 +817,8 @@ export default function HoldingsPage({ currency }: Props) {
       : new Map<string, never[]>()
 
     for (const row of [...rows, ...(holdingFilter !== 'open' ? closedRows : [])]) {
-      const rowPorts = (isCumulative && row.key.startsWith('closed:')) ? new Set(row.portfolios) : filtPorts
       const txns = data.transactions.filter(t =>
-        isCumulative
-          ? t.symbol === row.navSym && rowPorts.has(t.portfolio)
-          : t.symbol === row.navSym && t.portfolio === row.navPort,
+        t.symbol === row.navSym && row.portfolios.includes(t.portfolio),
       )
 
       const cfs: { date: Date; amount: number }[] = []
@@ -935,11 +945,8 @@ export default function HoldingsPage({ currency }: Props) {
       ? new Map(divData.by_symbol.map(s => [s.symbol, s.events]))
       : new Map<string, never[]>()
     for (const row of targetRows) {
-      const rowPorts = (isCumulative && row.key.startsWith('closed:')) ? new Set(row.portfolios) : filtPorts
       const txns = data.transactions.filter(t =>
-        isCumulative
-          ? t.symbol === row.navSym && rowPorts.has(t.portfolio)
-          : t.symbol === row.navSym && t.portfolio === row.navPort,
+        t.symbol === row.navSym && row.portfolios.includes(t.portfolio),
       )
       for (const tx of txns) {
         if (tx.type === 'DIVIDEND') continue

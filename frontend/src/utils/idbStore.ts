@@ -51,12 +51,30 @@ export function idbGet<T = unknown>(key: string): T | undefined {
   return _map.get(key) as T | undefined
 }
 
+// Writes actually in flight to disk — tracked so callers that need durability (e.g. the
+// "synced" badge after a chart refresh) can confirm a force-quit won't lose them, instead of
+// trusting the in-memory Map update (which happens synchronously, before the disk write lands).
+const _pendingWrites = new Set<Promise<void>>()
+
 export function idbSet(key: string, value: unknown): void {
   _map.set(key, value)
   if (!_db) return
   try {
-    _db.transaction(STORE, 'readwrite').objectStore(STORE).put(value, key)
+    const tx = _db.transaction(STORE, 'readwrite')
+    tx.objectStore(STORE).put(value, key)
+    const done = new Promise<void>(resolve => {
+      tx.oncomplete = () => resolve()
+      tx.onerror    = () => resolve()  // best-effort; don't let one failed write hang idbFlush
+    }).finally(() => { _pendingWrites.delete(done) })
+    _pendingWrites.add(done)
   } catch { /* best-effort persistence; in-memory copy is already up to date */ }
+}
+
+// Resolves once every write issued so far has actually committed to IndexedDB. Callers that
+// tell the user "synced" should await this first — otherwise a force-quit shortly after a
+// refresh can kill the process before the writes flush, losing data the UI already claimed was saved.
+export function idbFlush(): Promise<void> {
+  return Promise.all(_pendingWrites).then(() => undefined)
 }
 
 export function idbDelete(key: string): void {

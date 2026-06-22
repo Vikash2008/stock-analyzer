@@ -5,6 +5,7 @@ import type { Currency } from '../App'
 import { USD_PORTS } from '../utils/segments'
 import { computeXIRR } from '../utils/xirr'
 import { lsGet, lsSet, lsGetTimestamp, mergeHistory, detectDrift, fetchHistory, CLOSED_LS_TTL, REFRESH_MS } from './useHistory'
+import { logDebug } from '../utils/debugLog'
 
 // Same key format as useHistory.ts/usePrefetchHoldingCharts — one shared cache per symbol.
 const lsKey = (sym: string) => `${sym}:2015-01-01`
@@ -254,6 +255,15 @@ export function usePortfolioHistory(
         if (lastPx === null || qty <= 0) continue
         valArr[i] += lastPx     * qty * fx
         invArr[i] += h.avg_cost * qty * fx
+      }
+
+      // TEMP DIAGNOSTIC (chart skew investigation) — the series' running qty for this holding
+      // is derived independently from transaction deltas; it should land on the same qty the
+      // backend reports as truth. A mismatch here means this holding's contribution to the
+      // Invested/Value chart was built from the wrong quantity — log it so the next occurrence
+      // is caught with hard evidence instead of a guess. Remove once root-caused.
+      if (Math.abs(qty - h.quantity) > Math.max(1e-6, h.quantity * 0.01)) {
+        logDebug(`CHART-QTY-MISMATCH ${key}: series-qty=${qty} vs holding.quantity=${h.quantity} (ratio=${(h.quantity > 0 ? qty / h.quantity : 0).toFixed(2)})`)
       }
     }
 
