@@ -7,7 +7,7 @@ import {
   Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 import { usePortfolio } from '../hooks/usePortfolio'
-import { useDividendForSymbol } from '../hooks/useDividends'
+import { useDividendForSymbol, getIncludeFxGains } from '../hooks/useDividends'
 import { usePortfolioHistory, sliceSeries } from '../hooks/usePortfolioHistory'
 import type { DatedSeries, PortfolioSeries } from '../hooks/usePortfolioHistory'
 import type { Holding } from '../api/types'
@@ -214,10 +214,17 @@ export default function TransactionsPage({ currency }: Props) {
     if (!symTxns.length || !data) return null
     const today = new Date()
     const aggCurrent = holdingList.reduce((s, h) => s + h.disp_current, 0)
+    const includeFxGains = getIncludeFxGains()
     const cfs: { date: Date; amount: number }[] = []
     for (const tx of symTxns) {
       const isUsd = USD_PORTS.has(tx.portfolio)
-      const fx = isUsd ? data.usd_inr : 1
+      // Must match HoldingsPage.tsx's xirrMap: when the FX-gains toggle is on, a BUY's true
+      // historical buy_fx_rate is used instead of today's live rate — otherwise this page's
+      // XIRR diverges from the Holdings page for the same holding (e.g. a USD stock whose
+      // buy-date FX rate differs meaningfully from today's).
+      const fx = isUsd
+        ? (includeFxGains && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10 ? tx.buy_fx_rate : data.usd_inr)
+        : 1
       const amt = tx.quantity * tx.price * fx
       const chg = (tx.charges ?? 0) * fx
       if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
