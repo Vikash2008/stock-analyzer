@@ -110,7 +110,7 @@ export function usePrefetchHoldingCharts(yf_symbols: string[]) {
             const since = existing?.dates?.[existing.dates.length - 1]
             const fetched = await fetchHistory(sym, '2015-01-01', undefined, since)
             let data = fetched
-            if (fetched.partial_since && existing) {
+            if (fetched.partial_since && existing?.dates?.length) {
               data = detectDrift(existing, fetched)
                 ? await fetchHistory(sym, '2015-01-01')  // basis shifted — discard cache, refetch clean
                 : mergeHistory(existing, fetched)
@@ -165,7 +165,7 @@ export function useHistory(yf_symbol: string | null, start: string | null, perio
       const since = !period ? cached?.dates?.[cached.dates.length - 1] : undefined
       const fetched = await fetchHistory(yf_symbol!, start, period, since)
       let data = fetched
-      if (fetched.partial_since && cached) {
+      if (fetched.partial_since && cached?.dates?.length) {
         data = detectDrift(cached, fetched)
           ? await fetchHistory(yf_symbol!, start, period)  // basis shifted — discard cache, refetch clean
           : mergeHistory(cached, fetched)

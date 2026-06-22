@@ -220,10 +220,13 @@ def _fetch_incremental(yf_symbol: str, start: str, since: Optional[str] = None) 
             "dates": fresh["dates"], "prices": fresh["prices"],
             "fetched_at": time.time(), "last_bar_date": fresh["dates"][-1],
         }
-        if since_dt is not None and cached is None:
-            # Caller's own browser already has data through `since_dt` — flag this as
-            # delta-only so the caller merges instead of replacing its own cache, but
-            # still keep the (trimmed) resident window from it like any other fetch.
+        if since_dt is not None:
+            # `fresh` was downloaded starting at `since_dt`, not `start` — it's a delta
+            # relative to the caller's own full local history regardless of whether the
+            # resident cache was missing (`cached is None`) or just too short to cover this
+            # request. Mislabeling this as a full response (the old check only caught the
+            # `cached is None` case) makes the caller replace its real multi-year cache with
+            # this short window — collapsing its chart to almost nothing, sometimes one point.
             _save_entry(yf_symbol, entry)
             fresh["partial_since"] = since_dt.strftime("%Y-%m-%d")
             return fresh

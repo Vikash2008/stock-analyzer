@@ -16,7 +16,7 @@ async function fetchSymHistory(sym: string, start: string) {
   const fetched = await fetchHistory(sym, start, undefined, since)
   if (!fetched.dates?.length) return { dates: [] as string[], prices: [] as number[] }
   let d = fetched
-  if (fetched.partial_since && existing) {
+  if (fetched.partial_since && existing?.dates?.length) {
     d = detectDrift(existing, fetched)
       ? await fetchHistory(sym, start)  // basis shifted — discard cache, refetch clean
       : mergeHistory(existing, fetched)
