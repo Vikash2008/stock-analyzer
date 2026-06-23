@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo } from 'react'
 import { idbGet, idbSet } from '../utils/idbStore'
+import { logDebug } from '../utils/debugLog'
 
 interface HistoryData {
   dates:      string[]
@@ -37,6 +38,21 @@ export function detectDrift(existing: HistoryData, delta: HistoryData): boolean 
     if (ev > 0 && Math.abs(dv - ev) / ev > 0.005) return true
   }
   return false
+}
+
+// Defense-in-depth against the class of bug fixed 2026-06-23 (backend/routers/history.py
+// returning its short trimmed resident-cache slice mislabeled as a complete response,
+// causing the caller to replace its real multi-year cache with it). Even with that fixed,
+// don't trust a "complete" (non partial_since) response blindly — if it's suspiciously
+// shorter than what's already cached, merge instead of replacing, and log it loudly so any
+// recurrence (from this cause or a new one) is caught immediately instead of silently
+// collapsing the chart again.
+const MIN_HEALTHY_DATES = 30  // below this, a "shrink" comparison isn't meaningful — short real histories exist
+export function guardFullResponse(existing: HistoryData | undefined, fetched: HistoryData, sym: string): HistoryData {
+  if (!existing?.dates?.length || existing.dates.length < MIN_HEALTHY_DATES) return fetched
+  if (fetched.dates.length >= existing.dates.length * 0.5) return fetched
+  logDebug(`CHART-SUSPICIOUS-SHRINK ${sym}: "complete" response had ${fetched.dates.length} dates vs existing ${existing.dates.length} — merging instead of replacing`)
+  return mergeHistory(existing, fetched)
 }
 
 const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
@@ -114,6 +130,8 @@ export function usePrefetchHoldingCharts(yf_symbols: string[]) {
               data = detectDrift(existing, fetched)
                 ? await fetchHistory(sym, '2015-01-01')  // basis shifted — discard cache, refetch clean
                 : mergeHistory(existing, fetched)
+            } else {
+              data = guardFullResponse(existing, fetched, sym)
             }
             if (data.dates?.length) lsSet(lsk, data)
             return data
@@ -169,6 +187,8 @@ export function useHistory(yf_symbol: string | null, start: string | null, perio
         data = detectDrift(cached, fetched)
           ? await fetchHistory(yf_symbol!, start, period)  // basis shifted — discard cache, refetch clean
           : mergeHistory(cached, fetched)
+      } else if (!period) {
+        data = guardFullResponse(cached, fetched, yf_symbol ?? '')
       }
       // persist to localStorage so next cold-start shows data immediately
       if (data.dates?.length) lsSet(lsKey, data)

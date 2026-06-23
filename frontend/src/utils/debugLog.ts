@@ -2,7 +2,7 @@
 // Persisted to localStorage (not just memory) so entries survive a service-worker
 // update reload — the exact moment we need to see what happened.
 const KEY = 'debug:csvlog'
-const MAX_ENTRIES = 200
+const MAX_ENTRIES = 2000
 
 export interface LogEntry {
   t: number

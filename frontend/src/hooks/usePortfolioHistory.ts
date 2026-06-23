@@ -4,7 +4,7 @@ import type { Holding, Transaction, Realized } from '../api/types'
 import type { Currency } from '../App'
 import { USD_PORTS } from '../utils/segments'
 import { computeXIRR } from '../utils/xirr'
-import { lsGet, lsSet, lsGetTimestamp, mergeHistory, detectDrift, fetchHistory, CLOSED_LS_TTL, REFRESH_MS } from './useHistory'
+import { lsGet, lsSet, lsGetTimestamp, mergeHistory, detectDrift, guardFullResponse, fetchHistory, CLOSED_LS_TTL, REFRESH_MS } from './useHistory'
 import { logDebug } from '../utils/debugLog'
 
 // Same key format as useHistory.ts/usePrefetchHoldingCharts — one shared cache per symbol.
@@ -20,6 +20,8 @@ async function fetchSymHistory(sym: string, start: string) {
     d = detectDrift(existing, fetched)
       ? await fetchHistory(sym, start)  // basis shifted — discard cache, refetch clean
       : mergeHistory(existing, fetched)
+  } else {
+    d = guardFullResponse(existing, fetched, sym)
   }
   lsSet(lsKey(sym), d)
   return d
