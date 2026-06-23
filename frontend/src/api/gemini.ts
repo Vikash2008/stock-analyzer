@@ -8,6 +8,7 @@ export interface StreamChunk {
   grounded?: boolean
   error?: string
   detail?: string
+  progress?: string
 }
 
 async function* _readSSE(response: Response): AsyncGenerator<StreamChunk> {

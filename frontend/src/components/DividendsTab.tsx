@@ -174,6 +174,16 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
   const summaryFx = summaryCur === 'USD' ? 1 / (usdInr ?? 95.5) : 1
   const { data, isLoading, isError } = useDividends(portfolio)
   const forceRefresh = useForceRefreshDividends(portfolio)
+  const [retrying, setRetrying] = useState(false)
+  const [retryFailed, setRetryFailed] = useState(false)
+
+  const handleRetry = () => {
+    setRetrying(true)
+    setRetryFailed(false)
+    forceRefresh()
+      .catch(() => setRetryFailed(true))
+      .finally(() => setRetrying(false))
+  }
 
   const [selectedYears, setSelectedYears] = useState<Set<string>>(new Set())
   const [selectedMonths, setSelectedMonths] = useState<Set<number>>(new Set())
@@ -271,7 +281,12 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
     return (
       <div className="pt-4 text-center">
         <p className="text-[12px] text-red-400 mb-2">Could not load dividend data</p>
-        <button onClick={() => forceRefresh()} className="text-[11px] text-teal-600 underline">Retry</button>
+        <button onClick={handleRetry} disabled={retrying} className="text-[11px] text-teal-600 underline disabled:opacity-50">
+          {retrying ? 'Retrying…' : 'Retry'}
+        </button>
+        {retryFailed && (
+          <p className="text-[10px] text-red-400 mt-1.5">Retry failed — backend may still be starting up, try again in a moment</p>
+        )}
       </div>
     )
   }

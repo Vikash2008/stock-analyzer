@@ -116,6 +116,26 @@ _SCREENER_HEADERS = {
 }
 
 
+def _screener_row_values(html: str, label: str) -> list[float]:
+    """All numeric column values (left-to-right) for a Screener data-table row matching `label`.
+    Handles both plain-text row labels and the expandable schedule rows whose label is wrapped
+    in a <button>...+</button> (e.g. "Borrowings", "Net Profit", "Sales")."""
+    for m in re.finditer(r'<td class="text">(.*?)</td>(.*?)</tr>', html, re.DOTALL):
+        cell_text = re.sub(r'<[^>]+>', ' ', m.group(1))
+        cell_text = cell_text.replace('\xa0', ' ').replace('+', ' ').strip()
+        cell_text = re.sub(r'\s+', ' ', cell_text)
+        if cell_text.lower() != label.lower():
+            continue
+        out = []
+        for v in re.findall(r'<td[^>]*>\s*([\-\d,.]+)\s*</td>', m.group(2)):
+            try:
+                out.append(float(v.replace(',', '')))
+            except ValueError:
+                pass
+        return out
+    return []
+
+
 def _fetch_screener(clean_symbol: str) -> dict:
     """Scrape key ratios from Screener.in. Tries consolidated first, falls back to standalone."""
     for suffix in ("/consolidated/", "/"):
@@ -192,6 +212,27 @@ def _fetch_screener(clean_symbol: str) -> dict:
                             out[ttm_key]  = pct
                     except ValueError:
                         pass
+
+            # Net margin, EPS TTM, D/E, ROA — not in the top-ratios box; pulled from the
+            # Balance Sheet / Profit & Loss tables further down the same page (latest column).
+            sales        = _screener_row_values(html, "Sales")
+            net_profit   = _screener_row_values(html, "Net Profit")
+            eps_annual   = _screener_row_values(html, "EPS in Rs")
+            equity_cap   = _screener_row_values(html, "Equity Capital")
+            reserves     = _screener_row_values(html, "Reserves")
+            borrowings   = _screener_row_values(html, "Borrowings")
+            total_assets = _screener_row_values(html, "Total Assets")
+
+            if sales and net_profit and sales[-1]:
+                out["profit_margins"] = round(net_profit[-1] / sales[-1], 4)
+            if eps_annual:
+                out["trailing_eps"] = eps_annual[-1]
+            if borrowings and equity_cap and reserves:
+                total_equity = equity_cap[-1] + reserves[-1]
+                if total_equity > 0:
+                    out["debt_to_equity"] = round(borrowings[-1] / total_equity, 4)
+            if net_profit and total_assets and total_assets[-1]:
+                out["return_on_assets"] = round(net_profit[-1] / total_assets[-1], 4)
 
             if out:  # got at least some data — return it
                 return out

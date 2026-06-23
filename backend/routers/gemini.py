@@ -96,6 +96,22 @@ def _is_fatal_error(msg: str) -> bool:
     return "unauthenticated" in m or "api_key" in m or "permission_denied" in m or "403" in m or "401" in m
 
 
+def _clean_error_message(err: str) -> str:
+    """Turns a raw Gemini SDK exception string (often a stringified nested JSON error body)
+    into a short, complete sentence safe to show in the UI — never a mid-word character cut."""
+    m = err.lower()
+    if "429" in err or "quota" in m or "resource_exhausted" in m:
+        return "Gemini API quota exceeded for today — please try again later."
+    if "503" in err or "overloaded" in m or "unavailable" in m:
+        return "Gemini's servers are temporarily overloaded — please try again in a moment."
+    if "timeout" in m:
+        return "Gemini took too long to respond — please try again."
+    if _is_fatal_error(err):
+        return "Gemini API key is invalid or unauthorized — check the API key configuration."
+    first_line = err.strip().splitlines()[0] if err.strip() else "Gemini request failed."
+    return first_line if len(first_line) <= 200 else first_line[:200] + "…"
+
+
 @router.post("/api/gemini")
 async def gemini_query(req: GeminiRequest):
     key = (req.symbol, req.section_id, req.force_lite, req.force_31, req.key_index)
@@ -471,7 +487,7 @@ async def gemini_stream(req: GeminiRequest):
 
         api_key = _read_api_key(req.key_index)
         if not api_key:
-            yield _sse({"error": "GEMINI_API_KEY not configured"})
+            yield _sse({"error": "Gemini API key is not configured — check the backend environment settings."})
             return
 
         c = genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
@@ -482,40 +498,40 @@ async def gemini_stream(req: GeminiRequest):
 
         if req.force_31:
             try:
-                last = None
                 stream = await c.aio.models.generate_content_stream(model="gemini-3.1-flash-lite", contents=req.prompt)
                 async for chunk in stream:
-                    t = _chunk_text(chunk); last = chunk
+                    t = _chunk_text(chunk)
                     if t: full_text += t; yield _sse({"text": t})
             except Exception as exc:
-                yield _sse({"error": str(exc)[:400]}); return
+                yield _sse({"error": _clean_error_message(str(exc))}); return
             _cache[cache_key] = ({"text": full_text, "sources": [], "grounded": False, "model": "gemini-3.1-flash-lite"}, time.time())
             yield _sse({"done": True, "sources": [], "model": "gemini-3.1-flash-lite", "grounded": False})
             return
 
         if req.force_lite:
+            # Explicit lite request (e.g. a default-model setting) — no silent fallback past
+            # this point; a failure here surfaces the same manual 3.1 option as the automatic
+            # flash→lite cascade below, instead of quietly downgrading to ungrounded 3.1.
             lite_cfg = genai_types.GenerateContentConfig(tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())])
-            last = None; model_used = "gemini-2.5-flash-lite"; grounded = True
             try:
+                last = None
                 stream = await c.aio.models.generate_content_stream(model="gemini-2.5-flash-lite", contents=req.prompt, config=lite_cfg)
                 async for chunk in stream:
                     t = _chunk_text(chunk); last = chunk
                     if t: full_text += t; yield _sse({"text": t})
                 if last: sources = _chunk_sources(last)
-            except Exception:
-                full_text = ""; model_used = "gemini-3.1-flash-lite"; grounded = False
-                try:
-                    stream = await c.aio.models.generate_content_stream(model="gemini-3.1-flash-lite", contents=req.prompt)
-                    async for chunk in stream:
-                        t = _chunk_text(chunk)
-                        if t: full_text += t; yield _sse({"text": t})
-                except Exception as exc2:
-                    yield _sse({"error": str(exc2)[:400]}); return
-            _cache[cache_key] = ({"text": full_text, "sources": sources, "grounded": grounded, "model": model_used}, time.time())
-            yield _sse({"done": True, "sources": sources, "model": model_used, "grounded": grounded})
+            except Exception as exc:
+                yield _sse({"error": "gemini_both_failed", "detail": _clean_error_message(str(exc))}); return
+            if not full_text:
+                yield _sse({"error": "gemini_both_failed", "detail": "Gemini 2.5 Flash Lite returned an empty response."}); return
+            _cache[cache_key] = ({"text": full_text, "sources": sources, "grounded": True, "model": "gemini-2.5-flash-lite"}, time.time())
+            yield _sse({"done": True, "sources": sources, "model": "gemini-2.5-flash-lite", "grounded": True})
             return
 
-        _fail_reason = "unavailable"; _fail_detail = ""
+        # ── Default: gemini-2.5-flash, automatically falling back to gemini-2.5-flash-lite
+        # on failure (with a visible progress note) — no further silent fallback to 3.1 Lite;
+        # that's a manual choice surfaced via a button once both grounded tiers are exhausted.
+        _fail_reason = "unavailable"
         for thinking_budget in (8192, 0):
             if full_text: break
             cfg = genai_types.GenerateContentConfig(
@@ -530,16 +546,31 @@ async def gemini_stream(req: GeminiRequest):
                     if t: full_text += t; yield _sse({"text": t})
                 if full_text:
                     if last: sources = _chunk_sources(last)
-                    model_used = "gemini-2.5-flash"; grounded = True; _fail_reason = ""
+                    model_used = "gemini-2.5-flash"; grounded = True
             except Exception as exc:
                 err = str(exc)
-                if _is_fatal_error(err): yield _sse({"error": err[:400]}); return
+                if _is_fatal_error(err): yield _sse({"error": _clean_error_message(err)}); return
                 if full_text: break
                 _fail_reason = "quota" if ("429" in err or "quota" in err.lower() or "resource_exhausted" in err.lower()) else "overloaded" if ("503" in err or "unavailable" in err.lower() or "overloaded" in err.lower()) else "error"
-                _fail_detail = err[:300]; break
 
         if not full_text:
-            yield _sse({"error": f"gemini25_{_fail_reason}", "detail": _fail_detail}); return
+            yield _sse({"progress": f"Gemini 2.5 Flash {_fail_reason} — automatically retrying with 2.5 Flash Lite…"})
+            lite_cfg = genai_types.GenerateContentConfig(tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())])
+            try:
+                last = None
+                stream = await c.aio.models.generate_content_stream(model="gemini-2.5-flash-lite", contents=req.prompt, config=lite_cfg)
+                async for chunk in stream:
+                    t = _chunk_text(chunk); last = chunk
+                    if t: full_text += t; yield _sse({"text": t})
+                if full_text:
+                    if last: sources = _chunk_sources(last)
+                    model_used = "gemini-2.5-flash-lite"; grounded = True
+                else:
+                    yield _sse({"error": "gemini_both_failed", "detail": "Gemini 2.5 Flash and 2.5 Flash Lite both returned an empty response."}); return
+            except Exception as exc2:
+                err2 = str(exc2)
+                if _is_fatal_error(err2): yield _sse({"error": _clean_error_message(err2)}); return
+                yield _sse({"error": "gemini_both_failed", "detail": _clean_error_message(err2)}); return
 
         _cache[cache_key] = ({"text": full_text, "sources": sources, "grounded": grounded, "model": model_used}, time.time())
         yield _sse({"done": True, "sources": sources, "model": model_used, "grounded": grounded})

@@ -5,9 +5,13 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { QuickStats } from '../api/types'
 import { SECTIONS, buildGeminiPrompt } from '../utils/reportLinks'
-import { streamGeminiSection } from '../api/gemini'
 import { DeepResearchChat } from './DeepResearchChat'
 import { idbGet, idbSet, idbDelete } from '../utils/idbStore'
+import {
+  subscribeGeneration, getGenerationState, getGenerationStartedAt, startGeneration,
+  subscribeProgress, getProgressNote,
+  type SectionResult, type SectionState, type SectionErrorState,
+} from '../utils/geminiGenerationStore'
 
 const API_URL = (import.meta.env.VITE_API_URL ?? '') as string
 
@@ -90,14 +94,14 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
   const qc = useQueryClient()
   const [syncing, setSyncing] = React.useState(false)
 
-  type SectionResult = { text: string; sources: string[]; savedAt?: number; grounded?: boolean; model?: string; requestedLite?: boolean; streaming?: boolean }
-  type SectionState = 'idle' | 'loading' | { error: string } | SectionResult
   const [sectionStates, setSectionStates] = React.useState<Record<string, SectionState>>({})
   const [altStates,     setAltStates]     = React.useState<Record<string, SectionResult>>({})
   const [expandedSections, setExpandedSections] = React.useState<Record<string, boolean>>({})
   const [showUnavailable, setShowUnavailable] = React.useState<Record<string, boolean>>({})
   const [elapsed, setElapsed] = React.useState<Record<string, number>>({})
-  const timerRefs = React.useRef<Record<string, ReturnType<typeof setInterval>>>({})
+  const [progressNotes, setProgressNotes] = React.useState<Record<string, string>>({})
+  const sectionStatesRef = React.useRef(sectionStates)
+  sectionStatesRef.current = sectionStates
   const [showChat, setShowChat] = React.useState(false)
   const [chatInitialContext, setChatInitialContext] = React.useState<string>('all')
 
@@ -113,16 +117,33 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
     const initialAlt: Record<string, SectionResult> = {}
     const TTL = 7 * 24 * 3600 * 1000
     for (const s of SECTIONS) {
-      for (const [suffix, target] of [['', initial], [':alt', initialAlt]] as const) {
-        const key = `gemini:${yf_symbol}:${s.id}${suffix}`
-        const raw = idbGet<string>(key)
-        if (!raw) continue
+      // A generation already running (or just finished) in the module-level store wins over
+      // the IndexedDB snapshot — covers remounting mid-stream after navigating away and back,
+      // where the idb snapshot would only reflect the last *completed* chunk, not live progress.
+      const live = getGenerationState(yf_symbol, s.id)
+      if (live !== 'idle') {
+        initial[s.id] = live
+      } else {
+        const raw = idbGet<string>(`gemini:${yf_symbol}:${s.id}`)
+        if (raw) {
+          try {
+            const p = JSON.parse(raw)
+            if (p.savedAt && Date.now() - p.savedAt < TTL) {
+              initial[s.id] = { text: p.text, sources: p.sources, savedAt: p.savedAt, grounded: p.grounded, model: p.model, requestedLite: p.requestedLite }
+            } else {
+              idbDelete(`gemini:${yf_symbol}:${s.id}`)
+            }
+          } catch {}
+        }
+      }
+      const rawAlt = idbGet<string>(`gemini:${yf_symbol}:${s.id}:alt`)
+      if (rawAlt) {
         try {
-          const p = JSON.parse(raw)
+          const p = JSON.parse(rawAlt)
           if (p.savedAt && Date.now() - p.savedAt < TTL) {
-            (target as Record<string, SectionResult>)[s.id] = { text: p.text, sources: p.sources, savedAt: p.savedAt, grounded: p.grounded, model: p.model, requestedLite: p.requestedLite }
+            initialAlt[s.id] = { text: p.text, sources: p.sources, savedAt: p.savedAt, grounded: p.grounded, model: p.model, requestedLite: p.requestedLite }
           } else {
-            idbDelete(key)
+            idbDelete(`gemini:${yf_symbol}:${s.id}:alt`)
           }
         } catch {}
       }
@@ -131,13 +152,65 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
     setAltStates(Object.keys(initialAlt).length ? initialAlt : {})
     setExpandedSections({})
     setShowUnavailable({})
+    setProgressNotes(() => {
+      const notes: Record<string, string> = {}
+      for (const s of SECTIONS) {
+        const note = getProgressNote(yf_symbol, s.id)
+        if (note) notes[s.id] = note
+      }
+      return notes
+    })
+
+    // Subscribe to live updates for every section — keeps the UI in sync with a generation
+    // running in the store regardless of whether this component was mounted when it started.
+    const unsubs = SECTIONS.map(s =>
+      subscribeGeneration(yf_symbol, s.id, state => {
+        setSectionStates(prev => ({ ...prev, [s.id]: state }))
+        if (typeof state === 'object' && 'text' in state) {
+          if (state.streaming) {
+            setExpandedSections(prev => prev[s.id] ? prev : (() => {
+              const next: Record<string, boolean> = {}
+              for (const sec of SECTIONS) next[sec.id] = false
+              next[s.id] = true
+              return next
+            })())
+          } else {
+            setShowUnavailable(prev => ({ ...prev, [s.id]: false }))
+          }
+        }
+      })
+    )
+    const unsubsProgress = SECTIONS.map(s =>
+      subscribeProgress(yf_symbol, s.id, note => setProgressNotes(prev => ({ ...prev, [s.id]: note })))
+    )
+    return () => { unsubs.forEach(u => u()); unsubsProgress.forEach(u => u()) }
+  }, [yf_symbol])
+
+  // Ticks elapsed time for any section currently 'loading', sourced from the store's
+  // startedAt — accurate even if this component mounted after the generation began.
+  React.useEffect(() => {
+    const id = setInterval(() => {
+      setElapsed(prev => {
+        let changed = false
+        const next = { ...prev }
+        for (const s of SECTIONS) {
+          if (sectionStatesRef.current[s.id] === 'loading') {
+            const startedAt = getGenerationStartedAt(yf_symbol, s.id) ?? Date.now()
+            const val = Math.floor((Date.now() - startedAt) / 1000)
+            if (next[s.id] !== val) { next[s.id] = val; changed = true }
+          }
+        }
+        return changed ? next : prev
+      })
+    }, 1000)
+    return () => clearInterval(id)
   }, [yf_symbol])
 
   function handleAltSwap(sectionId: string) {
     const current = sectionStates[sectionId]
     if (typeof current !== 'object' || !('text' in current)) return
     const cur = current as SectionResult
-    const isFallback = cur.requestedLite === false && cur.model === 'gemini-3.1-flash-lite'
+    const isFallback = cur.requestedLite === false && cur.model === 'gemini-2.5-flash-lite'
     if (isFallback) {
       const isUnavailableNow = showUnavailable[sectionId] ?? false
       setShowUnavailable(prev => ({ ...prev, [sectionId]: !isUnavailableNow }))
@@ -159,69 +232,22 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
     safeLocalSet(`gemini:${yf_symbol}:${sectionId}:alt`, JSON.stringify(cur))
   }
 
-  async function handleGenerate(sectionId: string, force = false, forceLite?: boolean) {
+  function handleGenerate(sectionId: string, force = false, forceLite?: boolean, force31 = false) {
     const cur = sectionStates[sectionId]
     if (typeof cur === 'object' && cur !== null && 'text' in cur) {
       const toSave = { ...(cur as SectionResult), streaming: undefined }
       setAltStates(prev => ({ ...prev, [sectionId]: toSave }))
       safeLocalSet(`gemini:${yf_symbol}:${sectionId}:alt`, JSON.stringify(toSave))
     }
-    setSectionStates(prev => ({ ...prev, [sectionId]: 'loading' }))
     setElapsed(prev => ({ ...prev, [sectionId]: 0 }))
-    clearInterval(timerRefs.current[sectionId])
-    timerRefs.current[sectionId] = setInterval(() => {
-      setElapsed(prev => ({ ...prev, [sectionId]: (prev[sectionId] ?? 0) + 1 }))
-    }, 1000)
-
-    await new Promise(r => setTimeout(r, 50))
-
-    const effectiveLite = forceLite !== undefined ? forceLite : useLite
-    const effectiveForce31 = forceLite !== undefined ? false : use31
-    const symbol = yf_symbol.replace(/\.(NS|BO)$/i, '')
+    setProgressNotes(prev => { const next = { ...prev }; delete next[sectionId]; return next })
+    const effectiveLite = force31 ? false : (forceLite !== undefined ? forceLite : useLite)
+    const effectiveForce31 = force31 ? true : (forceLite !== undefined ? false : use31)
     const prompt = buildGeminiPrompt(displayName, sectionId, isIndian, yf_symbol, API_URL)
-    let accText = ''
-    let timerStopped = false
-    try {
-      for await (const chunk of streamGeminiSection(symbol, sectionId, prompt, force, effectiveLite, useKey, effectiveForce31)) {
-        if (chunk.error) {
-          clearInterval(timerRefs.current[sectionId])
-          if (chunk.error.startsWith('gemini25_')) {
-            setSectionStates(prev => ({ ...prev, [sectionId]: { error: chunk.error!, detail: (chunk as any).detail || '' } }))
-          } else {
-            setSectionStates(prev => ({ ...prev, [sectionId]: { error: chunk.error! } }))
-          }
-          return
-        }
-        if (chunk.text) {
-          accText += chunk.text
-          if (!timerStopped) {
-            timerStopped = true
-            clearInterval(timerRefs.current[sectionId])
-            setExpandedSections(() => {
-              const next: Record<string, boolean> = {}
-              for (const s of SECTIONS) next[s.id] = false
-              next[sectionId] = true
-              return next
-            })
-          }
-          setSectionStates(prev => ({
-            ...prev,
-            [sectionId]: { text: accText, sources: [], grounded: false, model: undefined, requestedLite: effectiveLite, streaming: true },
-          }))
-        }
-        if (chunk.done) {
-          const savedAt = Date.now()
-          const state: SectionResult = { text: accText, sources: chunk.sources ?? [], savedAt, grounded: chunk.grounded ?? false, model: chunk.model, requestedLite: effectiveLite }
-          setSectionStates(prev => ({ ...prev, [sectionId]: state }))
-          setShowUnavailable(prev => ({ ...prev, [sectionId]: false }))
-          safeLocalSet(`gemini:${yf_symbol}:${sectionId}`, JSON.stringify(state))
-        }
-      }
-    } catch (err) {
-      clearInterval(timerRefs.current[sectionId])
-      const msg = err instanceof Error ? err.message : 'Request failed'
-      setSectionStates(prev => ({ ...prev, [sectionId]: { error: msg } }))
-    }
+    // Runs in the module-level store, not component state — survives this component
+    // unmounting (page navigation, brief backgrounding); the subscription set up in the
+    // mount effect above mirrors its progress back into sectionStates as it streams.
+    startGeneration(yf_symbol, sectionId, prompt, force, effectiveLite, useKey, effectiveForce31)
   }
 
   async function handleSync(forceBackend = false) {
@@ -475,9 +501,10 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
         const state = sectionStates[section.id] ?? 'idle'
         const isDone = typeof state === 'object' && 'text' in state
         const isError = typeof state === 'object' && 'error' in state
-        const _errCode = isError ? (state as { error: string }).error : ''
-        const isGemini25Unavailable = _errCode.startsWith('gemini25_')
-        const gemini25Label = _errCode === 'gemini25_quota' ? 'Quota exceeded' : _errCode === 'gemini25_timeout' ? 'Timed out' : _errCode === 'gemini25_empty' ? 'Empty response' : _errCode === 'gemini25_overloaded' ? 'Model overloaded — try 3.1' : '2.5 Flash unavailable'
+        // "gemini_both_failed" means the automatic 2.5 Flash → 2.5 Flash Lite cascade is
+        // exhausted — offer the manual 3.1 Lite fallback. Any other error (config/network)
+        // just offers a plain retry of the same request.
+        const isBothFailed = isError && (state as SectionErrorState).error === 'gemini_both_failed'
         const isUnavailable = showUnavailable[section.id] ?? false
         const isExpanded = isDone && ((expandedSections[section.id] ?? false) || isUnavailable)
 
@@ -553,33 +580,33 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                     </button>
                   ) : (
                     <button
-                      onClick={() => isGemini25Unavailable
-                        ? handleGenerate(section.id, false, true)
+                      onClick={() => isBothFailed
+                        ? handleGenerate(section.id, false, undefined, true)
                         : handleGenerate(section.id)
                       }
                       className={`text-[10px] font-medium px-2.5 py-1 rounded-md border ${
-                        isGemini25Unavailable
+                        isBothFailed
                           ? 'bg-purple-50 text-purple-700 border-purple-300'
                           : isError
                             ? 'bg-red-100 text-red-700 border-red-300'
                             : section.color.btnOutline
                       }`}
                     >
-                      {isGemini25Unavailable ? 'Try 2.5 Lite' : isError ? 'Retry' : 'Research'}
+                      {isBothFailed ? 'Use 3.1 Lite' : isError ? 'Retry' : 'Research'}
                     </button>
                   )}
                 </div>
-                {isDone && (() => {
+                {isDone && !(state as SectionResult).streaming && (() => {
                   const s   = state as SectionResult
                   const alt = altStates[section.id]
-                  const fallback = s.requestedLite === false && s.model === 'gemini-3.1-flash-lite'
+                  const fallback = s.requestedLite === false && s.model === 'gemini-2.5-flash-lite'
                   return (
                     <span className="flex items-center gap-1 whitespace-nowrap leading-tight">
                       {(alt || fallback) && (
                         <button
                           onClick={e => { e.stopPropagation(); handleAltSwap(section.id) }}
                           className="text-[11px] text-sky-400 active:opacity-50 shrink-0 leading-none"
-                          title={isUnavailable ? 'Back to 3.1 Lite result' : (fallback ? 'View 2.5 Flash (unavailable)' : `Switch to ${fmtModelName(alt?.model)} · ${fmtSavedAt(alt?.savedAt)}`)}
+                          title={isUnavailable ? 'Back to 2.5 Lite result' : (fallback ? 'View 2.5 Flash (unavailable)' : `Switch to ${fmtModelName(alt?.model)} · ${fmtSavedAt(alt?.savedAt)}`)}
                         >⇄</button>
                       )}
                       <span className="text-[10px] text-right leading-tight">
@@ -593,13 +620,13 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                   )
                 })()}
                 {isError && (
-                  <div className="flex flex-col items-end gap-0.5 max-w-[140px]">
-                    <span className={`text-[10px] text-right leading-tight ${isGemini25Unavailable ? 'text-purple-400' : 'text-red-400'}`}>
-                      {isGemini25Unavailable ? gemini25Label : (state as { error: string }).error}
+                  <div className="flex flex-col items-end gap-0.5 max-w-[220px]">
+                    <span className={`text-[10px] text-right leading-snug ${isBothFailed ? 'text-purple-400' : 'text-red-400'}`}>
+                      {isBothFailed ? 'Gemini 2.5 Flash and 2.5 Flash Lite both failed' : (state as SectionErrorState).error}
                     </span>
-                    {isGemini25Unavailable && (state as any).detail && (
-                      <span className="text-[10px] text-slate-400 text-right leading-tight line-clamp-2">
-                        {(state as any).detail}
+                    {(state as SectionErrorState).detail && (
+                      <span className="text-[10px] text-slate-400 text-right leading-snug">
+                        {(state as SectionErrorState).detail}
                       </span>
                     )}
                   </div>
@@ -621,7 +648,7 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                   </span>
                 </div>
                 <div className="text-[10px] text-slate-400">
-                  {(() => {
+                  {progressNotes[section.id] ?? (() => {
                     const t = elapsed[section.id] ?? 0
                     if (t < 4)  return `Researching ${section.label.toLowerCase()}…`
                     if (t < 8)  return 'Sending prompt to Gemini 2.5 Flash…'
