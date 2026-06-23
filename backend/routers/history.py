@@ -215,7 +215,14 @@ def _fetch_incremental(yf_symbol: str, start: str, since: Optional[str] = None) 
         # only the trimmed recent window is kept resident afterward.
         fresh = _download(yf_symbol, needed_from)
         if fresh.get("error") or not fresh["dates"]:
-            return fresh if not cached else cached
+            if not cached:
+                return fresh
+            # `cached` is the resident window and (by definition of this branch) doesn't even
+            # reach back to `needed_from` — returning it bare would understate the caller's
+            # history further and, unflagged, get treated as a complete replacement. Flag it.
+            fallback = dict(cached)
+            fallback["partial_since"] = (since_dt or pd.Timestamp(cached["dates"][0])).strftime("%Y-%m-%d")
+            return fallback
         entry = {
             "dates": fresh["dates"], "prices": fresh["prices"],
             "fetched_at": time.time(), "last_bar_date": fresh["dates"][-1],
@@ -350,7 +357,14 @@ async def get_history(
         _covers(cached, needed_from)
         and not is_stale(yf_symbol, cached["fetched_at"], cached["last_bar_date"])
     ):
-        return JSONResponse(content=_slice_response(cached, start))
+        result = _slice_response(cached, start)
+        if since_dt is not None:
+            # `cached` is only the resident (possibly trimmed) window, not the caller's full
+            # multi-year local history — slicing it against `start` still only returns this
+            # short window. Returning it unflagged makes the caller replace its real cache
+            # with just this window. Flag it so the caller merges instead.
+            result["partial_since"] = since_dt.strftime("%Y-%m-%d")
+        return JSONResponse(content=result)
 
     try:
         async with _sem:
@@ -359,9 +373,14 @@ async def get_history(
             )
     except asyncio.TimeoutError:
         # Same as above — the thread isn't killed, it'll finish and cache in the background.
-        # Serve whatever we already had rather than hanging the request indefinitely.
+        # Serve whatever we already had rather than hanging the request indefinitely. `cached`
+        # is only the resident (possibly trimmed) window — same reasoning as the fast path
+        # above, this must be flagged partial so the caller merges instead of replacing its
+        # own full local cache with this short fallback window.
         if cached:
-            return JSONResponse(content=_slice_response(cached, start))
+            result = _slice_response(cached, start)
+            result["partial_since"] = (since_dt or pd.Timestamp(cached["dates"][0])).strftime("%Y-%m-%d")
+            return JSONResponse(content=result)
         return JSONResponse(content={"dates": [], "prices": [], "error": "timeout"})
     if "error" in entry:
         return JSONResponse(content=entry)
