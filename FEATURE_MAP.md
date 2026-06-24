@@ -7,7 +7,7 @@
 
 | Feature / Area | Frontend file(s) | Backend file(s) |
 |---|---|---|
-| **Deep Research cards** | `frontend/src/components/ReportTab.tsx` | `backend/routers/gemini.py` |
+| **Deep Research cards** | `frontend/src/components/ReportTab.tsx`, `frontend/src/utils/geminiGenerationStore.ts` (module-level generation state, survives unmount/navigation) | `backend/routers/gemini.py` (`/api/gemini/stream` — auto-fallback 2.5 Flash→2.5 Lite, manual-only 3.1) |
 | **AI Assistant chat** | `frontend/src/components/DeepResearchChat.tsx` | `backend/routers/gemini.py` |
 | **Quick Stats grid** | `frontend/src/components/ReportTab.tsx` | `backend/routers/quickstats.py` |
 | **Explore / Research page** | `frontend/src/pages/ResearchPage.tsx` | `backend/routers/quickstats.py`, `backend/routers/search.py` |
