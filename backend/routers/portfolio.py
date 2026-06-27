@@ -44,7 +44,8 @@ def get_portfolio(
         if cached and (now - cached[1]) < _MEM_TTL:
             return JSONResponse(content=cached[0])
 
-    bundle = build(currency=currency, force_refresh_prices=force_refresh)
+    demo_csv = Path("data/demo_msp_v2.csv").read_text(encoding="utf-8")
+    bundle = build(currency=currency, force_refresh_prices=force_refresh, csv_content=demo_csv)
     data = serialize_bundle(bundle)
     _mem_cache[cache_key] = (data, now)
 
@@ -92,5 +93,5 @@ def get_demo_csv():
         path=str(demo_path),
         media_type="text/csv",
         filename="demo_portfolio.csv",
-        headers={"Content-Disposition": "attachment; filename=demo_portfolio.csv"},
+        headers={"Content-Disposition": "attachment; filename=demo_portfolio.csv", "Cache-Control": "no-store"},
     )

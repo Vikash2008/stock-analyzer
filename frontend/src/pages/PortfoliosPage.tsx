@@ -978,7 +978,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                           <p className="text-[11px] text-slate-400 leading-tight mt-0.5">Sample portfolio · ~1 Cr · 32 stocks</p>
                         </div>
                         <button
-                          onClick={() => window.open(`${API_URL_SETTINGS}/api/demo-csv`, '_blank')}
+                          onClick={() => window.open(`${API_URL_SETTINGS}/api/demo-csv?t=${Date.now()}`, '_blank')}
                           title="Download demo CSV"
                           className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-slate-200 text-slate-600 active:bg-slate-300"
                         >
