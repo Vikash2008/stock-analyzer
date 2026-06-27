@@ -26,3 +26,4 @@ verify_*.png
 bench_*.png
 *.log
 debug_*.py
+frontend/_served.ts
