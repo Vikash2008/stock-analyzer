@@ -256,7 +256,7 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
       if (forceBackend) {
         await fetch(`${API_URL}/api/quickstats?yf_symbol=${encodeURIComponent(yf_symbol)}&force_refresh=true`)
       }
-      await qc.resetQueries({ queryKey: ['quickstats', yf_symbol] })
+      await qc.refetchQueries({ queryKey: ['quickstats', yf_symbol] })
     } finally {
       setSyncing(false)
     }
@@ -305,24 +305,6 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
           </div>
           <div className="px-3 py-3 space-y-3">
 
-          {/* Last synced + manual refresh — auto-refresh is 30 days now, so a manual pull
-              is the only way to get fresher fundamentals sooner than that */}
-          <div className="flex items-center justify-between -mt-1 -mb-1">
-            <span className="text-[9px] text-slate-400 whitespace-nowrap">
-              {(() => {
-                const ts = qc.getQueryState(['quickstats', yf_symbol])?.dataUpdatedAt
-                return ts ? `Updated ${fmtSavedAt(ts)}` : ''
-              })()}
-            </span>
-            <button
-              onClick={() => handleSync(true)}
-              disabled={syncing}
-              className="flex items-center gap-1 text-[9px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 active:bg-emerald-100 disabled:opacity-50"
-            >
-              <span className={`inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
-              <span>Refresh</span>
-            </button>
-          </div>
 
           {/* Fundamentals grid — 4 rows × 4 cols */}
           <div className="grid grid-cols-4 gap-1.5">
@@ -428,14 +410,20 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
       ) : (
         <div className="rounded-xl border border-emerald-200 bg-white p-4 flex flex-col items-center gap-2">
           <span className="text-[11px] text-slate-400">Stats unavailable for this symbol</span>
-          <button
-            onClick={() => handleSync(true)}
-            disabled={syncing}
-            className="flex items-center gap-1.5 text-[10px] font-medium text-sky-600 bg-sky-50 px-3 py-1.5 rounded-full border border-sky-100 active:bg-sky-100 disabled:opacity-50"
-          >
-            <span className={`inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
-            <span>Retry</span>
-          </button>
+          <div className="flex flex-col items-center gap-1">
+            <button
+              onClick={() => handleSync(true)}
+              disabled={syncing}
+              className="flex items-center gap-1.5 text-[10px] font-medium text-sky-600 bg-sky-50 px-3 py-1.5 rounded-full border border-sky-100 active:bg-sky-100 disabled:opacity-50"
+            >
+              <span className={`inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
+              <span>Retry</span>
+            </button>
+            {(() => {
+              const ts = qc.getQueryState(['quickstats', yf_symbol])?.dataUpdatedAt
+              return ts ? <span className="text-[9px] text-slate-400">{`Updated ${fmtSavedAt(ts)}`}</span> : null
+            })()}
+          </div>
         </div>
       ))}
 
