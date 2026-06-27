@@ -4,7 +4,7 @@ import type { DividendsData, DividendSymbol } from '../api/dividends'
 import { SKIP_PORTS } from '../utils/segments'
 import { idbGet, idbSet, idbDelete, idbKeys } from '../utils/idbStore'
 
-export const STALE_MS = 30 * 24 * 60 * 60 * 1000   // 30 days — matches backend disk cache TTL
+export const STALE_MS = 5 * 60 * 1000   // 5 min
 const LS_KEY   = (p: string) => p ? `dividends:cache:v2:${p}` : `dividends:cache:`
 
 function getCsvHash(): string {
