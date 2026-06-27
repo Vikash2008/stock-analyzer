@@ -208,7 +208,16 @@ def _compute(
     # applied below — a symbol still held in another portfolio isn't "closed" for caching.
     all_txns = txns
     if portfolio and "portfolio" in txns.columns:
-        txns = txns[txns["portfolio"] == portfolio].copy()
+        filtered = txns[txns["portfolio"] == portfolio].copy()
+        if filtered.empty and "tags" in txns.columns:
+            # Portfolio is a Label from "Copy Holdings" — the portfolio column still holds the
+            # broker name; the label lives as a tag value (e.g. "Asset Class=Stocks").
+            def _has_label(tag_str, label: str) -> bool:
+                if not tag_str or (isinstance(tag_str, float)):
+                    return False
+                return any(p.split("=", 1)[1] == label for p in str(tag_str).split(";") if "=" in p)
+            filtered = txns[txns["tags"].apply(lambda t: _has_label(t, portfolio))].copy()
+        txns = filtered
 
     sym_meta: dict[str, dict] = (
         txns[txns["type"] == "BUY"]

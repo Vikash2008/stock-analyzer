@@ -155,19 +155,19 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
         className="fixed inset-x-3 z-[201] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-emerald-100"
         style={{ top: '5dvh', maxHeight: '90dvh', maxWidth: 460, margin: '0 auto' }}
       >
-        <div className="bg-gradient-to-r from-emerald-600 to-teal-500 px-4 py-3 flex items-center justify-between shrink-0">
-          <span className="text-sm font-semibold text-white tracking-tight">Manage Buckets</span>
+        <div className="bg-gradient-to-r from-emerald-600 to-teal-500 px-4 py-2 flex items-center justify-between shrink-0">
+          <span className="text-[13px] font-semibold text-white tracking-tight">Manage Buckets</span>
           <button onClick={onClose} className="text-emerald-200 active:text-white text-xl leading-none">×</button>
         </div>
 
-        <div className="flex-1 overflow-y-auto bg-white px-4 py-4 space-y-3">
+        <div className="flex-1 overflow-y-auto bg-white px-3 py-2.5 space-y-2">
 
           {/* Buckets + Labels */}
-          <p className="text-[10px] text-emerald-700 font-semibold uppercase tracking-widest">Buckets</p>
+          <p className="text-[9px] text-emerald-700 font-semibold uppercase tracking-widest">Buckets</p>
           {buckets.map(b => (
-            <div key={b.name} className="bg-emerald-50 rounded-xl border border-emerald-100 p-3 space-y-2">
+            <div key={b.name} className="bg-emerald-50 rounded-xl border border-emerald-100 p-2 space-y-1.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-bold text-slate-800">{b.name}</span>
+                <span className="text-[12px] font-bold text-slate-800">{b.name}</span>
                 <div className="flex items-center gap-2 shrink-0">
                   {b.name !== 'Asset Class' && (
                     <>
@@ -175,14 +175,14 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
                         role="switch"
                         aria-checked={b.showToggle}
                         onClick={() => { setBucketToggle(b.name, !b.showToggle); refreshBuckets() }}
-                        className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${b.showToggle ? 'bg-teal-500' : 'bg-slate-300'}`}
+                        className={`relative w-8 h-4 rounded-full transition-colors duration-200 ${b.showToggle ? 'bg-teal-500' : 'bg-slate-300'}`}
                       >
-                        <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${b.showToggle ? 'translate-x-4' : 'translate-x-0'}`} />
+                        <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform duration-200 ${b.showToggle ? 'translate-x-4' : 'translate-x-0'}`} />
                       </button>
                       <button
                         onClick={() => handleDeleteBucket(b.name)}
                         disabled={isPending}
-                        className="text-[11px] text-red-500 active:text-red-700 disabled:opacity-50"
+                        className="text-[10px] text-red-500 active:text-red-700 disabled:opacity-50"
                         title="Delete bucket"
                       >
                         Delete
@@ -191,19 +191,19 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
                   )}
                 </div>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {getAllLabelsInBucket(data, b.name).map(l => {
                   const isDragging = drag?.bucket === b.name && drag.label === l
                   return (
                   <div
                     key={l}
                     ref={el => { if (el) rowRefs.current.set(`${b.name}:${l}`, el); else rowRefs.current.delete(`${b.name}:${l}`) }}
-                    className={`flex items-center gap-1.5 bg-white border rounded-lg px-2 py-1 ${isDragging ? 'border-emerald-400 shadow-lg relative z-50' : 'border-emerald-200'}`}
+                    className={`flex items-center gap-1 bg-white border rounded-lg px-1.5 py-0.5 ${isDragging ? 'border-emerald-400 shadow-lg relative z-50' : 'border-emerald-200'}`}
                     style={isDragging ? { transform: `translateY(${drag.y - drag.startY}px)`, touchAction: 'none' } : undefined}
                   >
                     <button
                       onPointerDown={e => handleDragPointerDown(b.name, l, e)}
-                      className="text-slate-400 active:text-emerald-600 leading-none shrink-0 w-11 h-11 flex items-center justify-center text-[14px] cursor-grab active:cursor-grabbing"
+                      className="text-slate-400 active:text-emerald-600 leading-none shrink-0 w-7 h-7 flex items-center justify-center text-[12px] cursor-grab active:cursor-grabbing"
                       style={{ touchAction: 'none' }}
                       title="Drag to reorder"
                     >
@@ -213,7 +213,7 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
                     <button
                       onClick={() => handleDeleteLabel(b.name, l)}
                       disabled={isPending}
-                      className="text-red-400 active:text-red-600 leading-none disabled:opacity-50 shrink-0 px-1"
+                      className="text-red-400 active:text-red-600 leading-none disabled:opacity-50 shrink-0 w-6 h-6 flex items-center justify-center"
                       title="Delete label"
                     >
                       ×
@@ -222,28 +222,28 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
                   )
                 })}
               </div>
-              <div className="flex gap-1.5">
+              <div className="flex gap-1">
                 <input
                   value={newLabelByBucket[b.name] ?? ''}
                   onChange={e => setNewLabelByBucket(prev => ({ ...prev, [b.name]: e.target.value }))}
                   onKeyDown={e => { if (e.key === 'Enter') handleAddLabel(b.name) }}
                   placeholder="+ Add label"
-                  className="flex-1 px-2 py-1.5 text-[11px] border border-emerald-200 rounded-lg bg-white focus:outline-none focus:border-teal-400"
+                  className="flex-1 px-2 py-1 text-[11px] border border-emerald-200 rounded-lg bg-white focus:outline-none focus:border-teal-400"
                 />
-                <button onClick={() => handleAddLabel(b.name)} className="px-3 py-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-100 rounded-lg active:bg-emerald-200">Add</button>
+                <button onClick={() => handleAddLabel(b.name)} className="px-2.5 py-1 text-[11px] font-semibold text-emerald-700 bg-emerald-100 rounded-lg active:bg-emerald-200">Add</button>
               </div>
             </div>
           ))}
 
-          <div className="flex gap-1.5">
+          <div className="flex gap-1">
             <input
               value={newBucketName}
               onChange={e => setNewBucketName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleNewBucket() }}
               placeholder="+ New bucket (e.g. Risk, Region)"
-              className="flex-1 px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:border-teal-400"
+              className="flex-1 px-2 py-1 text-[11px] border border-emerald-200 rounded-lg bg-white focus:outline-none focus:border-teal-400"
             />
-            <button onClick={handleNewBucket} className="px-3 py-2 text-[12px] font-semibold text-white bg-emerald-500 rounded-lg active:bg-emerald-600">Create</button>
+            <button onClick={handleNewBucket} className="px-2.5 py-1 text-[11px] font-semibold text-white bg-emerald-500 rounded-lg active:bg-emerald-600">Create</button>
           </div>
         </div>
       </div>

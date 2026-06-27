@@ -172,7 +172,7 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
   const isUsdPort = portfolio ? USD_PORTS.has(portfolio) : false
   const summaryCur: Currency = isUsdPort && currency === 'USD' ? 'USD' : 'INR'
   const summaryFx = summaryCur === 'USD' ? 1 / (usdInr ?? 95.5) : 1
-  const { data, isLoading, isError } = useDividends(portfolio)
+  const { data, isLoading, isError, isFetching } = useDividends(portfolio)
   const forceRefresh = useForceRefreshDividends(portfolio)
   const [retrying, setRetrying] = useState(false)
   const [retryFailed, setRetryFailed] = useState(false)
@@ -293,6 +293,14 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
 
   return (
     <div className="pt-2">
+      {isFetching && (
+        <>
+          <style>{`@keyframes div-progress{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}`}</style>
+          <div className="h-0.5 bg-teal-50 rounded-full overflow-hidden mb-2">
+            <div className="h-full w-2/5 bg-teal-500 rounded-full" style={{ animation: 'div-progress 1.2s ease-in-out infinite' }} />
+          </div>
+        </>
+      )}
       {/* Summary strip */}
       <div className="grid grid-cols-2 gap-2 mb-3">
         <div className="bg-teal-50 border border-teal-100 rounded-xl p-3">
