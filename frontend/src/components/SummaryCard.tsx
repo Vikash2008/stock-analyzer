@@ -87,18 +87,16 @@ export function SummaryCard({
               </span>
             </span>
           </div>
-          {fxAmt > 0 && (
-            <div className="flex justify-start mt-0.5">
+          {(fxAmt > 0 || divAmt > 0) && (
+            <div className="flex justify-between items-center mt-0.5">
               <span className="text-[10px] text-teal-600">
-                FX gains <span className="font-semibold">+{fmtCompactGainLine(fxAmt, null, currency)}</span>
+                {fxAmt > 0 && <>FX gains <span className="font-semibold">+{fmtCompactGainLine(fxAmt, null, currency)}</span></>}
               </span>
-            </div>
-          )}
-          {divAmt > 0 && (
-            <div className="flex justify-end items-center gap-1.5 mt-0.5">
               <span className="flex items-center gap-1">
-                <span className="text-[10px] text-slate-400">· DIV</span>
-                <span className="text-[10px] text-teal-600 font-semibold">{fmtCompactGainLine(divAmt, null, currency)}</span>
+                {divAmt > 0 && <>
+                  <span className="text-[10px] text-slate-400">· DIV</span>
+                  <span className="text-[10px] text-teal-600 font-semibold">{fmtCompactGainLine(divAmt, null, currency)}</span>
+                </>}
               </span>
             </div>
           )}

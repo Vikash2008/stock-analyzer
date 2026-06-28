@@ -934,6 +934,9 @@ export default function HoldingsPage({ currency }: Props) {
 
   const filteredSummaryXirr = useMemo(() => {
     if (!data) return null
+    // For the default all-holdings view without adjustments, the backend value is correct
+    // and avoids closed-position bleed from other portfolios in the frontend recomputation.
+    if (holdingFilter === 'all' && !includeDivs && !includeFxGains) return summaryXirr
     const targetRows =
       holdingFilter === 'closed' ? closedRows :
       holdingFilter === 'open'   ? rows :
@@ -966,7 +969,7 @@ export default function HoldingsPage({ currency }: Props) {
     }
     const r = computeXIRR(cfs)
     return r !== null ? r * 100 : null
-  }, [holdingFilter, data, closedRows, rows, filtPorts, segment, viewMode, currency, includeDivs, divData, includeFxGains])
+  }, [holdingFilter, data, closedRows, rows, filtPorts, segment, viewMode, currency, includeDivs, divData, includeFxGains, summaryXirr])
 
 
   // ── Returns tab: per-sector daily value series ──────────────────────────────
