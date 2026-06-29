@@ -2487,7 +2487,7 @@ export default function HoldingsPage({ currency }: Props) {
 
       {/* ── Dividends tab ── */}
       {activeTab === 'dividends' && (
-        <DividendsTab key={`${portfolio ?? ''}:${segment ?? ''}`} currency={currency} portfolio={portfolio} filterSymbols={filteredDivSymbols} usdInr={data?.usd_inr ?? 95.5} />
+        <DividendsTab key={`${portfolio ?? ''}:${segment ?? ''}`} currency={currency} portfolio={portfolio} filterSymbols={filteredDivSymbols} usdInr={data?.usd_inr ?? 95.5} yf_symbols={portfolio ? filteredHoldings.map((h: Holding) => h.yf_symbol) : allSymbols} />
       )}
       {activeTab === 'fx' && (
         <FxGainsTab fxLots={filteredFxLots} usdInr={data.usd_inr} currency={currency} asOf={data.as_of} />

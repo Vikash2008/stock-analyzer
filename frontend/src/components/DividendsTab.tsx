@@ -2,13 +2,13 @@ import React, { useState, useMemo } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts'
-import { useDividends, useForceRefreshDividends } from '../hooks/useDividends'
+import { useDividendsBatched, useForceRefreshDividends } from '../hooks/useDividends'
 import type { DividendSymbol } from '../api/dividends'
 import { fmtCompact, fmt } from '../utils/fmt'
 import type { Currency } from '../App'
 import { USD_PORTS } from '../utils/segments'
 
-interface Props { currency: Currency; filterSymbols?: Set<string>; portfolio?: string; usdInr?: number }
+interface Props { currency: Currency; filterSymbols?: Set<string>; portfolio?: string; usdInr?: number; yf_symbols?: string[] }
 
 const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -168,19 +168,19 @@ function SymbolRow({ sym, currency, usdInr }: { sym: DividendSymbol; currency: C
   )
 }
 
-export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Props) {
+export function DividendsTab({ currency, filterSymbols, portfolio, usdInr, yf_symbols = [] }: Props) {
   const isUsdPort = portfolio ? USD_PORTS.has(portfolio) : false
   const summaryCur: Currency = isUsdPort && currency === 'USD' ? 'USD' : 'INR'
   const summaryFx = summaryCur === 'USD' ? 1 / (usdInr ?? 95.5) : 1
-  const { data, isLoading, isError, isFetching } = useDividends(portfolio)
-  const forceRefresh = useForceRefreshDividends(portfolio)
+  const { data, isLoading, isError, isFetching, loadedCount, totalCount, forceRefresh: batchedRefresh } = useDividendsBatched(portfolio, yf_symbols)
+  const legacyRefresh = useForceRefreshDividends(portfolio)
   const [retrying, setRetrying] = useState(false)
   const [retryFailed, setRetryFailed] = useState(false)
 
   const handleRetry = () => {
     setRetrying(true)
     setRetryFailed(false)
-    forceRefresh()
+    ;(yf_symbols.length ? Promise.resolve(batchedRefresh()) : legacyRefresh())
       .catch(() => setRetryFailed(true))
       .finally(() => setRetrying(false))
   }
@@ -269,10 +269,25 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
   // Early returns AFTER all hooks
   if (isLoading) {
     return (
-      <div className="pt-4 text-center">
-        <div className="animate-spin w-5 h-5 border-2 border-teal-300 border-t-teal-600 rounded-full mx-auto mb-2" />
-        <p className="text-[11px] text-slate-400">Fetching dividend history…</p>
-        <p className="text-[10px] text-slate-300 mt-1">First load may take ~30s</p>
+      <div className="pt-4 px-1">
+        {totalCount > 0 ? (
+          <>
+            <div className="h-1 bg-slate-100 rounded-full overflow-hidden mb-2">
+              <div
+                className="h-full bg-teal-500 rounded-full transition-all duration-300"
+                style={{ width: `${Math.round((loadedCount / totalCount) * 100)}%` }}
+              />
+            </div>
+            <p className="text-[11px] text-slate-400 text-center">
+              Fetching dividends… {loadedCount} / {totalCount}
+            </p>
+          </>
+        ) : (
+          <div className="text-center">
+            <div className="animate-spin w-5 h-5 border-2 border-teal-300 border-t-teal-600 rounded-full mx-auto mb-2" />
+            <p className="text-[11px] text-slate-400">Fetching dividend history…</p>
+          </div>
+        )}
       </div>
     )
   }
@@ -295,9 +310,12 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr }: Pro
     <div className="pt-2">
       {isFetching && (
         <>
-          <style>{`@keyframes div-progress{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}`}</style>
-          <div className="h-0.5 bg-teal-50 rounded-full overflow-hidden mb-2">
-            <div className="h-full w-2/5 bg-teal-500 rounded-full" style={{ animation: 'div-progress 1.2s ease-in-out infinite' }} />
+          {totalCount === 0 && <style>{`@keyframes div-progress{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}`}</style>}
+          <div className="h-1 bg-teal-50 rounded-full overflow-hidden mb-2">
+            {totalCount > 0
+              ? <div className="h-full bg-teal-500 rounded-full transition-all duration-300" style={{ width: `${Math.round((loadedCount / totalCount) * 100)}%` }} />
+              : <div className="h-full w-2/5 bg-teal-500 rounded-full" style={{ animation: 'div-progress 1.2s ease-in-out infinite' }} />
+            }
           </div>
         </>
       )}

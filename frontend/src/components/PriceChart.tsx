@@ -237,9 +237,9 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
           </div>
           <div className="flex items-center gap-2">
             {isBgFetch && (
-              <span className="flex items-center gap-1 text-[9px] text-slate-400">
-                <span className="inline-block animate-spin leading-none text-[9px]">↻</span>
-                Refreshing…
+              <span className="flex items-center gap-1 text-xs text-slate-500">
+                <span className="inline-block animate-spin leading-none">↻</span>
+                Fetching more data…
               </span>
             )}
             {showZoom && (

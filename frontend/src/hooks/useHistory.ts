@@ -110,12 +110,12 @@ export function usePrefetchHoldingCharts(yf_symbols: string[]) {
   useEffect(() => {
     if (!yf_symbols.length) return
     let cancelled = false
-    const BATCH = 20  // firing all ~150-200 requests at once piles up pending connections on
-                       // the backend during a cold-cache burst; the backend's own concurrency
-                       // limit already gates real throughput, so batching here just avoids
-                       // having that many requests in flight simultaneously, with no added delay.
+    const BATCH = 5   // keep concurrent backend downloads low to avoid memory spikes on Render
+    const DELAY = 300 // ms between batches — lets malloc_trim settle before next burst
     async function run() {
       for (let i = 0; i < yf_symbols.length; i += BATCH) {
+        if (cancelled) return
+        if (i > 0) await new Promise(r => setTimeout(r, DELAY))
         if (cancelled) return
         const batch = yf_symbols.slice(i, i + BATCH)
         await Promise.allSettled(batch.map(sym => qc.prefetchQuery({

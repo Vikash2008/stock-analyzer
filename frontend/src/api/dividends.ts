@@ -44,13 +44,15 @@ export interface DividendsData {
 }
 
 export async function fetchDividends(
-  forceRefresh = false, portfolio?: string, csvHash?: string, sinceHints?: Record<string, string>,
+  forceRefresh = false, portfolio?: string, csvHash?: string,
+  sinceHints?: Record<string, string>, symbols?: string[],
 ): Promise<DividendsData> {
   const params = new URLSearchParams()
   if (forceRefresh) params.set('force_refresh', 'true')
   if (portfolio) params.set('portfolio', portfolio)
   params.set('csv_hash', csvHash ?? 'demo')
   if (sinceHints && Object.keys(sinceHints).length) params.set('since_hints', JSON.stringify(sinceHints))
+  if (symbols?.length) params.set('symbols', symbols.join(','))
   const url = `${BASE}/dividends?${params}`
   const res = await fetch(url)
   if (!res.ok) {

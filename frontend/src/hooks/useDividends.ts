@@ -1,6 +1,7 @@
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { fetchDividends } from '../api/dividends'
-import type { DividendsData, DividendSymbol } from '../api/dividends'
+import type { DividendsData, DividendSymbol, DividendTimelineEntry } from '../api/dividends'
 import { SKIP_PORTS } from '../utils/segments'
 import { idbGet, idbSet, idbDelete, idbKeys } from '../utils/idbStore'
 
@@ -134,6 +135,116 @@ export function useDividendForSymbol(symbol: string): DividendSymbol | undefined
   const qc = useQueryClient()
   const data = qc.getQueryData<DividendsData>(['dividends', ''])
   return data?.by_symbol.find(s => s.symbol === symbol)
+}
+
+// ── Batched fetch hook ────────────────────────────────────────────────────────
+
+type MergedAcc = {
+  by_symbol: DividendSymbol[]
+  by_year: Record<string, number>
+  by_month: Record<string, number>
+  timeline: DividendTimelineEntry[]
+  total: number; count: number; proj: number; skipped: string[]
+}
+
+function _emptyAcc(): MergedAcc {
+  return { by_symbol: [], by_year: {}, by_month: {}, timeline: [], total: 0, count: 0, proj: 0, skipped: [] }
+}
+
+function _mergeInto(acc: MergedAcc, r: DividendsData): void {
+  acc.by_symbol.push(...r.by_symbol)
+  for (const [k, v] of Object.entries(r.by_year))  acc.by_year[k]  = (acc.by_year[k]  ?? 0) + v
+  for (const [k, v] of Object.entries(r.by_month)) acc.by_month[k] = (acc.by_month[k] ?? 0) + v
+  acc.timeline.push(...r.timeline)
+  acc.total += r.summary.total_dividends_inr
+  acc.count += r.summary.dividend_count
+  acc.proj  += r.summary.projected_annual_inr
+  acc.skipped.push(...(r.skipped_symbols ?? []))
+}
+
+function _finalize(acc: MergedAcc): DividendsData {
+  acc.by_symbol.sort((a, b) => b.total_dividends - a.total_dividends)
+  acc.timeline.sort((a, b) => b.date.localeCompare(a.date))
+  return {
+    summary: { total_dividends_inr: acc.total, dividend_count: acc.count,
+               symbols_with_dividends: acc.by_symbol.length, projected_annual_inr: acc.proj },
+    by_symbol: acc.by_symbol, by_year: acc.by_year, by_month: acc.by_month,
+    timeline: acc.timeline, skipped_symbols: acc.skipped,
+  }
+}
+
+/**
+ * Fetches dividends in batches of 10 symbols per backend call.
+ * Tracks progress (loadedCount / totalCount) for the loading bar.
+ * Writes final result to idb + React Query cache when complete.
+ */
+export function useDividendsBatched(portfolio: string | undefined, yf_symbols: string[]) {
+  const qc  = useQueryClient()
+  const key = portfolio ?? ''
+  const lsk = LS_KEY(key)
+  const BATCH = 10
+
+  const [data, setData]             = useState<DividendsData | null>(
+    () => idbGet<{ data: DividendsData; ts: number }>(lsk)?.data ?? null
+  )
+  const [isLoading,   setIsLoading]   = useState(false)
+  const [isFetching,  setIsFetching]  = useState(false)
+  const [isError,     setIsError]     = useState(false)
+  const [loadedCount, setLoadedCount] = useState(0)
+  const [totalCount,  setTotalCount]  = useState(0)
+  const cancelRef = useRef(false)
+
+  const symbolsKey = yf_symbols.slice().sort().join(',')
+
+  const runBatch = async (force: boolean, syms: string[]) => {
+    if (!syms.length) return
+    cancelRef.current = false
+    const hasData = !!idbGet<{ data: DividendsData; ts: number }>(lsk)?.data
+    setTotalCount(syms.length)
+    setLoadedCount(0)
+    setIsLoading(!hasData)
+    setIsFetching(true)
+    setIsError(false)
+
+    const hints   = getSinceHints()
+    const csvHash = getCsvHash()
+    const acc     = _emptyAcc()
+
+    for (let i = 0; i < syms.length; i += BATCH) {
+      if (cancelRef.current) return
+      try {
+        const result = await fetchDividends(force, portfolio, csvHash, hints, syms.slice(i, i + BATCH))
+        _mergeInto(acc, result)
+      } catch { /* skip failed batch */ }
+      setLoadedCount(Math.min(i + BATCH, syms.length))
+    }
+
+    if (cancelRef.current) return
+    const final = _finalize(acc)
+    setData(final)
+    lsSet(lsk, final)
+    qc.setQueryData(['dividends', key], final)
+    setIsLoading(false)
+    setIsFetching(false)
+  }
+
+  useEffect(() => {
+    if (!yf_symbols.length) return
+    const entry = idbGet<{ data: DividendsData; ts: number }>(lsk)
+    const age   = entry?.ts ? Date.now() - entry.ts : Infinity
+    if (entry?.data && age < STALE_MS) return  // fresh cache — skip fetch
+
+    runBatch(false, yf_symbols).catch(() => {
+      if (!cancelRef.current) { setIsError(true); setIsLoading(false); setIsFetching(false) }
+    })
+    return () => { cancelRef.current = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbolsKey, portfolio])
+
+  const forceRefresh = () =>
+    runBatch(true, yf_symbols).catch(() => { setIsError(true); setIsLoading(false); setIsFetching(false) })
+
+  return { data, isLoading, isFetching, isError, loadedCount, totalCount, forceRefresh }
 }
 
 /** Wipe all dividend cache entries (call after CSV upload to force fresh fetch). */

@@ -198,6 +198,7 @@ def _current_shares(txns: pd.DataFrame, yf_symbol: str) -> float:
 def _compute(
     txns: pd.DataFrame, usd_inr: float, portfolio: str | None = None, force: bool = False,
     since_hints: dict[str, str] | None = None,
+    symbols_filter: set[str] | None = None,
 ) -> dict:
     since_hints = since_hints or {}
     if "portfolio" in txns.columns:
@@ -243,6 +244,8 @@ def _compute(
     # request hanging on it. The executor is shut down without waiting so a still-running
     # symbol fetch finishes in the background and caches itself for next time regardless.
     sym_keys = list(sym_meta.keys())
+    if symbols_filter:
+        sym_keys = [s for s in sym_keys if s in symbols_filter]
     closed_map = {s: _current_shares(all_txns, s) <= 0 for s in sym_keys}
     # Pre-seed with whatever's already cached (cheap, no network) so a symbol whose fetch
     # doesn't finish within the batch budget falls back to last-known-good data instead of
@@ -408,11 +411,14 @@ def get_dividends(
     since_hints: str = Query(None, description="JSON map of yf_symbol -> caller's last-known "
                                                   "ex-date, used when this backend's own disk "
                                                   "cache is empty (e.g. just redeployed)"),
+    symbols: str = Query(None, description="Comma-separated yf_symbols to process; "
+                                           "skips in-memory cache (partial/batched request)"),
 ):
+    symbols_set = set(symbols.split(',')) if symbols else None
     cache_key = f"dividends:{csv_hash}:{portfolio or ''}"
     now       = time.monotonic()
 
-    if not force_refresh:
+    if not force_refresh and not symbols_set:
         cached = _mem.get(cache_key)
         if cached and (now - cached[1]) < _CACHE_TTL:
             return JSONResponse(content=cached[0])
@@ -432,13 +438,10 @@ def get_dividends(
             content={"error": "Portfolio not in cache. Please re-import your CSV first."},
         )
     usd_inr = get_usd_inr_rate()
-    result  = _compute(txns, usd_inr, portfolio=portfolio, force=force_refresh, since_hints=hints)
+    result  = _compute(txns, usd_inr, portfolio=portfolio, force=force_refresh, since_hints=hints,
+                       symbols_filter=symbols_set)
 
-    # Don't lock in an incomplete result for the full 24h — skipped_symbols means some
-    # symbols' fetches didn't finish within the batch budget (typically a cold disk cache,
-    # e.g. right after a deploy), so this response under/over-counts. The background fetches
-    # keep running and will have finished by the next request; caching this one would otherwise
-    # serve the wrong numbers for a full day until force_refresh bypassed it.
-    if not result["skipped_symbols"]:
+    # Only cache full (non-batched) results with no skipped symbols.
+    if not symbols_set and not result["skipped_symbols"]:
         _mem[cache_key] = (result, now)
     return JSONResponse(content=result)
