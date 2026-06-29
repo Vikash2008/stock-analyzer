@@ -21,13 +21,20 @@ function openDb(): Promise<IDBDatabase> {
     const req = indexedDB.open(DB_NAME, DB_VERSION)
     req.onupgradeneeded = () => { req.result.createObjectStore(STORE) }
     req.onsuccess = () => resolve(req.result)
-    req.onerror = () => reject(req.error)
+    req.onerror   = () => reject(req.error)
+    // onblocked fires when another connection at the same version is still open
+    // (can happen right after a storage-clear on Android). Treat as failure so
+    // the app boots with an empty in-memory cache rather than hanging forever.
+    req.onblocked = () => reject(new Error('idb blocked'))
   })
 }
 
 export const idbReady: Promise<void> = (async () => {
   try {
-    _db = await openDb()
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('idb timeout')), 3000),
+    )
+    _db = await Promise.race([openDb(), timeout])
     const entries = await new Promise<[string, unknown][]>((resolve, reject) => {
       const tx = _db!.transaction(STORE, 'readonly')
       const store = tx.objectStore(STORE)
