@@ -25,7 +25,8 @@ from backend.routers.filing      import router as filing_router
 from backend.routers.gemini      import router as gemini_router
 from backend.routers.search      import router as search_router
 from backend.routers.dividends   import router as dividends_router
-from backend.routers.add_txn     import router as add_txn_router
+from backend.routers.add_txn           import router as add_txn_router
+from backend.routers.portfolio_history import router as portfolio_history_router
 
 _ORIGINS = [
     "http://localhost:3000",
@@ -53,6 +54,7 @@ app.include_router(gemini_router)
 app.include_router(search_router)
 app.include_router(dividends_router)
 app.include_router(add_txn_router)
+app.include_router(portfolio_history_router)
 
 @app.api_route("/health", methods=["GET", "HEAD"])
 def health():

@@ -17,6 +17,7 @@ import { usePortfolio } from '../hooks/usePortfolio'
 import { logDebug } from '../utils/debugLog'
 import { useQueryClient } from '@tanstack/react-query'
 import { usePortfolioHistory, sliceSeries } from '../hooks/usePortfolioHistory'
+import { useBackendPortfolioHistory } from '../hooks/useBackendPortfolioHistory'
 import { usePrefetchHoldingCharts, REFRESH_MS } from '../hooks/useHistory'
 import { idbFlush } from '../utils/idbStore'
 import type { DatedSeries, PortfolioSeries } from '../hooks/usePortfolioHistory'
@@ -712,7 +713,7 @@ export default function HoldingsPage({ currency }: Props) {
   }, [data, filtPorts, segment, bucket, label, portfolio, quoteTypeBySymbol])
 
   // Placed before useBenchmarkXirr so symbolPriceMap is available for period XIRR opening balance
-  const { series: portSeries, isLoading: histLoading, isFetching: histIsFetching, loadedCount, totalCount, fetchingCount: histFetchingCount, symbolPriceMap, lastFetchedAt: histLastFetchedAt } = usePortfolioHistory(
+  const { isLoading: histLoading, isFetching: histIsFetching, loadedCount, totalCount, fetchingCount: histFetchingCount, symbolPriceMap, lastFetchedAt: histLastFetchedAt } = usePortfolioHistory(
     filteredHoldings,
     filtTxns,
     filtRealized,
@@ -721,6 +722,10 @@ export default function HoldingsPage({ currency }: Props) {
     !!data,
     closedYfSymbolsArr,
     closedYfSymbolsArr,
+  )
+
+  const { data: portSeries, isLoading: chartLoading } = useBackendPortfolioHistory(
+    currency, portfolio, segment, !!data,
   )
 
   // Stop sync spinner once all history queries have finished refetching AND those results
@@ -1678,7 +1683,7 @@ export default function HoldingsPage({ currency }: Props) {
             </div>
           )}
 
-          {!portSeries && !histLoading && (
+          {!portSeries && !chartLoading && (
             <div className="text-center py-10 text-slate-400 text-xs">
               No price history available.
             </div>
@@ -2058,7 +2063,7 @@ export default function HoldingsPage({ currency }: Props) {
 
           {analysisSubTab === 'returns' && (
             <div>
-              {!portSeries && histLoading ? (
+              {!portSeries && chartLoading ? (
                 <p className="text-center text-[11px] text-slate-400 py-6">Loading price history…</p>
               ) : periodData.length === 0 ? (
                 <p className="text-center text-[11px] text-slate-400 py-6">No data for this selection.</p>

@@ -7,8 +7,8 @@ import { computeXIRR } from '../utils/xirr'
 import { lsGet, lsSet, lsGetTimestamp, mergeHistory, detectDrift, guardFullResponse, fetchHistory, CLOSED_LS_TTL, REFRESH_MS } from './useHistory'
 import { logDebug } from '../utils/debugLog'
 
-// Same key format as useHistory.ts/usePrefetchHoldingCharts — one shared cache per symbol.
-const lsKey = (sym: string) => `${sym}:2015-01-01`
+// Separate 3-year key — isolates symbolPriceMap cache from the full-history chart cache in useHistory.ts.
+const lsKey = (sym: string) => `${sym}:3y`
 
 async function fetchSymHistory(sym: string, start: string) {
   const existing = lsGet(lsKey(sym))
@@ -80,7 +80,7 @@ export function usePortfolioHistory(
       const isClosed = closedSet.has(sym)
       return {
         queryKey:  isClosed ? ['history-closed', sym] : ['history', sym],
-        queryFn:   () => fetchSymHistory(sym, '2015-01-01'),
+        queryFn:   () => fetchSymHistory(sym, '2022-01-01'),
         // Closed symbols: skip the network entirely once a still-fresh (<30 day) cache exists.
         enabled:   enabled && (!isClosed || !lsGet(lsKey(sym), CLOSED_LS_TTL)),
         staleTime:    isClosed ? CLOSED_LS_TTL : REFRESH_MS,

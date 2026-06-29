@@ -46,7 +46,7 @@ try:
 except OSError:
     _libc = None  # not Linux (e.g. local Windows dev) — no-op
 
-_TRIM_DEBOUNCE = 30.0
+_TRIM_DEBOUNCE = 5.0
 _last_trim = 0.0
 
 
