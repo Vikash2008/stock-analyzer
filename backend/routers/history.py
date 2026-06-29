@@ -50,6 +50,18 @@ _TRIM_DEBOUNCE = 5.0
 _last_trim = 0.0
 
 
+def _direct_trim() -> None:
+    """Called immediately after each per-symbol _download(). Not debounced — each
+    download frees one large DataFrame and we want those pages back to the OS
+    before the next symbol starts, not held across the whole burst."""
+    gc.collect()
+    if _libc is not None:
+        try:
+            _libc.malloc_trim(0)
+        except Exception:
+            pass
+
+
 def _trim_memory() -> None:
     global _last_trim
     now = time.time()
@@ -214,6 +226,7 @@ def _fetch_incremental(yf_symbol: str, start: str, since: Optional[str] = None) 
         # fetch from the earliest date actually needed. Returned to the caller in full;
         # only the trimmed recent window is kept resident afterward.
         fresh = _download(yf_symbol, needed_from)
+        _direct_trim()
         if fresh.get("error") or not fresh["dates"]:
             if not cached:
                 return fresh
@@ -242,6 +255,7 @@ def _fetch_incremental(yf_symbol: str, start: str, since: Optional[str] = None) 
     # Resident window covers what's needed — delta-merge from the last cached bar onward
     # (yfinance can revise an in-progress daily bar).
     delta = _download(yf_symbol, cached["last_bar_date"])
+    _direct_trim()
     if delta.get("error"):
         # Keep serving the existing cache on a transient fetch failure.
         return cached
