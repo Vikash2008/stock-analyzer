@@ -36,15 +36,33 @@ const REFRESH_MS = 5 * 60 * 1000
 export function usePortfolio(_currency: 'INR' | 'USD' = 'INR') {
   const qc = useQueryClient()
 
+  // If localStorage was cleared (CSV gone) but cache still holds real portfolio data,
+  // wipe the cache immediately so loading skeleton shows instead of stale data.
+  // Returns true if a wipe happened.
+  const wipeCsvMismatch = () => {
+    const cached = qc.getQueryData<PortfolioData>(['portfolio'])
+    if (!getCsvContent() && cached?.csv_hash) {
+      qc.removeQueries({ queryKey: ['portfolio'] })
+      logDebug('csv mismatch: wiped stale portfolio cache')
+      return true
+    }
+    return false
+  }
+
   // Mobile browsers suspend JS timers when screen locks or app backgrounds.
-  // visibilitychange is reliable — check elapsed time and refetch if >= 30 min.
+  // visibilitychange is reliable — check elapsed time and refetch if >= REFRESH_MS.
   useEffect(() => {
+    // On mount: wipe immediately if CSV was cleared while app was frozen/backgrounded.
+    // removeQueries causes useQuery to re-enter pending state and auto-refetch.
+    wipeCsvMismatch()
+
     const handleVisibility = () => {
       if (document.visibilityState !== 'visible') return
+      const wiped = wipeCsvMismatch()
       const state = qc.getQueryState(['portfolio'])
       const lastFetch = state?.dataUpdatedAt ?? 0
-      if (Date.now() - lastFetch >= REFRESH_MS) {
-        logDebug('visibilitychange: stale, refetching')
+      if (wiped || Date.now() - lastFetch >= REFRESH_MS) {
+        logDebug(`visibilitychange: ${wiped ? 'csv cleared' : 'stale'}, refetching`)
         qc.refetchQueries({ queryKey: ['portfolio'], type: 'active' })
       }
     }
