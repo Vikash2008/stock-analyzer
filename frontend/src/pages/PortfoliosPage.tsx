@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect, useCallback } from 'react'
+﻿import { useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import { useDividends, getIncludeDividends, setIncludeDividends, clearDividendLocalCache, getIncludeFxGains, setIncludeFxGains } from '../hooks/useDividends'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -161,40 +161,31 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
   const todayPrior = card.current - (card.todayGain ?? 0)
   const todayPct = card.todayGain !== null && todayPrior !== 0 ? (card.todayGain / todayPrior) * 100 : null
 
-  const valSize  = compact ? 'text-[15px]' : 'text-[17px]'
-  const lblSize  = compact ? 'text-[9px]'  : 'text-[9px]'
-  const gainSize = compact ? 'text-[10px]'  : 'text-[10px]'
-  const gap      = compact ? 'gap-0.5'     : 'gap-1'
-
   return (
     <div
-      className="rounded-[10px] p-2.5 border cursor-pointer active:opacity-80 transition-opacity"
+      className="rounded-[13px] p-3 border cursor-pointer active:opacity-80 transition-opacity"
       style={{
-        background:      cardBg ?? (pos ? '#f0fdf8' : '#fff5f5'),
+        background:      cardBg ?? '#fff',
         borderColor:     '#e2e8f0',
         borderLeftWidth: 4,
         borderLeftColor: accentColor ?? (pos ? '#10b981' : '#f43f5e'),
       }}
       onClick={onClick}
     >
-      <p className={`${lblSize} font-bold text-slate-700 uppercase tracking-widest mb-1.5`}>{card.label}</p>
-      <div className="grid grid-cols-[auto_1fr] items-center gap-y-2">
-        <span className={`${valSize} font-bold text-slate-900`}>{fmt(card.current * scale, currency)}</span>
-        <span className={`flex items-center ${gap} whitespace-nowrap justify-self-end`}>
-          <span className={`inline-block w-[16px] text-right ${lblSize} font-semibold`} style={{color:'#065f46'}}>1D</span>
-          <span className={gainSize} style={{ color: (card.todayGain ?? 0) >= 0 ? '#0a7a42' : '#be1c1c' }}>
-            {' '}{fmtCompactGainLine1((card.todayGain ?? 0) * scale, card.todayGain !== null ? todayPct : 0, currency)}
-          </span>
-        </span>
-        <div className="flex items-center -ml-1.5">
-          <span className={`${lblSize} font-semibold rounded-full px-1.5 py-0.5 whitespace-nowrap leading-none`} style={{ background: xirr == null ? '#e2e8f0' : (xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2'), color: xirr == null ? '#64748b' : (xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b') }}>XIRR{' '}{xirr == null ? '—' : `${xirr.toFixed(1)}%`}</span>
+      <p className="text-[9.5px] font-bold text-slate-500 uppercase tracking-[1.2px] mb-2">{card.label}</p>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[16px] font-bold text-slate-900">{fmt(card.current * scale, currency)}</span>
+        <span className="text-[9.5px] font-bold px-2 py-[3px] rounded-full whitespace-nowrap" style={{ background: xirr == null ? '#e2e8f0' : (xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2'), color: xirr == null ? '#64748b' : (xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b') }}>XIRR {xirr == null ? '—' : `${xirr.toFixed(1)}%`}</span>
+      </div>
+      <div className="flex justify-between mt-2.5 pt-2.5 border-t border-slate-100">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Today</span>
+          <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: (card.todayGain ?? 0) >= 0 ? '#059669' : '#e11d48' }}>{fmtCompactGainLine1((card.todayGain ?? 0) * scale, card.todayGain !== null ? todayPct : 0, currency)}</span>
         </div>
-        <span className={`flex items-center ${gap} whitespace-nowrap justify-self-end`}>
-          <span className={`inline-block w-[16px] text-right ${lblSize} font-semibold`} style={{color:'#065f46'}}>ALL</span>
-          <span className={gainSize} style={{ color: pos ? '#0a7a42' : '#be1c1c' }}>
-            {' '}{fmtCompactGainLine1(totalGain * scale, pct, currency)}
-          </span>
-        </span>
+        <div className="flex flex-col gap-0.5 items-end">
+          <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Total</span>
+          <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: pos ? '#059669' : '#e11d48' }}>{fmtCompactGainLine1(totalGain * scale, pct, currency)}</span>
+        </div>
       </div>
     </div>
   )
@@ -860,25 +851,25 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       )}
 
       {/* Page header */}
-      <div className="flex items-center justify-between bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl px-4 py-1.5">
-        <p className="text-[18px] font-bold text-white tracking-tight">Portfolio Manager</p>
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-1 py-1">
+        <p className="text-[17px] font-extrabold text-slate-900 tracking-tight">Overview</p>
+        <div className="flex items-center gap-2">
           <button
             onClick={handleRefresh}
             disabled={refreshing || isFetching}
-            className={`flex items-center gap-1.5 transition-colors ${(refreshing || isFetching) ? 'text-white' : 'text-emerald-100 active:text-white'}`}
+            className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-full px-3 py-1.5 shadow-sm active:opacity-70 transition-opacity"
           >
-            <span className={`text-[14px] leading-none ${(refreshing || isFetching) ? 'animate-spin' : ''}`}>↻</span>
-            <span className={`text-[10px] uppercase tracking-widest ${refreshError ? 'text-red-300' : ''}`}>
+            <span className={`text-[12px] leading-none text-slate-500 ${(refreshing || isFetching) ? 'animate-spin' : ''}`}>↻</span>
+            <span className={`text-[10px] ${refreshError ? 'text-red-500' : 'text-slate-500'}`}>
               {refreshError
                 ? 'Sync failed · retry'
-                : (() => { const d = new Date(data.as_of); const hh = String(d.getHours()).padStart(2,'0'); const mm = String(d.getMinutes()).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); const mon = d.toLocaleString('en-US',{month:'short'}); return `${hh}:${mm} ${dd} ${mon}` })()}
+                : (() => { const d = new Date(data.as_of); const hh = String(d.getHours()).padStart(2,'0'); const mm = String(d.getMinutes()).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); const mon = d.toLocaleString('en-US',{month:'short'}); return `${hh}:${mm} · ${dd} ${mon}` })()}
             </span>
           </button>
           <div className="relative">
             <button
               onClick={() => { setCsvMeta(getCsvMeta()); setSettingsOpen(v => !v) }}
-              className="text-emerald-100 active:text-white p-1 -mr-1 min-h-[44px] flex items-center"
+              className="w-[30px] h-[30px] rounded-full bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-500 active:opacity-70 min-h-[44px]"
               aria-label="Portfolio settings"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
@@ -1094,40 +1085,40 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         </div>
       </div>
 
+
       {/* Hero card — Total Portfolio */}
       <div
-        className="rounded-[12px] p-4 border cursor-pointer active:opacity-90 transition-opacity"
-        style={{ background: 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)', borderColor: '#99f6e4', borderLeftWidth: 4, borderLeftColor: '#0d9488' }}
+        className="rounded-[18px] p-4 cursor-pointer active:opacity-90 transition-opacity relative overflow-hidden"
+        style={{ background: 'linear-gradient(150deg, #10243f 0%, #0b3b3a 100%)', boxShadow: '0 14px 30px -10px rgba(11,59,58,0.45)' }}
         onClick={() => navigate('/holdings/segment/total')}
       >
-        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Total Portfolio</p>
-        <div className="grid grid-cols-[auto_1fr] items-center gap-y-0">
-          <span className="text-[24px] font-bold text-slate-800">{fmt(hero.cur, 'INR')}</span>
-          <span className="flex items-center gap-1 whitespace-nowrap justify-self-end">
-            <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
-            <span className="text-[10px]" style={{ color: hero.todayGain >= 0 ? '#0d9488' : '#dc2626' }}>
-              {' '}{hero.todayGain !== 0 ? fmtCompactGainLine1(hero.todayGain, hero.todayPct, 'INR') : '—'}
+        <div className="absolute top-[-40px] right-[-40px] w-[160px] h-[160px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(45,212,191,0.25), transparent 70%)' }} />
+        <p className="relative text-[11px] font-bold text-[#99e6dc] uppercase tracking-[1.2px] mb-2.5">Total Portfolio</p>
+        <div className="relative flex items-center justify-between gap-2 mb-1">
+          <span className="text-[24px] font-extrabold text-white">{fmt(hero.cur, 'INR')}</span>
+          {heroXirr !== null
+            ? <span className="text-[11px] font-bold rounded-full px-3 py-1 whitespace-nowrap shrink-0" style={{ background: 'rgba(45,212,191,0.18)', color: '#5eead4', border: '1px solid rgba(94,234,212,0.3)' }}>XIRR {fmtPct1(heroXirr!)}</span>
+            : <span className="text-[11px] font-bold rounded-full px-3 py-1 whitespace-nowrap shrink-0" style={{ background: 'rgba(45,212,191,0.18)', color: '#5eead4', border: '1px solid rgba(94,234,212,0.3)' }}>XIRR —</span>
+          }
+        </div>
+        <div className="relative flex justify-between pt-2.5 mt-2.5" style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }}>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[8px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.45)' }}>Today</span>
+            <span className="text-[13px] font-bold whitespace-nowrap" style={{ color: hero.todayGain >= 0 ? '#5eead4' : '#fca5a5' }}>
+              {hero.todayGain !== 0 ? fmtCompactGainLine1(hero.todayGain, hero.todayPct, 'INR') : '—'}
             </span>
-          </span>
-          <div className="-ml-2 flex items-center">
-            {heroXirr !== null
-              ? <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 leading-none" style={{ background: (heroXirr ?? 0) >= 0 ? 'rgba(13,148,136,0.15)' : 'rgba(220,38,38,0.12)', color: (heroXirr ?? 0) >= 0 ? '#0f766e' : '#b91c1c' }}>
-                  XIRR{' '}{fmtPct1(heroXirr!)}
-                </span>
-              : <span className="text-[10px] text-slate-400">XIRR —</span>
-            }
           </div>
-          <span className="flex items-center gap-1 whitespace-nowrap justify-self-end">
-            <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
-            <span className="text-[10px]" style={{ color: heroPos ? '#0d9488' : '#dc2626' }}>
-            {' '}{fmtCompactGainLine1(hero.totalGain, hero.returnPct, 'INR')}
-          </span>
-        </span>
-      </div>
+          <div className="flex flex-col gap-0.5 items-end">
+            <span className="text-[8px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.45)' }}>Total</span>
+            <span className="text-[13px] font-bold whitespace-nowrap" style={{ color: heroPos ? '#5eead4' : '#fca5a5' }}>
+              {fmtCompactGainLine1(hero.totalGain, hero.returnPct, 'INR')}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Asset Class summary tiles — Stocks, Mutual Funds, and any other label (e.g. Gold) */}
-      <div className="grid grid-cols-2 gap-1.5">
+      <div className="flex flex-col gap-2">
         {assetClassLabels.map((label, idx) => {
           const style = ASSET_TILE_PALETTE[idx % ASSET_TILE_PALETTE.length]
           const stats = assetClassStatsMap.get(label) ?? { cur: 0, inv: 0, gain: 0, pct: 0, todayGain: 0, todayPct: null }
@@ -1140,7 +1131,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           return (
             <div
               key={label}
-              className="rounded-[10px] p-2.5 border cursor-pointer active:opacity-80 transition-opacity"
+              className="rounded-[13px] p-3 border cursor-pointer active:opacity-80 transition-opacity"
               style={{
                 background:      tileBg,
                 borderColor:     '#e2e8f0',
@@ -1149,24 +1140,20 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               }}
               onClick={() => navigate(`/holdings/bucket/${encodeURIComponent('Asset Class')}/${encodeURIComponent(label)}`)}
             >
-              <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1.5">{label}</p>
-              <div className="grid grid-cols-[auto_1fr] items-center gap-y-2">
-                <span className="text-[15px] font-bold text-slate-900">{fmt(stats.cur, 'INR')}</span>
-                <span className="flex items-center gap-0.5 whitespace-nowrap justify-self-end">
-                  <span className="inline-block w-[16px] text-right text-[9px] font-semibold" style={{color:'#065f46'}}>1D</span>
-                  <span className="text-[10px]" style={{ color: tgC }}>
-                    {' '}{fmtCompactGainLine1(stats.todayGain, stats.todayPct ?? 0, 'INR')}
-                  </span>
-                </span>
-                <div className="flex items-center -ml-1.5">
-                  <span className="text-[9px] font-semibold rounded-full px-1.5 py-0.5 whitespace-nowrap leading-none" style={{ background: xirr == null ? '#e2e8f0' : (xirr >= 0 ? '#d1fae5' : '#fee2e2'), color: xirr == null ? '#64748b' : (xirr >= 0 ? '#065f46' : '#991b1b') }}>XIRR{' '}{xirr == null ? '—' : `${xirr.toFixed(1)}%`}</span>
+              <p className="text-[9.5px] font-bold text-slate-500 uppercase tracking-[1.2px] mb-2">{label}</p>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[16px] font-bold text-slate-900">{fmt(stats.cur, 'INR')}</span>
+                <span className="text-[9.5px] font-bold px-2 py-[3px] rounded-full whitespace-nowrap" style={{ background: xirr == null ? '#e2e8f0' : (xirr >= 0 ? '#d1fae5' : '#fee2e2'), color: xirr == null ? '#64748b' : (xirr >= 0 ? '#065f46' : '#991b1b') }}>XIRR {xirr == null ? '—' : `${xirr.toFixed(1)}%`}</span>
+              </div>
+              <div className="flex justify-between mt-2.5 pt-2.5 border-t border-slate-100">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Today</span>
+                  <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: tgC }}>{fmtCompactGainLine1(stats.todayGain, stats.todayPct ?? 0, 'INR')}</span>
                 </div>
-                <span className="flex items-center gap-0.5 whitespace-nowrap justify-self-end">
-                  <span className="inline-block w-[16px] text-right text-[9px] font-semibold" style={{color:'#065f46'}}>ALL</span>
-                  <span className="text-[10px]" style={{ color: tc }}>
-                    {' '}{fmtCompactGainLine1(stats.gain, stats.pct, 'INR')}
-                  </span>
-                </span>
+                <div className="flex flex-col gap-0.5 items-end">
+                  <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Total</span>
+                  <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: tc }}>{fmtCompactGainLine1(stats.gain, stats.pct, 'INR')}</span>
+                </div>
               </div>
             </div>
           )
@@ -1193,7 +1180,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
       {/* Breakdown cards */}
       {mode !== 'broker' ? (
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className="flex flex-col gap-2">
           {cards.map(card => (
             <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={LABEL_CARD_STYLE[card.key]?.accent} cardBg={LABEL_CARD_STYLE[card.key]?.bg} divGain={cardDivGainMap.get(card.key) ?? 0} fxGain={cardFxGainMap.get(card.key) ?? 0} />
           ))}
@@ -1209,7 +1196,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                   <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: group.color }} />
                   <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: group.color }}>{group.label}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-1.5">
+                <div className="flex flex-col gap-2">
                   {gc.map(card => (
                     <BreakCard key={card.key} card={card} currency={usdCur(USD_PORTS.has(card.key))} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={PORTFOLIO_CARD_STYLE[card.key]?.accent} cardBg={PORTFOLIO_CARD_STYLE[card.key]?.bg} scale={usdScale(USD_PORTS.has(card.key))} divGain={cardDivGainMap.get(card.key) ?? 0} fxGain={cardFxGainMap.get(card.key) ?? 0} />
                   ))}
