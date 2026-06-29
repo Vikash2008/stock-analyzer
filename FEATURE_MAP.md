@@ -43,7 +43,7 @@
 | **Add transaction flow** | `frontend/src/components/AddTransactionModal.tsx`, `frontend/src/hooks/useAddTransaction.ts` | `backend/routers/add_txn.py` |
 | **Dividends tab** | `frontend/src/components/DividendsTab.tsx`, `frontend/src/hooks/useDividends.ts`, `frontend/src/api/dividends.ts` | `backend/routers/dividends.py` |
 | **FX / currency gains tab** | `frontend/src/components/FxGainsTab.tsx` | — |
-| **Portfolio aggregate chart (sum across holdings)** | `frontend/src/hooks/usePortfolioHistory.ts` | `backend/routers/history.py` (same `/api/history` endpoint as single-holding charts, called once per symbol then summed client-side) |
+| **Portfolio aggregate chart (sum across holdings)** | `frontend/src/hooks/useBackendPortfolioHistory.ts` (new, session 155), `frontend/src/pages/HoldingsPage.tsx` | `backend/routers/portfolio_history.py` — GET /api/portfolio-history; bulk yf.download, server-side aggregation, 30-min cache; `usePortfolioHistory.ts` still used for symbolPriceMap only (start=2022-01-01, lsKey `${sym}:3y`) |
 | **Realized gain calc** | `frontend/src/utils/realized.ts` | — |
 | **Research Links pills (Screener/Finviz etc.)** | `frontend/src/utils/reportLinks.ts` | — |
 | **Loading skeletons** | `frontend/src/components/LoadingSkeleton.tsx` | — |
