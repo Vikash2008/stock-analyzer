@@ -41,7 +41,7 @@
 | **Symbol search autocomplete** | `frontend/src/pages/PortfoliosPage.tsx` | `backend/routers/search.py` |
 | **Notes (any page)** | `frontend/src/components/AnalysisTab.tsx` | — |
 | **Add transaction flow** | `frontend/src/components/AddTransactionModal.tsx`, `frontend/src/hooks/useAddTransaction.ts` | `backend/routers/add_txn.py` |
-| **Dividends tab** | `frontend/src/components/DividendsTab.tsx`, `frontend/src/hooks/useDividends.ts`, `frontend/src/api/dividends.ts` | `backend/routers/dividends.py` |
+| **Dividends tab** | `frontend/src/components/DividendsTab.tsx`, `frontend/src/hooks/useDividends.ts` (`useDividendsBatched` — batches of 10, progress bar), `frontend/src/api/dividends.ts` | `backend/routers/dividends.py` |
 | **FX / currency gains tab** | `frontend/src/components/FxGainsTab.tsx` | — |
 | **Portfolio aggregate chart (sum across holdings)** | `frontend/src/hooks/useBackendPortfolioHistory.ts` (new, session 155), `frontend/src/pages/HoldingsPage.tsx` | `backend/routers/portfolio_history.py` — GET /api/portfolio-history; bulk yf.download, server-side aggregation, 30-min cache; `usePortfolioHistory.ts` still used for symbolPriceMap only (start=2022-01-01, lsKey `${sym}:3y`) |
 | **Realized gain calc** | `frontend/src/utils/realized.ts` | — |

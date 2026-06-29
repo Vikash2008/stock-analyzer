@@ -378,6 +378,12 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Keep only the 3 most recent sessions here (size guard, same pattern as ROADMAP_ARCHIVE.md). Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-06-19 (session 141)
 
+### 2026-06-29 (session 156)
+
+**Dividends loading progress bar** — replaced "Fetching… ~30s" spinner with determinate `h-1` teal bar showing `loadedCount / totalCount` symbols. Same bar used during background re-fetch (replaces infinite-sweep animation when `totalCount > 0`).
+
+**PriceChart "Fetching more data…" indicator** — background-fetch indicator upgraded from `text-[9px] text-slate-400 "Refreshing…"` to `text-xs text-slate-500 "Fetching more data…"` for visibility on 5Y/All load.
+
 ### 2026-06-28 (session 154)
 
 **ManageBucketsModal compacted** — drag handle `w-11 h-11` → `w-7 h-7`, label rows `py-1` → `py-0.5`, bucket cards `p-3` → `p-2`, scroll area `px-4 py-4` → `px-3 py-2.5`, header `py-3` → `py-2`. User explicitly requested compact; touch targets intentionally below 44px in this modal.
