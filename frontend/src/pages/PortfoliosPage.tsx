@@ -163,7 +163,7 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
 
   return (
     <div
-      className="rounded-[13px] p-3 border cursor-pointer active:opacity-80 transition-opacity"
+      className="rounded-[13px] p-2 border cursor-pointer active:opacity-80 transition-opacity"
       style={{
         background:      cardBg ?? '#fff',
         borderColor:     '#e2e8f0',
@@ -172,19 +172,19 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
       }}
       onClick={onClick}
     >
-      <p className="text-[9.5px] font-bold text-slate-500 uppercase tracking-[1.2px] mb-2">{card.label}</p>
+      <p className="text-[9.5px] font-bold text-slate-500 uppercase tracking-[1.2px] mb-1">{card.label}</p>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[16px] font-bold text-slate-900">{fmt(card.current * scale, currency)}</span>
+        <span className="text-[14px] font-bold text-slate-900">{fmt(card.current * scale, currency)}</span>
         <span className="text-[9.5px] font-bold px-2 py-[3px] rounded-full whitespace-nowrap" style={{ background: xirr == null ? '#e2e8f0' : (xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2'), color: xirr == null ? '#64748b' : (xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b') }}>XIRR {xirr == null ? '—' : `${xirr.toFixed(1)}%`}</span>
       </div>
-      <div className="flex justify-between mt-2.5 pt-2.5 border-t border-slate-100">
+      <div className="flex justify-between mt-1.5 pt-1.5 border-t border-slate-100">
         <div className="flex flex-col gap-0.5">
           <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Today</span>
-          <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: (card.todayGain ?? 0) >= 0 ? '#059669' : '#e11d48' }}>{fmtCompactGainLine1((card.todayGain ?? 0) * scale, card.todayGain !== null ? todayPct : 0, currency)}</span>
+          <span className="text-[10px] font-bold whitespace-nowrap" style={{ color: (card.todayGain ?? 0) >= 0 ? '#059669' : '#e11d48' }}>{fmtCompactGainLine1((card.todayGain ?? 0) * scale, card.todayGain !== null ? todayPct : 0, currency)}</span>
         </div>
         <div className="flex flex-col gap-0.5 items-end">
           <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Total</span>
-          <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: pos ? '#059669' : '#e11d48' }}>{fmtCompactGainLine1(totalGain * scale, pct, currency)}</span>
+          <span className="text-[10px] font-bold whitespace-nowrap" style={{ color: pos ? '#059669' : '#e11d48' }}>{fmtCompactGainLine1(totalGain * scale, pct, currency)}</span>
         </div>
       </div>
     </div>
@@ -877,196 +877,193 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               </svg>
             </button>
 
-            {/* Settings popover — anchored below gear icon */}
+            {/* Settings — bottom sheet */}
             {settingsOpen && (
               <>
-                <div className="fixed inset-0 z-[998] bg-black/40" onClick={() => { if (importProgress === null) setSettingsOpen(false) }} />
-                <div className="absolute top-full right-0 z-[999] mt-1 w-80 rounded-2xl shadow-xl overflow-hidden border border-emerald-100">
+                <div className="fixed inset-0 z-[998] bg-black/55" onClick={() => { if (importProgress === null) setSettingsOpen(false) }} />
+                <div className="fixed bottom-0 left-0 right-0 z-[999] w-full rounded-t-[22px] overflow-hidden flex flex-col" style={{ maxHeight: '86vh', boxShadow: '0 -10px 40px rgba(0,0,0,0.25)' }}>
 
-                  {/* Modal header */}
-                  <div className="bg-gradient-to-r from-emerald-600 to-teal-500 px-4 py-2 flex items-center justify-between">
-                    <p className="text-[13px] font-semibold text-white tracking-tight">Settings</p>
-                    <button onClick={() => setSettingsOpen(false)} className="text-emerald-200 active:text-white text-lg leading-none">×</button>
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-4 py-[11px] shrink-0" style={{ background: 'linear-gradient(150deg, #10243f 0%, #0b3b3a 100%)' }}>
+                    <p className="text-[13.5px] font-extrabold text-white tracking-[-0.2px]">Settings</p>
+                    <button onClick={() => setSettingsOpen(false)} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[13px] leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>✕</button>
                   </div>
 
-                  {/* Rows */}
-                  <div className="bg-white p-2 flex flex-col gap-2">
+                  {/* Body */}
+                  <div className="overflow-y-auto flex flex-col gap-1.5 px-3.5 py-2.5" style={{ background: '#f8fafc' }}>
 
                     {/* ── Data ── */}
-                    <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-widest px-1 pt-0.5">Data</p>
-                    <div className="flex flex-col gap-1">
+                    <p className="text-[9.5px] font-bold uppercase tracking-[1.1px] text-slate-500 px-0.5 pt-1">Data</p>
 
-                      {/* Import CSV — first */}
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".csv,text/csv,text/comma-separated-values,application/vnd.ms-excel,text/plain"
-                        className="hidden"
-                        onChange={e => { const f = e.target.files?.[0]; if (f) handleImport(f); e.target.value = '' }}
-                      />
-                      <div className="px-3 py-2 bg-emerald-50 border border-emerald-100 rounded-lg">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-[12px] font-medium text-slate-700 leading-tight">Import CSV</p>
-                            <p className="text-[11px] text-slate-400 leading-tight mt-0.5">
-                              {importProgress !== null
-                                ? (importDone ? '✓ Updated' : importStatus)
-                                : 'Replace portfolio data'}
-                            </p>
-                          </div>
-                          <button
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={importProgress !== null}
-                            className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-emerald-200 text-emerald-700 active:bg-emerald-300 disabled:opacity-40"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                              <polyline points="17 8 12 3 7 8"/>
-                              <line x1="12" y1="3" x2="12" y2="15"/>
-                            </svg>
-                          </button>
-                        </div>
-                        {importProgress !== null && (
-                          <div className="mt-2 h-1 bg-emerald-100 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-emerald-500 rounded-full transition-all duration-200"
-                              style={{ width: `${importProgress}%` }}
-                            />
-                          </div>
-                        )}
-                        {importProgress === null && lastImportError !== null && (
-                          <p className="text-[10px] text-red-500 mt-1">
-                            ⚠ Last import failed at {fmtImportDate(lastImportError)}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Portfolio file */}
-                      <div className="px-3 py-2 flex items-center justify-between gap-3 bg-emerald-50 border border-emerald-100 rounded-lg">
+                    {/* Import CSV */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv,text/csv,text/comma-separated-values,application/vnd.ms-excel,text/plain"
+                      className="hidden"
+                      onChange={e => { const f = e.target.files?.[0]; if (f) handleImport(f); e.target.value = '' }}
+                    />
+                    <div className="bg-white border border-[#eef1f5] rounded-[12px] px-2.5 py-[7px] flex flex-col gap-0" style={{ boxShadow: '0 2px 8px rgba(15,23,42,0.03)' }}>
+                      <div className="flex items-center justify-between gap-2.5">
                         <div className="min-w-0">
-                          <p className="text-[12px] font-medium text-slate-700 leading-tight">Backup (with tags)</p>
-                          <p className="text-[11px] text-slate-400 leading-tight mt-0.5 truncate">
-                            {csvMeta ? `${csvMeta.name} · ${fmtBytes(csvMeta.size)}` : 'Demo Data · Sample portfolio'}
+                          <p className="text-[12px] font-bold text-slate-900 leading-tight">Import CSV</p>
+                          <p className="text-[10px] text-slate-400 leading-tight mt-0.5">
+                            {importProgress !== null
+                              ? (importDone ? '✓ Updated' : importStatus)
+                              : 'Replace portfolio data'}
                           </p>
                         </div>
                         <button
-                          onClick={handleDownload}
-                          title="Download a backup CSV — includes your Bucket/Label tags; re-import this (not your raw broker export) to restore them"
-                          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-slate-200 text-slate-600 active:bg-slate-300"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={importProgress !== null}
+                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] disabled:opacity-40"
+                          style={{ background: '#ccfbf1', color: '#0f766e' }}
                         >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                            <polyline points="7 10 12 15 17 10"/>
-                            <line x1="12" y1="15" x2="12" y2="3"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
                           </svg>
                         </button>
                       </div>
-
-                      {/* Demo file */}
-                      <div className="px-3 py-2 flex items-center justify-between gap-3 bg-emerald-50 border border-emerald-100 rounded-lg">
-                        <div className="min-w-0">
-                          <p className="text-[12px] font-medium text-slate-700 leading-tight">Demo file</p>
-                          <p className="text-[11px] text-slate-400 leading-tight mt-0.5">Sample portfolio · ~1 Cr · 32 stocks</p>
+                      {importProgress !== null && (
+                        <div className="mt-1.5 h-[3px] rounded-full overflow-hidden" style={{ background: '#ccfbf1' }}>
+                          <div className="h-full rounded-full transition-all duration-200" style={{ width: `${importProgress}%`, background: '#0d9488' }} />
                         </div>
-                        <button
-                          onClick={() => window.open(`${API_URL_SETTINGS}/api/demo-csv?t=${Date.now()}`, '_blank')}
-                          title="Download demo CSV"
-                          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-slate-200 text-slate-600 active:bg-slate-300"
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                            <polyline points="7 10 12 15 17 10"/>
-                            <line x1="12" y1="15" x2="12" y2="3"/>
-                          </svg>
-                        </button>
+                      )}
+                      {importProgress === null && lastImportError !== null && (
+                        <p className="text-[10px] text-red-500 mt-1">⚠ Last import failed at {fmtImportDate(lastImportError)}</p>
+                      )}
+                    </div>
+
+                    {/* Backup */}
+                    <div className="bg-white border border-[#eef1f5] rounded-[12px] px-2.5 py-[7px] flex items-center justify-between gap-2.5" style={{ boxShadow: '0 2px 8px rgba(15,23,42,0.03)' }}>
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-bold text-slate-900 leading-tight">Backup (with tags)</p>
+                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5 truncate">
+                          {csvMeta ? `${csvMeta.name} · ${fmtBytes(csvMeta.size)}` : 'Demo Data · Sample portfolio'}
+                        </p>
                       </div>
+                      <button
+                        onClick={handleDownload}
+                        title="Download a backup CSV — includes your Bucket/Label tags; re-import this (not your raw broker export) to restore them"
+                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px]"
+                        style={{ background: '#f1f5f9', color: '#475569' }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                          <polyline points="7 10 12 15 17 10"/>
+                          <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                      </button>
+                    </div>
+
+                    {/* Demo file */}
+                    <div className="bg-white border border-[#eef1f5] rounded-[12px] px-2.5 py-[7px] flex items-center justify-between gap-2.5" style={{ boxShadow: '0 2px 8px rgba(15,23,42,0.03)' }}>
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-bold text-slate-900 leading-tight">Demo file</p>
+                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Sample portfolio · ~1 Cr · 32 stocks</p>
+                      </div>
+                      <button
+                        onClick={() => window.open(`${API_URL_SETTINGS}/api/demo-csv?t=${Date.now()}`, '_blank')}
+                        title="Download demo CSV"
+                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px]"
+                        style={{ background: '#f1f5f9', color: '#475569' }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                          <polyline points="7 10 12 15 17 10"/>
+                          <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                      </button>
                     </div>
 
                     {/* ── Configuration ── */}
-                    <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-widest px-1 pt-0.5">Configuration</p>
-                    <div className="flex flex-col gap-1">
+                    <p className="text-[9.5px] font-bold uppercase tracking-[1.1px] text-slate-500 px-0.5 pt-1">Configuration</p>
 
-                      {/* Dividends toggle */}
-                      <div className="px-3 py-2 flex items-center justify-between gap-2 bg-emerald-50 border border-emerald-100 rounded-lg">
-                        <div>
-                          <p className="text-[12px] font-medium text-slate-700 leading-tight">Include dividends</p>
-                          <p className="text-[11px] text-slate-400 leading-tight mt-0.5">Add to total gains &amp; XIRR</p>
-                        </div>
-                        <button
-                          role="switch"
-                          aria-checked={includeDivs}
-                          onClick={() => {
-                            const next = !includeDivs
-                            setIncludeDivs(next)
-                            setIncludeDividends(next)
-                            window.dispatchEvent(new Event('dividends-toggle'))
-                          }}
-                          className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 focus:outline-none ${includeDivs ? 'bg-teal-500' : 'bg-slate-300'}`}
-                        >
-                          <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${includeDivs ? 'translate-x-4' : 'translate-x-0'}`} />
-                        </button>
+                    {/* Dividends toggle */}
+                    <div className="bg-white border border-[#eef1f5] rounded-[12px] px-2.5 py-[7px] flex items-center justify-between gap-2.5" style={{ boxShadow: '0 2px 8px rgba(15,23,42,0.03)' }}>
+                      <div>
+                        <p className="text-[12px] font-bold text-slate-900 leading-tight">Include dividends</p>
+                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Add to total gains &amp; XIRR</p>
                       </div>
+                      <button
+                        role="switch"
+                        aria-checked={includeDivs}
+                        onClick={() => {
+                          const next = !includeDivs
+                          setIncludeDivs(next)
+                          setIncludeDividends(next)
+                          window.dispatchEvent(new Event('dividends-toggle'))
+                        }}
+                        className={`relative shrink-0 w-8 h-[18px] rounded-full transition-colors duration-200 focus:outline-none ${includeDivs ? 'bg-teal-500' : 'bg-slate-300'}`}
+                      >
+                        <span className={`absolute top-[2px] left-[2px] w-[14px] h-[14px] bg-white rounded-full shadow transition-transform duration-200 ${includeDivs ? 'translate-x-[14px]' : 'translate-x-0'}`} />
+                      </button>
+                    </div>
 
-                      {/* FX Gains toggle */}
-                      <div className="px-3 py-2 flex items-center justify-between gap-2 bg-emerald-50 border border-emerald-100 rounded-lg">
-                        <div>
-                          <p className="text-[12px] font-medium text-slate-700 leading-tight">Include FX gains</p>
-                          <p className="text-[11px] text-slate-400 leading-tight mt-0.5">USD rate effect on returns</p>
-                        </div>
-                        <button
-                          role="switch"
-                          aria-checked={includeFxGainsState}
-                          onClick={() => {
-                            const next = !includeFxGainsState
-                            setIncludeFxGainsStateLocal(next)
-                            setIncludeFxGains(next)
-                            window.dispatchEvent(new Event('fxgains-toggle'))
-                          }}
-                          className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 focus:outline-none ${includeFxGainsState ? 'bg-teal-500' : 'bg-slate-300'}`}
-                        >
-                          <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${includeFxGainsState ? 'translate-x-4' : 'translate-x-0'}`} />
-                        </button>
+                    {/* FX Gains toggle */}
+                    <div className="bg-white border border-[#eef1f5] rounded-[12px] px-2.5 py-[7px] flex items-center justify-between gap-2.5" style={{ boxShadow: '0 2px 8px rgba(15,23,42,0.03)' }}>
+                      <div>
+                        <p className="text-[12px] font-bold text-slate-900 leading-tight">Include FX gains</p>
+                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">USD rate effect on returns</p>
                       </div>
+                      <button
+                        role="switch"
+                        aria-checked={includeFxGainsState}
+                        onClick={() => {
+                          const next = !includeFxGainsState
+                          setIncludeFxGainsStateLocal(next)
+                          setIncludeFxGains(next)
+                          window.dispatchEvent(new Event('fxgains-toggle'))
+                        }}
+                        className={`relative shrink-0 w-8 h-[18px] rounded-full transition-colors duration-200 focus:outline-none ${includeFxGainsState ? 'bg-teal-500' : 'bg-slate-300'}`}
+                      >
+                        <span className={`absolute top-[2px] left-[2px] w-[14px] h-[14px] bg-white rounded-full shadow transition-transform duration-200 ${includeFxGainsState ? 'translate-x-[14px]' : 'translate-x-0'}`} />
+                      </button>
+                    </div>
 
-                      {/* Currency toggle */}
-                      <div className="px-3 py-2 flex items-center justify-between gap-2 bg-emerald-50 border border-emerald-100 rounded-lg">
-                        <div>
-                          <p className="text-[12px] font-medium text-slate-700 leading-tight">Display currency</p>
-                          <p className="text-[11px] text-slate-400 leading-tight mt-0.5 whitespace-nowrap">Switch values to USD or INR</p>
-                        </div>
-                        <div className="shrink-0 flex items-center gap-0.5 bg-emerald-100 rounded-lg p-0.5">
-                          <button
-                            onClick={() => onCurrencyChange('INR')}
-                            className={`whitespace-nowrap px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${currency === 'INR' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-500 active:text-emerald-700'}`}
-                          >₹ INR</button>
-                          <button
-                            onClick={() => onCurrencyChange('USD')}
-                            className={`whitespace-nowrap px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${currency === 'USD' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-500 active:text-emerald-700'}`}
-                          >$ USD</button>
-                        </div>
+                    {/* Currency toggle */}
+                    <div className="bg-white border border-[#eef1f5] rounded-[12px] px-2.5 py-[7px] flex items-center justify-between gap-2.5" style={{ boxShadow: '0 2px 8px rgba(15,23,42,0.03)' }}>
+                      <div>
+                        <p className="text-[12px] font-bold text-slate-900 leading-tight">Display currency</p>
+                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5 whitespace-nowrap">Switch values to USD or INR</p>
                       </div>
-
-                      {/* Manage Buckets */}
-                      <div className="px-3 py-2 flex items-center justify-between gap-3 bg-emerald-50 border border-emerald-100 rounded-lg">
-                        <div className="min-w-0">
-                          <p className="text-[12px] font-medium text-slate-700 leading-tight">Manage Buckets</p>
-                          <p className="text-[11px] text-slate-400 leading-tight mt-0.5">Buckets &amp; Labels for holdings</p>
-                        </div>
+                      <div className="shrink-0 flex items-center gap-0.5 rounded-[9px] p-0.5" style={{ background: '#ecedf1' }}>
                         <button
-                          onClick={() => { setSettingsOpen(false); setBucketsModalOpen(true) }}
-                          title="Manage Buckets"
-                          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-emerald-200 text-emerald-700 active:bg-emerald-300"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
-                            <path d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" />
-                            <path d="M13.5 3.5v7.5h7.5a7.5 7.5 0 0 0-7.5-7.5Z" />
-                          </svg>
-                        </button>
+                          onClick={() => onCurrencyChange('INR')}
+                          className={`whitespace-nowrap px-[9px] py-[5px] rounded-[7px] text-[10.5px] font-bold transition-colors ${currency === 'INR' ? 'text-white' : 'text-slate-500'}`}
+                          style={currency === 'INR' ? { background: '#0d9488', boxShadow: '0 2px 6px rgba(13,148,136,0.35)' } : {}}
+                        >₹ INR</button>
+                        <button
+                          onClick={() => onCurrencyChange('USD')}
+                          className={`whitespace-nowrap px-[9px] py-[5px] rounded-[7px] text-[10.5px] font-bold transition-colors ${currency === 'USD' ? 'text-white' : 'text-slate-500'}`}
+                          style={currency === 'USD' ? { background: '#0d9488', boxShadow: '0 2px 6px rgba(13,148,136,0.35)' } : {}}
+                        >$ USD</button>
                       </div>
                     </div>
 
-                    {/* ── Updated on ── */}
-                    <div className="mt-0.5 pt-2.5 border-t border-slate-100 flex items-center justify-between px-1">
+                    {/* Manage Buckets */}
+                    <div className="bg-white border border-[#eef1f5] rounded-[12px] px-2.5 py-[7px] flex items-center justify-between gap-2.5" style={{ boxShadow: '0 2px 8px rgba(15,23,42,0.03)' }}>
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-bold text-slate-900 leading-tight">Manage Buckets</p>
+                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Buckets &amp; Labels for holdings</p>
+                      </div>
+                      <button
+                        onClick={() => { setSettingsOpen(false); setBucketsModalOpen(true) }}
+                        title="Manage Buckets"
+                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px]"
+                        style={{ background: '#dbeafe', color: '#1d4ed8' }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+                          <path d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" />
+                          <path d="M13.5 3.5v7.5h7.5a7.5 7.5 0 0 0-7.5-7.5Z" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="mt-0.5 pt-2 border-t border-[#eef1f5] flex items-center justify-between px-0.5 pb-1">
                       <span className="text-[10px] text-slate-400">Updated on</span>
                       <span className="text-[10px] text-slate-400 text-right">
                         v{__APP_VERSION__} · {new Date(__BUILD_TIME__).toLocaleString('en-GB', {
@@ -1131,7 +1128,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           return (
             <div
               key={label}
-              className="rounded-[13px] p-3 border cursor-pointer active:opacity-80 transition-opacity"
+              className="rounded-[13px] p-2 border cursor-pointer active:opacity-80 transition-opacity"
               style={{
                 background:      tileBg,
                 borderColor:     '#e2e8f0',
@@ -1140,19 +1137,19 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               }}
               onClick={() => navigate(`/holdings/bucket/${encodeURIComponent('Asset Class')}/${encodeURIComponent(label)}`)}
             >
-              <p className="text-[9.5px] font-bold text-slate-500 uppercase tracking-[1.2px] mb-2">{label}</p>
+              <p className="text-[9.5px] font-bold text-slate-500 uppercase tracking-[1.2px] mb-1">{label}</p>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[16px] font-bold text-slate-900">{fmt(stats.cur, 'INR')}</span>
+                <span className="text-[14px] font-bold text-slate-900">{fmt(stats.cur, 'INR')}</span>
                 <span className="text-[9.5px] font-bold px-2 py-[3px] rounded-full whitespace-nowrap" style={{ background: xirr == null ? '#e2e8f0' : (xirr >= 0 ? '#d1fae5' : '#fee2e2'), color: xirr == null ? '#64748b' : (xirr >= 0 ? '#065f46' : '#991b1b') }}>XIRR {xirr == null ? '—' : `${xirr.toFixed(1)}%`}</span>
               </div>
-              <div className="flex justify-between mt-2.5 pt-2.5 border-t border-slate-100">
+              <div className="flex justify-between mt-1.5 pt-1.5 border-t border-slate-100">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Today</span>
-                  <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: tgC }}>{fmtCompactGainLine1(stats.todayGain, stats.todayPct ?? 0, 'INR')}</span>
+                  <span className="text-[10px] font-bold whitespace-nowrap" style={{ color: tgC }}>{fmtCompactGainLine1(stats.todayGain, stats.todayPct ?? 0, 'INR')}</span>
                 </div>
                 <div className="flex flex-col gap-0.5 items-end">
                   <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Total</span>
-                  <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: tc }}>{fmtCompactGainLine1(stats.gain, stats.pct, 'INR')}</span>
+                  <span className="text-[10px] font-bold whitespace-nowrap" style={{ color: tc }}>{fmtCompactGainLine1(stats.gain, stats.pct, 'INR')}</span>
                 </div>
               </div>
             </div>
