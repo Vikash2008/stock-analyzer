@@ -28,8 +28,8 @@ function fmtPct1(value: number): string {
 }
 
 function fmtCompactGainLine1(gain: number, pct: number | null, currency: Currency): string {
-  const sign = gain >= 0 ? '' : '−'
-  const valStr = `${sign}${fmtCompact(Math.abs(gain), currency)}`
+  const arrow = gain >= 0 ? '▲' : '▼'
+  const valStr = `${arrow} ${fmtCompact(Math.abs(gain), currency)}`
   if (pct === null) return valStr
   return `${valStr} (${fmtPct1(pct)})`
 }
@@ -49,46 +49,29 @@ interface CardStats {
 
 const BROKER_GROUPS = [
   { key: 'indian', label: 'Indian Stocks', test: (p: string) => !USD_PORTS.has(p) && !p.startsWith('MF_'), color: '#10b981' },
-  { key: 'us',     label: 'US Stocks',     test: (p: string) => USD_PORTS.has(p),                          color: '#0ea5e9' },
-  { key: 'mf',     label: 'Mutual Funds',  test: (p: string) => p.startsWith('MF_'),                       color: '#8b5cf6' },
+  { key: 'us',     label: 'US Stocks',     test: (p: string) => USD_PORTS.has(p),                          color: '#0284c7' },
+  { key: 'mf',     label: 'Mutual Funds',  test: (p: string) => p.startsWith('MF_'),                       color: '#2563eb' },
 ]
 
 const STOCK_CARD_STYLE = { accent: '#0d9488', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' }
-const MF_CARD_STYLE    = { accent: '#0d9488', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' }
+const MF_CARD_STYLE    = { accent: '#2563eb', bg: 'linear-gradient(to right, #dbeafe, #eff6ff 40%, #f8fafc)' }
 
-// Asset Class tiles (below Hero card) — every tile (Stocks, Mutual Funds, Gold, ...) shares
-// the same shade of green, no per-label distinction.
-const ASSET_TILE_PALETTE: { accent: string; bg: string }[] = [
-  { accent: '#0d9488', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
-]
-
+// Rotating fallback palette (green/blue shades only) for tiles/cards with no explicit
+// LABEL_CARD_STYLE entry — e.g. a custom Bucket Label like "Gold".
 const CARD_COLOR_PALETTE: { accent: string; bg: string }[] = [
   { accent: '#0d9488', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
-  { accent: '#0d9488', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
-  { accent: '#0d9488', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
-  { accent: '#0d9488', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
-  { accent: '#0d9488', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
+  { accent: '#2563eb', bg: 'linear-gradient(to right, #dbeafe, #eff6ff 40%, #f8fafc)' },
+  { accent: '#0891b2', bg: 'linear-gradient(to right, #cffafe, #ecfeff 40%, #f0fdfa)' },
+  { accent: '#059669', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
+  { accent: '#0284c7', bg: 'linear-gradient(to right, #e0f2fe, #f0f9ff 40%, #f8fafc)' },
   { accent: '#0d9488', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
 ]
 
 // Default styling for the auto-seeded "Asset Class" bucket's Labels — any other custom
-// Bucket's Labels fall through to BreakCard's default (unstyled) look.
+// Bucket's Labels fall through to CARD_COLOR_PALETTE (or BreakCard's default look).
 const LABEL_CARD_STYLE: Record<string, { accent: string; bg: string }> = {
   Stocks:        STOCK_CARD_STYLE,
   'Mutual Funds': MF_CARD_STYLE,
-}
-
-const PORTFOLIO_CARD_STYLE: Record<string, { accent: string; bg: string }> = {
-  Zerodha:           STOCK_CARD_STYLE,
-  AngelOne:          STOCK_CARD_STYLE,
-  Groww:             STOCK_CARD_STYLE,
-  'IndMoney Ind':    STOCK_CARD_STYLE,
-  Upstox:            STOCK_CARD_STYLE,
-  Vested:            STOCK_CARD_STYLE,
-  'IndMoney US':     STOCK_CARD_STYLE,
-  'IndMoney Mummy':  STOCK_CARD_STYLE,
-  MF_Vikash:         STOCK_CARD_STYLE,
-  MF_Mahak:          STOCK_CARD_STYLE,
 }
 
 function portfolioCards(holdings: Holding[], rmap: RealizedMap): CardStats[] {
@@ -860,7 +843,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       )}
 
       {/* Page header */}
-      <div className="flex items-center justify-between px-1 pb-1.5 mb-2 border-b border-slate-200">
+      <div className="flex items-center justify-between px-3 py-1 mb-2 rounded-xl" style={{ border: '1px solid rgba(13,148,136,0.35)', background: 'rgba(13,148,136,0.16)' }}>
         <p className="text-[14px] font-extrabold text-slate-900 tracking-tight">Overview</p>
         <div className="flex items-center gap-2">
           <button
@@ -1126,7 +1109,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       {/* Asset Class summary tiles — Stocks, Mutual Funds, and any other label (e.g. Gold) */}
       <div className="flex flex-col gap-2">
         {assetClassLabels.map((label, idx) => {
-          const style = ASSET_TILE_PALETTE[idx % ASSET_TILE_PALETTE.length]
+          const style = LABEL_CARD_STYLE[label] ?? CARD_COLOR_PALETTE[idx % CARD_COLOR_PALETTE.length]
           const stats = assetClassStatsMap.get(label) ?? { cur: 0, inv: 0, gain: 0, pct: 0, todayGain: 0, todayPct: null }
           const xirr  = assetClassXirrMap.get(label) ?? null
           const tileBg = style.bg
@@ -1204,9 +1187,10 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                   <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: group.color }}>{group.label}</span>
                 </div>
                 <div className="flex flex-col gap-2">
-                  {gc.map(card => (
-                    <BreakCard key={card.key} card={card} currency={usdCur(USD_PORTS.has(card.key))} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={PORTFOLIO_CARD_STYLE[card.key]?.accent} cardBg={PORTFOLIO_CARD_STYLE[card.key]?.bg} scale={usdScale(USD_PORTS.has(card.key))} divGain={cardDivGainMap.get(card.key) ?? 0} fxGain={cardFxGainMap.get(card.key) ?? 0} />
-                  ))}
+                  {gc.map((card, i) => {
+                    const s = CARD_COLOR_PALETTE[i % CARD_COLOR_PALETTE.length]
+                    return <BreakCard key={card.key} card={card} currency={usdCur(USD_PORTS.has(card.key))} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={s.accent} cardBg={s.bg} scale={usdScale(USD_PORTS.has(card.key))} divGain={cardDivGainMap.get(card.key) ?? 0} fxGain={cardFxGainMap.get(card.key) ?? 0} />
+                  })}
                 </div>
               </div>
             )
