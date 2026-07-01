@@ -1,4 +1,4 @@
-// Individual holding tile — mirrors _h_card() in holdings_page.py.
+// Individual holding tile — mirrors design-mockups/holdings-page.html .metric-card.compact.
 // Entire card is tappable (onClick). No separate button needed.
 
 import { fmt, fmtCompactGainLine, fmtPct } from '../utils/fmt'
@@ -23,7 +23,7 @@ interface HoldingCardProps {
 
 export function HoldingCard({
   ticker, subLabel, current, invested, realGain, realCost,
-  todayGain, todayPct, ltp, xirr, dividends, fxGain, currency, onClick,
+  todayGain, todayPct, xirr, dividends, fxGain, currency, onClick,
 }: HoldingCardProps) {
   const divAmt    = dividends ?? 0
   const fxAmt     = fxGain ?? 0
@@ -32,65 +32,52 @@ export function HoldingCard({
   const totalPct  = totalCost !== 0 ? (totalGain / totalCost) * 100 : 0
   const gain      = totalGain >= 0
 
-  const borderColor = gain ? '#10b981' : '#f43f5e'
-  const bgColor     = gain ? '#f7fef9' : '#fffbfb'
-  const textColor   = gain ? '#0a7a42' : '#be1c1c'
-
-  const tgColor = (todayGain ?? 0) >= 0 ? '#0a7a42' : '#be1c1c'
+  const accent   = gain ? '#0d9488' : '#f43f5e'
+  const cardBg   = gain ? '#f0fdf6' : '#fef4f4'
+  const tgColor  = (todayGain ?? 0) >= 0 ? '#059669' : '#e11d48'
+  const totColor = gain ? '#059669' : '#e11d48'
 
   return (
     <div
-      className="rounded-[10px] border px-3 py-2.5 cursor-pointer active:opacity-75 transition-opacity select-none shadow-sm"
-      style={{ background: bgColor, borderColor: '#e5e7eb', borderLeftWidth: 4, borderLeftColor: borderColor }}
+      className="rounded-[13px] border px-3 py-1.5 cursor-pointer active:opacity-75 transition-opacity select-none"
+      style={{ background: cardBg, borderColor: '#eef1f5', borderLeftWidth: 4, borderLeftColor: accent }}
       onClick={onClick}
     >
-      {/* Label row: ticker · company | LTP */}
-      <div className="flex justify-between items-center mb-1">
-        <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider truncate max-w-[70%]">
-          {(subLabel || ticker).replace(/\.(NS|BO)$/i, '')}
-        </span>
-        {ltp !== null && (
-          <span className="text-[10px] text-slate-400 shrink-0">
-            LTP <span className="text-slate-600 font-semibold">{ltp.toFixed(2)}</span>
-          </span>
-        )}
+      <p className="text-[9px] font-bold uppercase tracking-[1.2px] text-slate-500 truncate">
+        {(subLabel || ticker).replace(/\.(NS|BO)$/i, '')}
+      </p>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[19px] font-extrabold text-slate-900 tracking-tight">{fmt(current, currency)}</span>
+        {xirr !== null
+          ? <span className="text-[11px] font-bold px-2.5 py-[3px] rounded-full whitespace-nowrap shrink-0" style={{ background: xirr >= 0 ? '#d1fae5' : '#fee2e2', color: xirr >= 0 ? '#047857' : '#b91c1c' }}>XIRR {fmtPct(xirr)}</span>
+          : <span className="text-[11px] text-slate-400 shrink-0">XIRR —</span>
+        }
       </div>
-
-      {/* Value+XIRR (left) | 1D+ALL (right) — grid keeps both rows aligned across columns */}
-      <div className="grid grid-cols-[auto_1fr] items-center gap-y-0">
-        <span className="text-[16px] font-bold text-slate-900 tracking-tight">
-          {fmt(current, currency)}
-        </span>
-        <span className="flex items-center gap-1 whitespace-nowrap justify-self-end">
-          <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
-          <span className="text-[10px]" style={{ color: tgColor }}>
+      <div className="flex justify-between mt-1 pt-1 border-t border-black/5">
+        <div className="flex flex-col gap-0">
+          <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Today</span>
+          <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: tgColor }}>
             {fmtCompactGainLine(todayGain ?? 0, todayGain !== null ? todayPct : 0, currency)}
           </span>
-        </span>
-        <div className="-ml-1.5">
-          {xirr !== null
-            ? <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none" style={{ background: xirr >= 0 ? '#d1fae5' : '#fee2e2', color: xirr >= 0 ? '#065f46' : '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
-            : <span className="text-[11px] text-slate-400">→</span>
-          }
         </div>
-        <span className="flex items-center gap-1 whitespace-nowrap justify-self-end">
-          <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
-          <span className="text-[10px]" style={{ color: textColor }}>
+        <div className="flex flex-col gap-0 items-end">
+          <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Total</span>
+          <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: totColor }}>
             {fmtCompactGainLine(totalGain, totalPct, currency)}
           </span>
-        </span>
+        </div>
       </div>
       {(fxAmt > 0 || divAmt > 0) && (
         <div className="flex justify-end items-center gap-1.5 mt-0.5">
           {fxAmt > 0 && (
             <span className="flex items-center gap-1">
-              <span className="text-[10px] text-slate-400">· FX</span>
+              <span className="text-[10px] text-slate-400">FX</span>
               <span className="text-[10px] text-teal-600 font-semibold">{fmtCompactGainLine(fxAmt, null, currency)}</span>
             </span>
           )}
           {divAmt > 0 && (
             <span className="flex items-center gap-1">
-              <span className="text-[10px] text-slate-400">· DIV</span>
+              <span className="text-[10px] text-slate-400">Dividend</span>
               <span className="text-[10px] text-teal-600 font-semibold">{fmtCompactGainLine(divAmt, null, currency)}</span>
             </span>
           )}

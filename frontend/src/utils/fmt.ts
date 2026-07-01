@@ -51,8 +51,8 @@ export function fmtCompact(value: number, currency: 'INR' | 'USD'): string {
 }
 
 export function fmtCompactGainLine(gain: number, pct: number | null, currency: 'INR' | 'USD'): string {
-  const sign = gain >= 0 ? '' : '−'
-  const valStr = `${sign}${fmtCompact(Math.abs(gain), currency)}`
+  const arrow = gain >= 0 ? '▲' : '▼'
+  const valStr = `${arrow} ${fmtCompact(Math.abs(gain), currency)}`
   if (pct === null) return valStr
   return `${valStr} (${fmtPct(pct)})`
 }

@@ -843,16 +843,16 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       )}
 
       {/* Page header */}
-      <div className="flex items-center justify-between px-3 py-1 mb-2 rounded-xl" style={{ border: '1px solid rgba(13,148,136,0.35)', background: 'rgba(13,148,136,0.16)' }}>
-        <p className="text-[14px] font-extrabold text-slate-900 tracking-tight">Overview</p>
+      <div className="flex items-center justify-between px-3 py-1 mb-2 rounded-xl" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+        <p className="text-[14px] font-extrabold text-white tracking-tight">Overview</p>
         <div className="flex items-center gap-2">
           <button
             onClick={handleRefresh}
             disabled={refreshing || isFetching}
             className="flex items-center gap-1.5 active:opacity-70 transition-opacity"
           >
-            <span className={`text-[12px] leading-none text-slate-400 ${(refreshing || isFetching) ? "animate-spin" : ""}`}>↻</span>
-            <span className={`text-[10px] ${refreshError ? "text-red-500" : "text-slate-400"}`}>
+            <span className={`text-[12px] leading-none text-white ${(refreshing || isFetching) ? "animate-spin" : ""}`}>↻</span>
+            <span className={`text-[10px] ${refreshError ? "text-red-200" : "text-white"}`}>
               {refreshError
                 ? 'Sync failed · retry'
                 : (() => { const d = new Date(data.as_of); const hh = String(d.getHours()).padStart(2,'0'); const mm = String(d.getMinutes()).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); const mon = d.toLocaleString('en-US',{month:'short'}); return `${hh}:${mm} · ${dd} ${mon}` })()}
@@ -861,7 +861,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           <div className="relative">
             <button
               onClick={() => { setCsvMeta(getCsvMeta()); setSettingsOpen(v => !v) }}
-              className="w-[28px] h-[28px] rounded-full flex items-center justify-center active:opacity-70 text-slate-400"
+              className="w-[28px] h-[28px] rounded-full flex items-center justify-center active:opacity-70 text-white"
               aria-label="Portfolio settings"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
@@ -869,11 +869,11 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               </svg>
             </button>
 
-            {/* Settings — bottom sheet */}
+            {/* Settings — anchored top-right dropdown */}
             {settingsOpen && (
               <>
-                <div className="fixed inset-0 z-[998] bg-black/55" onClick={() => { if (importProgress === null) setSettingsOpen(false) }} />
-                <div className="fixed bottom-0 left-0 right-0 z-[999] w-full rounded-t-[22px] overflow-hidden flex flex-col" style={{ maxHeight: '86vh', boxShadow: '0 -10px 40px rgba(0,0,0,0.25)' }}>
+                <div className="fixed inset-0 z-[998]" onClick={() => { if (importProgress === null) setSettingsOpen(false) }} />
+                <div className="absolute right-0 top-full mt-1.5 z-[999] w-[320px] max-w-[calc(100vw-24px)] rounded-2xl overflow-hidden flex flex-col" style={{ maxHeight: '80vh', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}>
 
                   {/* Header */}
                   <div className="flex items-center justify-between px-4 py-[11px] shrink-0" style={{ background: 'linear-gradient(150deg, #10243f 0%, #0b3b3a 100%)' }}>
@@ -885,7 +885,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                   <div className="overflow-y-auto flex flex-col gap-1.5 px-3.5 py-2.5" style={{ background: '#f8fafc' }}>
 
                     {/* ── Data ── */}
-                    <p className="text-[9.5px] font-bold uppercase tracking-[1.1px] text-slate-500 px-0.5 pt-1">Data</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest px-0.5 pt-1" style={{ color: '#0b3b3a' }}>Data</p>
 
                     {/* Import CSV */}
                     <input
@@ -895,10 +895,10 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                       className="hidden"
                       onChange={e => { const f = e.target.files?.[0]; if (f) handleImport(f); e.target.value = '' }}
                     />
-                    <div className="bg-white border border-[#eef1f5] rounded-[12px] px-2.5 py-[7px] flex flex-col gap-0" style={{ boxShadow: '0 2px 8px rgba(15,23,42,0.03)' }}>
+                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex flex-col gap-0">
                       <div className="flex items-center justify-between gap-2.5">
                         <div className="min-w-0">
-                          <p className="text-[12px] font-bold text-slate-900 leading-tight">Import CSV</p>
+                          <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Import CSV</p>
                           <p className="text-[10px] text-slate-400 leading-tight mt-0.5">
                             {importProgress !== null
                               ? (importDone ? '✓ Updated' : importStatus)
@@ -908,8 +908,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                         <button
                           onClick={() => fileInputRef.current?.click()}
                           disabled={importProgress !== null}
-                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] disabled:opacity-40"
-                          style={{ background: '#ccfbf1', color: '#0f766e' }}
+                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] disabled:opacity-40 text-white"
+                          style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
@@ -929,9 +929,9 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                     </div>
 
                     {/* Backup */}
-                    <div className="bg-white border border-[#eef1f5] rounded-[12px] px-2.5 py-[7px] flex items-center justify-between gap-2.5" style={{ boxShadow: '0 2px 8px rgba(15,23,42,0.03)' }}>
+                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
                       <div className="min-w-0">
-                        <p className="text-[12px] font-bold text-slate-900 leading-tight">Backup (with tags)</p>
+                        <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Backup (with tags)</p>
                         <p className="text-[10px] text-slate-400 leading-tight mt-0.5 truncate">
                           {csvMeta ? `${csvMeta.name} · ${fmtBytes(csvMeta.size)}` : 'Demo Data · Sample portfolio'}
                         </p>
@@ -939,8 +939,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                       <button
                         onClick={handleDownload}
                         title="Download a backup CSV — includes your Bucket/Label tags; re-import this (not your raw broker export) to restore them"
-                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px]"
-                        style={{ background: '#f1f5f9', color: '#475569' }}
+                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] text-white"
+                        style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
@@ -951,16 +951,16 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                     </div>
 
                     {/* Demo file */}
-                    <div className="bg-white border border-[#eef1f5] rounded-[12px] px-2.5 py-[7px] flex items-center justify-between gap-2.5" style={{ boxShadow: '0 2px 8px rgba(15,23,42,0.03)' }}>
+                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
                       <div className="min-w-0">
-                        <p className="text-[12px] font-bold text-slate-900 leading-tight">Demo file</p>
+                        <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Demo file</p>
                         <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Sample portfolio · ~1 Cr · 32 stocks</p>
                       </div>
                       <button
                         onClick={() => window.open(`${API_URL_SETTINGS}/api/demo-csv?t=${Date.now()}`, '_blank')}
                         title="Download demo CSV"
-                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px]"
-                        style={{ background: '#f1f5f9', color: '#475569' }}
+                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] text-white"
+                        style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
@@ -971,12 +971,12 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                     </div>
 
                     {/* ── Configuration ── */}
-                    <p className="text-[9.5px] font-bold uppercase tracking-[1.1px] text-slate-500 px-0.5 pt-1">Configuration</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest px-0.5 pt-1" style={{ color: '#0b3b3a' }}>Configuration</p>
 
                     {/* Dividends toggle */}
-                    <div className="bg-white border border-[#eef1f5] rounded-[12px] px-2.5 py-[7px] flex items-center justify-between gap-2.5" style={{ boxShadow: '0 2px 8px rgba(15,23,42,0.03)' }}>
+                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
                       <div>
-                        <p className="text-[12px] font-bold text-slate-900 leading-tight">Include dividends</p>
+                        <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Include dividends</p>
                         <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Add to total gains &amp; XIRR</p>
                       </div>
                       <button
@@ -988,16 +988,17 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                           setIncludeDividends(next)
                           window.dispatchEvent(new Event('dividends-toggle'))
                         }}
-                        className={`relative shrink-0 w-8 h-[18px] rounded-full transition-colors duration-200 focus:outline-none ${includeDivs ? 'bg-teal-500' : 'bg-slate-300'}`}
+                        className="relative shrink-0 w-8 h-[18px] rounded-full transition-colors duration-200 focus:outline-none"
+                        style={{ background: includeDivs ? 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' : '#e2e8f0' }}
                       >
                         <span className={`absolute top-[2px] left-[2px] w-[14px] h-[14px] bg-white rounded-full shadow transition-transform duration-200 ${includeDivs ? 'translate-x-[14px]' : 'translate-x-0'}`} />
                       </button>
                     </div>
 
                     {/* FX Gains toggle */}
-                    <div className="bg-white border border-[#eef1f5] rounded-[12px] px-2.5 py-[7px] flex items-center justify-between gap-2.5" style={{ boxShadow: '0 2px 8px rgba(15,23,42,0.03)' }}>
+                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
                       <div>
-                        <p className="text-[12px] font-bold text-slate-900 leading-tight">Include FX gains</p>
+                        <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Include FX gains</p>
                         <p className="text-[10px] text-slate-400 leading-tight mt-0.5">USD rate effect on returns</p>
                       </div>
                       <button
@@ -1009,43 +1010,44 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                           setIncludeFxGains(next)
                           window.dispatchEvent(new Event('fxgains-toggle'))
                         }}
-                        className={`relative shrink-0 w-8 h-[18px] rounded-full transition-colors duration-200 focus:outline-none ${includeFxGainsState ? 'bg-teal-500' : 'bg-slate-300'}`}
+                        className="relative shrink-0 w-8 h-[18px] rounded-full transition-colors duration-200 focus:outline-none"
+                        style={{ background: includeFxGainsState ? 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' : '#e2e8f0' }}
                       >
                         <span className={`absolute top-[2px] left-[2px] w-[14px] h-[14px] bg-white rounded-full shadow transition-transform duration-200 ${includeFxGainsState ? 'translate-x-[14px]' : 'translate-x-0'}`} />
                       </button>
                     </div>
 
                     {/* Currency toggle */}
-                    <div className="bg-white border border-[#eef1f5] rounded-[12px] px-2.5 py-[7px] flex items-center justify-between gap-2.5" style={{ boxShadow: '0 2px 8px rgba(15,23,42,0.03)' }}>
+                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
                       <div>
-                        <p className="text-[12px] font-bold text-slate-900 leading-tight">Display currency</p>
+                        <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Display currency</p>
                         <p className="text-[10px] text-slate-400 leading-tight mt-0.5 whitespace-nowrap">Switch values to USD or INR</p>
                       </div>
                       <div className="shrink-0 flex items-center gap-0.5 rounded-[9px] p-0.5" style={{ background: '#ecedf1' }}>
                         <button
                           onClick={() => onCurrencyChange('INR')}
                           className={`whitespace-nowrap px-[9px] py-[5px] rounded-[7px] text-[10.5px] font-bold transition-colors ${currency === 'INR' ? 'text-white' : 'text-slate-500'}`}
-                          style={currency === 'INR' ? { background: '#0d9488', boxShadow: '0 2px 6px rgba(13,148,136,0.35)' } : {}}
+                          style={currency === 'INR' ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)', boxShadow: '0 2px 6px rgba(13,148,136,0.35)' } : {}}
                         >₹ INR</button>
                         <button
                           onClick={() => onCurrencyChange('USD')}
                           className={`whitespace-nowrap px-[9px] py-[5px] rounded-[7px] text-[10.5px] font-bold transition-colors ${currency === 'USD' ? 'text-white' : 'text-slate-500'}`}
-                          style={currency === 'USD' ? { background: '#0d9488', boxShadow: '0 2px 6px rgba(13,148,136,0.35)' } : {}}
+                          style={currency === 'USD' ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)', boxShadow: '0 2px 6px rgba(13,148,136,0.35)' } : {}}
                         >$ USD</button>
                       </div>
                     </div>
 
                     {/* Manage Buckets */}
-                    <div className="bg-white border border-[#eef1f5] rounded-[12px] px-2.5 py-[7px] flex items-center justify-between gap-2.5" style={{ boxShadow: '0 2px 8px rgba(15,23,42,0.03)' }}>
+                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
                       <div className="min-w-0">
-                        <p className="text-[12px] font-bold text-slate-900 leading-tight">Manage Buckets</p>
+                        <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Manage Buckets</p>
                         <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Buckets &amp; Labels for holdings</p>
                       </div>
                       <button
                         onClick={() => { setSettingsOpen(false); setBucketsModalOpen(true) }}
                         title="Manage Buckets"
-                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px]"
-                        style={{ background: '#dbeafe', color: '#1d4ed8' }}
+                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] text-white"
+                        style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
                           <path d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" />
@@ -1151,14 +1153,15 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
       {/* Breakdown toggle — one button per Bucket with its toggle enabled, plus Broker */}
       <div className="flex items-center justify-between px-0.5 gap-2">
-        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Breakdown</p>
+        <p className="text-[12px] font-bold uppercase tracking-widest" style={{ color: '#0b3b3a' }}>Breakdown</p>
         <div className="flex items-center gap-1.5">
           <div className="flex bg-slate-100 rounded-full p-[2px] gap-[2px]">
             {toggleModes.map(m => (
               <button
                 key={m}
                 onClick={() => setMode(m)}
-                className={`relative z-10 flex-1 text-[10px] px-3 py-[4px] rounded-full whitespace-nowrap transition-colors ${mode === m ? 'bg-emerald-500 text-white font-semibold shadow-sm' : 'text-slate-400'}`}
+                className={`relative z-10 flex-1 text-[11px] px-3 py-[4px] rounded-full whitespace-nowrap transition-colors font-semibold ${mode === m ? 'text-white shadow-sm' : ''}`}
+                style={mode === m ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : { color: '#0b3b3a' }}
               >
                 {m === 'broker' ? 'By Broker' : `By ${m}`}
               </button>
@@ -1217,7 +1220,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       )}
 
       {/* Centered Modal — Explore */}
-      <div className={`fixed inset-0 z-50 flex justify-center px-4 transition-all duration-200 ${sheetOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'} ${inputFocused ? 'items-start pt-4' : 'items-center'}`}>
+      <div className={`fixed inset-0 z-50 flex justify-center transition-all duration-200 ${sheetOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'} ${inputFocused ? 'items-start pt-4' : 'items-center'}`}>
         <div className="bg-white rounded-[20px] shadow-2xl w-full overflow-hidden flex flex-col" style={{ maxHeight: inputFocused ? '92dvh' : '82vh', maxWidth: 440 }}>
 
           {/* Header */}

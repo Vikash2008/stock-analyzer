@@ -1247,17 +1247,17 @@ export default function HoldingsPage({ currency }: Props) {
           {divSkipped.length} symbol{divSkipped.length > 1 ? 's' : ''} didn't refresh: {divSkipped.join(', ')}
         </div>
       )}
-      <div className="shrink-0 px-2 pt-4 bg-white relative z-20">
+      <div className="shrink-0 px-2 pt-1 bg-white relative z-20">
       {/* Nav bar */}
-      <div className="flex items-center justify-between px-3 py-2 mb-3 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl">
-        <button onClick={() => navigate('/')} className="shrink-0 flex items-center gap-0.5 text-white active:text-white/80 min-h-[44px]">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-          <span className="text-[15px] font-bold whitespace-nowrap">{backLabel.replace('← ', '')}</span>
+      <div className="flex items-center justify-between px-3 py-1 mb-3 rounded-xl" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+        <button onClick={() => navigate('/')} className="shrink-0 flex items-center gap-1.5 text-white active:opacity-70">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          <span className="text-[14px] font-extrabold tracking-tight whitespace-nowrap">{backLabel.replace('← ', '')}</span>
         </button>
         <div className="relative shrink-0">
           <button
             onClick={() => setSettingsOpen(o => !o)}
-            className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${settingsOpen ? 'bg-white/20 text-white' : 'text-emerald-100 active:bg-white/20 active:text-white'}`}
+            className={`w-[30px] h-[30px] flex items-center justify-center rounded-full transition-colors text-white ${settingsOpen ? 'bg-white/20' : 'active:bg-white/20'}`}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3"/>
@@ -1266,19 +1266,19 @@ export default function HoldingsPage({ currency }: Props) {
           </button>
           {settingsOpen && (
             <>
-              <div className="fixed inset-0 z-[9]" onClick={() => setSettingsOpen(false)} />
-              <div className="absolute right-0 top-full mt-1.5 rounded-2xl shadow-xl overflow-hidden border border-emerald-100 z-10 min-w-[270px]">
-                <div className="bg-gradient-to-r from-emerald-600 to-teal-500 px-3 py-2 flex items-center justify-between">
-                  <p className="text-[12px] font-semibold text-white tracking-tight">Settings</p>
-                  <button onClick={() => setSettingsOpen(false)} className="text-emerald-200 active:text-white text-lg leading-none">×</button>
+              <div className="fixed inset-0 z-[998]" onClick={() => setSettingsOpen(false)} />
+              <div className="absolute right-0 top-full mt-1.5 z-[999] w-[320px] max-w-[calc(100vw-24px)] rounded-2xl overflow-hidden flex flex-col" style={{ maxHeight: '80vh', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}>
+                <div className="flex items-center justify-between px-4 py-[11px] shrink-0" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+                  <p className="text-[13.5px] font-extrabold text-white tracking-[-0.2px]">Settings</p>
+                  <button onClick={() => setSettingsOpen(false)} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[13px] leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>✕</button>
                 </div>
-                <div className="bg-white px-2 py-1.5 flex flex-col gap-1">
-                  <p className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 uppercase tracking-widest px-1 pt-0.5"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M1.5 2h9L7 6.5V10l-2-1V6.5L1.5 2z"/></svg>Filters</p>
+                <div className="overflow-y-auto flex flex-col gap-1" style={{ background: '#f8fafc', padding: '10px 8px' }}>
+                  <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest px-1 pt-0.5" style={{ color: '#0b3b3a' }}><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M1.5 2h9L7 6.5V10l-2-1V6.5L1.5 2z"/></svg>Filters</p>
                   <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg overflow-hidden">
                     <div className="px-2.5 py-1.5 flex items-center justify-between gap-2">
-                      <p className="text-[10px] text-slate-400 uppercase tracking-widest shrink-0">Status</p>
+                      <p className="text-[10px] text-slate-700 font-semibold uppercase tracking-widest shrink-0">Status</p>
                       <div className="relative flex w-[150px] bg-white rounded-full p-[2px] border border-emerald-100">
-                        <div className="absolute top-[2px] bottom-[2px] w-1/3 rounded-full bg-emerald-500 shadow-sm transition-transform duration-150" style={{ transform: `translateX(${holdingFilter === 'open' ? '0%' : holdingFilter === 'closed' ? '100%' : '200%'})` }} />
+                        <div className="absolute top-[2px] bottom-[2px] w-1/3 rounded-full shadow-sm transition-transform duration-150" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)', transform: `translateX(${holdingFilter === 'open' ? '0%' : holdingFilter === 'closed' ? '100%' : '200%'})` }} />
                         {(['open', 'closed', 'all'] as const).map(v => (
                           <button key={v} onClick={() => setHoldingFilter(v)} className={`relative z-10 flex-1 text-[10px] py-[3px] px-2 text-center capitalize transition-colors ${holdingFilter === v ? 'text-white font-semibold' : 'text-slate-400'}`}>{v}</button>
                         ))}
@@ -1286,8 +1286,8 @@ export default function HoldingsPage({ currency }: Props) {
                     </div>
                     {holdingFilter === 'all' && (
                       <div className="px-2.5 py-1.5 flex items-center justify-between gap-3 border-t border-emerald-100/70">
-                        <p className="text-[10px] text-slate-400 uppercase tracking-widest">Show Closed</p>
-                        <button onClick={() => setShowClosed(v => !v)} className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 ${showClosed ? 'bg-teal-500' : 'bg-slate-200'}`}>
+                        <p className="text-[10px] text-slate-700 font-semibold uppercase tracking-widest">Show Closed</p>
+                        <button onClick={() => setShowClosed(v => !v)} className="relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200" style={{ background: showClosed ? 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' : '#e2e8f0' }}>
                           <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${showClosed ? 'translate-x-4' : 'translate-x-0'}`} />
                         </button>
                       </div>
@@ -1295,26 +1295,26 @@ export default function HoldingsPage({ currency }: Props) {
                   </div>
                   {segment && (
                     <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
-                      <p className="text-[10px] text-slate-400 uppercase tracking-widest shrink-0">View</p>
+                      <p className="text-[10px] text-slate-700 font-semibold uppercase tracking-widest shrink-0">View</p>
                       <div className="relative flex w-[150px] bg-white rounded-full p-[2px] border border-emerald-100">
-                        <div className="absolute top-[2px] bottom-[2px] w-1/2 rounded-full bg-emerald-500 shadow-sm transition-transform duration-150" style={{ transform: `translateX(${viewMode === 'standalone' ? '100%' : '0%'})` }} />
+                        <div className="absolute top-[2px] bottom-[2px] w-1/2 rounded-full shadow-sm transition-transform duration-150" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)', transform: `translateX(${viewMode === 'standalone' ? '100%' : '0%'})` }} />
                         {(['cumulative', 'standalone'] as const).map(m => (
                           <button key={m} onClick={() => setViewMode(m)} className={`relative z-10 flex-1 text-[10px] py-[3px] px-2 text-center whitespace-nowrap transition-colors ${viewMode === m ? 'text-white font-semibold' : 'text-slate-400'}`}>{m === 'cumulative' ? 'Grouped' : 'Standalone'}</button>
                         ))}
                       </div>
                     </div>
                   )}
-                  <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-widest px-1 pt-0.5">Actions</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest px-1 pt-0.5" style={{ color: '#0b3b3a' }}>Actions</p>
                   <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-medium text-emerald-700">Manage Portfolio</span>
+                    <span className="text-[11px] font-semibold text-[#0b3b3a]">Manage Portfolio</span>
                     <div className="flex flex-col items-center gap-0.5 shrink-0">
-                      <button onClick={() => { setSettingsOpen(false); setManageMenuOpen(true) }} className="w-[70px] text-center bg-emerald-700 text-white text-[10px] font-semibold rounded-full px-3 py-1 active:bg-emerald-800">
+                      <button onClick={() => { setSettingsOpen(false); setManageMenuOpen(true) }} className="w-[70px] text-center text-white text-[10px] font-semibold rounded-full px-3 py-1 active:opacity-80" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
                         Manage
                       </button>
                     </div>
                   </div>
                   <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-medium text-emerald-700">Charts</span>
+                    <span className="text-[11px] font-semibold text-[#0b3b3a]">Charts</span>
                     <div className="flex flex-col items-center gap-0.5 shrink-0">
                       <button
                         onClick={() => {
@@ -1336,7 +1336,8 @@ export default function HoldingsPage({ currency }: Props) {
                             type: 'active',
                           }))
                         }}
-                        className="w-[70px] text-center bg-emerald-700 text-white text-[10px] font-semibold rounded-full px-3 py-1 active:bg-emerald-800"
+                        className="w-[70px] text-center text-white text-[10px] font-semibold rounded-full px-3 py-1 active:opacity-80"
+                        style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
                       >
                         {syncing ? 'Syncing…' : 'Refresh'}
                       </button>
@@ -1346,7 +1347,7 @@ export default function HoldingsPage({ currency }: Props) {
                     </div>
                   </div>
                   <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-medium text-emerald-700">Dividends</span>
+                    <span className="text-[11px] font-semibold text-[#0b3b3a]">Dividends</span>
                     <div className="flex flex-col items-center gap-0.5 shrink-0">
                       <button
                         onClick={() => {
@@ -1366,7 +1367,8 @@ export default function HoldingsPage({ currency }: Props) {
                             })
                             .finally(() => setDivSyncing(false))
                         }}
-                        className="w-[70px] text-center bg-emerald-700 text-white text-[10px] font-semibold rounded-full px-3 py-1 active:bg-emerald-800"
+                        className="w-[70px] text-center text-white text-[10px] font-semibold rounded-full px-3 py-1 active:opacity-80"
+                        style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
                       >
                         {divSyncing ? 'Syncing…' : 'Update'}
                       </button>
@@ -1376,7 +1378,7 @@ export default function HoldingsPage({ currency }: Props) {
                     </div>
                   </div>
                   <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-medium text-emerald-700">Benchmarking analysis</span>
+                    <span className="text-[11px] font-semibold text-[#0b3b3a]">Benchmarking analysis</span>
                     <div className="flex flex-col items-center gap-0.5 shrink-0">
                       <button
                         onClick={() => {
@@ -1384,7 +1386,8 @@ export default function HoldingsPage({ currency }: Props) {
                           setBenchSyncing(true)
                           refreshAllBenchmarks().finally(() => setBenchSyncing(false))
                         }}
-                        className="w-[70px] text-center bg-emerald-700 text-white text-[10px] font-semibold rounded-full px-3 py-1 active:bg-emerald-800"
+                        className="w-[70px] text-center text-white text-[10px] font-semibold rounded-full px-3 py-1 active:opacity-80"
+                        style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
                       >
                         {benchSyncing ? 'Syncing…' : 'Refresh'}
                       </button>
