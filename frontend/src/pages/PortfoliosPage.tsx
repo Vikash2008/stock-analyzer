@@ -54,7 +54,7 @@ const BROKER_GROUPS = [
 ]
 
 const STOCK_CARD_STYLE = { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' }
-const MF_CARD_STYLE    = { accent: '#0b3b3a', bg: 'linear-gradient(to right, #dbeafe, #eff6ff 45%, #f8faff)' }
+const MF_CARD_STYLE    = { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' }
 
 // Asset Class tiles (below Hero card) — every tile (Stocks, Mutual Funds, Gold, ...) shares
 // the same shade of green, no per-label distinction.
@@ -64,11 +64,11 @@ const ASSET_TILE_PALETTE: { accent: string; bg: string }[] = [
 
 const CARD_COLOR_PALETTE: { accent: string; bg: string }[] = [
   { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
-  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #dbeafe, #eff6ff 45%, #f8faff)' },
-  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #ede9fe, #f5f3ff 45%, #faf9ff)' },
-  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #ffe4e6, #fff1f2 45%, #fff8f8)' },
-  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #ffedd5, #fff7ed 45%, #fffbf8)' },
-  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #cffafe, #ecfeff 45%, #f8feff)' },
+  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
+  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
+  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
+  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
+  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
 ]
 
 // Default styling for the auto-seeded "Asset Class" bucket's Labels — any other custom
@@ -860,16 +860,16 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       )}
 
       {/* Page header */}
-      <div className="flex items-center justify-between px-1 py-0.5 border-b border-slate-200 mb-1">
-        <p className="text-[17px] font-extrabold text-slate-900 tracking-tight">Overview</p>
+      <div className="flex items-center justify-between px-1 pb-1.5 mb-2 border-b border-slate-200">
+        <p className="text-[14px] font-extrabold text-slate-900 tracking-tight">Overview</p>
         <div className="flex items-center gap-2">
           <button
             onClick={handleRefresh}
             disabled={refreshing || isFetching}
-            className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-full px-3 py-1.5 shadow-sm active:opacity-70 transition-opacity"
+            className="flex items-center gap-1.5 active:opacity-70 transition-opacity"
           >
-            <span className={`text-[12px] leading-none text-slate-500 ${(refreshing || isFetching) ? 'animate-spin' : ''}`}>↻</span>
-            <span className={`text-[10px] ${refreshError ? 'text-red-500' : 'text-slate-500'}`}>
+            <span className={`text-[12px] leading-none text-slate-400 ${(refreshing || isFetching) ? "animate-spin" : ""}`}>↻</span>
+            <span className={`text-[10px] ${refreshError ? "text-red-500" : "text-slate-400"}`}>
               {refreshError
                 ? 'Sync failed · retry'
                 : (() => { const d = new Date(data.as_of); const hh = String(d.getHours()).padStart(2,'0'); const mm = String(d.getMinutes()).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); const mon = d.toLocaleString('en-US',{month:'short'}); return `${hh}:${mm} · ${dd} ${mon}` })()}
@@ -878,7 +878,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           <div className="relative">
             <button
               onClick={() => { setCsvMeta(getCsvMeta()); setSettingsOpen(v => !v) }}
-              className="w-[30px] h-[30px] rounded-full bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-500 active:opacity-70 min-h-[44px]"
+              className="w-[28px] h-[28px] rounded-full flex items-center justify-center active:opacity-70 text-slate-400"
               aria-label="Portfolio settings"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
