@@ -378,6 +378,14 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Keep only the 3 most recent sessions here (size guard, same pattern as ROADMAP_ARCHIVE.md). Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-06-19 (session 141)
 
+### 2026-07-02 (session 157)
+
+**Overview page design language** — dark navy hero card (`linear-gradient(150deg, #10243f 0%, #0b3b3a 100%)`) with teal radial glow; all non-hero cards use `#0d9488` teal left-border accent (red `#f43f5e` when returns negative); settings modal converted to full-width bottom sheet; explore modal redesigned with same dark header, teal pill search, avatar result rows, blue recent chips.
+
+**Compact card pattern** — non-hero cards: `px-2 py-1.5`, label `text-[9.5px] mb-0.5`, value `text-[14px]`, bottom gains row `mt-1 pt-1`; asset tiles and BreakCard use same pattern; `CARD_COLOR_PALETTE` added for dynamic bucket labels.
+
+**Holdings mockup** — `design-mockups/holdings-page.html` created matching overview design language: dark hero, compact holding rows with left-accent border (green pos / red neg), avatar circles, teal filter strip.
+
 ### 2026-06-29 (session 156)
 
 **Dividends loading progress bar** — replaced "Fetching… ~30s" spinner with determinate `h-1` teal bar showing `loadedCount / totalCount` symbols. Same bar used during background re-fetch (replaces infinite-sweep animation when `totalCount > 0`).
