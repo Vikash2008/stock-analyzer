@@ -10,6 +10,12 @@
 | 2026-05-24 | Vercel for frontend | Free, auto-deploys from GitHub, global CDN |
 | 2026-05-24 | PWA manifest added | "Add to Home Screen" opens standalone (no browser bar) |
 | 2026-05-24 | Fixed P&L double-count | Equity + MF_Portfolio (SKIP_PORTS) excluded from all totals |
+
+### 2026-06-28 (session 154)
+
+**ManageBucketsModal compacted** — drag handle `w-11 h-11` → `w-7 h-7`, label rows `py-1` → `py-0.5`, bucket cards `p-3` → `p-2`, scroll area `px-4 py-4` → `px-3 py-2.5`, header `py-3` → `py-2`. User explicitly requested compact; touch targets intentionally below 44px in this modal.
+
+**Quick Stats duplicate refresh button removed** — top "Refresh" pill (next to "Updated" timestamp) removed; only the "Retry" button (shown when stats unavailable) remains. Timestamp moved to below the Retry button. Spinner now uses `refetchQueries` instead of `resetQueries` so it stays active until data arrives.
 | 2026-05-24 | Added Stocks + MF tiles to PortfoliosPage | Quick segment overview with XIRR + today % |
 | 2026-05-24 | By Broker / By Type breakdown toggle | Replaces flat portfolio list; portfolio cards now include realized P&L in return % |
 | 2026-05-24 | XIRR added to bundle | Computed per portfolio + stk/mf/total using existing portfolio_xirr(); shown on hero + tiles |
