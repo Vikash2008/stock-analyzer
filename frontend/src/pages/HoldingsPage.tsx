@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react'
+﻿import React, { useMemo, useState, useEffect, useRef } from 'react'
 import { AddTransactionModal } from '../components/AddTransactionModal'
 import { PullHoldingsModal } from '../components/PullHoldingsModal'
 import { DeleteHoldingModal } from '../components/DeleteHoldingModal'
@@ -1423,8 +1423,8 @@ export default function HoldingsPage({ currency }: Props) {
         currency={summCur}
         highlight={
           segment === 'total'
-            ? { bg: 'linear-gradient(to right, #f0fdfa, #d1fae5 45%, #ecfdf5)', accent: '#0d9488' }
-            : { bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)', accent: '#34d399' }
+            ? { bg: 'linear-gradient(to right, #f0fdfa, #d1fae5 45%, #ecfdf5)', accent: '#0b3b3a' }
+            : { bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)', accent: '#0b3b3a' }
         }
       />
         )

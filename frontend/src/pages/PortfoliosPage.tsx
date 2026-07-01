@@ -53,22 +53,22 @@ const BROKER_GROUPS = [
   { key: 'mf',     label: 'Mutual Funds',  test: (p: string) => p.startsWith('MF_'),                       color: '#8b5cf6' },
 ]
 
-const STOCK_CARD_STYLE = { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' }
-const MF_CARD_STYLE    = { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' }
+const STOCK_CARD_STYLE = { accent: '#0d9488', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' }
+const MF_CARD_STYLE    = { accent: '#0d9488', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' }
 
 // Asset Class tiles (below Hero card) — every tile (Stocks, Mutual Funds, Gold, ...) shares
 // the same shade of green, no per-label distinction.
 const ASSET_TILE_PALETTE: { accent: string; bg: string }[] = [
-  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
+  { accent: '#0d9488', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
 ]
 
 const CARD_COLOR_PALETTE: { accent: string; bg: string }[] = [
-  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
-  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
-  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
-  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
-  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
-  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
+  { accent: '#0d9488', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
+  { accent: '#0d9488', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
+  { accent: '#0d9488', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
+  { accent: '#0d9488', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
+  { accent: '#0d9488', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
+  { accent: '#0d9488', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
 ]
 
 // Default styling for the auto-seeded "Asset Class" bucket's Labels — any other custom
@@ -177,7 +177,7 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
         background:      cardBg ?? '#fff',
         borderColor:     '#e2e8f0',
         borderLeftWidth: 4,
-        borderLeftColor: accentColor ?? '#0b3b3a',
+        borderLeftColor: pos ? (accentColor ?? '#0d9488') : '#f43f5e',
       }}
       onClick={onClick}
     >
@@ -840,7 +840,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
   return (
     <div
-      className="max-w-xl mx-auto px-2 py-4 pb-24 space-y-3"
+      className="max-w-xl mx-auto px-2 pt-1 pb-24 space-y-2"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -1142,7 +1142,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 background:      tileBg,
                 borderColor:     '#e2e8f0',
                 borderLeftWidth: 4,
-                borderLeftColor: tileAccent,
+                borderLeftColor: pos ? tileAccent : '#f43f5e',
               }}
               onClick={() => navigate(`/holdings/bucket/${encodeURIComponent('Asset Class')}/${encodeURIComponent(label)}`)}
             >
@@ -1214,10 +1214,12 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         </div>
       )}
 
+
       {/* FAB — Explore */}
       <button
         onClick={() => setSheetOpen(true)}
-        className="fixed bottom-6 right-4 z-40 w-14 h-14 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center active:opacity-80 transition-opacity"
+        className="fixed bottom-6 right-4 z-40 w-14 h-14 rounded-full text-white shadow-xl flex items-center justify-center active:opacity-80 transition-opacity"
+        style={{ background: 'linear-gradient(150deg, #10243f 0%, #0b3b3a 100%)' }}
         aria-label="Explore stocks"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
@@ -1227,79 +1229,110 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
       {/* Backdrop */}
       {sheetOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/40"
-          onClick={() => setSheetOpen(false)}
-        />
+        <div className="fixed inset-0 z-40 bg-black/55" onClick={() => setSheetOpen(false)} />
       )}
 
-      {/* Centered Modal — Explore New Opportunities */}
-      <div
-        className={`fixed inset-0 z-50 flex justify-center px-4 transition-all duration-200 ${sheetOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'} ${inputFocused ? 'items-start pt-4' : 'items-center'}`}
-      >
-        <div className="bg-white rounded-2xl shadow-2xl w-full" style={{ maxHeight: inputFocused ? '92dvh' : '70dvh', maxWidth: 480, display: 'flex', flexDirection: 'column' }}>
+      {/* Centered Modal — Explore */}
+      <div className={`fixed inset-0 z-50 flex justify-center px-4 transition-all duration-200 ${sheetOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'} ${inputFocused ? 'items-start pt-4' : 'items-center'}`}>
+        <div className="bg-white rounded-[20px] shadow-2xl w-full overflow-hidden flex flex-col" style={{ maxHeight: inputFocused ? '92dvh' : '82vh', maxWidth: 440 }}>
+
           {/* Header */}
-          <div className="flex items-center justify-between bg-gradient-to-r from-emerald-600 to-teal-500 rounded-t-2xl px-4 py-1.5 mb-4 shrink-0">
-            <p className="text-[14px] font-bold text-white tracking-tight">Explore New Opportunities</p>
-            <button onClick={() => setSheetOpen(false)} className="text-emerald-100 active:text-white text-lg min-h-[44px] min-w-[44px] flex items-center justify-center -mr-2">✕</button>
+          <div className="flex items-center justify-between px-4 py-3.5 shrink-0 relative overflow-hidden" style={{ background: 'linear-gradient(150deg, #10243f 0%, #0b3b3a 100%)' }}>
+            <div className="absolute top-[-30px] right-[-20px] w-[120px] h-[120px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(45,212,191,0.25), transparent 70%)' }} />
+            <div className="relative">
+              <p className="text-[15px] font-extrabold text-white tracking-[-0.2px]">Explore</p>
+              <p className="text-[10.5px] mt-0.5" style={{ color: '#99e6dc' }}>Search any stock or fund to research</p>
+            </div>
+            <button onClick={() => setSheetOpen(false)} className="relative w-[26px] h-[26px] rounded-full flex items-center justify-center text-white text-[13px] leading-none shrink-0" style={{ background: 'rgba(255,255,255,0.12)' }}>✕</button>
           </div>
 
-          {/* Search + results — scrollable */}
-          <div className="flex-1 overflow-y-auto px-4 pb-8">
-            <input
-              value={exploreInput}
-              onChange={e => { setExploreInput(e.target.value); setShowSuggestions(true) }}
-              onFocus={() => { setInputFocused(true); suggestions.length > 0 && setShowSuggestions(true) }}
-              onKeyDown={e => e.key === 'Enter' && navigateToResearch(exploreInput)}
-              onBlur={() => { setTimeout(() => setShowSuggestions(false), 150); setInputFocused(false) }}
-              placeholder="e.g. AMZN, RELIANCE, HDFC Bank…"
-              className="w-full bg-green-50 text-slate-800 text-[12px] rounded-xl px-3 py-2.5 border border-green-200 placeholder-emerald-400 outline-none focus:border-emerald-400"
-            />
+          {/* Search bar */}
+          <div className="px-3.5 pt-3 pb-2 shrink-0">
+            <div className="flex items-center gap-2 rounded-full px-3 py-2.5" style={{ background: '#f0fdfa', border: '1px solid #ccfbf1' }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input
+                value={exploreInput}
+                onChange={e => { setExploreInput(e.target.value); setShowSuggestions(true) }}
+                onFocus={() => { setInputFocused(true); suggestions.length > 0 && setShowSuggestions(true) }}
+                onKeyDown={e => e.key === 'Enter' && navigateToResearch(exploreInput)}
+                onBlur={() => { setTimeout(() => setShowSuggestions(false), 150); setInputFocused(false) }}
+                placeholder="e.g. AMZN, RELIANCE, HDFC Bank…"
+                className="flex-1 bg-transparent border-none outline-none text-[12.5px] text-slate-900"
+                style={{ caretColor: '#0d9488' }}
+              />
+              {exploreInput && (
+                <button onClick={() => setExploreInput('')} className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold shrink-0" style={{ background: '#ccfbf1', color: '#0f766e' }}>✕</button>
+              )}
+            </div>
+          </div>
 
-            {/* Searching indicator — shown while waiting for cold Render start */}
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto px-3.5 pb-6">
+
+            {/* Searching indicator */}
             {isSearching && exploreInput.trim().length > 0 && suggestions.length === 0 && (
-              <div className="mt-1 bg-white border border-green-200 rounded-xl px-3 py-3">
-                <p className="text-[12px] text-slate-400 animate-pulse">Searching…</p>
+              <div className="flex items-center gap-2 py-3 px-1 text-slate-500 text-[12px]">
+                <div className="w-3.5 h-3.5 rounded-full border-2 border-[#ccfbf1] border-t-[#0d9488] animate-spin shrink-0" />
+                Searching…
               </div>
             )}
 
-            {/* Autocomplete results — inline so they scroll within the modal */}
+            {/* Results */}
             {showSuggestions && suggestions.length > 0 && (
-              <div className="mt-1 bg-white border border-green-200 rounded-xl overflow-hidden">
-                {suggestions.map((s, i) => (
-                  <button
-                    key={s.symbol}
-                    onMouseDown={() => navigateToResearch(s.symbol, s.name)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 text-left active:bg-green-50 ${i > 0 ? 'border-t border-green-100' : ''}`}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-[12px] font-semibold text-slate-800 truncate">{s.symbol}</p>
-                      <p className="text-[10px] text-slate-500 truncate">{s.name}</p>
-                    </div>
-                    <span className="text-[10px] text-emerald-600 shrink-0 ml-2">{s.exchange}</span>
-                  </button>
-                ))}
-              </div>
+              <>
+                <p className="text-[9.5px] font-bold uppercase tracking-[1.1px] text-slate-500 pt-2.5 pb-1.5 px-0.5">Results</p>
+                <div className="flex flex-col gap-1.5">
+                  {suggestions.map(s => {
+                    const isUS = s.exchange === 'NASDAQ' || s.exchange === 'NYSE'
+                    const isBSE = s.exchange === 'BSE'
+                    const avatarBg = isUS ? '#0284c7' : isBSE ? '#0891b2' : '#0d9488'
+                    const badgeBg  = isUS ? '#e0f2fe' : '#ccfbf1'
+                    const badgeClr = isUS ? '#0369a1' : '#0f766e'
+                    return (
+                      <button
+                        key={s.symbol}
+                        onMouseDown={() => navigateToResearch(s.symbol, s.name)}
+                        className="flex items-center gap-2.5 px-2.5 py-2 rounded-[12px] border border-[#eef1f5] bg-white text-left active:bg-slate-50 transition-colors w-full"
+                      >
+                        <div className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center text-[11px] font-extrabold text-white shrink-0" style={{ background: avatarBg }}>
+                          {s.symbol.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12.5px] font-bold text-slate-900">{s.symbol}</p>
+                          <p className="text-[10.5px] text-slate-400 truncate">{s.name}</p>
+                        </div>
+                        <span className="text-[9.5px] font-bold px-2 py-[3px] rounded-full shrink-0 whitespace-nowrap" style={{ background: badgeBg, color: badgeClr }}>{s.exchange}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
             )}
 
             {/* Recent searches */}
-            {recentSearches.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest w-full mb-0.5">Recent</span>
-                {recentSearches.map(sym => (
-                  <button
-                    key={sym}
-                    onClick={() => navigateToResearch(sym)}
-                    className="text-[11px] bg-green-50 text-emerald-700 border border-green-200 rounded-full px-2.5 py-1 active:opacity-70"
-                  >
-                    {sym}
-                  </button>
-                ))}
-              </div>
+            {recentSearches.length > 0 && !exploreInput && (
+              <>
+                <p className="text-[9.5px] font-bold uppercase tracking-[1.1px] text-slate-500 pt-2.5 pb-1.5 px-0.5">Recent</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {recentSearches.map(sym => (
+                    <button
+                      key={sym}
+                      onClick={() => navigateToResearch(sym)}
+                      className="text-[11px] font-semibold rounded-full px-3 py-1.5 active:opacity-70"
+                      style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #dbeafe' }}
+                    >
+                      {sym}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </div>
       </div>
+
 
       {data && (
         <ManageBucketsModal
