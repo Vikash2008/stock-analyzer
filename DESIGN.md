@@ -378,6 +378,14 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Keep only the 3 most recent sessions here (size guard, same pattern as ROADMAP_ARCHIVE.md). Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-06-19 (session 141)
 
+### 2026-07-02 (session 159)
+
+**Manage Portfolio / Manage Buckets / Delete Holding modals matched to Settings design language** — headers switched to `linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)` with circular `✕` close button (same shell as `ManageBucketsModal`/Settings popover); Delete Holding's boxes/borders/toggle recolored from rose to emerald, keeping red only on the actual Delete/Continue destructive buttons.
+
+**ManagePortfolioModal repositioned + compacted** — moved from centered overlay to anchored top-right (`right` computed via `calc((100vw-576px)/2 + 0.75rem)` so it hugs the app's `max-w-xl` column edge on desktop instead of the raw browser edge); option rows tightened (smaller padding/text) with labels colored `#0b3b3a`.
+
+**ManageBucketsModal redesigned** — bucket list is now white cards with a tinted header strip and icon-based delete (trash icon) instead of plain text rows; label rows use a grip-dots drag handle; width reduced to 320px, "add label" input moved into the bucket header row (next to hide-toggle/delete), and "+ Create bucket" moved to the top next to the bucket count for a smaller, denser modal.
+
 ### 2026-07-02 (session 158)
 
 **Dark-green theme unified across Holdings + Overview** — `HoldingsPage.tsx` nav bar switched to same `linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)` as Overview; `SummaryCard.tsx` rebuilt as dark hero card (Invested/Realized row + conditional FX/Dividend row + Today/Total gains row); `HoldingCard.tsx` restyled to compact card — XIRR pill beside value, gain% pill, light green/red background tint by total gain, ▲/▼ tickers everywhere via shared `fmtCompactGainLine`.
