@@ -53,13 +53,22 @@ const BROKER_GROUPS = [
   { key: 'mf',     label: 'Mutual Funds',  test: (p: string) => p.startsWith('MF_'),                       color: '#8b5cf6' },
 ]
 
-const STOCK_CARD_STYLE = { accent: '#34d399', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' }
-const MF_CARD_STYLE    = { accent: '#93c5fd', bg: 'linear-gradient(to right, #dbeafe, #eff6ff 45%, #f8faff)' }
+const STOCK_CARD_STYLE = { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' }
+const MF_CARD_STYLE    = { accent: '#0b3b3a', bg: 'linear-gradient(to right, #dbeafe, #eff6ff 45%, #f8faff)' }
 
 // Asset Class tiles (below Hero card) — every tile (Stocks, Mutual Funds, Gold, ...) shares
 // the same shade of green, no per-label distinction.
 const ASSET_TILE_PALETTE: { accent: string; bg: string }[] = [
-  { accent: '#34d399', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
+  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
+]
+
+const CARD_COLOR_PALETTE: { accent: string; bg: string }[] = [
+  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #d1fae5, #ecfdf5 40%, #f0fdf4)' },
+  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #dbeafe, #eff6ff 45%, #f8faff)' },
+  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #ede9fe, #f5f3ff 45%, #faf9ff)' },
+  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #ffe4e6, #fff1f2 45%, #fff8f8)' },
+  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #ffedd5, #fff7ed 45%, #fffbf8)' },
+  { accent: '#0b3b3a', bg: 'linear-gradient(to right, #cffafe, #ecfeff 45%, #f8feff)' },
 ]
 
 // Default styling for the auto-seeded "Asset Class" bucket's Labels — any other custom
@@ -163,21 +172,21 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
 
   return (
     <div
-      className="rounded-[13px] p-2 border cursor-pointer active:opacity-80 transition-opacity"
+      className="rounded-[13px] px-2 py-1.5 border cursor-pointer active:opacity-80 transition-opacity"
       style={{
         background:      cardBg ?? '#fff',
         borderColor:     '#e2e8f0',
         borderLeftWidth: 4,
-        borderLeftColor: accentColor ?? (pos ? '#10b981' : '#f43f5e'),
+        borderLeftColor: accentColor ?? '#0b3b3a',
       }}
       onClick={onClick}
     >
-      <p className="text-[9.5px] font-bold text-slate-500 uppercase tracking-[1.2px] mb-1">{card.label}</p>
+      <p className="text-[9.5px] font-bold text-slate-500 uppercase tracking-[1.2px] mb-0.5">{card.label}</p>
       <div className="flex items-center justify-between gap-2">
         <span className="text-[14px] font-bold text-slate-900">{fmt(card.current * scale, currency)}</span>
         <span className="text-[9.5px] font-bold px-2 py-[3px] rounded-full whitespace-nowrap" style={{ background: xirr == null ? '#e2e8f0' : (xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2'), color: xirr == null ? '#64748b' : (xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b') }}>XIRR {xirr == null ? '—' : `${xirr.toFixed(1)}%`}</span>
       </div>
-      <div className="flex justify-between mt-1.5 pt-1.5 border-t border-slate-100">
+      <div className="flex justify-between mt-1 pt-1 border-t border-slate-100">
         <div className="flex flex-col gap-0.5">
           <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Today</span>
           <span className="text-[10px] font-bold whitespace-nowrap" style={{ color: (card.todayGain ?? 0) >= 0 ? '#059669' : '#e11d48' }}>{fmtCompactGainLine1((card.todayGain ?? 0) * scale, card.todayGain !== null ? todayPct : 0, currency)}</span>
@@ -851,7 +860,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       )}
 
       {/* Page header */}
-      <div className="flex items-center justify-between px-1 py-1">
+      <div className="flex items-center justify-between px-1 py-0.5 border-b border-slate-200 mb-1">
         <p className="text-[17px] font-extrabold text-slate-900 tracking-tight">Overview</p>
         <div className="flex items-center gap-2">
           <button
@@ -1178,9 +1187,10 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       {/* Breakdown cards */}
       {mode !== 'broker' ? (
         <div className="flex flex-col gap-2">
-          {cards.map(card => (
-            <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={LABEL_CARD_STYLE[card.key]?.accent} cardBg={LABEL_CARD_STYLE[card.key]?.bg} divGain={cardDivGainMap.get(card.key) ?? 0} fxGain={cardFxGainMap.get(card.key) ?? 0} />
-          ))}
+          {cards.map((card, idx) => {
+            const s = LABEL_CARD_STYLE[card.key] ?? CARD_COLOR_PALETTE[idx % CARD_COLOR_PALETTE.length]
+            return <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={s.accent} cardBg={s.bg} divGain={cardDivGainMap.get(card.key) ?? 0} fxGain={cardFxGainMap.get(card.key) ?? 0} />
+          })}
         </div>
       ) : (
         <div className="space-y-3">
