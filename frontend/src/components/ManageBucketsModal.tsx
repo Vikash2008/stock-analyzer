@@ -153,99 +153,115 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
       <div className="fixed inset-0 bg-black/40 z-[200]" onClick={onClose} />
       <div
         className="fixed inset-x-3 z-[201] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-emerald-100"
-        style={{ top: '5dvh', maxHeight: '90dvh', maxWidth: 460, margin: '0 auto' }}
+        style={{ top: '5dvh', maxHeight: '90dvh', maxWidth: 320, margin: '0 auto' }}
       >
-        <div className="px-4 py-2 flex items-center justify-between shrink-0" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
-          <span className="text-[13.5px] font-extrabold text-white tracking-[-0.2px]">Manage Buckets</span>
-          <button onClick={onClose} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[13px] leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>✕</button>
+        <div className="px-3.5 py-2 flex items-center justify-between shrink-0" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+          <span className="text-[13px] font-extrabold text-white tracking-[-0.2px]">Manage Buckets</span>
+          <button onClick={onClose} className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[12px] leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>✕</button>
         </div>
 
-        <div className="flex-1 overflow-y-auto bg-white px-3 py-2.5 space-y-2">
+        <div className="flex-1 overflow-y-auto space-y-2 px-2.5 py-2.5" style={{ background: '#f8fafc' }}>
 
-          {/* Buckets + Labels */}
-          <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: '#0b3b3a' }}>Buckets</p>
-          {buckets.map(b => (
-            <div key={b.name} className="bg-emerald-50/60 rounded-lg border border-emerald-100 p-2 space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[12px] font-bold text-[#0b3b3a]">{b.name}</span>
-                <div className="flex items-center gap-2 shrink-0">
-                  {b.name !== 'Asset Class' && (
-                    <>
-                      <button
-                        role="switch"
-                        aria-checked={b.showToggle}
-                        onClick={() => { setBucketToggle(b.name, !b.showToggle); refreshBuckets() }}
-                        className="relative w-8 h-4 rounded-full transition-colors duration-200"
-                        style={{ background: b.showToggle ? 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' : '#e2e8f0' }}
-                      >
-                        <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform duration-200 ${b.showToggle ? 'translate-x-4' : 'translate-x-0'}`} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteBucket(b.name)}
-                        disabled={isPending}
-                        className="text-[10px] text-red-500 active:text-red-700 disabled:opacity-50"
-                        title="Delete bucket"
-                      >
-                        Delete
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-              <div className="space-y-0.5">
-                {getAllLabelsInBucket(data, b.name).map(l => {
-                  const isDragging = drag?.bucket === b.name && drag.label === l
-                  return (
-                  <div
-                    key={l}
-                    ref={el => { if (el) rowRefs.current.set(`${b.name}:${l}`, el); else rowRefs.current.delete(`${b.name}:${l}`) }}
-                    className={`flex items-center gap-1 bg-white border rounded-lg px-1.5 py-0.5 ${isDragging ? 'border-emerald-400 shadow-lg relative z-50' : 'border-emerald-200'}`}
-                    style={isDragging ? { transform: `translateY(${drag.y - drag.startY}px)`, touchAction: 'none' } : undefined}
-                  >
-                    <button
-                      onPointerDown={e => handleDragPointerDown(b.name, l, e)}
-                      className="text-slate-400 active:text-emerald-600 leading-none shrink-0 w-7 h-7 flex items-center justify-center text-[12px] cursor-grab active:cursor-grabbing"
-                      style={{ touchAction: 'none' }}
-                      title="Drag to reorder"
-                    >
-                      ≡
-                    </button>
-                    <span className="flex-1 text-[11px] text-slate-700">{l}</span>
-                    <button
-                      onClick={() => handleDeleteLabel(b.name, l)}
-                      disabled={isPending}
-                      className="text-red-400 active:text-red-600 leading-none disabled:opacity-50 shrink-0 w-6 h-6 flex items-center justify-center"
-                      title="Delete label"
-                    >
-                      ×
-                    </button>
-                  </div>
-                  )
-                })}
-              </div>
-              <div className="flex gap-1">
-                <input
-                  value={newLabelByBucket[b.name] ?? ''}
-                  onChange={e => setNewLabelByBucket(prev => ({ ...prev, [b.name]: e.target.value }))}
-                  onKeyDown={e => { if (e.key === 'Enter') handleAddLabel(b.name) }}
-                  placeholder="+ Add label"
-                  className="flex-1 px-2 py-1 text-[11px] border border-emerald-200 rounded-lg bg-white focus:outline-none focus:border-teal-400"
-                />
-                <button onClick={() => handleAddLabel(b.name)} className="px-2.5 py-1 text-[11px] font-semibold text-white rounded-lg active:opacity-80" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>Add</button>
-              </div>
-            </div>
-          ))}
-
-          <div className="flex gap-1">
+          {/* Count + New bucket */}
+          <div className="flex items-center gap-1.5">
+            <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest shrink-0" style={{ color: '#0b3b3a' }}>
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M1.5 2h9L7 6.5V10l-2-1V6.5L1.5 2z" /></svg>
+              {buckets.length}
+            </p>
             <input
               value={newBucketName}
               onChange={e => setNewBucketName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleNewBucket() }}
-              placeholder="+ New bucket (e.g. Risk, Region)"
-              className="flex-1 px-2 py-1 text-[11px] border border-emerald-200 rounded-lg bg-white focus:outline-none focus:border-teal-400"
+              placeholder="New bucket…"
+              className="flex-1 min-w-0 px-2 py-1 text-[10.5px] border border-emerald-100 rounded-md bg-white focus:outline-none focus:border-teal-400"
             />
-            <button onClick={handleNewBucket} className="px-2.5 py-1 text-[11px] font-semibold text-white rounded-lg active:opacity-80" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>Create</button>
+            <button
+              onClick={handleNewBucket}
+              className="px-2 py-1 text-[10.5px] font-semibold text-white rounded-md active:opacity-80 whitespace-nowrap shrink-0"
+              style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+            >
+              + Create
+            </button>
           </div>
+
+          {buckets.map(b => (
+            <div key={b.name} className="bg-white rounded-lg border border-emerald-100 shadow-sm overflow-hidden">
+              <div className="flex items-center gap-1 px-2 py-1.5" style={{ background: 'rgba(13,148,136,0.06)' }}>
+                <span className="text-[11px] font-bold text-[#0b3b3a] truncate flex-1 min-w-0">{b.name}</span>
+                <input
+                  value={newLabelByBucket[b.name] ?? ''}
+                  onChange={e => setNewLabelByBucket(prev => ({ ...prev, [b.name]: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter') handleAddLabel(b.name) }}
+                  placeholder="+label"
+                  className="w-[58px] shrink-0 px-1.5 py-1 text-[10px] border border-emerald-100 rounded-md bg-white focus:outline-none focus:border-teal-400"
+                />
+                <button
+                  onClick={() => handleAddLabel(b.name)}
+                  className="w-5 h-5 shrink-0 flex items-center justify-center rounded-md text-white active:opacity-80"
+                  style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+                  title="Add label"
+                >
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                </button>
+                {b.name !== 'Asset Class' && (
+                  <>
+                    <button
+                      role="switch"
+                      aria-checked={b.showToggle}
+                      onClick={() => { setBucketToggle(b.name, !b.showToggle); refreshBuckets() }}
+                      className="relative w-7 h-4 rounded-full transition-colors duration-200 shrink-0"
+                      style={{ background: b.showToggle ? 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' : '#e2e8f0' }}
+                      title="Show as filter toggle"
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform duration-200 ${b.showToggle ? 'translate-x-3' : 'translate-x-0'}`} />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteBucket(b.name)}
+                      disabled={isPending}
+                      className="w-5 h-5 shrink-0 flex items-center justify-center rounded-full text-red-400 active:bg-red-50 active:text-red-600 disabled:opacity-50"
+                      title="Delete bucket"
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" /></svg>
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {getAllLabelsInBucket(data, b.name).length > 0 && (
+                <div className="px-2 py-1.5 space-y-1">
+                  {getAllLabelsInBucket(data, b.name).map(l => {
+                    const isDragging = drag?.bucket === b.name && drag.label === l
+                    return (
+                    <div
+                      key={l}
+                      ref={el => { if (el) rowRefs.current.set(`${b.name}:${l}`, el); else rowRefs.current.delete(`${b.name}:${l}`) }}
+                      className={`flex items-center gap-1.5 bg-emerald-50/60 border rounded-lg pl-1 pr-1.5 py-0.5 ${isDragging ? 'border-emerald-400 shadow-lg relative z-50' : 'border-emerald-100'}`}
+                      style={isDragging ? { transform: `translateY(${drag.y - drag.startY}px)`, touchAction: 'none' } : undefined}
+                    >
+                      <button
+                        onPointerDown={e => handleDragPointerDown(b.name, l, e)}
+                        className="text-emerald-300 active:text-emerald-600 leading-none shrink-0 w-6 h-6 flex items-center justify-center cursor-grab active:cursor-grabbing"
+                        style={{ touchAction: 'none' }}
+                        title="Drag to reorder"
+                      >
+                        <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor"><circle cx="2" cy="2" r="1.3" /><circle cx="8" cy="2" r="1.3" /><circle cx="2" cy="7" r="1.3" /><circle cx="8" cy="7" r="1.3" /><circle cx="2" cy="12" r="1.3" /><circle cx="8" cy="12" r="1.3" /></svg>
+                      </button>
+                      <span className="flex-1 text-[11px] font-medium text-slate-700">{l}</span>
+                      <button
+                        onClick={() => handleDeleteLabel(b.name, l)}
+                        disabled={isPending}
+                        className="text-red-300 active:text-red-600 leading-none disabled:opacity-50 shrink-0 w-5 h-5 flex items-center justify-center"
+                        title="Delete label"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </>

@@ -270,23 +270,23 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
     <>
       <div className="fixed inset-0 bg-black/40 z-[200]" onClick={onClose} />
       <div
-        className="fixed inset-x-3 z-[201] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-rose-100"
+        className="fixed inset-x-3 z-[201] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-emerald-100"
         style={{ top: '5dvh', maxHeight: '90dvh', maxWidth: 460, margin: '0 auto' }}
       >
-        <div className="bg-gradient-to-r from-rose-400 to-red-300 px-4 py-3 flex items-center justify-between shrink-0">
-          <span className="text-sm font-semibold text-white tracking-tight">Delete Holding</span>
-          <button onClick={onClose} className="text-rose-100 active:text-white text-xl leading-none">×</button>
+        <div className="px-4 py-2 flex items-center justify-between shrink-0" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+          <span className="text-[13.5px] font-extrabold text-white tracking-[-0.2px]">Delete Holding</span>
+          <button onClick={onClose} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[13px] leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>✕</button>
         </div>
 
         <div className="flex-1 overflow-y-auto bg-white px-4 py-4 space-y-3">
 
           {/* Portfolio */}
-          <p className="text-[10px] text-rose-600 font-semibold uppercase tracking-widest">Portfolio</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: '#0b3b3a' }}>Portfolio</p>
           <select
             value={scopeKey}
             disabled={scopeLocked}
             onChange={e => { setScopeKey(e.target.value); setExpanded(new Set()); setSelectedTxns(new Set()); setSelectedHoldings(new Set()) }}
-            className="w-full px-2 py-2 text-[12px] border border-rose-100 rounded-lg bg-white disabled:bg-slate-100 disabled:text-slate-500"
+            className="w-full px-2 py-2 text-[12px] border border-emerald-100 rounded-lg bg-white disabled:bg-slate-100 disabled:text-slate-500"
           >
             <option value="">Portfolio…</option>
             <optgroup label="Portfolios">
@@ -304,20 +304,21 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
 
           {/* Holdings */}
           {scope && (
-            <div className="bg-rose-50/60 rounded-xl border border-rose-100 p-3 space-y-2">
+            <div className="bg-emerald-50/60 rounded-xl border border-emerald-100 p-3 space-y-2">
               <label className="flex items-center justify-between gap-2 cursor-pointer">
                 <span className="text-[12px] font-medium text-slate-700">All Holdings</span>
                 <button
                   role="switch"
                   aria-checked={allHoldings}
                   onClick={() => setAllHoldings(v => !v)}
-                  className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${allHoldings ? 'bg-rose-400' : 'bg-slate-300'}`}
+                  className="relative w-9 h-5 rounded-full transition-colors duration-200"
+                  style={{ background: allHoldings ? 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' : '#e2e8f0' }}
                 >
                   <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${allHoldings ? 'translate-x-4' : 'translate-x-0'}`} />
                 </button>
               </label>
               {!allHoldings && (
-                <div className="max-h-56 overflow-y-auto border border-rose-100 rounded-lg bg-white divide-y divide-rose-50">
+                <div className="max-h-56 overflow-y-auto border border-emerald-100 rounded-lg bg-white divide-y divide-emerald-50">
                   {displayRows.length === 0 && <p className="px-2.5 py-2 text-[11px] text-slate-400">No holdings here.</p>}
                   {displayRows.map(h => {
                     const hKey = rowKey(scope, h)
@@ -342,7 +343,8 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
                           <span className="text-slate-400 truncate flex-1">{h.company ?? h.name ?? ''}</span>
                           <button
                             onClick={() => toggleExpand(hKey)}
-                            className="text-rose-500 text-[10px] font-semibold shrink-0 active:text-rose-700"
+                            className="text-[10px] font-semibold shrink-0"
+                            style={{ color: '#0d9488' }}
                           >
                             {isExpanded ? 'Hide txn' : 'Show txn'}
                           </button>
@@ -353,7 +355,7 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
                             {txns.map(t => {
                               const tKey = txnKey(t)
                               return (
-                                <label key={tKey} className="flex items-center gap-2 pr-2.5 py-1 text-[10px] cursor-pointer active:bg-rose-50">
+                                <label key={tKey} className="flex items-center gap-2 pr-2.5 py-1 text-[10px] cursor-pointer active:bg-emerald-50">
                                   <input type="checkbox" checked={selectedTxns.has(tKey)} onChange={() => toggleTxn(tKey)} className="shrink-0" />
                                   <span className="text-slate-500 shrink-0 w-14">{DATE_FMT(t.date)}</span>
                                   <span className="font-semibold shrink-0 w-14" style={{ color: TYPE_COLOR[t.type] ?? '#64748b' }}>{t.type}</span>
@@ -371,7 +373,7 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
             </div>
           )}
 
-          {error && <p className="text-[11px] text-rose-600">{error}</p>}
+          {error && <p className="text-[11px] text-red-600">{error}</p>}
           {done  && <p className="text-[11px] text-emerald-700">✓ Deleted</p>}
 
           <button
@@ -389,7 +391,7 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
         <>
           <div className="fixed inset-0 bg-black/50 z-[210]" onClick={() => setConfirmState(null)} />
           <div
-            className="fixed inset-x-6 z-[211] bg-white rounded-2xl shadow-2xl p-4 space-y-3 border border-rose-100"
+            className="fixed inset-x-6 z-[211] bg-white rounded-2xl shadow-2xl p-4 space-y-3 border border-emerald-100"
             style={{ top: '30dvh', maxWidth: 380, margin: '0 auto' }}
           >
             <p className="text-[12px] text-slate-700 leading-relaxed">{confirmState.message}</p>
