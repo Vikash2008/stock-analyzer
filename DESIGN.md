@@ -376,7 +376,23 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 ## Design Decisions Log
 
-> Keep only the 3 most recent sessions here (size guard, same pattern as ROADMAP_ARCHIVE.md). Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-07-02 (session 158)
+> Keep only the 3 most recent sessions here (size guard, same pattern as ROADMAP_ARCHIVE.md). Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-07-02 (session 160)
+
+### 2026-07-02 (session 163)
+
+**Transactions page unified to Holdings' teal design language** — tab bar switched from per-tab teal/sky/violet/rose to the single `#0b3b3a→#0d9488` gradient; txn-count/add-txn row, Report strip (sub-tabs, gear popover, AI Assistant button), Notes strip, and Charts strip (metric pills, sync button) all recolored to teal; per-section chart line colors (`METRIC_HEX`) and gain/loss green/red left untouched as semantic data.
+
+**Deep Research cards recolored to one teal accent** — all 8 `SECTIONS` in `reportLinks.ts` (previously blue/sky/indigo/cyan/emerald/green/blue-50 per card) now share `bg-teal-50`/`border-teal-200`/`accentHex: #0d9488`; the "Research" button switched from per-section outline to a solid `#0b3b3a→#0d9488` pill with bold white text.
+
+**Research Links (Explore tab) made compact + teal** — rows tightened (`py-2.5`→`py-1.5`, `gap-2`→`gap-1.5`), per-site icon colors (blue/purple/orange/red) replaced with a single teal icon/border/text treatment.
+
+**Add Transaction modal (Txn page) merged into Settings** — the inline "Add Txn" pill and separate "Deep Research Settings" gear were both folded into one top-bar Settings popover with three rows (Add Transaction, AI Model, API Key); Model/API Key rows changed from stacked label+full-width-toggle to inline label-left/toggle-right layout, popover widened to `300px` (`max-w-[calc(100vw-24px)]`) with `whitespace-nowrap` on all pills so options never wrap.
+
+**AddTransactionModal (Add Holding) compacted + recolored** — padding/spacing tightened throughout (`p-2.5`→`p-2`, `space-y-2.5`→`space-y-1.5`, shorter header/footer); BUY/SELL toggle and all emerald accents switched to the teal `#0b3b3a→#0d9488` gradient language.
+
+**Holdings Analysis tab (Allocation/Benchmarking/Returns) unified to teal** — sub-tab bar (was orange/sky/emerald per tab) now single teal gradient; "By Sector"/"By Market Cap"/"By Holdings Concentration" headings and their table-header rows (was blue/orange/emerald/violet) recolored teal, each section given a `border-l-4 border-l-teal-500` accent bar; Benchmarking's loading bars, date-filter chip/popover, sector table header, and "By Sector" accent bar switched from sky/green to teal; Returns tab's settings popover rebuilt with the same teal gradient header shell as other Settings modals, Period toggle's sliding indicator changed from white to teal-filled. Per-sector chart/pie colors and green/red gain-loss indicators explicitly left untouched (user confirmed those should stay).
+
+**AnalysisTab "Add Note" button** — height reduced (`py-3`→`py-1.5`) and color changed from blue (`#2563eb`) to the teal `#0b3b3a→#0d9488` gradient.
 
 ### 2026-07-02 (session 162)
 
@@ -397,22 +413,6 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 **Top bar + hero/summary card unified across Overview, Holdings, and Txn pages** — `TransactionsPage.tsx` nav bar and per-symbol card rebuilt to match Holdings exactly (same gradient nav bar, same `SummaryCard` component instead of bespoke markup). `PortfoliosPage.tsx`'s "Total Portfolio" hero card also switched from bespoke markup to the shared `SummaryCard` (added `onClick` prop to the component for hero-card navigation). All three nav bars set to `min-h-[46px]` (not `min-h-[30px]` — Tailwind border-box sizing counts padding, so a 30px min-height on a `py-2` bar under-sized it by 16px versus the naturally-30px-content Holdings bar). Gap between nav bar and card set to `mb-[3px]` (halved from `mb-1.5` per follow-up) and the `pt-1` above the nav bar removed on all three, so the bar sits flush at the top everywhere.
 
 **Dividend/FX toggle display bug fixed** — `SummaryCard` was hiding the Dividend/FX row whenever the amount was exactly 0, making "toggle off" indistinguishable from "toggle on but ₹0". Callers (`HoldingsPage.tsx`, `PortfoliosPage.tsx`) now pass `dividends`/`fxGain` whenever their respective toggle is on (not gated on `amount > 0`), and `SummaryCard` renders the row based on the prop being defined, not its value.
-
-### 2026-07-02 (session 160)
-
-**Overview + Holdings top bar / hero card parity** — both pages' nav bar and hero/summary card iterated to a shared final shape: rectangular bar (no rounding), `mb-1.5` gap, card with square top corners + `rounded-b-[18px]` bottom, drop shadow kept. `HoldingsPage.tsx` nav bar matched to Overview's `px-4 py-2` sizing.
-
-**Overview font-size pass** — bumped text across `BreakCard`, asset-class tiles, hero card, Breakdown toggle, and Explore search results (symbol/name/exchange) for legibility; micro uppercase labels (Today/Total) nudged 8→9px.
-
-**HoldingCard tweaks** — right padding reduced (`px-3`→`pl-3 pr-2`), border darkened `#eef1f5`→`#cbd5e1`, name/subLabel color set to `#0b3b3a`.
-
-**Holdings search/sort/sector strip** — background switched from `bg-teal-50` to the nav bar's exact `#0b3b3a→#0d9488` gradient; sort button and sector filter (inactive state) now bold white text with no separate pill background, matching each other.
-
-**Settings modal copy** — "Backup (with tags)" renamed to "My Portfolio".
-
-**ManageBucketsModal** — "Add label" control redesigned with the `+` button moved inside the input box (absolute-positioned icon) instead of beside it; placeholder changed `+label`→`Add label`; general text sizes bumped modal-wide (header 13→15px, bucket name 11→13px, label chip 11→13px) while the New-bucket/Add-label input text stays smaller (11px) than surrounding text since it sits inside a box.
-
-**AddTransactionModal ("Add Holding") restyled** — replaced old `bg-gradient-to-r from-emerald-600 to-teal-500` header + `×` text-button with the Settings-modal shell (`#0b3b3a→#0d9488` header gradient, circular `✕` close button, `#f8fafc` body); section card backgrounds switched to `bg-emerald-50/60`, section labels recolored to `#0b3b3a`, submit button gradient matched to the app's primary CTA style.
 
 ### 2026-07-02 (session 159)
 
