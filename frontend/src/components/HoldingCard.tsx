@@ -23,7 +23,7 @@ interface HoldingCardProps {
 
 export function HoldingCard({
   ticker, subLabel, current, invested, realGain, realCost,
-  todayGain, todayPct, xirr, dividends, fxGain, currency, onClick,
+  todayGain, todayPct, ltp, xirr, dividends, fxGain, currency, onClick,
 }: HoldingCardProps) {
   const divAmt    = dividends ?? 0
   const fxAmt     = fxGain ?? 0
@@ -39,13 +39,18 @@ export function HoldingCard({
 
   return (
     <div
-      className="rounded-[13px] border pl-1.5 pr-1 py-1.5 cursor-pointer active:opacity-75 transition-opacity select-none"
+      className="rounded-[13px] border pl-3 pr-2 py-1.5 cursor-pointer active:opacity-75 transition-opacity select-none"
       style={{ background: cardBg, borderColor: '#cbd5e1', borderLeftWidth: 4, borderLeftColor: accent }}
       onClick={onClick}
     >
-      <p className="text-[9px] font-bold uppercase tracking-[1.2px] truncate" style={{ color: '#0b3b3a' }}>
-        {(subLabel || ticker).replace(/\.(NS|BO)$/i, '')}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[9px] font-bold uppercase tracking-[1.2px] truncate" style={{ color: '#0b3b3a' }}>
+          {(subLabel || ticker).replace(/\.(NS|BO)$/i, '')}
+        </p>
+        {ltp != null && (
+          <span className="text-[9px] font-semibold whitespace-nowrap shrink-0 text-slate-500">LTP {fmt(ltp, currency)}</span>
+        )}
+      </div>
       <div className="flex items-center justify-between gap-2">
         <span className="text-[19px] font-extrabold text-slate-900 tracking-tight">{fmt(current, currency)}</span>
         {xirr !== null
@@ -68,19 +73,9 @@ export function HoldingCard({
         </div>
       </div>
       {(fxAmt > 0 || divAmt > 0) && (
-        <div className="flex justify-end items-center gap-1.5 mt-0.5">
-          {fxAmt > 0 && (
-            <span className="flex items-center gap-1">
-              <span className="text-[10px] text-slate-400">FX</span>
-              <span className="text-[10px] text-teal-600 font-semibold">{fmtCompactGainLine(fxAmt, null, currency)}</span>
-            </span>
-          )}
-          {divAmt > 0 && (
-            <span className="flex items-center gap-1">
-              <span className="text-[10px] text-slate-400">Dividend</span>
-              <span className="text-[10px] text-teal-600 font-semibold">{fmtCompactGainLine(divAmt, null, currency)}</span>
-            </span>
-          )}
+        <div className="flex justify-between items-center mt-0.5">
+          <span>{fxAmt > 0 && <span className="flex items-center gap-1"><span className="text-[10px] text-slate-400">FX</span><span className="text-[10px] text-teal-600 font-semibold">{fmtCompactGainLine(fxAmt, null, currency)}</span></span>}</span>
+          <span>{divAmt > 0 && <span className="flex items-center gap-1"><span className="text-[10px] text-slate-400">Dividend</span><span className="text-[10px] text-teal-600 font-semibold">{fmtCompactGainLine(divAmt, null, currency)}</span></span>}</span>
         </div>
       )}
     </div>

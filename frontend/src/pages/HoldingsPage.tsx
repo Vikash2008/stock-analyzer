@@ -1247,7 +1247,7 @@ export default function HoldingsPage({ currency }: Props) {
           {divSkipped.length} symbol{divSkipped.length > 1 ? 's' : ''} didn't refresh: {divSkipped.join(', ')}
         </div>
       )}
-      <div className="shrink-0 px-2 bg-white relative z-20">
+      <div className="shrink-0 px-1 bg-white relative z-20">
       {/* Nav bar */}
       <div className="flex items-center justify-between px-4 py-2 mb-[3px] min-h-[46px]" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
         <button onClick={() => navigate('/')} className="shrink-0 flex items-center gap-1.5 text-white active:opacity-70">
@@ -1596,7 +1596,7 @@ export default function HoldingsPage({ currency }: Props) {
         </div>
       )}
       </div>
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-2 pt-2 pb-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-1 pt-2 pb-4">
 
       {/* ── Holdings tab ── */}
       {activeTab === 'holdings' && (

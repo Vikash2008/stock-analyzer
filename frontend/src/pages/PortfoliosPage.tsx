@@ -825,7 +825,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
   return (
     <div
-      className="max-w-xl mx-auto px-2 pb-24 space-y-2"
+      className="max-w-xl mx-auto px-1 pb-24 space-y-2"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}

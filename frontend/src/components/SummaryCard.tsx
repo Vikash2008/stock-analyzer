@@ -38,7 +38,7 @@ export function SummaryCard({
 
   return (
     <div
-      className={`rounded-b-[18px] pl-2 pr-2 py-4 mb-3 relative overflow-hidden ${onClick ? 'cursor-pointer active:opacity-90 transition-opacity' : ''}`}
+      className={`rounded-b-[18px] p-4 mb-3 relative overflow-hidden ${onClick ? 'cursor-pointer active:opacity-90 transition-opacity' : ''}`}
       style={{ background: 'linear-gradient(150deg, #10243f 0%, #0b3b3a 100%)', boxShadow: '0 14px 30px -10px rgba(11,59,58,0.45)' }}
       onClick={onClick}
     >
