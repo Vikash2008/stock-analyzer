@@ -304,10 +304,9 @@ as many Buckets as the user creates.
 | Service | Platform | Auto-deploy trigger |
 |---------|----------|---------------------|
 | Frontend | Vercel | push to `master` |
-| Backend | Render free tier | push to `master` |
+| Backend | Oracle Cloud Always Free VM (144.24.115.41, `stock-analyser-allinone.duckdns.org`) | `.github/workflows/deploy-backend.yml` — GitHub Actions SSHes in, pulls, reinstalls deps, restarts systemd `stock-analyzer.service`; only triggers on `backend/`/`src/` changes |
 
-Render cold start: 60–90s after inactivity (free tier spins down).
-Keep-alive: GitHub Actions cron pings `/health` every 14 min to reduce cold starts (occasional jitter may miss the window).
+Backend migrated off Render 2026-07-02 (repeated OOM crashes on the 512MB free tier, root-caused to an unbounded cache in `portfolio_history.py` — see Key Bug Fixes). Oracle VM runs the backend continuously under systemd (`Restart=always`) — no cold start. Render is suspended, not deleted. Real portfolio data (`data/msp_v2.csv`) must never be uploaded to the Oracle VM or anywhere else — demo data only on every hosted environment (see `project_oracle_migration` memory for full setup details).
 
 ---
 
@@ -338,6 +337,9 @@ Keep-alive: GitHub Actions cron pings `/health` every 14 min to reduce cold star
 - `src/engine.py` `build()`: any CSV mutation (tag edit, holding delete) minted a new content hash, which always looked FIFO-stale and unconditionally forced a full live yfinance price refetch for every symbol — measured 18-79s on an 82-symbol portfolio, the root cause of Copy Holdings "stuck at applying" reports. Now only forces the refetch when the symbol set itself changed.
 - `src/cache.py`: `_MAX_FIFO_HASHES` raised 5→30 (session 148) — a single active editing session (tag edits, holding deletes, Copy Holdings) routinely mints more than 5 distinct content hashes, evicting the current one mid-session and turning the next `set-tags` call into a 404 "re-import your CSV" dead end. `useSetTags.ts` also made self-healing: on a 404, re-uploads the locally-stored CSV to re-seed the backend cache and retries once — covers both capacity eviction and a Render cold-start wiping the ephemeral disk cache entirely.
 - **Reverted 30→5 (session 149)**: each FIFO entry pins full `txns`/`holdings_raw`/`realized`/`fx_lots` DataFrames in process memory forever — 30 of them from one long Copy Holdings/tag-edit session OOM-killed the 512Mi Render instance mid-`engine.build()`. Safe to lower again because the self-healing retry above (plus the same fix now applied to `dividends.py`'s `_load_txns`) means a cache-miss costs one extra round-trip instead of a dead end, so a large cap is no longer needed to avoid hard failures.
+
+- `backend/routers/portfolio_history.py`: module-level `_cache` dict (keyed by `currency:portfolio:segment`) had no eviction — every distinct filter combo visited added a permanent entry, never freed even after TTL expiry. Confirmed via Render memory metrics: baseline crept in discrete steps (236→381→413→491MB) over ~40h with zero decay between steps, then any transient allocation (a bulk `yf.download`) tipped it over 512MB. Root cause of the 2026-07-01/06-29/06-28 Render OOM kills. Not yet fixed in code as of the Oracle migration — `history.py`'s `_series_cache`/`_intraday_cache` already have the correct eviction pattern (`_evict_oldest`, capped at 120) to copy from.
+- `src/portfolio.py` `enrich_holdings()`: three separate `.map()` calls (`current_price`, `previous_close`, `avg_cost_today`) produced `object`-dtype pandas columns whenever a symbol had no price/cost data (dict `.get()` returning `None`), which silently poisoned all downstream arithmetic and crashed `today_pct`'s `.round()` with `TypeError: Expected numeric dtype, got object instead`. Only surfaced on the fresh Oracle VM (more cold-cache price misses than Render's long-warmed cache ever hit) — a live 500 error on `/api/portfolio` right after cutover, with Render already suspended (no fallback). Fixed with `pd.to_numeric(..., errors="coerce")` at all three sources plus a defensive coercion on the final division.
 
 ## Pending
 
@@ -370,4 +372,4 @@ Keep-alive: GitHub Actions cron pings `/health` every 14 min to reduce cold star
 | Slash command | File | Does |
 |---------------|------|------|
 | `/save_state` | .claude/commands/save_state.md | Update doc files + memory files → git commit (no push) |
-| `/ship` | .claude/commands/ship.md | git commit → git push → Vercel + Render auto-deploy |
+| `/ship` | .claude/commands/ship.md | git commit → git push → Vercel auto-deploy + GitHub Actions SSH-deploy to Oracle VM (backend/src changes only) |

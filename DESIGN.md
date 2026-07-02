@@ -426,3 +426,7 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 **SummaryCard Invested/Realized + FX/Dividend rows merged into one shared grid** — was two independent `flex justify-between` rows (each right-aligning to its own container edge), so "Realized" and "Dividend" didn't line up. Now one `grid-template-columns: 1fr auto` grid across both rows — column 2 auto-sizes to the wider of the two labels and hugs the real right edge (matching the XIRR badge), giving true cross-row alignment. Redundant `+` prefix removed from FX gains/Dividend lines since `fmtCompactGainLine()` already prepends a ▲/▼ arrow.
 
+### 2026-07-02 (session 165)
+
+**Top bar switched from filled gradient to outline-only** — Overview/Holdings/Txn nav bar background changed from the `#14746f→#14b8a6` gradient fill to a very light teal (`#e6f7f5`), border kept solid `#0b3b3a`, corners rounded again (`rounded-t-[14px]`, reversing session 164's squaring-off). Text/icons (back label, refresh, settings gear) switched from white to `#0b3b3a` to stay readable against the light fill.
+

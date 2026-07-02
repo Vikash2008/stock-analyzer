@@ -70,9 +70,9 @@ User provides: **Type** (UI fix / Backend fix / New feature / Debug) · **Proble
 Multi-portfolio stock analyzer — Indian/US stocks. Full details in `QUICK_REF.md`.
 
 Frontend: React 18 + Vite + TS + Tailwind · https://stock-analyzer-blush.vercel.app  
-Backend: FastAPI + uvicorn · https://stock-analyzer-2nqw.onrender.com  
-GitHub: https://github.com/Vikash2008/stock-analyzer (`master` → Vercel + Render auto-deploy)  
-Cold start: Render free tier spins down after inactivity — first hit takes 60–90s.
+Backend: FastAPI + uvicorn on Oracle Cloud Always Free VM (144.24.115.41) · https://stock-analyser-allinone.duckdns.org  
+GitHub: https://github.com/Vikash2008/stock-analyzer (`master` → Vercel auto-deploy + GitHub Actions SSH-deploy to Oracle VM on backend/src changes)  
+No cold start: Oracle VM runs the backend continuously (systemd, always-on). Render (previous host, now suspended) had 60–90s cold starts on its free tier.
 
 ---
 
@@ -83,7 +83,7 @@ Cold start: Render free tier spins down after inactivity — first hit takes 60�
 3. `validate.py` is terminal-only — no Streamlit imports.
 4. No features added unless user requests them.
 5. UI changes = edit files only. No git/deploy unless `/ship` invoked.
-6. Local dev: `src/engine.py`'s `_DATA_FILE` defaults to `data/msp_v2.csv` (real data) every session. `/ship` always reverts it to `data/demo_msp_v2.csv` first — the real file is gitignored and doesn't exist on Render.
+6. Local dev: `src/engine.py`'s `_DATA_FILE` defaults to `data/msp_v2.csv` (real data) every session. `/ship` always reverts it to `data/demo_msp_v2.csv` first — the real file is gitignored and must never be uploaded anywhere (not Render, not the Oracle VM, not GitHub) under any circumstance — demo data only on every hosted environment, real data is local-testing-only. See `project_oracle_migration` memory.
 
 ---
 

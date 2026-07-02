@@ -7,7 +7,7 @@
 | Service | URL |
 |---|---|
 | Frontend (Vercel) | https://stock-analyzer-blush.vercel.app |
-| Backend (Render) | https://stock-analyzer-2nqw.onrender.com |
+| Backend (Oracle VM) | https://stock-analyser-allinone.duckdns.org (Render suspended, was https://stock-analyzer-2nqw.onrender.com) |
 | GitHub | https://github.com/Vikash2008/stock-analyzer (master branch) |
 
 ## Portfolio Config
