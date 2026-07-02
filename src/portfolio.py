@@ -212,7 +212,7 @@ def enrich_holdings(
         return holdings
 
     df = holdings.copy()
-    df["current_price"] = df["yf_symbol"].map(prices)
+    df["current_price"] = pd.to_numeric(df["yf_symbol"].map(prices), errors="coerce")
     df["current_value"] = df["quantity"] * df["current_price"]
     df["unrealized_pnl"] = df["current_value"] - df["total_invested"]
     df["pnl_pct"] = (df["unrealized_pnl"] / df["total_invested"] * 100).round(2)
