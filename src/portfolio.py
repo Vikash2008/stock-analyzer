@@ -227,7 +227,7 @@ def enrich_holdings(
     )
 
     pc = prev_closes or {}
-    df["previous_close"] = df["yf_symbol"].map(pc)
+    df["previous_close"] = pd.to_numeric(df["yf_symbol"].map(pc), errors="coerce")
 
     # Shares bought today have no real previous close — they didn't exist in the portfolio
     # yesterday — so their slice of today's gain is priced off today's buy cost instead of
