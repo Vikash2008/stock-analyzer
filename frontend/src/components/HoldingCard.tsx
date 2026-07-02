@@ -30,54 +30,45 @@ export function HoldingCard({
   const totalGain = (current - invested) + realGain + divAmt + fxAmt
   const totalCost = invested + realCost
   const totalPct  = totalCost !== 0 ? (totalGain / totalCost) * 100 : 0
-  const gain      = totalGain >= 0
 
-  const accent   = gain ? '#0d9488' : '#f43f5e'
-  const cardBg   = gain ? '#f0fdf6' : '#fef4f4'
   const tgColor  = (todayGain ?? 0) >= 0 ? '#059669' : '#e11d48'
-  const totColor = gain ? '#059669' : '#e11d48'
+  const totColor = totalGain >= 0 ? '#059669' : '#e11d48'
 
   return (
     <div
-      className="rounded-[13px] border pl-3 pr-3.5 py-1 cursor-pointer active:opacity-75 transition-opacity select-none"
-      style={{ background: cardBg, borderColor: '#cbd5e1', borderLeftWidth: 4, borderLeftColor: accent }}
+      className="rounded-[13px] px-2 py-1.5 border cursor-pointer active:opacity-80 transition-opacity select-none"
+      style={{ background: '#fff', borderColor: '#e2e8f0', borderLeftWidth: 4, borderLeftColor: '#0d9488' }}
       onClick={onClick}
     >
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[9px] font-bold uppercase tracking-[1.2px] truncate" style={{ color: '#0b3b3a' }}>
+      <div className="flex items-center justify-between gap-2 mb-0.5">
+        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[1.2px] truncate">
           {(subLabel || ticker).replace(/\.(NS|BO)$/i, '')}
         </p>
         {ltp != null && (
-          <span className="text-[9px] font-semibold whitespace-nowrap shrink-0 text-slate-500">LTP {fmt(ltp, currency)}</span>
+          <span className="text-[10px] font-semibold whitespace-nowrap shrink-0 text-slate-500">LTP {fmt(ltp, currency)}</span>
         )}
       </div>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[19px] font-extrabold text-slate-900 tracking-tight">{fmt(current, currency)}</span>
+        <span className="text-[16px] font-bold text-slate-900">{fmt(current, currency)}</span>
         {xirr !== null
-          ? <span className="text-[11px] font-bold px-2.5 py-[3px] rounded-full whitespace-nowrap shrink-0" style={{ background: xirr >= 0 ? '#d1fae5' : '#fee2e2', color: xirr >= 0 ? '#047857' : '#b91c1c' }}>XIRR {fmtPct(xirr)}</span>
-          : <span className="text-[11px] text-slate-400 shrink-0">XIRR —</span>
+          ? <span className="text-[11px] font-bold px-2 py-[3px] rounded-full whitespace-nowrap" style={{ background: '#d1fae5', color: '#065f46' }}>XIRR {fmtPct(xirr)}</span>
+          : <span className="text-[11px] font-bold px-2 py-[3px] rounded-full whitespace-nowrap" style={{ background: '#e2e8f0', color: '#64748b' }}>XIRR —</span>
         }
       </div>
-      <div className="flex justify-between mt-0.5 pt-0.5 border-t border-black/5">
-        <div className="flex flex-col gap-0">
-          <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Today</span>
-          <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: tgColor }}>
+      <div className="flex justify-between mt-1 pt-1 border-t border-slate-100">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Today</span>
+          <span className="text-[11.5px] font-bold whitespace-nowrap" style={{ color: tgColor }}>
             {fmtCompactGainLine(todayGain ?? 0, todayGain !== null ? todayPct : 0, currency)}
           </span>
         </div>
-        <div className="flex flex-col gap-0 items-end">
-          <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Total</span>
-          <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: totColor }}>
+        <div className="flex flex-col gap-0.5 items-end">
+          <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Total</span>
+          <span className="text-[11.5px] font-bold whitespace-nowrap" style={{ color: totColor }}>
             {fmtCompactGainLine(totalGain, totalPct, currency)}
           </span>
         </div>
       </div>
-      {(fxAmt > 0 || divAmt > 0) && (
-        <div className="flex justify-between items-center mt-0.5">
-          <span>{fxAmt > 0 && <span className="flex items-center gap-1"><span className="text-[10px] text-slate-400">FX</span><span className="text-[10px] text-teal-600 font-semibold">{fmtCompactGainLine(fxAmt, null, currency)}</span></span>}</span>
-          <span>{divAmt > 0 && <span className="flex items-center gap-1"><span className="text-[10px] text-slate-400">Dividend</span><span className="text-[10px] text-teal-600 font-semibold">{fmtCompactGainLine(divAmt, null, currency)}</span></span>}</span>
-        </div>
-      )}
     </div>
   )
 }

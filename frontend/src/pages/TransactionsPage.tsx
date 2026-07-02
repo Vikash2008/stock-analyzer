@@ -8,7 +8,7 @@ import {
   Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 import { usePortfolio } from '../hooks/usePortfolio'
-import { useDividendForSymbol, getIncludeFxGains } from '../hooks/useDividends'
+import { useDividendForSymbol, getIncludeFxGains, getIncludeDividends } from '../hooks/useDividends'
 import { usePortfolioHistory, sliceSeries } from '../hooks/usePortfolioHistory'
 import type { DatedSeries, PortfolioSeries } from '../hooks/usePortfolioHistory'
 import type { Holding } from '../api/types'
@@ -365,10 +365,16 @@ export default function TransactionsPage({ currency }: Props) {
   const prior = cur - (tgRaw ?? 0)
   const tp    = tgRaw !== null && prior !== 0 ? (tgRaw / prior) * 100 : null
 
+  const includeDividends = getIncludeDividends()
+  const includeFxGains   = getIncludeFxGains()
+  const fxGainRaw = includeFxGains
+    ? holdingList.reduce((s, h) => (USD_PORTS.has(h.portfolio) ? s + (h.disp_fx_gain ?? 0) : s), 0)
+    : 0
+
   // for closed holdings (no open position), try any portfolio's holding for LTP/name/yf_symbol
   const anyHolding = holding ?? data.holdings.find(h => h.symbol === decoded.symbol && !SKIP_PORTS.has(h.portfolio)) ?? null
   const yf    = anyHolding?.yf_symbol ?? symTxns.find(t => t.yf_symbol)?.yf_symbol ?? decoded.symbol
-  const co    = anyHolding?.company ?? ''
+  const co    = anyHolding?.company ?? anyHolding?.name ?? ''
 
   const isPct       = PCT_METRICS.has(chartMetric)
   const chartLast   = metricSeries?.values[metricSeries.values.length - 1] ?? null
@@ -476,6 +482,8 @@ export default function TransactionsPage({ currency }: Props) {
         todayPct={tp}
         xirr={holdingXirr}
         ltp={holding?.current_price ?? null}
+        dividends={includeDividends ? (symDividends?.total_dividends ?? 0) * holdFx : undefined}
+        fxGain={includeFxGains ? fxGainRaw * holdFx : undefined}
         currency={dispCur}
       />
 

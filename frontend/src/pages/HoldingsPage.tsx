@@ -139,7 +139,7 @@ function buildRows(
         return {
           key:        `${h.portfolio}:${h.symbol}`,
           ticker:     h.symbol,
-          subLabel:   h.company ?? '',
+          subLabel:   h.company ?? h.name ?? '',
           current:    h.disp_current,
           invested:   h.disp_invested,
           realGain: rg, realCost: rc,
@@ -162,7 +162,7 @@ function buildRows(
       map.set(h.symbol, {
         key:        h.symbol,
         ticker:     h.symbol,
-        subLabel:   h.company ?? '',
+        subLabel:   h.company ?? h.name ?? '',
         current:    h.disp_current,
         invested:   h.disp_invested,
         realGain: rg, realCost: rc,
