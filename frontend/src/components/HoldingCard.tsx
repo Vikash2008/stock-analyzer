@@ -39,7 +39,7 @@ export function HoldingCard({
 
   return (
     <div
-      className="rounded-[13px] border pl-3 pr-2 py-1.5 cursor-pointer active:opacity-75 transition-opacity select-none"
+      className="rounded-[13px] border pl-1.5 pr-1 py-1.5 cursor-pointer active:opacity-75 transition-opacity select-none"
       style={{ background: cardBg, borderColor: '#cbd5e1', borderLeftWidth: 4, borderLeftColor: accent }}
       onClick={onClick}
     >
