@@ -150,28 +150,21 @@ export function AddTransactionModal({
       <div className="fixed inset-0 bg-black/40 z-[200]" onClick={onClose} />
 
       <div
-        className="fixed inset-x-3 z-[201] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-emerald-100"
-        style={{ top: '5dvh', maxHeight: '90dvh', maxWidth: 460, margin: '0 auto' }}
+        className="fixed inset-x-3 z-[201] bg-white rounded-2xl flex flex-col overflow-hidden"
+        style={{ top: '5dvh', maxHeight: '90dvh', maxWidth: 460, margin: '0 auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}
       >
-        {/* Header — emerald→teal gradient matching overview gear panel */}
-        <div className="bg-gradient-to-r from-emerald-600 to-teal-500 px-4 py-3 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                <circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/>
-              </svg>
-            </div>
-            <span className="text-sm font-semibold text-white tracking-tight">Add Holding</span>
-          </div>
-          <button onClick={onClose} className="text-emerald-200 active:text-white text-xl leading-none">×</button>
+        {/* Header — matches Settings modal design language */}
+        <div className="flex items-center justify-between px-4 py-[11px] shrink-0" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+          <p className="text-[13.5px] font-extrabold text-white tracking-[-0.2px]">Add Holding</p>
+          <button onClick={onClose} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[13px] leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>✕</button>
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto bg-white px-4 py-3 space-y-2.5">
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5" style={{ background: '#f8fafc' }}>
 
           {/* Stock search */}
-          <div className="bg-emerald-50 rounded-xl border border-emerald-100 p-2.5">
-            <p className="text-[10px] text-emerald-700 font-semibold uppercase tracking-widest mb-1">Stock</p>
+          <div className="bg-emerald-50/60 rounded-lg border border-emerald-100 p-2.5">
+            <p className="text-[10px] text-[#0b3b3a] font-semibold uppercase tracking-widest mb-1">Stock</p>
 
             {lockSymbol ? (
               <div className="flex items-center gap-2">
@@ -221,10 +214,10 @@ export function AddTransactionModal({
           </div>
 
           {/* Portfolio + Type */}
-          <div className="bg-emerald-50 rounded-xl border border-emerald-100 p-2.5">
+          <div className="bg-emerald-50/60 rounded-lg border border-emerald-100 p-2.5">
             <div className="flex gap-2 items-end">
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] text-emerald-700 font-semibold uppercase tracking-widest mb-1">Portfolio</p>
+                <p className="text-[10px] text-[#0b3b3a] font-semibold uppercase tracking-widest mb-1">Portfolio</p>
                 <select
                   value={portfolio}
                   onChange={e => setPortfolio(e.target.value)}
@@ -234,7 +227,7 @@ export function AddTransactionModal({
                 </select>
               </div>
               <div className="shrink-0">
-                <p className="text-[10px] text-emerald-700 font-semibold uppercase tracking-widest mb-1">Type</p>
+                <p className="text-[10px] text-[#0b3b3a] font-semibold uppercase tracking-widest mb-1">Type</p>
                 <div className="flex bg-slate-100 rounded-lg p-0.5 gap-0.5">
                   {(['BUY', 'SELL'] as const).map(t => (
                     <button
@@ -255,10 +248,10 @@ export function AddTransactionModal({
           </div>
 
           {/* Date + Quantity + Price — one row */}
-          <div className="bg-emerald-50 rounded-xl border border-emerald-100 p-2.5">
+          <div className="bg-emerald-50/60 rounded-lg border border-emerald-100 p-2.5">
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <p className="text-[10px] text-emerald-700 font-semibold uppercase tracking-widest mb-1">Date</p>
+                <p className="text-[10px] text-[#0b3b3a] font-semibold uppercase tracking-widest mb-1">Date</p>
                 <input
                   type="date"
                   value={date}
@@ -268,7 +261,7 @@ export function AddTransactionModal({
                 />
               </div>
               <div>
-                <p className="text-[10px] text-emerald-700 font-semibold uppercase tracking-widest mb-1">Qty</p>
+                <p className="text-[10px] text-[#0b3b3a] font-semibold uppercase tracking-widest mb-1">Qty</p>
                 <input
                   type="number"
                   value={quantity}
@@ -280,7 +273,7 @@ export function AddTransactionModal({
                 />
               </div>
               <div>
-                <p className="text-[10px] text-emerald-700 font-semibold uppercase tracking-widest mb-1">
+                <p className="text-[10px] text-[#0b3b3a] font-semibold uppercase tracking-widest mb-1">
                   Price {selCurrency === 'USD' ? '($)' : '(₹)'}
                 </p>
                 <input
@@ -298,8 +291,8 @@ export function AddTransactionModal({
 
           {/* Total */}
           {total != null && (
-            <div className="flex items-center justify-between bg-emerald-50 rounded-xl border border-emerald-100 px-3 py-2">
-              <span className="text-[10px] text-emerald-700 font-semibold uppercase tracking-widest">Total</span>
+            <div className="flex items-center justify-between bg-emerald-50/60 rounded-lg border border-emerald-100 px-3 py-2">
+              <span className="text-[10px] text-[#0b3b3a] font-semibold uppercase tracking-widest">Total</span>
               <span className="text-[12px] font-bold text-emerald-800">
                 {currSymbol}{total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
               </span>
@@ -308,8 +301,8 @@ export function AddTransactionModal({
 
           {/* Buckets — optional Label per existing Bucket; blank = auto-detect/unassigned */}
           {buckets.length > 0 && (
-            <div className="bg-emerald-50 rounded-xl border border-emerald-100 p-2.5 space-y-1.5">
-              <p className="text-[10px] text-emerald-700 font-semibold uppercase tracking-widest">Buckets</p>
+            <div className="bg-emerald-50/60 rounded-lg border border-emerald-100 p-2.5 space-y-1.5">
+              <p className="text-[10px] text-[#0b3b3a] font-semibold uppercase tracking-widest">Buckets</p>
               {buckets.map(b => (
                 <div key={b.name} className="flex items-center gap-2">
                   <span className="text-[11px] text-slate-600 w-24 shrink-0 truncate">{b.name}</span>
@@ -338,7 +331,7 @@ export function AddTransactionModal({
             onClick={handleSubmit}
             disabled={isPending}
             className="w-full py-2 rounded-xl text-[12px] font-semibold text-white transition-opacity disabled:opacity-50"
-            style={{ background: 'linear-gradient(to right, #059669, #0d9488)' }}
+            style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
           >
             {isPending ? 'Adding…' : 'Add Transaction'}
           </button>

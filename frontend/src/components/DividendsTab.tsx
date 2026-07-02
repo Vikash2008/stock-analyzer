@@ -43,7 +43,7 @@ function YearChart({
           {data.map(d => (
             <Cell
               key={d.year}
-              fill={hasSel ? (selectedYears.has(d.year) ? '#0d9488' : '#cbd5e1') : '#5eead4'}
+              fill={hasSel ? (selectedYears.has(d.year) ? '#0b3b3a' : '#cbd5e1') : '#0d9488'}
             />
           ))}
         </Bar>
@@ -72,9 +72,9 @@ function MonthCalendar({
         const hasDivs = monthSet.has(month)
         const sel = selectedMonths.has(month)
         const cls = sel
-          ? 'bg-teal-600 text-white ring-1 ring-teal-400'
+          ? 'text-white shadow-sm'
           : hasDivs
-          ? 'bg-teal-200 text-teal-700'
+          ? 'bg-teal-100 text-teal-700'
           : 'bg-slate-100 text-slate-300 cursor-default'
         return (
           <button
@@ -82,6 +82,7 @@ function MonthCalendar({
             onClick={() => hasDivs && onToggleMonth(month)}
             disabled={!hasDivs}
             className={`rounded py-1 text-center text-[10px] font-medium transition-colors ${cls} ${hasDivs ? 'active:opacity-70' : ''}`}
+            style={sel ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
           >
             {label}
           </button>
@@ -124,7 +125,7 @@ function SymbolRow({ sym, currency, usdInr }: { sym: DividendSymbol; currency: C
         </div>
 
         <div className="text-right shrink-0">
-          <p className="text-[13px] font-bold text-teal-600">{fmtCompact(sym.total_dividends * symFx, symCur)}</p>
+          <p className="text-[13px] font-bold text-[#0b3b3a]">{fmtCompact(sym.total_dividends * symFx, symCur)}</p>
           {sym.projected_annual > 0 && (
             <p className="text-[10px] text-slate-400">~{fmtCompact(sym.projected_annual * symFx, symCur)}/yr</p>
           )}
@@ -274,8 +275,8 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr, yf_sy
           <>
             <div className="h-1 bg-slate-100 rounded-full overflow-hidden mb-2">
               <div
-                className="h-full bg-teal-500 rounded-full transition-all duration-300"
-                style={{ width: `${Math.round((loadedCount / totalCount) * 100)}%` }}
+                className="h-full rounded-full transition-all duration-300"
+                style={{ width: `${Math.round((loadedCount / totalCount) * 100)}%`, background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
               />
             </div>
             <p className="text-[11px] text-slate-400 text-center">
@@ -284,7 +285,7 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr, yf_sy
           </>
         ) : (
           <div className="text-center">
-            <div className="animate-spin w-5 h-5 border-2 border-teal-300 border-t-teal-600 rounded-full mx-auto mb-2" />
+            <div className="animate-spin w-5 h-5 border-2 border-teal-100 rounded-full mx-auto mb-2" style={{ borderTopColor: '#0b3b3a' }} />
             <p className="text-[11px] text-slate-400">Fetching dividend history…</p>
           </div>
         )}
@@ -296,7 +297,7 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr, yf_sy
     return (
       <div className="pt-4 text-center">
         <p className="text-[12px] text-red-400 mb-2">Could not load dividend data</p>
-        <button onClick={handleRetry} disabled={retrying} className="text-[11px] text-teal-600 underline disabled:opacity-50">
+        <button onClick={handleRetry} disabled={retrying} className="text-[11px] text-[#0b3b3a] underline disabled:opacity-50">
           {retrying ? 'Retrying…' : 'Retry'}
         </button>
         {retryFailed && (
@@ -314,7 +315,7 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr, yf_sy
           <div className="h-1 bg-teal-50 rounded-full overflow-hidden mb-2">
             {totalCount > 0
               ? <div className="h-full bg-teal-500 rounded-full transition-all duration-300" style={{ width: `${Math.round((loadedCount / totalCount) * 100)}%` }} />
-              : <div className="h-full w-2/5 bg-teal-500 rounded-full" style={{ animation: 'div-progress 1.2s ease-in-out infinite' }} />
+              : <div className="h-full w-2/5 rounded-full" style={{ animation: 'div-progress 1.2s ease-in-out infinite', background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }} />
             }
           </div>
         </>
@@ -322,18 +323,18 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr, yf_sy
       {/* Summary strip */}
       <div className="grid grid-cols-2 gap-2 mb-3">
         <div className="bg-teal-50 border border-teal-100 rounded-xl p-3">
-          <p className="text-[10px] text-teal-600 font-medium">Total Earned</p>
-          <p className="text-[18px] font-bold text-teal-700 leading-tight">
+          <p className="text-[10px] font-medium" style={{ color: '#0b3b3a' }}>Total Earned</p>
+          <p className="text-[18px] font-bold leading-tight" style={{ color: '#0b3b3a' }}>
             {fmtCompact(activeSummary.total_dividends_inr * summaryFx, summaryCur)}
           </p>
-          <p className="text-[10px] text-teal-500 mt-0.5">{activeSummary.dividend_count} payments</p>
+          <p className="text-[10px] text-teal-600 mt-0.5">{activeSummary.dividend_count} payments</p>
         </div>
         <div className="bg-teal-50 border border-teal-100 rounded-xl p-3">
-          <p className="text-[10px] text-teal-600 font-medium">Projected / Year</p>
-          <p className="text-[18px] font-bold text-teal-700 leading-tight">
+          <p className="text-[10px] font-medium" style={{ color: '#0b3b3a' }}>Projected / Year</p>
+          <p className="text-[18px] font-bold leading-tight" style={{ color: '#0b3b3a' }}>
             {fmtCompact(activeSummary.projected_annual_inr * summaryFx, summaryCur)}
           </p>
-          <p className="text-[10px] text-teal-500 mt-0.5">~trailing 12m</p>
+          <p className="text-[10px] text-teal-600 mt-0.5">~trailing 12m</p>
         </div>
         <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
           <p className="text-[10px] text-slate-500 font-medium">Stocks paying</p>

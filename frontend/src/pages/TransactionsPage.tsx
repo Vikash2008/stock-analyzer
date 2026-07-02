@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import { AddTransactionModal } from '../components/AddTransactionModal'
+import { SummaryCard } from '../components/SummaryCard'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
@@ -20,7 +21,7 @@ import { useQuickStats } from '../hooks/useQuickStats'
 import { aggRealized } from '../utils/realized'
 import { SKIP_PORTS, USD_PORTS } from '../utils/segments'
 import { computeXIRR } from '../utils/xirr'
-import { fmt, fmtCompactGainLine, fmtGainLine, fmtPct } from '../utils/fmt'
+import { fmt, fmtGainLine } from '../utils/fmt'
 import type { Currency } from '../App'
 
 const METRICS = [
@@ -350,19 +351,12 @@ export default function TransactionsPage({ currency }: Props) {
   )
   const realGain = realGainINR * holdFx
   const realCost = realCostINR * holdFx
-  const realColor = realGain >= 0 ? '#0a7a42' : '#be1c1c'
   const fromLabel = (location.state as { from?: string } | null)?.from ?? decoded.portfolio
   const backLabel = `← ${fromLabel}`
 
   // Symbol overview card values — aggregated across all portfolios in view
   const cur     = holdingList.reduce((s, h) => s + h.disp_current,  0) * holdFx
   const inv     = holdingList.reduce((s, h) => s + h.disp_invested, 0) * holdFx
-  const gain    = cur - inv
-  const pct     = inv !== 0 ? (gain / inv) * 100 : 0
-  const gainPos = (gain + realGain) >= 0
-  const border  = gainPos ? '#10b981' : '#f43f5e'
-  const bg      = gainPos ? '#f0fdf8' : '#fff5f5'
-  const tc      = gainPos ? '#0a7a42' : '#be1c1c'
 
   const tgRaw = holdingList.some(h => h.disp_today_gain !== null)
     ? holdingList.reduce((s, h) => s + (h.disp_today_gain ?? 0), 0) * holdFx
@@ -370,23 +364,11 @@ export default function TransactionsPage({ currency }: Props) {
   const tg    = tgRaw
   const prior = cur - (tgRaw ?? 0)
   const tp    = tgRaw !== null && prior !== 0 ? (tgRaw / prior) * 100 : null
-  const tgC   = (tg ?? 0) >= 0 ? '#0a7a42' : '#be1c1c'
 
-  const aggQty    = holdingList.reduce((s, h) => s + h.quantity, 0)
-  const aggAvgCost = aggQty > 0 ? holdingList.reduce((s, h) => s + h.avg_cost * h.quantity, 0) / aggQty : 0
   // for closed holdings (no open position), try any portfolio's holding for LTP/name/yf_symbol
   const anyHolding = holding ?? data.holdings.find(h => h.symbol === decoded.symbol && !SKIP_PORTS.has(h.portfolio)) ?? null
   const yf    = anyHolding?.yf_symbol ?? symTxns.find(t => t.yf_symbol)?.yf_symbol ?? decoded.symbol
   const co    = anyHolding?.company ?? ''
-  const qty   = holdingList.length ? aggQty.toFixed(3) : '—'
-  const avg   = holdingList.length ? aggAvgCost.toFixed(2) : '—'
-  const ltpPrice: number | null = (() => {
-    if (anyHolding?.current_price) return anyHolding.current_price
-    const dm = txPriceMap.get(yf)
-    if (!dm?.size) return null
-    return dm.get([...dm.keys()].sort().at(-1)!) ?? null
-  })()
-  const ltp   = ltpPrice != null ? ltpPrice.toFixed(2) : '—'
 
   const isPct       = PCT_METRICS.has(chartMetric)
   const chartLast   = metricSeries?.values[metricSeries.values.length - 1] ?? null
@@ -406,18 +388,18 @@ export default function TransactionsPage({ currency }: Props) {
 
   return (
     <div className="max-w-xl mx-auto flex flex-col h-[100dvh]">
-      <div className="shrink-0 px-2 pt-4 bg-white">
+      <div className="shrink-0 px-2 pt-1 bg-white relative z-20">
       {/* Nav bar */}
-      <div className="flex items-center justify-between px-3 py-2 mb-3 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl">
-        <button onClick={() => navigate(-1)} className="shrink-0 flex items-center gap-0.5 text-white active:text-white/80 min-h-[44px]">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-          <span className="text-[15px] font-bold whitespace-nowrap">{backLabel.replace('← ', '')}</span>
+      <div className="flex items-center justify-between px-4 py-2 mb-1.5 min-h-[46px]" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+        <button onClick={() => navigate(-1)} className="shrink-0 flex items-center gap-1.5 text-white active:opacity-70">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          <span className="text-[14px] font-extrabold tracking-tight whitespace-nowrap">{backLabel.replace('← ', '')}</span>
         </button>
         {activeTab === 'report' && reportSubTab === 'deep' && (
           <div className="relative shrink-0">
             <button
               onClick={() => setReportGearOpen(o => !o)}
-              className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${reportGearOpen ? 'bg-white/20 text-white' : 'text-emerald-100 active:bg-white/20 active:text-white'}`}
+              className={`w-[30px] h-[30px] flex items-center justify-center rounded-full transition-colors ${reportGearOpen ? 'bg-white/20 text-white' : 'text-emerald-100 active:bg-white/20 active:text-white'}`}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="3"/>
@@ -471,67 +453,18 @@ export default function TransactionsPage({ currency }: Props) {
         )}
       </div>
 
-      {/* Symbol overview card */}
-      <div
-        className="rounded-[10px] border mb-3 overflow-hidden shadow-sm"
-        style={{ background: bg, borderColor: '#e2e8f0', borderLeftWidth: 4, borderLeftColor: border }}
-      >
-        <div className="h-[3px]" style={{ background: `linear-gradient(to right, ${border}, ${border}55)` }} />
-        <div className="px-3 py-2.5">
-        {/* Label row */}
-        <div className="flex justify-between items-center mb-1">
-          <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider truncate max-w-[75%]">
-            {co || decoded.symbol}
-          </span>
-          <span className="text-[10px] text-slate-400 shrink-0">
-            LTP <span className="text-slate-600 font-semibold">{ltp}</span>
-          </span>
-        </div>
-
-        {/* Value+XIRR (left) | 1D+ALL (right) */}
-        <div className="grid grid-cols-[auto_1fr] items-center gap-y-0 mb-2">
-          <span className="text-[20px] font-bold text-slate-900 tracking-tight">
-            {fmt(cur, dispCur)}
-          </span>
-          <span className="flex items-center gap-1 whitespace-nowrap justify-self-end">
-            <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>1D</span>
-            <span className="text-[10px]" style={{ color: tgC }}>
-              {fmtCompactGainLine(tg ?? 0, tg !== null ? tp : 0, dispCur)}
-            </span>
-          </span>
-          <div className="-ml-1.5">
-            {holdingXirr !== null
-              ? <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none" style={{ background: holdingXirr >= 0 ? '#d1fae5' : '#fee2e2', color: holdingXirr >= 0 ? '#065f46' : '#991b1b' }}>XIRR {fmtPct(holdingXirr)}</span>
-              : <span className="text-[10px] text-slate-400">XIRR —</span>
-            }
-          </div>
-          <span className="flex items-center gap-1 whitespace-nowrap justify-self-end">
-            <span className="inline-block w-[22px] text-right text-[10px] font-semibold" style={{color:'#065f46'}}>ALL</span>
-            <span className="text-[10px]" style={{ color: tc }}>
-              {fmtCompactGainLine(gain + realGain, inv + realCost !== 0 ? (gain + realGain) / (inv + realCost) * 100 : 0, dispCur)}
-            </span>
-          </span>
-        </div>
-
-        {/* Footer: Invested · qty · avg | Realized */}
-        <div
-          className="flex justify-between pt-1.5"
-          style={{ borderTop: '1px solid #e2e8f0' }}
-        >
-          <span className="text-[10px] text-slate-400">
-            Invested{' '}
-            <span className="text-slate-600 font-semibold">{fmt(inv, dispCur)}</span>
-            {holding && <span className="text-slate-400"> · {qty} sh · {avg}/sh</span>}
-          </span>
-          <span className="text-[10px] text-slate-400">
-            Realized{' '}
-            <span className="font-semibold" style={{ color: realColor }}>
-              {fmtGainLine(realGain, null, dispCur)}
-            </span>
-          </span>
-        </div>
-        </div>
-      </div>
+      {/* Summary card — same format as Holdings page */}
+      <SummaryCard
+        label={co || decoded.symbol}
+        current={cur}
+        invested={inv}
+        realGain={realGain}
+        realCost={realCost}
+        todayGain={tg}
+        todayPct={tp}
+        xirr={holdingXirr}
+        currency={dispCur}
+      />
 
       {/* Tabs — iOS segmented control */}
       <div className="flex bg-slate-100 rounded-full p-0.5 gap-0.5 mb-2">

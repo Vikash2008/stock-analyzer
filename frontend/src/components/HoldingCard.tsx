@@ -39,11 +39,11 @@ export function HoldingCard({
 
   return (
     <div
-      className="rounded-[13px] border px-3 py-1.5 cursor-pointer active:opacity-75 transition-opacity select-none"
-      style={{ background: cardBg, borderColor: '#eef1f5', borderLeftWidth: 4, borderLeftColor: accent }}
+      className="rounded-[13px] border pl-3 pr-2 py-1.5 cursor-pointer active:opacity-75 transition-opacity select-none"
+      style={{ background: cardBg, borderColor: '#cbd5e1', borderLeftWidth: 4, borderLeftColor: accent }}
       onClick={onClick}
     >
-      <p className="text-[9px] font-bold uppercase tracking-[1.2px] text-slate-500 truncate">
+      <p className="text-[9px] font-bold uppercase tracking-[1.2px] truncate" style={{ color: '#0b3b3a' }}>
         {(subLabel || ticker).replace(/\.(NS|BO)$/i, '')}
       </p>
       <div className="flex items-center justify-between gap-2">

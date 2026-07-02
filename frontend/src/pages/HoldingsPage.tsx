@@ -1249,7 +1249,7 @@ export default function HoldingsPage({ currency }: Props) {
       )}
       <div className="shrink-0 px-2 pt-1 bg-white relative z-20">
       {/* Nav bar */}
-      <div className="flex items-center justify-between px-4 py-2 mb-3" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+      <div className="flex items-center justify-between px-4 py-2 mb-1.5 min-h-[46px]" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
         <button onClick={() => navigate('/')} className="shrink-0 flex items-center gap-1.5 text-white active:opacity-70">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
           <span className="text-[14px] font-extrabold tracking-tight whitespace-nowrap">{backLabel.replace('← ', '')}</span>
@@ -1421,8 +1421,8 @@ export default function HoldingsPage({ currency }: Props) {
         todayGain={(displayStats.tg || null) !== null ? (displayStats.tg || 0) * summFx : null}
         todayPct={displayStats.todayPct}
         xirr={filteredSummaryXirr}
-        dividends={totalDivForView > 0 ? totalDivForView * summFx : undefined}
-        fxGain={totalFxForView > 0 ? totalFxForView * summFx : undefined}
+        dividends={includeDivs ? totalDivForView * summFx : undefined}
+        fxGain={includeFxGains ? totalFxForView * summFx : undefined}
         currency={summCur}
         highlight={
           segment === 'total'
@@ -1459,18 +1459,19 @@ export default function HoldingsPage({ currency }: Props) {
       </div>
       {/* Charts strip — metric pills + sync */}
       {activeTab === 'charts' && (
-        <div className="bg-sky-50 border border-sky-200 rounded-xl px-2.5 py-1.5 mt-2">
+        <div className="rounded-xl px-2.5 py-1.5 mt-2">
           <div
             className="flex gap-0.5 overflow-x-auto rounded-lg p-0.5"
-            style={{ backgroundColor: '#bae6fd44', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
           >
             {METRICS.map(m => (
               <button
                 key={m}
                 onClick={() => setChartMetric(m)}
                 className={`text-[10px] whitespace-nowrap px-2.5 py-1 rounded-md font-medium transition-all ${
-                  chartMetric === m ? METRIC_STYLE[m].active : METRIC_STYLE[m].inactive
+                  chartMetric === m ? 'text-white shadow-sm border border-teal-700' : 'text-teal-700 border border-teal-200'
                 }`}
+                style={chartMetric === m ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
               >
                 {m}
               </button>
@@ -1480,7 +1481,7 @@ export default function HoldingsPage({ currency }: Props) {
       )}
       {/* Holdings strip — search + sector + sort (single row) */}
       {activeTab === 'holdings' && (
-        <div className="bg-teal-50 border border-teal-100 rounded-xl px-2.5 py-1.5 mt-2">
+        <div className="border border-teal-900 rounded-xl px-2.5 py-1.5 mt-2" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
           <div className="flex items-center gap-1.5">
             <div className="flex-1 relative">
               <svg className="absolute left-2 top-1/2 -translate-y-1/2 text-teal-600 pointer-events-none" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -1497,7 +1498,7 @@ export default function HoldingsPage({ currency }: Props) {
                     ? `${rows.length} open · ${closedRows.length} closed`
                     : rows.length ? `${rows.length} open` : `${closedRows.length} closed`
                 } holdings)`}
-                className="w-full pl-6 pr-6 py-[3px] text-[10px] bg-white border border-slate-200 rounded-full outline-none focus:border-teal-400 text-slate-700 placeholder-slate-300"
+                className="w-full pl-6 pr-6 py-[3px] text-[11px] font-normal bg-white border border-slate-200 rounded-full outline-none focus:border-teal-400 text-slate-900 placeholder-slate-300"
               />
               {searchQuery && (
                 <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 active:text-slate-500">
@@ -1509,7 +1510,7 @@ export default function HoldingsPage({ currency }: Props) {
             <div className="relative shrink-0">
               <button
                 onClick={() => setSectorOpen(o => !o)}
-                className={`flex items-center gap-0.5 text-[10px] px-2 py-[3px] rounded-full border transition-colors whitespace-nowrap ${sectorFilter !== 'all' ? 'bg-teal-500 text-white border-teal-600' : 'bg-white text-teal-600 font-medium border-slate-200'}`}
+                className={`flex items-center gap-0.5 text-[10px] px-2 py-[3px] rounded-full transition-colors whitespace-nowrap font-bold text-white ${sectorFilter !== 'all' ? 'bg-teal-500 border border-teal-600' : ''}`}
               >
                 <span>{sectorFilter === 'all' ? 'Sector' : sectorFilter}</span>
                 <span className="text-[10px] leading-none">▾</span>
@@ -1539,7 +1540,7 @@ export default function HoldingsPage({ currency }: Props) {
             </div>
             {/* Sort */}
             <div className="relative shrink-0">
-              <button onClick={() => setSortOpen(o => !o)} className="flex items-center gap-1 text-[10px] text-teal-600 font-medium">
+              <button onClick={() => setSortOpen(o => !o)} className="flex items-center gap-1 text-[10px] text-white font-bold">
                 <svg width="11" height="10" viewBox="0 0 11 10" fill="currentColor">
                   <rect x="0" y="0" width="11" height="1.5" rx="0.75"/>
                   <rect x="1.5" y="3.5" width="8" height="1.5" rx="0.75"/>
@@ -1781,9 +1782,10 @@ export default function HoldingsPage({ currency }: Props) {
                     onClick={() => setChartRange(r)}
                     className={`flex-1 text-[10px] py-1 rounded-md font-medium transition-all ${
                       chartRange === r
-                        ? 'bg-white text-[#2563eb] shadow-sm'
+                        ? 'text-white shadow-sm'
                         : 'text-slate-400'
                     }`}
+                    style={chartRange === r ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
                   >
                     {r}
                   </button>

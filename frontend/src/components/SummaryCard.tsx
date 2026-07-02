@@ -18,11 +18,12 @@ interface SummaryCardProps {
   currency:    Currency
   footer?:     React.ReactNode  // optional custom footer
   highlight?:  { bg: string; accent: string }
+  onClick?:    () => void
 }
 
 export function SummaryCard({
   label, current, invested, realGain, realCost,
-  todayGain, todayPct, xirr, dividends, fxGain, currency, footer,
+  todayGain, todayPct, xirr, dividends, fxGain, currency, footer, onClick,
 }: SummaryCardProps) {
   const divAmt    = dividends ?? 0
   const fxAmt     = fxGain ?? 0
@@ -37,8 +38,9 @@ export function SummaryCard({
 
   return (
     <div
-      className="rounded-b-[18px] p-4 mb-3 relative overflow-hidden"
+      className={`rounded-b-[18px] p-4 mb-3 relative overflow-hidden ${onClick ? 'cursor-pointer active:opacity-90 transition-opacity' : ''}`}
       style={{ background: 'linear-gradient(150deg, #10243f 0%, #0b3b3a 100%)', boxShadow: '0 14px 30px -10px rgba(11,59,58,0.45)' }}
+      onClick={onClick}
     >
       <div className="absolute top-[-40px] right-[-40px] w-[160px] h-[160px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(45,212,191,0.25), transparent 70%)' }} />
       <div className="relative">
@@ -57,10 +59,10 @@ export function SummaryCard({
           <span>Realized <span className="font-semibold" style={{ color: realColor }}>{fmtCompactGainLine(realGain, null, currency)}</span></span>
         </div>
 
-        {(fxAmt > 0 || divAmt > 0) && (
+        {(fxGain !== undefined || dividends !== undefined) && (
           <div className="flex justify-between items-center text-[10.5px] mt-1" style={{ color: 'rgba(255,255,255,0.55)' }}>
-            <span>{fxAmt > 0 && <>FX gains <span className="font-semibold" style={{ color: '#5eead4' }}>+{fmtCompactGainLine(fxAmt, null, currency)}</span></>}</span>
-            <span>{divAmt > 0 && <>Dividend <span className="font-semibold" style={{ color: '#5eead4' }}>+{fmtCompactGainLine(divAmt, null, currency)}</span></>}</span>
+            <span>{fxGain !== undefined && <>FX gains <span className="font-semibold" style={{ color: '#5eead4' }}>+{fmtCompactGainLine(fxAmt, null, currency)}</span></>}</span>
+            <span>{dividends !== undefined && <>Dividend <span className="font-semibold" style={{ color: '#5eead4' }}>+{fmtCompactGainLine(divAmt, null, currency)}</span></>}</span>
           </div>
         )}
 

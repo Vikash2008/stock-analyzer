@@ -9,6 +9,7 @@ import { fmt, fmtCompact } from '../utils/fmt'
 import { SKIP_PORTS, USD_PORTS } from '../utils/segments'
 import { getLabel, resolveLabel, filterByLabel, getAllLabelsInBucket, getBuckets, reconcileBucketsFromTags } from '../utils/buckets'
 import { ManageBucketsModal } from '../components/ManageBucketsModal'
+import { SummaryCard } from '../components/SummaryCard'
 import { aggRealized, realizedForPorts } from '../utils/realized'
 import { computeXIRR } from '../utils/xirr'
 import type { RealizedMap } from '../utils/realized'
@@ -530,6 +531,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     const prior = cur - todayGain
     return {
       cur, inv, totalGain,
+      realGain: rg, realCost: rc,
+      dividends: totalDivs, fxGain: totalFxGain,
       returnPct:  totalCost !== 0 ? totalGain / totalCost * 100 : 0,
       todayGain,
       todayPct:   todayGain !== 0 && prior !== 0 ? (todayGain / prior) * 100 : null,
@@ -817,7 +820,6 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   if (isLoading) return <LoadingSkeleton />
   if (error || !data) return <ErrorState message={(error as Error)?.message ?? 'Unknown error'} />
 
-  const heroPos = isPos(hero.totalGain)
   const usdScale = (isUsd: boolean) => isUsd && currency === 'USD' ? 1 / data.usd_inr : 1
   const usdCur   = (isUsd: boolean): Currency => isUsd && currency === 'USD' ? 'USD' : 'INR'
 
@@ -842,8 +844,10 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         </div>
       )}
 
+      {/* Header + hero wrapped together so space-y-2 doesn't add extra gap between them — matches Holdings/Txn spacing exactly */}
+      <div>
       {/* Page header */}
-      <div className="flex items-center justify-between px-4 py-2 mb-3" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+      <div className="flex items-center justify-between px-4 py-2 mb-1.5 min-h-[46px]" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
         <p className="text-[19px] font-extrabold text-white tracking-tight leading-tight">Overview</p>
         <div className="flex items-center gap-2">
           <button
@@ -861,7 +865,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           <div className="relative">
             <button
               onClick={() => { setCsvMeta(getCsvMeta()); setSettingsOpen(v => !v) }}
-              className="w-[28px] h-[28px] rounded-full flex items-center justify-center active:opacity-70 text-white"
+              className="w-[30px] h-[30px] rounded-full flex items-center justify-center active:opacity-70 text-white"
               aria-label="Portfolio settings"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
@@ -931,7 +935,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                     {/* Backup */}
                     <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
                       <div className="min-w-0">
-                        <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Backup (with tags)</p>
+                        <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">My Portfolio</p>
                         <p className="text-[10px] text-slate-400 leading-tight mt-0.5 truncate">
                           {csvMeta ? `${csvMeta.name} · ${fmtBytes(csvMeta.size)}` : 'Demo Data · Sample portfolio'}
                         </p>
@@ -1077,35 +1081,21 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       </div>
 
 
-      {/* Hero card — Total Portfolio */}
-      <div
-        className="rounded-b-[18px] p-4 cursor-pointer active:opacity-90 transition-opacity relative overflow-hidden"
-        style={{ background: 'linear-gradient(150deg, #10243f 0%, #0b3b3a 100%)', boxShadow: '0 14px 30px -10px rgba(11,59,58,0.45)' }}
+      {/* Hero card — Total Portfolio — same format as Holdings/Txn summary card */}
+      <SummaryCard
+        label="Total Portfolio"
+        current={hero.cur}
+        invested={hero.inv}
+        realGain={hero.realGain}
+        realCost={hero.realCost}
+        todayGain={hero.todayGain}
+        todayPct={hero.todayPct}
+        xirr={heroXirr}
+        dividends={includeDivs ? hero.dividends : undefined}
+        fxGain={includeFxGainsState ? hero.fxGain : undefined}
+        currency="INR"
         onClick={() => navigate('/holdings/segment/total')}
-      >
-        <div className="absolute top-[-40px] right-[-40px] w-[160px] h-[160px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(45,212,191,0.25), transparent 70%)' }} />
-        <p className="relative text-[12px] font-bold text-[#99e6dc] uppercase tracking-[1.2px] mb-2.5">Total Portfolio</p>
-        <div className="relative flex items-center justify-between gap-2 mb-1">
-          <span className="text-[26px] font-extrabold text-white">{fmt(hero.cur, 'INR')}</span>
-          {heroXirr !== null
-            ? <span className="text-[12.5px] font-bold rounded-full px-3 py-1 whitespace-nowrap shrink-0" style={{ background: 'rgba(45,212,191,0.18)', color: '#5eead4', border: '1px solid rgba(94,234,212,0.3)' }}>XIRR {fmtPct1(heroXirr!)}</span>
-            : <span className="text-[12.5px] font-bold rounded-full px-3 py-1 whitespace-nowrap shrink-0" style={{ background: 'rgba(45,212,191,0.18)', color: '#5eead4', border: '1px solid rgba(94,234,212,0.3)' }}>XIRR —</span>
-          }
-        </div>
-        <div className="relative flex justify-between pt-2.5 mt-2.5" style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }}>
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.45)' }}>Today</span>
-            <span className="text-[14.5px] font-bold whitespace-nowrap" style={{ color: hero.todayGain >= 0 ? '#5eead4' : '#fca5a5' }}>
-              {hero.todayGain !== 0 ? fmtCompactGainLine1(hero.todayGain, hero.todayPct, 'INR') : '—'}
-            </span>
-          </div>
-          <div className="flex flex-col gap-0.5 items-end">
-            <span className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.45)' }}>Total</span>
-            <span className="text-[14.5px] font-bold whitespace-nowrap" style={{ color: heroPos ? '#5eead4' : '#fca5a5' }}>
-              {fmtCompactGainLine1(hero.totalGain, hero.returnPct, 'INR')}
-            </span>
-          </div>
-        </div>
+      />
       </div>
 
       {/* Asset Class summary tiles — Stocks, Mutual Funds, and any other label (e.g. Gold) */}

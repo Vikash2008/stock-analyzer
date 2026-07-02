@@ -156,15 +156,15 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
         style={{ top: '5dvh', maxHeight: '90dvh', maxWidth: 320, margin: '0 auto' }}
       >
         <div className="px-3.5 py-2 flex items-center justify-between shrink-0" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
-          <span className="text-[13px] font-extrabold text-white tracking-[-0.2px]">Manage Buckets</span>
-          <button onClick={onClose} className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[12px] leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>✕</button>
+          <span className="text-[15px] font-extrabold text-white tracking-[-0.2px]">Manage Buckets</span>
+          <button onClick={onClose} className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[13px] leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>✕</button>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-2 px-2.5 py-2.5" style={{ background: '#f8fafc' }}>
 
           {/* Count + New bucket */}
           <div className="flex items-center gap-1.5">
-            <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest shrink-0" style={{ color: '#0b3b3a' }}>
+            <p className="flex items-center gap-1 text-[12px] font-semibold uppercase tracking-widest shrink-0" style={{ color: '#0b3b3a' }}>
               <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M1.5 2h9L7 6.5V10l-2-1V6.5L1.5 2z" /></svg>
               {buckets.length}
             </p>
@@ -173,11 +173,11 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
               onChange={e => setNewBucketName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleNewBucket() }}
               placeholder="New bucket…"
-              className="flex-1 min-w-0 px-2 py-1 text-[10.5px] border border-emerald-100 rounded-md bg-white focus:outline-none focus:border-teal-400"
+              className="flex-1 min-w-0 px-2 py-1 text-[11px] border border-emerald-100 rounded-md bg-white focus:outline-none focus:border-teal-400"
             />
             <button
               onClick={handleNewBucket}
-              className="px-2 py-1 text-[10.5px] font-semibold text-white rounded-md active:opacity-80 whitespace-nowrap shrink-0"
+              className="px-2 py-1 text-[12px] font-semibold text-white rounded-md active:opacity-80 whitespace-nowrap shrink-0"
               style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
             >
               + Create
@@ -187,22 +187,24 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
           {buckets.map(b => (
             <div key={b.name} className="bg-white rounded-lg border border-emerald-100 shadow-sm overflow-hidden">
               <div className="flex items-center gap-1 px-2 py-1.5" style={{ background: 'rgba(13,148,136,0.06)' }}>
-                <span className="text-[11px] font-bold text-[#0b3b3a] truncate flex-1 min-w-0">{b.name}</span>
-                <input
-                  value={newLabelByBucket[b.name] ?? ''}
-                  onChange={e => setNewLabelByBucket(prev => ({ ...prev, [b.name]: e.target.value }))}
-                  onKeyDown={e => { if (e.key === 'Enter') handleAddLabel(b.name) }}
-                  placeholder="+label"
-                  className="w-[58px] shrink-0 px-1.5 py-1 text-[10px] border border-emerald-100 rounded-md bg-white focus:outline-none focus:border-teal-400"
-                />
-                <button
-                  onClick={() => handleAddLabel(b.name)}
-                  className="w-5 h-5 shrink-0 flex items-center justify-center rounded-md text-white active:opacity-80"
-                  style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
-                  title="Add label"
-                >
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-                </button>
+                <span className="text-[13px] font-bold text-[#0b3b3a] truncate flex-1 min-w-0">{b.name}</span>
+                <div className="relative shrink-0 w-[84px]">
+                  <input
+                    value={newLabelByBucket[b.name] ?? ''}
+                    onChange={e => setNewLabelByBucket(prev => ({ ...prev, [b.name]: e.target.value }))}
+                    onKeyDown={e => { if (e.key === 'Enter') handleAddLabel(b.name) }}
+                    placeholder="Add label"
+                    className="w-full pl-1.5 pr-6 py-1 text-[11px] border border-emerald-100 rounded-md bg-white focus:outline-none focus:border-teal-400"
+                  />
+                  <button
+                    onClick={() => handleAddLabel(b.name)}
+                    className="absolute right-[3px] top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-md text-white active:opacity-80"
+                    style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+                    title="Add label"
+                  >
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                  </button>
+                </div>
                 {b.name !== 'Asset Class' && (
                   <>
                     <button
@@ -246,7 +248,7 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
                       >
                         <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor"><circle cx="2" cy="2" r="1.3" /><circle cx="8" cy="2" r="1.3" /><circle cx="2" cy="7" r="1.3" /><circle cx="8" cy="7" r="1.3" /><circle cx="2" cy="12" r="1.3" /><circle cx="8" cy="12" r="1.3" /></svg>
                       </button>
-                      <span className="flex-1 text-[11px] font-medium text-slate-700">{l}</span>
+                      <span className="flex-1 text-[13px] font-medium text-slate-700">{l}</span>
                       <button
                         onClick={() => handleDeleteLabel(b.name, l)}
                         disabled={isPending}
