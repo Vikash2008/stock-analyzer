@@ -233,7 +233,7 @@ def enrich_holdings(
     # yesterday — so their slice of today's gain is priced off today's buy cost instead of
     # the market's prior-day close. Shares held since before today still use previous_close.
     qty_today  = df["qty_bought_today"].fillna(0) if "qty_bought_today" in df.columns else pd.Series(0.0, index=df.index)
-    cost_today = df["avg_cost_today"] if "avg_cost_today" in df.columns else pd.Series(float("nan"), index=df.index)
+    cost_today = pd.to_numeric(df["avg_cost_today"], errors="coerce") if "avg_cost_today" in df.columns else pd.Series(float("nan"), index=df.index)
     qty_old    = df["quantity"] - qty_today
 
     # `.where(cond, 0.0)` forces the zero-quantity side to exactly 0 instead of NaN — otherwise
@@ -244,7 +244,8 @@ def enrich_holdings(
     baseline_old = (qty_old * df["previous_close"]).where(qty_old > 1e-9, 0.0)
     baseline_new = (qty_today * cost_today).where(qty_today > 1e-9, 0.0)
 
-    df["today_gain"] = gain_old + gain_new
-    df["today_pct"]  = (df["today_gain"] / (baseline_old + baseline_new) * 100).round(2)
+    df["today_gain"] = pd.to_numeric(gain_old + gain_new, errors="coerce")
+    baseline = pd.to_numeric(baseline_old + baseline_new, errors="coerce")
+    df["today_pct"] = (df["today_gain"] / baseline * 100).round(2)
 
     return df
