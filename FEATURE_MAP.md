@@ -19,7 +19,7 @@
 | **Benchmarking tab** | `frontend/src/pages/HoldingsPage.tsx` | `frontend/src/hooks/useBenchmarkXirr.ts` |
 | **Allocation tab** | `frontend/src/pages/HoldingsPage.tsx` | — |
 | **Holding card** | `frontend/src/components/HoldingCard.tsx` | — |
-| **Summary card** | `frontend/src/components/SummaryCard.tsx` | — |
+| **Summary card / hero card** | `frontend/src/components/SummaryCard.tsx` — shared by `PortfoliosPage.tsx` (Total Portfolio hero), `HoldingsPage.tsx`, `TransactionsPage.tsx` (per-symbol card); identical top-bar+card format on all three | — |
 | **TxRow (transaction row)** | `frontend/src/components/TxRow.tsx` | — |
 | **Portfolio data fetch** | `frontend/src/hooks/usePortfolio.ts`, `frontend/src/api/portfolio.ts` | `backend/routers/portfolio.py` |
 | **History / chart data** | `frontend/src/hooks/useHistory.ts`, `frontend/src/hooks/usePortfolioHistory.ts` | `backend/routers/history.py` |

@@ -11,6 +11,22 @@
 | 2026-05-24 | PWA manifest added | "Add to Home Screen" opens standalone (no browser bar) |
 | 2026-05-24 | Fixed P&L double-count | Equity + MF_Portfolio (SKIP_PORTS) excluded from all totals |
 
+### 2026-07-02 (session 158)
+
+**Dark-green theme unified across Holdings + Overview** — `HoldingsPage.tsx` nav bar switched to same `linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)` as Overview; `SummaryCard.tsx` rebuilt as dark hero card (Invested/Realized row + conditional FX/Dividend row + Today/Total gains row); `HoldingCard.tsx` restyled to compact card — XIRR pill beside value, gain% pill, light green/red background tint by total gain, ▲/▼ tickers everywhere via shared `fmtCompactGainLine`.
+
+**Settings modals reverted to anchored top-right dropdown** (both pages) — user preferred this over the bottom-sheet tried earlier; `w-[320px] max-w-[calc(100vw-24px)]`, own `maxHeight`/scroll. Row/button/toggle colors unified to the `#0b3b3a→#0d9488` gradient + `emerald-50/60` row bg across Overview Settings, Holdings Settings, and `ManageBucketsModal.tsx`.
+
+**Overview card palette restricted to green/blue only** — removed stray purple (`#8b5cf6`) from `BROKER_GROUPS`; `CARD_COLOR_PALETTE` now cycles teal/blue/cyan/emerald/sky; Explore modal widened to full mobile width (dropped outer `px-4`); Breakdown heading + toggle enlarged and recolored to match `#0b3b3a`.
+
+### 2026-07-02 (session 157)
+
+**Overview page design language** — dark navy hero card (`linear-gradient(150deg, #10243f 0%, #0b3b3a 100%)`) with teal radial glow; all non-hero cards use `#0d9488` teal left-border accent (red `#f43f5e` when returns negative); settings modal converted to full-width bottom sheet; explore modal redesigned with same dark header, teal pill search, avatar result rows, blue recent chips.
+
+**Compact card pattern** — non-hero cards: `px-2 py-1.5`, label `text-[9.5px] mb-0.5`, value `text-[14px]`, bottom gains row `mt-1 pt-1`; asset tiles and BreakCard use same pattern; `CARD_COLOR_PALETTE` added for dynamic bucket labels.
+
+**Holdings mockup** — `design-mockups/holdings-page.html` created matching overview design language: dark hero, compact holding rows with left-accent border (green pos / red neg), avatar circles, teal filter strip.
+
 ### 2026-06-28 (session 154)
 
 **ManageBucketsModal compacted** — drag handle `w-11 h-11` → `w-7 h-7`, label rows `py-1` → `py-0.5`, bucket cards `p-3` → `p-2`, scroll area `px-4 py-4` → `px-3 py-2.5`, header `py-3` → `py-2`. User explicitly requested compact; touch targets intentionally below 44px in this modal.

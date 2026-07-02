@@ -376,7 +376,15 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 ## Design Decisions Log
 
-> Keep only the 3 most recent sessions here (size guard, same pattern as ROADMAP_ARCHIVE.md). Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-06-19 (session 141)
+> Keep only the 3 most recent sessions here (size guard, same pattern as ROADMAP_ARCHIVE.md). Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-07-02 (session 158)
+
+### 2026-07-02 (session 161)
+
+**Dark teal green applied to Charts/Dividends/FX tabs** — Holdings Charts tab metric buttons + range selector, `DividendsTab.tsx`, and `FxGainsTab.tsx` all switched their selected/accent colors from mixed per-metric hues (blue/violet/pink/rose/teal-500) to the shared `#0b3b3a→#0d9488` gradient (or flat `#0b3b3a` for text), matching the summary card. Chart metrics strip's outer container fill/border removed per follow-up (buttons only, no wrapper chrome).
+
+**Top bar + hero/summary card unified across Overview, Holdings, and Txn pages** — `TransactionsPage.tsx` nav bar and per-symbol card rebuilt to match Holdings exactly (same gradient nav bar, same `SummaryCard` component instead of bespoke markup). `PortfoliosPage.tsx`'s "Total Portfolio" hero card also switched from bespoke markup to the shared `SummaryCard` (added `onClick` prop to the component for hero-card navigation). All three nav bars set to `min-h-[46px]` (not `min-h-[30px]` — Tailwind border-box sizing counts padding, so a 30px min-height on a `py-2` bar under-sized it by 16px versus the naturally-30px-content Holdings bar). Gap between nav bar and card set to `mb-[3px]` (halved from `mb-1.5` per follow-up) and the `pt-1` above the nav bar removed on all three, so the bar sits flush at the top everywhere.
+
+**Dividend/FX toggle display bug fixed** — `SummaryCard` was hiding the Dividend/FX row whenever the amount was exactly 0, making "toggle off" indistinguishable from "toggle on but ₹0". Callers (`HoldingsPage.tsx`, `PortfoliosPage.tsx`) now pass `dividends`/`fxGain` whenever their respective toggle is on (not gated on `amount > 0`), and `SummaryCard` renders the row based on the prop being defined, not its value.
 
 ### 2026-07-02 (session 160)
 
@@ -401,22 +409,6 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 **ManagePortfolioModal repositioned + compacted** — moved from centered overlay to anchored top-right (`right` computed via `calc((100vw-576px)/2 + 0.75rem)` so it hugs the app's `max-w-xl` column edge on desktop instead of the raw browser edge); option rows tightened (smaller padding/text) with labels colored `#0b3b3a`.
 
 **ManageBucketsModal redesigned** — bucket list is now white cards with a tinted header strip and icon-based delete (trash icon) instead of plain text rows; label rows use a grip-dots drag handle; width reduced to 320px, "add label" input moved into the bucket header row (next to hide-toggle/delete), and "+ Create bucket" moved to the top next to the bucket count for a smaller, denser modal.
-
-### 2026-07-02 (session 158)
-
-**Dark-green theme unified across Holdings + Overview** — `HoldingsPage.tsx` nav bar switched to same `linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)` as Overview; `SummaryCard.tsx` rebuilt as dark hero card (Invested/Realized row + conditional FX/Dividend row + Today/Total gains row); `HoldingCard.tsx` restyled to compact card — XIRR pill beside value, gain% pill, light green/red background tint by total gain, ▲/▼ tickers everywhere via shared `fmtCompactGainLine`.
-
-**Settings modals reverted to anchored top-right dropdown** (both pages) — user preferred this over the bottom-sheet tried earlier; `w-[320px] max-w-[calc(100vw-24px)]`, own `maxHeight`/scroll. Row/button/toggle colors unified to the `#0b3b3a→#0d9488` gradient + `emerald-50/60` row bg across Overview Settings, Holdings Settings, and `ManageBucketsModal.tsx`.
-
-**Overview card palette restricted to green/blue only** — removed stray purple (`#8b5cf6`) from `BROKER_GROUPS`; `CARD_COLOR_PALETTE` now cycles teal/blue/cyan/emerald/sky; Explore modal widened to full mobile width (dropped outer `px-4`); Breakdown heading + toggle enlarged and recolored to match `#0b3b3a`.
-
-### 2026-07-02 (session 157)
-
-**Overview page design language** — dark navy hero card (`linear-gradient(150deg, #10243f 0%, #0b3b3a 100%)`) with teal radial glow; all non-hero cards use `#0d9488` teal left-border accent (red `#f43f5e` when returns negative); settings modal converted to full-width bottom sheet; explore modal redesigned with same dark header, teal pill search, avatar result rows, blue recent chips.
-
-**Compact card pattern** — non-hero cards: `px-2 py-1.5`, label `text-[9.5px] mb-0.5`, value `text-[14px]`, bottom gains row `mt-1 pt-1`; asset tiles and BreakCard use same pattern; `CARD_COLOR_PALETTE` added for dynamic bucket labels.
-
-**Holdings mockup** — `design-mockups/holdings-page.html` created matching overview design language: dark hero, compact holding rows with left-accent border (green pos / red neg), avatar circles, teal filter strip.
 
 ### 2026-06-29 (session 156)
 
