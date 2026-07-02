@@ -430,3 +430,7 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 **Top bar switched from filled gradient to outline-only** — Overview/Holdings/Txn nav bar background changed from the `#14746f→#14b8a6` gradient fill to a very light teal (`#e6f7f5`), border kept solid `#0b3b3a`, corners rounded again (`rounded-t-[14px]`, reversing session 164's squaring-off). Text/icons (back label, refresh, settings gear) switched from white to `#0b3b3a` to stay readable against the light fill.
 
+### 2026-07-03 (session 167)
+
+**Chart freshness indicator** — small "As of HH:MM" label added directly on both Holdings-page and Txn-page charts (`text-[9px] text-slate-400`, matching the existing sync-timestamp sizing convention). Switches to `text-amber-600 font-semibold` with a short appended reason ("couldn't verify latest update" / "numbers may be off" / "refresh may be delayed") when the backend flags a rejected update or a today-number mismatch — chart honestly signals when it might be wrong instead of always looking fine. New "Couldn't load chart — tap to retry" empty state alongside the existing "No price history available" one; retry buttons given `min-h-[44px]` touch targets (mobile-check catch during `/ship`).
+
