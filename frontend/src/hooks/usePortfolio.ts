@@ -29,7 +29,7 @@ async function fetchPortfolioGuarded(forceRefresh: boolean): Promise<PortfolioDa
   return data
 }
 
-const REFRESH_MS = 5 * 60 * 1000
+const REFRESH_MS = 2 * 60 * 1000
 
 // Always fetch in INR — per-portfolio USD conversion is done on the frontend.
 // The currency param is kept for call-site compatibility but ignored internally.

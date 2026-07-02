@@ -9,7 +9,9 @@ Env vars:
                    e.g. https://your-app.vercel.app
 """
 
+import asyncio
 import os
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from pathlib import Path
@@ -27,6 +29,7 @@ from backend.routers.search      import router as search_router
 from backend.routers.dividends   import router as dividends_router
 from backend.routers.add_txn           import router as add_txn_router
 from backend.routers.portfolio_history import router as portfolio_history_router
+from backend.price_refresh             import price_refresh_loop
 
 _ORIGINS = [
     "http://localhost:3000",
@@ -37,7 +40,13 @@ _prod = os.environ.get("ALLOWED_ORIGIN", "").strip()
 if _prod and _prod not in _ORIGINS:
     _ORIGINS.append(_prod)
 
-app = FastAPI(title="Stock Analyzer API", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(price_refresh_loop())
+    yield
+    task.cancel()
+
+app = FastAPI(title="Stock Analyzer API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

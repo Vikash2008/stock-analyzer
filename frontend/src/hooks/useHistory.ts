@@ -62,7 +62,7 @@ export const CLOSED_LS_TTL = 30 * 24 * 60 * 60 * 1000  // 30 days — fully-exit
 
 // Same cadence as the portfolio price sync (usePortfolio.ts) — keep both auto-refresh
 // loops on one consistent mental model even though they remain separate triggers.
-export const REFRESH_MS = 5 * 60 * 1000
+export const REFRESH_MS = 2 * 60 * 1000
 
 function readLsEntry(key: string, ttlMs: number): { d: HistoryData; t: number } | undefined {
   const entry = idbGet<{ d: HistoryData; t: number }>(LS_PREFIX + key)

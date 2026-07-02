@@ -7,9 +7,9 @@ directly — no re-fetching unless the relevant TTL has expired.
 Layers and TTLs
 ---------------
   fifo      : permanent — recomputed only when source file mtime changes
-  prices    : 30 min    — market prices; refresh button available in UI
+  prices    : 2 min     — market prices; refresh button available in UI
   info      : 7 days    — sector / company name; rarely changes
-  fx        : 30 min    — USD/INR rate
+  fx        : 2 min     — USD/INR rate
 
 Usage
 -----
@@ -50,10 +50,10 @@ _last_disk_write = 0.0
 
 _TTL: dict[str, Optional[float]] = {
     "fifo":        None,        # never expires — mtime-gated instead
-    "prices":      1800.0,      # 30 min — matches frontend auto-refresh interval
-    "prev_closes": 1800.0,      # 30 min
+    "prices":      120.0,       # 2 min — backend always warm (Oracle VM), no cold-start cost to fetch often
+    "prev_closes": 120.0,       # 2 min
     "info":        86400 * 7,   # 7 days
-    "fx":          1800.0,      # 30 min
+    "fx":          120.0,       # 2 min
     "quickstats":  None,        # permanent layer — per-symbol TTL managed in router (24h)
 }
 
@@ -69,11 +69,11 @@ _PREFIX_TTL: dict[str, float] = {
     "divs:": 30 * 86400.0,
 }
 
-# Each uploaded CSV gets its own permanent fifo:{hash}:* entry (full txns/holdings/realized/
-# fx_lots DataFrames) that's never otherwise removed — cap how many distinct hashes we keep so
-# repeated re-uploads/testing don't accumulate forever. Every Bucket/Label tag edit, holding
-# delete, or Copy Holdings apply changes the CSV content and therefore mints a new hash — a
-# single active editing session can produce many of these in a row.
+# Each uploaded CSV gets its own fifo entry (full txns/holdings/realized/fx_lots DataFrames),
+# held in _RAM_FIFO below — cap how many distinct hashes we keep so repeated re-uploads/testing
+# don't accumulate forever. Every Bucket/Label tag edit, holding delete, or Copy Holdings apply
+# changes the CSV content and therefore mints a new hash — a single active editing session can
+# produce many of these in a row.
 #
 # This was raised 5→30 in session 148 to stop mid-session eviction turning into a dead-end
 # "re-import your CSV" error — but each entry pins a full portfolio snapshot in process memory,
@@ -87,6 +87,13 @@ _MAX_FIFO_HASHES = 5
 # Mutations (set/invalidate) update this dict in-place, so all Cache
 # instances in the same process share the same live state.
 _INSTANCE: Optional[dict] = None
+
+# Uploaded-CSV FIFO entries, keyed by content hash — RAM-only, deliberately never written to
+# data/.cache.pkl. Real portfolio data must never leave the local machine / persist on any
+# host's disk (see CLAUDE.md data policy) — only the bundled demo file's FIFO result is disk-
+# cached (in _INSTANCE/_data below, key "fifo:demo:*"). Lost on every process restart, which is
+# fine: a cache miss just costs one recompute from the browser's own localStorage CSV copy.
+_RAM_FIFO: dict[str, dict] = {}
 
 
 class Cache:
@@ -145,18 +152,15 @@ class Cache:
                     self._data.pop(f"{layer}:value", None)
                     self._data.pop(ts_key, None)
 
-        # Cap distinct uploaded-CSV FIFO entries — keep only the most recently set N.
-        # "demo" is excluded — it's the bundled committed file, always kept.
-        fifo_hashes = sorted(
-            (k.split(":", 2)[1] for k in self._data
-             if k.startswith("fifo:") and k.endswith(":ts") and k != "fifo:ts"
-             and k.split(":", 2)[1] != "demo"),
-            key=lambda h: self._data.get(f"fifo:{h}:ts", 0),
-            reverse=True,
-        )
-        for stale_hash in fifo_hashes[_MAX_FIFO_HASHES:]:
-            for suffix in ("txns", "raw", "real", "lots", "version", "ts"):
-                self._data.pop(f"fifo:{stale_hash}:{suffix}", None)
+        self._prune_ram_fifo()
+
+    def _prune_ram_fifo(self) -> None:
+        """Cap distinct uploaded-CSV FIFO entries in _RAM_FIFO — keep only the most recent N."""
+        if len(_RAM_FIFO) <= _MAX_FIFO_HASHES:
+            return
+        oldest = sorted(_RAM_FIFO, key=lambda h: _RAM_FIFO[h]["ts"])
+        for stale_hash in oldest[: len(_RAM_FIFO) - _MAX_FIFO_HASHES]:
+            _RAM_FIFO.pop(stale_hash, None)
 
     # ── Read / write ──────────────────────────────────────────────────────────
 
@@ -202,37 +206,54 @@ class Cache:
     _FIFO_VERSION = "2"
 
     def fifo_is_fresh(self, source: "Path | str") -> bool:
-        key = source if isinstance(source, str) else "demo"
-        if f"fifo:{key}:txns" not in self._data:
+        # A plain hash string (any str other than the "demo" sentinel used by validate.py's
+        # get_fifo() default) means an uploaded CSV — check the RAM-only store instead of disk.
+        if isinstance(source, str) and source != "demo":
+            entry = _RAM_FIFO.get(source)
+            return entry is not None and entry.get("version") == self._FIFO_VERSION
+        if "fifo:demo:txns" not in self._data:
             return False
-        if self._data.get(f"fifo:{key}:version") != self._FIFO_VERSION:
+        if self._data.get("fifo:demo:version") != self._FIFO_VERSION:
             return False
         if isinstance(source, Path):
             return self._data.get("fifo:demo:mtime") == source.stat().st_mtime
-        return True  # hash key — existence is sufficient
+        return True  # source == "demo" sentinel string — existence is sufficient
 
     def set_fifo(self, source: "Path | str", txns, holdings_raw, realized, fx_lots=None) -> None:
-        key = source if isinstance(source, str) else "demo"
+        if isinstance(source, str) and source != "demo":
+            with _lock:
+                _RAM_FIFO[source] = {
+                    "txns":    txns,
+                    "raw":     holdings_raw,
+                    "real":    realized,
+                    "lots":    fx_lots or [],
+                    "version": self._FIFO_VERSION,
+                    "ts":      time.time(),
+                }
+                self._prune_ram_fifo()
+            return
         with _lock:
             if isinstance(source, Path):
                 self._data["fifo:demo:mtime"] = source.stat().st_mtime
-            self._data[f"fifo:{key}:txns"]    = txns
-            self._data[f"fifo:{key}:raw"]     = holdings_raw
-            self._data[f"fifo:{key}:real"]    = realized
-            self._data[f"fifo:{key}:lots"]    = fx_lots or []
-            self._data[f"fifo:{key}:version"] = self._FIFO_VERSION
-            self._data[f"fifo:{key}:ts"]      = time.time()
-            self._data["fifo:ts"]             = time.time()
+            self._data["fifo:demo:txns"]    = txns
+            self._data["fifo:demo:raw"]     = holdings_raw
+            self._data["fifo:demo:real"]    = realized
+            self._data["fifo:demo:lots"]    = fx_lots or []
+            self._data["fifo:demo:version"] = self._FIFO_VERSION
+            self._data["fifo:demo:ts"]      = time.time()
+            self._data["fifo:ts"]           = time.time()
             self._write_to_disk()
 
     def get_fifo(self, source: "Path | str" = "demo"):
         """Return (txns, holdings_raw, realized, fx_lots) or None."""
-        key    = source if isinstance(source, str) else "demo"
-        k_txns = f"fifo:{key}:txns"
-        k_raw  = f"fifo:{key}:raw"
-        k_real = f"fifo:{key}:real"
-        if all(x in self._data for x in (k_txns, k_raw, k_real)):
-            lots = self._data.get(f"fifo:{key}:lots", [])
+        if isinstance(source, str) and source != "demo":
+            entry = _RAM_FIFO.get(source)
+            if entry is None:
+                return None
+            return (entry["txns"], entry["raw"], entry["real"], entry["lots"])
+        k_txns, k_raw, k_real = "fifo:demo:txns", "fifo:demo:raw", "fifo:demo:real"
+        if all(k in self._data for k in (k_txns, k_raw, k_real)):
+            lots = self._data.get("fifo:demo:lots", [])
             return (self._data[k_txns], self._data[k_raw], self._data[k_real], lots)
         return None
 
