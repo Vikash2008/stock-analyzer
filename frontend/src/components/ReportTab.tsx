@@ -331,10 +331,10 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
               { label: 'Beta',    value: fmtRatio(qs.beta),                      color: null },
             ].map(({ label, value, color }) => (
               <div key={label} className="bg-emerald-50 rounded-lg p-1.5">
-                <div className="text-[10px] text-emerald-600/70 uppercase tracking-wide mb-0.5 truncate">{label}</div>
+                <div className="text-[10px] text-teal-600/70 uppercase tracking-wide mb-0.5 truncate">{label}</div>
                 <div
                   className="text-[11px] font-semibold whitespace-nowrap"
-                  style={{ color: color ?? '#1e293b' }}
+                  style={{ color: color ?? '#0f766e' }}
                 >
                   {value}
                 </div>
@@ -516,13 +516,13 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
             style={{ borderLeftWidth: 4, borderLeftColor: section.color.accentHex, borderTopWidth: 2, borderTopColor: section.color.accentHex }}
           >
             {/* Card header */}
-            <div className="flex items-center justify-between px-3 py-2.5 gap-2">
+            <div className="flex items-center justify-between pl-1.5 pr-3 py-2.5 gap-2">
               {/* Left: chevron + emoji + title (tappable toggle) */}
               <button
-                className="flex items-center gap-2 min-w-0 flex-1 text-left active:opacity-60"
+                className="flex items-start gap-1 min-w-0 flex-1 text-left active:opacity-60"
                 onClick={toggleExpanded}
               >
-                <span className="text-[10px] text-slate-400 shrink-0 w-3 text-center">
+                <span className="text-[10px] text-slate-400 shrink-0 w-2 text-center">
                   {isDone ? (isExpanded ? '▼' : '▶') : ''}
                 </span>
                 <span className="text-[18px] shrink-0 leading-none">{section.emoji}</span>

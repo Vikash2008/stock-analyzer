@@ -871,7 +871,7 @@ export default function TransactionsPage({ currency }: Props) {
                         onClick={() => setChartRange(r)}
                         className={`flex-1 text-[10px] py-1 rounded-md font-medium transition-all ${
                           chartRange === r
-                            ? 'bg-white text-[#2563eb] shadow-sm'
+                            ? 'bg-white text-[#0d9488] shadow-sm'
                             : 'text-slate-400'
                         }`}
                       >
@@ -918,7 +918,7 @@ export default function TransactionsPage({ currency }: Props) {
                 </div>
                 <div style={{ display: 'flex', background: '#1e293b', borderRadius: 8, padding: 2, marginTop: 10, flexShrink: 0 }}>
                   {RANGES.map(r => (
-                    <button key={r} onClick={() => setChartRange(r)} style={{ flex: 1, fontSize: 10, padding: '5px 0', borderRadius: 6, fontWeight: 500, background: chartRange === r ? '#fff' : 'transparent', color: chartRange === r ? '#2563eb' : '#94a3b8', border: 'none', cursor: 'pointer' }}>{r}</button>
+                    <button key={r} onClick={() => setChartRange(r)} style={{ flex: 1, fontSize: 10, padding: '5px 0', borderRadius: 6, fontWeight: 500, background: chartRange === r ? '#fff' : 'transparent', color: chartRange === r ? '#0d9488' : '#94a3b8', border: 'none', cursor: 'pointer' }}>{r}</button>
                   ))}
                 </div>
               </>
