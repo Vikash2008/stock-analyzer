@@ -378,6 +378,22 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Keep only the 3 most recent sessions here (size guard, same pattern as ROADMAP_ARCHIVE.md). Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-06-19 (session 141)
 
+### 2026-07-02 (session 160)
+
+**Overview + Holdings top bar / hero card parity** — both pages' nav bar and hero/summary card iterated to a shared final shape: rectangular bar (no rounding), `mb-1.5` gap, card with square top corners + `rounded-b-[18px]` bottom, drop shadow kept. `HoldingsPage.tsx` nav bar matched to Overview's `px-4 py-2` sizing.
+
+**Overview font-size pass** — bumped text across `BreakCard`, asset-class tiles, hero card, Breakdown toggle, and Explore search results (symbol/name/exchange) for legibility; micro uppercase labels (Today/Total) nudged 8→9px.
+
+**HoldingCard tweaks** — right padding reduced (`px-3`→`pl-3 pr-2`), border darkened `#eef1f5`→`#cbd5e1`, name/subLabel color set to `#0b3b3a`.
+
+**Holdings search/sort/sector strip** — background switched from `bg-teal-50` to the nav bar's exact `#0b3b3a→#0d9488` gradient; sort button and sector filter (inactive state) now bold white text with no separate pill background, matching each other.
+
+**Settings modal copy** — "Backup (with tags)" renamed to "My Portfolio".
+
+**ManageBucketsModal** — "Add label" control redesigned with the `+` button moved inside the input box (absolute-positioned icon) instead of beside it; placeholder changed `+label`→`Add label`; general text sizes bumped modal-wide (header 13→15px, bucket name 11→13px, label chip 11→13px) while the New-bucket/Add-label input text stays smaller (11px) than surrounding text since it sits inside a box.
+
+**AddTransactionModal ("Add Holding") restyled** — replaced old `bg-gradient-to-r from-emerald-600 to-teal-500` header + `×` text-button with the Settings-modal shell (`#0b3b3a→#0d9488` header gradient, circular `✕` close button, `#f8fafc` body); section card backgrounds switched to `bg-emerald-50/60`, section labels recolored to `#0b3b3a`, submit button gradient matched to the app's primary CTA style.
+
 ### 2026-07-02 (session 159)
 
 **Manage Portfolio / Manage Buckets / Delete Holding modals matched to Settings design language** — headers switched to `linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)` with circular `✕` close button (same shell as `ManageBucketsModal`/Settings popover); Delete Holding's boxes/borders/toggle recolored from rose to emerald, keeping red only on the actual Delete/Continue destructive buttons.
