@@ -378,6 +378,18 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Keep only the 3 most recent sessions here (size guard, same pattern as ROADMAP_ARCHIVE.md). Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-07-02 (session 158)
 
+### 2026-07-02 (session 162)
+
+**FxGainsTab and DividendsTab restyled to match** — all section titles (FX Conversion Gains, Rate Buckets, Timeline, Per Holding, Dividend Income, Year-by-year, By stock) converted to white-text rounded pill badges filled with the `#0b3b3a→#0d9488` gradient. Per-holding/per-stock rows in both tabs gained a relative-magnitude progress bar (teal gradient fill, same style as Rate Buckets). Value/symbol text unified to `#0b3b3a`. Dividends summary strip merged from 4 separate cards into one bordered box under a single pill header, mirroring FX's Section 1 layout.
+
+**Top bar redesign on Overview/Holdings/Txn** — nav bar switched from flush borderless gradient to a bordered box: `border-4` solid `#0b3b3a`, `rounded-t-[14px]` (down from an interim 18px), fill lightened to `#14746f→#14b8a6`. Bar still sits flush against the hero/summary card below (no gap) — border only wraps the bar itself, not merged into one continuous outline with the card.
+
+**LTP added to HoldingCard and SummaryCard** — `HoldingCard.tsx` shows LTP top-right of the holding-name row; `SummaryCard.tsx` gained an optional `ltp?` prop rendered top-right of the label row, wired on `TransactionsPage.tsx` from `holding.current_price`. Fixed a white-screen crash from the initial `HoldingCard` LTP addition — `ltp` was added to the props interface but never destructured in the function signature (`ReferenceError`).
+
+**Holdings page tab bar unified to one accent** — the 4-5 tabs (Holdings/Charts/Analysis/Dividends/FX) previously had per-tab active colors (teal/sky/violet); now all use the same `#0b3b3a→#0d9488` gradient with white text when active.
+
+**Misc Holdings/Txn polish** — back-button label bumped `14px`→`17px`; Holdings search/sort/sector strip recolored to match the new lighter top-bar gradient; page-edge gutter halved (`px-2`→`px-1`) on Overview/Holdings.
+
 ### 2026-07-02 (session 161)
 
 **Dark teal green applied to Charts/Dividends/FX tabs** — Holdings Charts tab metric buttons + range selector, `DividendsTab.tsx`, and `FxGainsTab.tsx` all switched their selected/accent colors from mixed per-metric hues (blue/violet/pink/rose/teal-500) to the shared `#0b3b3a→#0d9488` gradient (or flat `#0b3b3a` for text), matching the summary card. Chart metrics strip's outer container fill/border removed per follow-up (buttons only, no wrapper chrome).
