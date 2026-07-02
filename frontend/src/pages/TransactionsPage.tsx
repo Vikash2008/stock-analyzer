@@ -388,9 +388,9 @@ export default function TransactionsPage({ currency }: Props) {
 
   return (
     <div className="max-w-xl mx-auto flex flex-col h-[100dvh]">
-      <div className="shrink-0 px-2 bg-white relative z-20">
+      <div className="shrink-0 px-1 bg-white relative z-20">
       {/* Nav bar */}
-      <div className="flex items-center justify-between px-4 py-2 min-h-[46px] rounded-t-[14px] border-4" style={{ background: 'linear-gradient(135deg, #14746f 0%, #14b8a6 100%)', borderColor: '#0b3b3a' }}>
+      <div className="flex items-center justify-between px-4 py-2 min-h-[46px] border-4" style={{ background: 'linear-gradient(135deg, #14746f 0%, #14b8a6 100%)', borderColor: '#0b3b3a' }}>
         <button onClick={() => navigate(-1)} className="shrink-0 flex items-center gap-1.5 text-white active:opacity-70">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
           <span className="text-[17px] font-extrabold tracking-tight whitespace-nowrap">{backLabel.replace('← ', '')}</span>
@@ -589,7 +589,7 @@ export default function TransactionsPage({ currency }: Props) {
         </div>
       )}
       </div>
-      <div className="flex-1 overflow-y-auto px-2 pb-4">
+      <div className="flex-1 overflow-y-auto px-1 pb-4">
 
       {activeTab === 'transactions' && (
         <>

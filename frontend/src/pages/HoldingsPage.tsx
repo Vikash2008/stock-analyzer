@@ -1247,9 +1247,9 @@ export default function HoldingsPage({ currency }: Props) {
           {divSkipped.length} symbol{divSkipped.length > 1 ? 's' : ''} didn't refresh: {divSkipped.join(', ')}
         </div>
       )}
-      <div className="shrink-0 px-1 bg-white relative z-20">
+      <div className="shrink-0 px-0.5 bg-white relative z-20">
       {/* Nav bar */}
-      <div className="flex items-center justify-between px-4 py-2 min-h-[46px] rounded-t-[14px] border-4" style={{ background: 'linear-gradient(135deg, #14746f 0%, #14b8a6 100%)', borderColor: '#0b3b3a' }}>
+      <div className="flex items-center justify-between px-4 py-2 min-h-[46px] border-4" style={{ background: 'linear-gradient(135deg, #14746f 0%, #14b8a6 100%)', borderColor: '#0b3b3a' }}>
         <button onClick={() => navigate('/')} className="shrink-0 flex items-center gap-1.5 text-white active:opacity-70">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
           <span className="text-[17px] font-extrabold tracking-tight whitespace-nowrap">{backLabel.replace('← ', '')}</span>
@@ -1475,10 +1475,10 @@ export default function HoldingsPage({ currency }: Props) {
       )}
       {/* Holdings strip — search + sector + sort (single row) */}
       {activeTab === 'holdings' && (
-        <div className="border border-teal-900 rounded-xl px-2.5 py-1.5 mt-2" style={{ background: 'linear-gradient(135deg, #14746f 0%, #14b8a6 100%)' }}>
+        <div className="border-2 border-teal-600 rounded-xl px-2.5 py-1.5 mt-2 bg-white">
           <div className="flex items-center gap-1.5">
             <div className="flex-1 relative">
-              <svg className="absolute left-2 top-1/2 -translate-y-1/2 text-teal-600 pointer-events-none" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <svg className="absolute left-2 top-1/2 -translate-y-1/2 text-teal-600 pointer-events-none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
               </svg>
               <input
@@ -1492,7 +1492,7 @@ export default function HoldingsPage({ currency }: Props) {
                     ? `${rows.length} open · ${closedRows.length} closed`
                     : rows.length ? `${rows.length} open` : `${closedRows.length} closed`
                 } holdings)`}
-                className="w-full pl-6 pr-6 py-[3px] text-[11px] font-normal bg-white border border-slate-200 rounded-full outline-none focus:border-teal-400 text-slate-900 placeholder-slate-300"
+                className="w-full pl-6 pr-6 py-[3px] text-[11px] font-normal bg-white border border-teal-600 rounded-full outline-none focus:border-teal-400 text-slate-900 placeholder-slate-300"
               />
               {searchQuery && (
                 <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 active:text-slate-500">
@@ -1504,7 +1504,7 @@ export default function HoldingsPage({ currency }: Props) {
             <div className="relative shrink-0">
               <button
                 onClick={() => setSectorOpen(o => !o)}
-                className={`flex items-center gap-0.5 text-[10px] px-2 py-[3px] rounded-full transition-colors whitespace-nowrap font-bold text-white ${sectorFilter !== 'all' ? 'bg-teal-500 border border-teal-600' : ''}`}
+                className={`flex items-center gap-0.5 text-[10px] px-2 py-[3px] rounded-full transition-colors whitespace-nowrap font-bold ${sectorFilter !== 'all' ? 'bg-teal-500 border border-teal-600 text-white' : 'text-teal-700'}`}
               >
                 <span>{sectorFilter === 'all' ? 'Sector' : sectorFilter}</span>
                 <span className="text-[10px] leading-none">▾</span>
@@ -1534,7 +1534,7 @@ export default function HoldingsPage({ currency }: Props) {
             </div>
             {/* Sort */}
             <div className="relative shrink-0">
-              <button onClick={() => setSortOpen(o => !o)} className="flex items-center gap-1 text-[10px] text-white font-bold">
+              <button onClick={() => setSortOpen(o => !o)} className="flex items-center gap-1 text-[10px] text-teal-700 font-bold">
                 <svg width="11" height="10" viewBox="0 0 11 10" fill="currentColor">
                   <rect x="0" y="0" width="11" height="1.5" rx="0.75"/>
                   <rect x="1.5" y="3.5" width="8" height="1.5" rx="0.75"/>
@@ -1585,7 +1585,7 @@ export default function HoldingsPage({ currency }: Props) {
         </div>
       )}
       </div>
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-1 pt-2 pb-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-0.5 pt-2 pb-4">
 
       {/* ── Holdings tab ── */}
       {activeTab === 'holdings' && (

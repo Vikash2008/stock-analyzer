@@ -825,7 +825,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
   return (
     <div
-      className="max-w-xl mx-auto px-1 pb-24 space-y-2"
+      className="max-w-xl mx-auto px-0.5 pb-24 space-y-2"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -847,7 +847,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       {/* Header + hero wrapped together so space-y-2 doesn't add extra gap between them — matches Holdings/Txn spacing exactly */}
       <div>
       {/* Page header */}
-      <div className="flex items-center justify-between px-4 py-2 min-h-[46px] rounded-t-[14px] border-4" style={{ background: 'linear-gradient(135deg, #14746f 0%, #14b8a6 100%)', borderColor: '#0b3b3a' }}>
+      <div className="flex items-center justify-between px-4 py-2 min-h-[46px] border-4" style={{ background: 'linear-gradient(135deg, #14746f 0%, #14b8a6 100%)', borderColor: '#0b3b3a' }}>
         <p className="text-[19px] font-extrabold text-white tracking-tight leading-tight">Overview</p>
         <div className="flex items-center gap-2">
           <button

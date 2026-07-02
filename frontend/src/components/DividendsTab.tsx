@@ -317,7 +317,7 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr, yf_sy
   }
 
   return (
-    <div className="pt-2">
+    <div>
       {isFetching && (
         <>
           {totalCount === 0 && <style>{`@keyframes div-progress{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}`}</style>}
