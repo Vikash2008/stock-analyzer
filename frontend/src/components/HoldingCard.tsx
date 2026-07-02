@@ -39,7 +39,7 @@ export function HoldingCard({
 
   return (
     <div
-      className="rounded-[13px] border pl-3 pr-2 py-1.5 cursor-pointer active:opacity-75 transition-opacity select-none"
+      className="rounded-[13px] border pl-3 pr-3.5 py-1 cursor-pointer active:opacity-75 transition-opacity select-none"
       style={{ background: cardBg, borderColor: '#cbd5e1', borderLeftWidth: 4, borderLeftColor: accent }}
       onClick={onClick}
     >
@@ -58,7 +58,7 @@ export function HoldingCard({
           : <span className="text-[11px] text-slate-400 shrink-0">XIRR —</span>
         }
       </div>
-      <div className="flex justify-between mt-1 pt-1 border-t border-black/5">
+      <div className="flex justify-between mt-0.5 pt-0.5 border-t border-black/5">
         <div className="flex flex-col gap-0">
           <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Today</span>
           <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: tgColor }}>

@@ -1475,7 +1475,7 @@ export default function HoldingsPage({ currency }: Props) {
       )}
       {/* Holdings strip — search + sector + sort (single row) */}
       {activeTab === 'holdings' && (
-        <div className="border-2 border-teal-600 rounded-xl px-2.5 py-1.5 mt-2 bg-white">
+        <div className="border border-teal-100 rounded-xl px-2.5 py-1.5 mt-2 bg-white">
           <div className="flex items-center gap-1.5">
             <div className="flex-1 relative">
               <svg className="absolute left-2 top-1/2 -translate-y-1/2 text-teal-600 pointer-events-none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

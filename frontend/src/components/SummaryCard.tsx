@@ -60,17 +60,16 @@ export function SummaryCard({
           }
         </div>
 
-        <div className="flex justify-between text-[11px] mt-1" style={{ color: 'rgba(255,255,255,0.55)' }}>
-          <span>Invested <span className="font-semibold text-white">{fmt(invested, currency)}</span></span>
-          <span>Realized <span className="font-semibold" style={{ color: realColor }}>{fmtCompactGainLine(realGain, null, currency)}</span></span>
+        <div className="grid gap-y-0.5 items-center mt-1" style={{ gridTemplateColumns: '1fr auto', color: 'rgba(255,255,255,0.55)' }}>
+          <span className="text-[11px]">Invested <span className="font-semibold text-white">{fmt(invested, currency)}</span></span>
+          <span className="text-[11px]">Realized <span className="font-semibold" style={{ color: realColor }}>{fmtCompactGainLine(realGain, null, currency)}</span></span>
+          {(fxGain !== undefined || dividends !== undefined) && (
+            <>
+              <span className="text-[10.5px]">{fxGain !== undefined && <>FX gains <span className="font-semibold" style={{ color: '#5eead4' }}>{fmtCompactGainLine(fxAmt, null, currency)}</span></>}</span>
+              <span className="text-[10.5px]">{dividends !== undefined && <>Dividend <span className="font-semibold" style={{ color: '#5eead4' }}>{fmtCompactGainLine(divAmt, null, currency)}</span></>}</span>
+            </>
+          )}
         </div>
-
-        {(fxGain !== undefined || dividends !== undefined) && (
-          <div className="flex justify-between items-center text-[10.5px] mt-1" style={{ color: 'rgba(255,255,255,0.55)' }}>
-            <span>{fxGain !== undefined && <>FX gains <span className="font-semibold" style={{ color: '#5eead4' }}>+{fmtCompactGainLine(fxAmt, null, currency)}</span></>}</span>
-            <span>{dividends !== undefined && <>Dividend <span className="font-semibold" style={{ color: '#5eead4' }}>+{fmtCompactGainLine(divAmt, null, currency)}</span></>}</span>
-          </div>
-        )}
 
         {footer ?? (
           <div className="flex justify-between pt-2.5 mt-2.5" style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }}>
