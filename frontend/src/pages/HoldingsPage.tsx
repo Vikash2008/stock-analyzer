@@ -1249,10 +1249,10 @@ export default function HoldingsPage({ currency }: Props) {
       )}
       <div className="shrink-0 px-1 bg-white relative z-20">
       {/* Nav bar */}
-      <div className="flex items-center justify-between px-4 py-2 min-h-[46px] rounded-t-[18px] border-4" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)', borderColor: '#0b3b3a' }}>
+      <div className="flex items-center justify-between px-4 py-2 min-h-[46px] rounded-t-[14px] border-4" style={{ background: 'linear-gradient(135deg, #14746f 0%, #14b8a6 100%)', borderColor: '#0b3b3a' }}>
         <button onClick={() => navigate('/')} className="shrink-0 flex items-center gap-1.5 text-white active:opacity-70">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-          <span className="text-[14px] font-extrabold tracking-tight whitespace-nowrap">{backLabel.replace('← ', '')}</span>
+          <span className="text-[17px] font-extrabold tracking-tight whitespace-nowrap">{backLabel.replace('← ', '')}</span>
         </button>
         <div className="relative shrink-0">
           <button
@@ -1436,21 +1436,15 @@ export default function HoldingsPage({ currency }: Props) {
       {/* Tabs */}
       <div className="flex bg-slate-100 rounded-full p-0.5 gap-0.5 mb-2">
         {([...(['holdings', 'charts', 'analysis', 'dividends'] as const), ...(includeFxGains && filteredFxLots.length > 0 ? ['fx' as const] : [])]).map(tab => {
-          const activeClass: Record<string, string> = {
-            holdings:  'bg-teal-200 text-teal-800',
-            charts:    'bg-sky-200 text-sky-800',
-            analysis:  'bg-violet-200 text-violet-800',
-            dividends: 'bg-teal-200 text-teal-800',
-            fx:        'bg-teal-200 text-teal-800',
-          }
           const tabLabel: Record<string, string> = { fx: 'FX' }
           return (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`flex-1 text-[11px] py-1.5 rounded-full capitalize font-medium transition-all ${
-                activeTab === tab ? `${activeClass[tab]} shadow-sm` : 'text-slate-500'
+                activeTab === tab ? 'text-white shadow-sm' : 'text-slate-500'
               }`}
+              style={activeTab === tab ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
             >
               {tabLabel[tab] ?? tab}
             </button>
@@ -1459,10 +1453,10 @@ export default function HoldingsPage({ currency }: Props) {
       </div>
       {/* Charts strip — metric pills + sync */}
       {activeTab === 'charts' && (
-        <div className="rounded-xl px-2.5 py-1.5 mt-2">
+        <div className="border rounded-xl px-2.5 py-1.5 mt-2 bg-teal-50 border-teal-100">
           <div
             className="flex gap-0.5 overflow-x-auto rounded-lg p-0.5"
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+            style={{ backgroundColor: '#99f6e444', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
           >
             {METRICS.map(m => (
               <button
@@ -1481,7 +1475,7 @@ export default function HoldingsPage({ currency }: Props) {
       )}
       {/* Holdings strip — search + sector + sort (single row) */}
       {activeTab === 'holdings' && (
-        <div className="border border-teal-900 rounded-xl px-2.5 py-1.5 mt-2" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+        <div className="border border-teal-900 rounded-xl px-2.5 py-1.5 mt-2" style={{ background: 'linear-gradient(135deg, #14746f 0%, #14b8a6 100%)' }}>
           <div className="flex items-center gap-1.5">
             <div className="flex-1 relative">
               <svg className="absolute left-2 top-1/2 -translate-y-1/2 text-teal-600 pointer-events-none" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -1571,22 +1565,17 @@ export default function HoldingsPage({ currency }: Props) {
       )}
       {/* Analysis strip — segmented control */}
       {activeTab === 'analysis' && (
-        <div className="bg-violet-50 border border-violet-100 rounded-xl px-2.5 py-1.5 mt-2">
+        <div className="bg-teal-50 border border-teal-100 rounded-xl px-2.5 py-1.5 mt-2">
           <div className="flex items-center gap-2">
-            <div className="flex gap-0.5 flex-1 bg-violet-100 rounded-lg p-0.5">
+            <div className="flex gap-0.5 flex-1 bg-teal-100 rounded-lg p-0.5">
               {(['allocation', 'benchmarking', 'returns'] as const).map(st => (
                 <button
                   key={st}
                   onClick={() => setAnalysisSubTab(st)}
                   className={`text-[10px] whitespace-nowrap px-2.5 py-1 rounded-md font-medium transition-all ${
-                    analysisSubTab === st
-                      ? st === 'allocation'   ? 'bg-orange-500 text-white shadow-sm border border-orange-600'
-                      : st === 'benchmarking' ? 'bg-sky-500 text-white shadow-sm border border-sky-600'
-                      :                         'bg-emerald-500 text-white shadow-sm border border-emerald-600'
-                      : st === 'allocation'   ? 'bg-orange-100 text-orange-600 border border-orange-200'
-                      : st === 'benchmarking' ? 'bg-sky-100 text-sky-600 border border-sky-200'
-                      :                         'bg-emerald-100 text-emerald-600 border border-emerald-200'
+                    analysisSubTab === st ? 'text-white shadow-sm border border-teal-700' : 'bg-teal-50 text-teal-700 border border-teal-200'
                   }`}
+                  style={analysisSubTab === st ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
                 >
                   {st === 'allocation' ? 'Allocation' : st === 'benchmarking' ? 'Benchmarking' : 'Returns'}
                 </button>
@@ -1650,7 +1639,7 @@ export default function HoldingsPage({ currency }: Props) {
             histMaxDoneRef.current = Math.max(histMaxDoneRef.current, rawDone)
             const done    = histMaxDoneRef.current
             const pct     = totalCount > 0 ? done / totalCount * 100 : 0
-            const color   = METRIC_STYLE[chartMetric].line
+            const color   = '#0d9488'
             return (
               <div className="mb-3">
                 <div className="flex justify-between text-[10px] text-slate-400 mb-1">
@@ -1808,15 +1797,15 @@ export default function HoldingsPage({ currency }: Props) {
                   `${v >= 0 ? '+' : '-'}${fmtCompact(Math.abs(v), currency)}`
                 return (
                   <div>
-                    <div className="border border-slate-200 rounded-xl mb-3">
+                    <div className="border border-slate-200 border-l-4 border-l-teal-500 rounded-xl mb-3">
                     <button className="flex items-center gap-1 w-full text-left text-[10px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5" onClick={() => { if (!sectorSectionOpen) { setMktCapSectionOpen(false); setConcentrationSectionOpen(false) } setSectorSectionOpen(o => !o) }}>
-                      <span className="text-blue-600">By Sector</span> <span className="text-[10px] text-slate-300 ml-0.5">{sectorSectionOpen ? '▲' : '▼'}</span>
+                      <span className="text-teal-600">By Sector</span> <span className="text-[10px] text-slate-300 ml-0.5">{sectorSectionOpen ? '▲' : '▼'}</span>
                     </button>
-                    {sectorSectionOpen && <div className="flex items-center gap-1.5 px-2 py-1.5 mx-1 mb-2 bg-violet-100 rounded-lg">
-                      <span className="text-[10px] font-semibold text-violet-700 flex-1">Sector</span>
-                      <span className="text-[10px] font-semibold text-violet-700 w-[52px] text-center">Alloc</span>
-                      <span className="text-[10px] font-semibold text-violet-700 w-[90px] text-right">Value (XIRR)</span>
-                      <span className="text-[10px] font-semibold text-violet-700 w-[80px] text-right">Today</span>
+                    {sectorSectionOpen && <div className="flex items-center gap-1.5 px-2 py-1.5 mx-1 mb-2 bg-teal-100 rounded-lg">
+                      <span className="text-[10px] font-semibold text-teal-700 flex-1">Sector</span>
+                      <span className="text-[10px] font-semibold text-teal-700 w-[52px] text-center">Alloc</span>
+                      <span className="text-[10px] font-semibold text-teal-700 w-[90px] text-right">Value (XIRR)</span>
+                      <span className="text-[10px] font-semibold text-teal-700 w-[80px] text-right">Today</span>
                       <span className="w-[8px]" />
                     </div>}
                     {sectorSectionOpen && sectorData.map(s => {
@@ -1896,15 +1885,15 @@ export default function HoldingsPage({ currency }: Props) {
                       )
                     })}
                     </div>
-                    <div className="border border-slate-200 rounded-xl">
+                    <div className="border border-slate-200 border-l-4 border-l-teal-500 rounded-xl">
                     <button className="flex items-center gap-1 w-full text-left text-[10px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5" onClick={() => { if (!mktCapSectionOpen) { setSectorSectionOpen(false); setConcentrationSectionOpen(false) } setMktCapSectionOpen(o => !o) }}>
-                      <span className="text-orange-600">By Market Cap</span> <span className="text-[10px] text-slate-300 ml-0.5">{mktCapSectionOpen ? '▲' : '▼'}</span>
+                      <span className="text-teal-600">By Market Cap</span> <span className="text-[10px] text-slate-300 ml-0.5">{mktCapSectionOpen ? '▲' : '▼'}</span>
                     </button>
-                    {mktCapSectionOpen && <div className="flex items-center gap-1.5 px-2 py-1.5 mx-1 mb-2 bg-violet-100 rounded-lg">
-                      <span className="text-[10px] font-semibold text-violet-700 flex-1">Bucket</span>
-                      <span className="text-[10px] font-semibold text-violet-700 w-[52px] text-center">Alloc</span>
-                      <span className="text-[10px] font-semibold text-violet-700 w-[90px] text-right">Value (XIRR)</span>
-                      <span className="text-[10px] font-semibold text-violet-700 w-[80px] text-right">Today</span>
+                    {mktCapSectionOpen && <div className="flex items-center gap-1.5 px-2 py-1.5 mx-1 mb-2 bg-teal-100 rounded-lg">
+                      <span className="text-[10px] font-semibold text-teal-700 flex-1">Bucket</span>
+                      <span className="text-[10px] font-semibold text-teal-700 w-[52px] text-center">Alloc</span>
+                      <span className="text-[10px] font-semibold text-teal-700 w-[90px] text-right">Value (XIRR)</span>
+                      <span className="text-[10px] font-semibold text-teal-700 w-[80px] text-right">Today</span>
                       <span className="w-[8px]" />
                     </div>}
                     {mktCapSectionOpen && mktCapData.map(b => {
@@ -1985,18 +1974,19 @@ export default function HoldingsPage({ currency }: Props) {
                     })}
                     </div>
                     {/* Concentration section */}
-                    <div className="border border-slate-200 rounded-xl mt-3">
+                    <div className="border border-slate-200 border-l-4 border-l-teal-500 rounded-xl mt-3">
                       <button className="flex items-center gap-1 w-full text-left text-[10px] font-semibold text-slate-500 uppercase tracking-widest px-3 py-2.5" onClick={() => { if (!concentrationSectionOpen) { setSectorSectionOpen(false); setMktCapSectionOpen(false) } setConcentrationSectionOpen(o => !o) }}>
-                        <span className="text-emerald-600">By Holdings Concentration</span> <span className="text-[10px] text-slate-300 ml-0.5">{concentrationSectionOpen ? '▲' : '▼'}</span>
+                        <span className="text-teal-600">By Holdings Concentration</span> <span className="text-[10px] text-slate-300 ml-0.5">{concentrationSectionOpen ? '▲' : '▼'}</span>
                       </button>
                       {concentrationSectionOpen && (
                         <div className="px-3 pb-3">
-                          <div className="flex bg-slate-100 rounded-full p-[2px] mb-3">
+                          <div className="flex bg-teal-100 rounded-full p-[2px] mb-3">
                             {([5, 10, 20] as const).map(n => (
                               <button
                                 key={n}
                                 onClick={() => setConcentrationTop(n)}
-                                className={`flex-1 text-[10px] py-[4px] rounded-full transition-colors ${concentrationTop === n ? 'bg-white shadow-sm text-slate-700 font-semibold' : 'text-slate-400'}`}
+                                className={`flex-1 text-[10px] py-[4px] rounded-full transition-colors font-semibold ${concentrationTop === n ? 'text-white shadow-sm' : 'text-teal-700'}`}
+                                style={concentrationTop === n ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
                               >
                                 Top {n}
                               </button>
@@ -2105,7 +2095,7 @@ export default function HoldingsPage({ currency }: Props) {
                       <div className="relative shrink-0">
                         <button
                           onClick={() => setReturnsConfigOpen(o => !o)}
-                          className={`w-6 h-6 flex items-center justify-center rounded-full transition-colors ${returnsConfigOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-400 active:bg-slate-100'}`}
+                          className={`w-6 h-6 flex items-center justify-center rounded-full transition-colors ${returnsConfigOpen ? 'bg-teal-100 text-teal-700' : 'text-teal-600 active:bg-teal-50'}`}
                         >
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <circle cx="12" cy="12" r="3"/>
@@ -2115,14 +2105,19 @@ export default function HoldingsPage({ currency }: Props) {
                         {returnsConfigOpen && (
                           <>
                             <div className="fixed inset-0 z-[9]" onClick={() => setReturnsConfigOpen(false)} />
-                            <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-10 p-3 min-w-[160px]">
+                            <div className="absolute right-0 top-full mt-1.5 rounded-2xl shadow-xl overflow-hidden border border-teal-100 z-10 min-w-[180px]">
+                              <div className="flex items-center justify-between px-3 py-2" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+                                <p className="text-[11px] font-semibold text-white tracking-tight">Return Settings</p>
+                                <button onClick={() => setReturnsConfigOpen(false)} className="text-teal-200 active:text-white text-base leading-none">×</button>
+                              </div>
+                              <div className="bg-white p-3">
                               <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Sector</p>
                               <div className="flex flex-col gap-0.5 mb-3">
                                 {(['all', ...returnsSectors] as Array<SectorKey | 'all'>).map(s => (
                                   <button
                                     key={s}
                                     onClick={() => setReturnsSector(s)}
-                                    className={`flex items-center gap-1.5 text-left px-2 py-1 rounded-lg text-[10px] ${returnsSector === s ? 'bg-slate-100 text-slate-700 font-semibold' : 'text-slate-500'}`}
+                                    className={`flex items-center gap-1.5 text-left px-2 py-1 rounded-lg text-[10px] ${returnsSector === s ? 'bg-teal-50 text-teal-700 font-semibold' : 'text-slate-500'}`}
                                   >
                                     {s !== 'all' && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: SECTOR_COLOR[s] }} />}
                                     {s === 'all' ? 'All Sectors' : s}
@@ -2130,21 +2125,21 @@ export default function HoldingsPage({ currency }: Props) {
                                 ))}
                               </div>
                               <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Period</p>
-                              <div className="relative flex bg-slate-100 rounded-full p-[2px] mb-3">
+                              <div className="relative flex bg-teal-100 rounded-full p-[2px] mb-3">
                                 <div
-                                  className="absolute top-[2px] bottom-[2px] w-1/2 rounded-full bg-white shadow-sm transition-transform duration-150"
-                                  style={{ transform: `translateX(${returnsMode === 'month' ? '100%' : '0%'})` }}
+                                  className="absolute top-[2px] bottom-[2px] w-1/2 rounded-full shadow-sm transition-transform duration-150"
+                                  style={{ transform: `translateX(${returnsMode === 'month' ? '100%' : '0%'})`, background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
                                 />
                                 {(['year', 'month'] as const).map(m => (
                                   <button key={m} onClick={() => setReturnsMode(m)}
-                                    className={`relative z-10 flex-1 text-[10px] py-[4px] capitalize transition-colors ${returnsMode === m ? 'text-slate-700 font-semibold' : 'text-slate-400'}`}
+                                    className={`relative z-10 flex-1 text-[10px] py-[4px] capitalize transition-colors ${returnsMode === m ? 'text-white font-semibold' : 'text-teal-600'}`}
                                   >{m}</button>
                                 ))}
                               </div>
                               {returnsMode === 'month' && (
                                 <>
                                   <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Year</p>
-                                  <div className="flex flex-wrap gap-1 mb-3">
+                                  <div className="flex flex-wrap gap-1 mb-1">
                                     {returnsAvailableYears.map(yr => (
                                       <button
                                         key={yr}
@@ -2152,12 +2147,14 @@ export default function HoldingsPage({ currency }: Props) {
                                           if (prev.includes(yr)) return prev.length > 1 ? prev.filter(y => y !== yr) : prev
                                           return [...prev, yr]
                                         })}
-                                        className={`text-[10px] px-2 py-0.5 rounded-full border ${returnsYears.includes(yr) ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200'}`}
+                                        className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${returnsYears.includes(yr) ? 'text-white' : 'bg-white text-teal-600 border border-teal-200'}`}
+                                        style={returnsYears.includes(yr) ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
                                       >{yr}</button>
                                     ))}
                                   </div>
                                 </>
                               )}
+                              </div>
                             </div>
                           </>
                         )}
@@ -2223,9 +2220,9 @@ export default function HoldingsPage({ currency }: Props) {
                         <Line
                           yAxisId="right"
                           dataKey="cumul"
-                          stroke="#6366f1"
+                          stroke="#0d9488"
                           strokeWidth={1.5}
-                          dot={{ r: 2.5, fill: '#6366f1', strokeWidth: 0 }}
+                          dot={{ r: 2.5, fill: '#0d9488', strokeWidth: 0 }}
                           activeDot={{ r: 4, strokeWidth: 0 }}
                           connectNulls
                         />
@@ -2252,8 +2249,8 @@ export default function HoldingsPage({ currency }: Props) {
                     </div>
                     <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
                       {hasProgress
-                        ? <div className="h-full bg-sky-400 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
-                        : <div className="h-full bg-sky-400 rounded-full animate-pulse" style={{ width: '100%' }} />
+                        ? <div className="h-full bg-teal-500 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+                        : <div className="h-full bg-teal-500 rounded-full animate-pulse" style={{ width: '100%' }} />
                       }
                     </div>
                   </div>
@@ -2269,7 +2266,7 @@ export default function HoldingsPage({ currency }: Props) {
                       <span>{pct}%</span>
                     </div>
                     <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-sky-400 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+                      <div className="h-full bg-teal-500 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 )
@@ -2332,36 +2329,36 @@ export default function HoldingsPage({ currency }: Props) {
                     </div>
 
                     {/* By Sector — bordered collapsible section */}
-                    <div className="border border-slate-200 rounded-xl">
+                    <div className="border border-slate-200 border-l-4 border-l-teal-500 rounded-xl">
                       {/* Header row: By Sector toggle + date filter on right */}
                       <div className="flex items-center px-3 py-2.5">
                         <button
                           className="flex items-center gap-1 text-[10px] font-semibold text-slate-500 uppercase tracking-widest"
                           onClick={() => setBenchSectorSectionOpen(o => !o)}
                         >
-                          <span className="text-sky-600">By Sector</span>
+                          <span className="text-teal-600">By Sector</span>
                           <span className="text-[10px] text-slate-300 ml-0.5">{benchSectorSectionOpen ? '▲' : '▼'}</span>
                         </button>
                         <div className="flex-1" />
                         <div className="relative shrink-0">
                           <button
-                            className="flex items-center gap-1 bg-sky-50 border border-sky-100 rounded-lg px-2 py-1"
+                            className="flex items-center gap-1 bg-teal-50 border border-teal-100 rounded-lg px-2 py-1"
                             onClick={() => setBenchConfigOpen(o => !o)}
                           >
-                            <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-sky-500" style={{flexShrink:0}}><path d="M1.5 2h9L7 6.5V10l-2-1V6.5L1.5 2z"/></svg>
-                            <span className="text-[10px] text-sky-700 whitespace-nowrap">
+                            <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-teal-600" style={{flexShrink:0}}><path d="M1.5 2h9L7 6.5V10l-2-1V6.5L1.5 2z"/></svg>
+                            <span className="text-[10px] text-teal-700 whitespace-nowrap">
                               {benchDateEnabled
                                 ? `${MONTHS[benchStartMonth - 1]} ${benchStartYear} → ${benchPeriodEnd === null ? 'today' : `${MONTHS[benchEndMonth - 1]} ${benchEndYear}`}`
                                 : 'All dates'}
                             </span>
-                            {benchDateEnabled && <span className="text-[10px] bg-sky-100 text-sky-600 rounded px-1 font-medium ml-0.5">Active</span>}
+                            {benchDateEnabled && <span className="text-[10px] bg-teal-100 text-teal-700 rounded px-1 font-medium ml-0.5">Active</span>}
                           </button>
 
                           {/* Date config panel — overlay popover, does not push page content */}
                           {benchConfigOpen && (
                             <>
                               <div className="fixed inset-0 z-[9]" onClick={() => setBenchConfigOpen(false)} />
-                              <div className="absolute right-0 top-full mt-1.5 bg-white border border-sky-100 rounded-xl shadow-lg z-10 p-3 w-[190px] space-y-2.5">
+                              <div className="absolute right-0 top-full mt-1.5 bg-white border border-teal-100 rounded-xl shadow-lg z-10 p-3 w-[190px] space-y-2.5">
                                 <div className="flex items-center gap-2">
                                   <span className="text-[10px] text-slate-400 w-[28px] shrink-0">From</span>
                                   <select value={benchStartMonth} onChange={e => setBenchStartMonth(+e.target.value)} className="text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-slate-700 flex-1">
@@ -2381,7 +2378,7 @@ export default function HoldingsPage({ currency }: Props) {
                                   </select>
                                 </div>
                                 <div className="flex gap-2 pt-0.5">
-                                  <button onClick={() => { setBenchDateEnabled(true); setBenchConfigOpen(false) }} className="flex-1 text-[11px] bg-sky-500 text-white rounded-full py-3 font-medium">Apply</button>
+                                  <button onClick={() => { setBenchDateEnabled(true); setBenchConfigOpen(false) }} className="flex-1 text-[11px] text-white rounded-full py-3 font-medium" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>Apply</button>
                                   {benchDateEnabled && (
                                     <button onClick={() => { setBenchDateEnabled(false); setBenchConfigOpen(false) }} className="flex-1 text-[11px] bg-slate-200 text-slate-600 rounded-full py-3 font-medium">Clear</button>
                                   )}
@@ -2393,10 +2390,10 @@ export default function HoldingsPage({ currency }: Props) {
                       </div>
 
                       {benchSectorSectionOpen && (
-                        <div className="flex items-center gap-1 px-2 py-1.5 mx-1 mb-2 bg-green-100 rounded-lg">
-                          <span className="text-[10px] font-semibold text-green-700 flex-[2]">Sector (XIRR)</span>
-                          <span className="text-[10px] font-semibold text-green-700 flex-1">Benchmark (XIRR)</span>
-                          <span className="text-[10px] font-semibold text-green-700 flex-1 text-right">Alpha</span>
+                        <div className="flex items-center gap-1 px-2 py-1.5 mx-1 mb-2 bg-teal-100 rounded-lg">
+                          <span className="text-[10px] font-semibold text-teal-700 flex-[2]">Sector (XIRR)</span>
+                          <span className="text-[10px] font-semibold text-teal-700 flex-1">Benchmark (XIRR)</span>
+                          <span className="text-[10px] font-semibold text-teal-700 flex-1 text-right">Alpha</span>
                           <span className="w-[8px]" />
                         </div>
                       )}

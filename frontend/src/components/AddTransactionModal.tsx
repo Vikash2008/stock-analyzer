@@ -151,31 +151,31 @@ export function AddTransactionModal({
 
       <div
         className="fixed inset-x-3 z-[201] bg-white rounded-2xl flex flex-col overflow-hidden"
-        style={{ top: '5dvh', maxHeight: '90dvh', maxWidth: 460, margin: '0 auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}
+        style={{ top: '8dvh', maxHeight: '84dvh', maxWidth: 440, margin: '0 auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}
       >
         {/* Header — matches Settings modal design language */}
-        <div className="flex items-center justify-between px-4 py-[11px] shrink-0" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
-          <p className="text-[13.5px] font-extrabold text-white tracking-[-0.2px]">Add Holding</p>
-          <button onClick={onClose} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[13px] leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>✕</button>
+        <div className="flex items-center justify-between px-3.5 py-2 shrink-0" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+          <p className="text-[13px] font-extrabold text-white tracking-[-0.2px]">Add Holding</p>
+          <button onClick={onClose} className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[12px] leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>✕</button>
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5" style={{ background: '#f8fafc' }}>
+        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5" style={{ background: '#f8fafc' }}>
 
           {/* Stock search */}
-          <div className="bg-emerald-50/60 rounded-lg border border-emerald-100 p-2.5">
+          <div className="bg-teal-50/60 rounded-lg border border-teal-100 p-2">
             <p className="text-[10px] text-[#0b3b3a] font-semibold uppercase tracking-widest mb-1">Stock</p>
 
             {lockSymbol ? (
               <div className="flex items-center gap-2">
                 <span className="text-[12px] font-bold text-slate-800">{selSymbol}</span>
-                <span className="text-[10px] bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5 font-medium">{selExchange}</span>
+                <span className="text-[10px] bg-teal-100 text-teal-700 rounded-full px-2 py-0.5 font-medium">{selExchange}</span>
                 {selName && <span className="text-[11px] text-slate-500 truncate">{selName}</span>}
               </div>
             ) : selSymbol && !searchQuery ? (
               <div className="flex items-center gap-2">
-                <span className="text-[12px] font-bold text-emerald-800">{selSymbol}</span>
-                <span className="text-[10px] bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5 font-medium">{selExchange}</span>
+                <span className="text-[12px] font-bold text-[#0b3b3a]">{selSymbol}</span>
+                <span className="text-[10px] bg-teal-100 text-teal-700 rounded-full px-2 py-0.5 font-medium">{selExchange}</span>
                 {selName && <span className="text-[11px] text-slate-500 truncate flex-1">{selName}</span>}
                 <button onClick={clearStock} className="text-slate-400 active:text-slate-600 shrink-0">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -189,21 +189,21 @@ export function AddTransactionModal({
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Search stocks…"
                   autoFocus
-                  className="w-full px-2 py-2 text-[12px] border border-emerald-200 rounded-lg bg-white focus:outline-none focus:border-teal-400 focus:ring-1 focus:ring-teal-100"
+                  className="w-full px-2 py-1.5 text-[12px] border border-teal-200 rounded-lg bg-white focus:outline-none focus:border-teal-400 focus:ring-1 focus:ring-teal-100"
                 />
                 {isSearching && (
-                  <span className="absolute right-3 top-2.5 text-[10px] text-slate-400 animate-pulse">Searching…</span>
+                  <span className="absolute right-3 top-2 text-[10px] text-slate-400 animate-pulse">Searching…</span>
                 )}
                 {showSuggestions && suggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 border border-emerald-200 rounded-xl bg-white shadow-lg z-10 overflow-hidden max-h-44 overflow-y-auto">
+                  <div className="absolute top-full left-0 right-0 mt-1 border border-teal-200 rounded-xl bg-white shadow-lg z-10 overflow-hidden max-h-44 overflow-y-auto">
                     {suggestions.map(s => (
                       <button
                         key={s.symbol}
                         onClick={() => selectStock(s.symbol, s.name, s.exchange)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-emerald-50 transition-colors"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-teal-50 transition-colors"
                       >
                         <span className="text-[11px] font-semibold text-slate-700 w-20 shrink-0">{s.symbol}</span>
-                        <span className="text-[10px] bg-emerald-100 text-emerald-600 rounded-full px-1.5 shrink-0">{s.exchange}</span>
+                        <span className="text-[10px] bg-teal-100 text-teal-600 rounded-full px-1.5 shrink-0">{s.exchange}</span>
                         <span className="text-[10px] text-slate-500 truncate">{s.name}</span>
                       </button>
                     ))}
@@ -214,30 +214,29 @@ export function AddTransactionModal({
           </div>
 
           {/* Portfolio + Type */}
-          <div className="bg-emerald-50/60 rounded-lg border border-emerald-100 p-2.5">
+          <div className="bg-teal-50/60 rounded-lg border border-teal-100 p-2">
             <div className="flex gap-2 items-end">
               <div className="flex-1 min-w-0">
                 <p className="text-[10px] text-[#0b3b3a] font-semibold uppercase tracking-widest mb-1">Portfolio</p>
                 <select
                   value={portfolio}
                   onChange={e => setPortfolio(e.target.value)}
-                  className="w-full px-2 py-1.5 text-[12px] border border-emerald-200 rounded-lg bg-white focus:outline-none focus:border-teal-400 text-slate-700"
+                  className="w-full px-2 py-1.5 text-[12px] border border-teal-200 rounded-lg bg-white focus:outline-none focus:border-teal-400 text-slate-700"
                 >
                   {allPortfolios.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
               <div className="shrink-0">
                 <p className="text-[10px] text-[#0b3b3a] font-semibold uppercase tracking-widest mb-1">Type</p>
-                <div className="flex bg-slate-100 rounded-lg p-0.5 gap-0.5">
+                <div className="flex bg-teal-100 rounded-lg p-0.5 gap-0.5">
                   {(['BUY', 'SELL'] as const).map(t => (
                     <button
                       key={t}
                       onClick={() => setTxnType(t)}
                       className={`px-3 py-1 text-[11px] font-bold rounded-md transition-colors ${
-                        txnType === t
-                          ? t === 'BUY' ? 'bg-emerald-500 text-white shadow-sm' : 'bg-red-500 text-white shadow-sm'
-                          : 'text-slate-400'
+                        txnType === t ? 'text-white shadow-sm' : 'text-teal-700'
                       }`}
+                      style={txnType === t ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
                     >
                       {t}
                     </button>
@@ -248,7 +247,7 @@ export function AddTransactionModal({
           </div>
 
           {/* Date + Quantity + Price — one row */}
-          <div className="bg-emerald-50/60 rounded-lg border border-emerald-100 p-2.5">
+          <div className="bg-teal-50/60 rounded-lg border border-teal-100 p-2">
             <div className="grid grid-cols-3 gap-2">
               <div>
                 <p className="text-[10px] text-[#0b3b3a] font-semibold uppercase tracking-widest mb-1">Date</p>
@@ -257,7 +256,7 @@ export function AddTransactionModal({
                   value={date}
                   onChange={e => setDate(e.target.value)}
                   max={new Date().toISOString().split('T')[0]}
-                  className="w-full px-2 py-1.5 text-[11px] border border-emerald-200 rounded-lg bg-white focus:outline-none focus:border-teal-400"
+                  className="w-full px-2 py-1.5 text-[11px] border border-teal-200 rounded-lg bg-white focus:outline-none focus:border-teal-400"
                 />
               </div>
               <div>
@@ -269,7 +268,7 @@ export function AddTransactionModal({
                   placeholder="0"
                   min="0"
                   step="any"
-                  className="w-full px-2 py-1.5 text-[11px] border border-emerald-200 rounded-lg bg-white focus:outline-none focus:border-teal-400"
+                  className="w-full px-2 py-1.5 text-[11px] border border-teal-200 rounded-lg bg-white focus:outline-none focus:border-teal-400"
                 />
               </div>
               <div>
@@ -283,7 +282,7 @@ export function AddTransactionModal({
                   placeholder={priceLoading ? '…' : '0.00'}
                   min="0"
                   step="0.01"
-                  className="w-full px-2 py-1.5 text-[11px] border border-emerald-200 rounded-lg bg-white focus:outline-none focus:border-teal-400"
+                  className="w-full px-2 py-1.5 text-[11px] border border-teal-200 rounded-lg bg-white focus:outline-none focus:border-teal-400"
                 />
               </div>
             </div>
@@ -291,9 +290,9 @@ export function AddTransactionModal({
 
           {/* Total */}
           {total != null && (
-            <div className="flex items-center justify-between bg-emerald-50/60 rounded-lg border border-emerald-100 px-3 py-2">
+            <div className="flex items-center justify-between bg-teal-50/60 rounded-lg border border-teal-100 px-3 py-1.5">
               <span className="text-[10px] text-[#0b3b3a] font-semibold uppercase tracking-widest">Total</span>
-              <span className="text-[12px] font-bold text-emerald-800">
+              <span className="text-[12px] font-bold text-[#0b3b3a]">
                 {currSymbol}{total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
               </span>
             </div>
@@ -301,7 +300,7 @@ export function AddTransactionModal({
 
           {/* Buckets — optional Label per existing Bucket; blank = auto-detect/unassigned */}
           {buckets.length > 0 && (
-            <div className="bg-emerald-50/60 rounded-lg border border-emerald-100 p-2.5 space-y-1.5">
+            <div className="bg-teal-50/60 rounded-lg border border-teal-100 p-2 space-y-1.5">
               <p className="text-[10px] text-[#0b3b3a] font-semibold uppercase tracking-widest">Buckets</p>
               {buckets.map(b => (
                 <div key={b.name} className="flex items-center gap-2">
@@ -309,7 +308,7 @@ export function AddTransactionModal({
                   <select
                     value={tagSelections[b.name] ?? ''}
                     onChange={e => setTagSelections(prev => ({ ...prev, [b.name]: e.target.value }))}
-                    className="flex-1 px-2 py-1.5 text-[11px] border border-emerald-200 rounded-lg bg-white focus:outline-none focus:border-teal-400"
+                    className="flex-1 px-2 py-1.5 text-[11px] border border-teal-200 rounded-lg bg-white focus:outline-none focus:border-teal-400"
                   >
                     <option value="">Unassigned</option>
                     {getAllLabelsInBucket(data, b.name).map(l => <option key={l} value={l}>{l}</option>)}
@@ -321,16 +320,16 @@ export function AddTransactionModal({
 
           {/* Error */}
           {error && (
-            <p className="text-[11px] text-red-600 bg-red-50 border border-red-100 px-3 py-2 rounded-xl">{error}</p>
+            <p className="text-[11px] text-red-600 bg-red-50 border border-red-100 px-3 py-1.5 rounded-xl">{error}</p>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2.5 bg-white border-t border-emerald-100 shrink-0">
+        <div className="px-3 py-2 bg-white border-t border-teal-100 shrink-0">
           <button
             onClick={handleSubmit}
             disabled={isPending}
-            className="w-full py-2 rounded-xl text-[12px] font-semibold text-white transition-opacity disabled:opacity-50"
+            className="w-full py-1.5 rounded-xl text-[12px] font-semibold text-white transition-opacity disabled:opacity-50"
             style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
           >
             {isPending ? 'Adding…' : 'Add Transaction'}

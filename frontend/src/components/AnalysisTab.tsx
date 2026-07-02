@@ -87,7 +87,8 @@ export function AnalysisTab({ portfolio, symbol }: Props) {
         <button
           onClick={addNote}
           disabled={!input.trim()}
-          className="mt-2 w-full py-3 text-[12px] font-semibold rounded-lg bg-[#2563eb] text-white disabled:opacity-40 disabled:cursor-not-allowed"
+          className="mt-2 w-full py-1.5 text-[12px] font-semibold rounded-lg text-white disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
         >
           Add Note
         </button>

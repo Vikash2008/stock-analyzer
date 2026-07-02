@@ -572,13 +572,14 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                         ? handleGenerate(section.id, false, undefined, true)
                         : handleGenerate(section.id)
                       }
-                      className={`text-[10px] font-medium px-2.5 py-1 rounded-md border ${
+                      className={`text-[10px] px-2.5 py-1 rounded-md border ${
                         isBothFailed
-                          ? 'bg-purple-50 text-purple-700 border-purple-300'
+                          ? 'font-medium bg-purple-50 text-purple-700 border-purple-300'
                           : isError
-                            ? 'bg-red-100 text-red-700 border-red-300'
-                            : section.color.btnOutline
+                            ? 'font-medium bg-red-100 text-red-700 border-red-300'
+                            : 'font-bold text-white border-teal-700'
                       }`}
+                      style={!isBothFailed && !isError ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
                     >
                       {isBothFailed ? 'Use 3.1 Lite' : isError ? 'Retry' : 'Research'}
                     </button>

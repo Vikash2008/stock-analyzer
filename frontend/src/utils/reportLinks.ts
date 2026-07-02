@@ -20,11 +20,11 @@ export const SECTIONS: SectionConfig[] = [
     label:       'Business Overview & Moat',
     description: 'Revenue model, competitive moat, key products',
     color: {
-      bg:         'bg-blue-100',
-      border:     'border-blue-300',
-      accentHex:  '#1d4ed8',
-      btnSolid:   'bg-blue-700 text-white shadow-sm',
-      btnOutline: 'bg-blue-100 text-blue-800 border border-blue-300',
+      bg:         'bg-teal-50',
+      border:     'border-teal-200',
+      accentHex:  '#0d9488',
+      btnSolid:   'bg-teal-600 text-white shadow-sm',
+      btnOutline: 'bg-teal-50 text-teal-700 border border-teal-200',
     },
     query: {
       indian: `Explain {name}'s core business model and how it makes money. Cover: main revenue streams and their mix (%), key products or services, primary customer segments, and geographic footprint. Then assess the competitive moat — is it brand, cost structure, switching costs, network effects, regulatory licence, or IP? Include current market share estimates and recent strategic direction (last 12 months). Use a table for revenue segment mix if available. Also note: (1) promoter holding % and any recent changes; (2) top customer or geographic concentration if any single segment exceeds 15% of revenue; (3) any recent key management changes in the last 12 months.
@@ -41,11 +41,11 @@ Data requirement: Use the latest available 10-K annual filing, most recent 10-Q,
     label:       'Industry Outlook & Macro',
     description: 'Sector tailwinds, TAM, regulatory environment',
     color: {
-      bg:         'bg-sky-100',
-      border:     'border-sky-300',
-      accentHex:  '#0284c7',
-      btnSolid:   'bg-sky-600 text-white shadow-sm',
-      btnOutline: 'bg-sky-100 text-sky-700 border border-sky-300',
+      bg:         'bg-teal-50',
+      border:     'border-teal-200',
+      accentHex:  '#0d9488',
+      btnSolid:   'bg-teal-600 text-white shadow-sm',
+      btnOutline: 'bg-teal-50 text-teal-700 border border-teal-200',
     },
     query: {
       indian: `What is the 3-5 year outlook for the industry {name} ({symbol}) operates in? Cover: total addressable market size and projected CAGR, key structural tailwinds, headwinds or disruption risks, India-specific regulatory environment (SEBI, RBI, sector regulator), and how macro factors (interest rates, inflation, INR/USD) affect this sector. Name 2-3 trends that will define the sector over the next 3 years. Also cover: whether the sector is in early-growth, maturing, or consolidating phase; and competitive structure — fragmented or concentrated (estimate top-3 players' combined market share).
@@ -62,11 +62,11 @@ Data requirement: Prioritise the most recently published industry reports, gover
     label:       'Latest Earnings & Guidance',
     description: 'Most recent quarter — numbers, guidance, highlights',
     color: {
-      bg:         'bg-teal-100',
-      border:     'border-teal-300',
+      bg:         'bg-teal-50',
+      border:     'border-teal-200',
       accentHex:  '#0d9488',
       btnSolid:   'bg-teal-600 text-white shadow-sm',
-      btnOutline: 'bg-teal-100 text-teal-700 border border-teal-300',
+      btnOutline: 'bg-teal-50 text-teal-700 border border-teal-200',
     },
     query: {
       indian: `Summarize {name}'s ({symbol}) most recent quarterly results — state the exact quarter and fiscal year (e.g. Q3 FY25). Use the company's official BSE/NSE filing or earnings press release as the primary source; cite which filing you used.
@@ -129,11 +129,11 @@ One line: Very Strong / Strong / Mixed / Weak — and the single most important 
     label:       'Valuation Metrics',
     description: 'PE vs peers vs history, bull/base/bear range',
     color: {
-      bg:         'bg-indigo-100',
-      border:     'border-indigo-300',
-      accentHex:  '#4f46e5',
-      btnSolid:   'bg-indigo-600 text-white shadow-sm',
-      btnOutline: 'bg-indigo-100 text-indigo-700 border border-indigo-300',
+      bg:         'bg-teal-50',
+      border:     'border-teal-200',
+      accentHex:  '#0d9488',
+      btnSolid:   'bg-teal-600 text-white shadow-sm',
+      btnOutline: 'bg-teal-50 text-teal-700 border border-teal-200',
     },
     query: {
       indian: `Analyze {name}'s ({symbol}) intrinsic value — lead with forward-looking and growth-adjusted methods. For high-growth companies, trailing PE vs historical average is misleading; DCF and growth-adjusted multiples should dominate.
@@ -198,11 +198,11 @@ Data requirement: Use the current live price and most recently available financi
     label:       'Peer Comparison Matrix',
     description: '4–5 direct competitors across key metrics',
     color: {
-      bg:         'bg-cyan-100',
-      border:     'border-cyan-300',
-      accentHex:  '#0891b2',
-      btnSolid:   'bg-cyan-600 text-white shadow-sm',
-      btnOutline: 'bg-cyan-100 text-cyan-700 border border-cyan-300',
+      bg:         'bg-teal-50',
+      border:     'border-teal-200',
+      accentHex:  '#0d9488',
+      btnSolid:   'bg-teal-600 text-white shadow-sm',
+      btnOutline: 'bg-teal-50 text-teal-700 border border-teal-200',
     },
     query: {
       indian: `Create a peer comparison table for {name} ({symbol}) vs its 4-5 closest Indian-listed competitors. Table columns: **Company** | **MCap (₹Cr)** | **Rev Growth 1Y** | **Operating Margin** | **PE (TTM)** | **ROE** | **Debt/Equity** | **Div Yield**. All figures must reference the same reporting period — state which period you are using. Below the table, write 3-4 bullet points summarizing where {name} leads, where it lags, and the single most important differentiator vs the peer group. Add one final bullet: which peer is gaining market share fastest and why, and which is losing ground.
@@ -219,11 +219,11 @@ Data requirement: Use the most recently reported figures for every company in th
     label:       'Financial Health & Trends',
     description: 'Balance sheet, FCF, margins over 3 years',
     color: {
-      bg:         'bg-emerald-100',
-      border:     'border-emerald-300',
-      accentHex:  '#059669',
-      btnSolid:   'bg-emerald-600 text-white shadow-sm',
-      btnOutline: 'bg-emerald-100 text-emerald-700 border border-emerald-300',
+      bg:         'bg-teal-50',
+      border:     'border-teal-200',
+      accentHex:  '#0d9488',
+      btnSolid:   'bg-teal-600 text-white shadow-sm',
+      btnOutline: 'bg-teal-50 text-teal-700 border border-teal-200',
     },
     query: {
       indian: `Analyze {name}'s financial health and trends over the most recent 3 fiscal years (use the latest available — if FY25 data is out, use FY23–FY25; do not default to older periods). Use the company's annual report or Screener.in as the primary source. Cover: revenue CAGR, gross and operating margin trajectory, net profit (PAT) CAGR, free cash flow (FCF) generation and FCF margin, debt-to-equity trend, interest coverage ratio, working capital days (debtor/inventory/creditor), return on capital employed (ROCE) trend, and capex as % of revenue (3-year trend). Flag if FCF materially diverges from PAT (signals accrual quality concerns). Use a 3-year trend table for key metrics.
@@ -240,11 +240,11 @@ Data requirement: If FY2026 annual results (10-K) are filed, use FY2024–FY2026
     label:       'News, Sentiment & Red Flags',
     description: 'Last 90 days — highlights, events, risks, insider activity',
     color: {
-      bg:         'bg-green-100',
-      border:     'border-green-300',
-      accentHex:  '#16a34a',
-      btnSolid:   'bg-green-600 text-white shadow-sm',
-      btnOutline: 'bg-green-100 text-green-700 border border-green-300',
+      bg:         'bg-teal-50',
+      border:     'border-teal-200',
+      accentHex:  '#0d9488',
+      btnSolid:   'bg-teal-600 text-white shadow-sm',
+      btnOutline: 'bg-teal-50 text-teal-700 border border-teal-200',
     },
     query: {
       indian: `Summarize {name} ({symbol}) over the last 90 days. Use BSE/NSE exchange announcements, company press releases, Economic Times Markets, and Moneycontrol as primary sources — do not use random blogs or unverified aggregators.
@@ -291,11 +291,11 @@ Overall: Positive / Neutral / Cautious / Negative — one sentence reason.`,
     label:       'Technical Analysis Setup',
     description: 'Trend, support/resistance, RSI, moving averages',
     color: {
-      bg:         'bg-blue-50',
-      border:     'border-blue-200',
-      accentHex:  '#2563eb',
-      btnSolid:   'bg-blue-600 text-white shadow-sm',
-      btnOutline: 'bg-blue-50 text-blue-700 border border-blue-200',
+      bg:         'bg-teal-50',
+      border:     'border-teal-200',
+      accentHex:  '#0d9488',
+      btnSolid:   'bg-teal-600 text-white shadow-sm',
+      btnOutline: 'bg-teal-50 text-teal-700 border border-teal-200',
     },
     query: {
       indian: `Provide a technical analysis overview for {name} ({symbol} on NSE). Include: current trend (uptrend/downtrend/sideways with timeframe), key support levels (2-3), key resistance levels (2-3), 50-day and 200-day moving average positioning (price vs MA, golden or death cross status), RSI (14-day) reading and interpretation, MACD status (bullish or bearish cross, histogram expanding or contracting), Bollinger Band positioning (near upper band, lower band, or mid-band), recent volume trend, proximity to 52-week high/low or all-time high, and your overall setup assessment. Provide a specific actionable setup: entry zone, stop-loss level, target price, and risk:reward ratio (e.g. 1:2.5). State the invalidation level for any bullish thesis.

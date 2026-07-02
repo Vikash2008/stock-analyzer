@@ -92,12 +92,13 @@ function MonthCalendar({
   )
 }
 
-function SymbolRow({ sym, currency, usdInr }: { sym: DividendSymbol; currency: Currency; usdInr?: number }) {
+function SymbolRow({ sym, currency, usdInr, maxTotal }: { sym: DividendSymbol; currency: Currency; usdInr?: number; maxTotal: number }) {
   const [open, setOpen] = useState(false)
   const isUsSym = sym.exchange !== 'NSE' && sym.exchange !== 'BSE'
   const symCur: Currency = isUsSym && currency === 'USD' ? 'USD' : 'INR'
   const symFx = symCur === 'USD' ? 1 / (usdInr ?? 95.5) : 1
   const fmtAmt = (v: number) => fmt(v * symFx, symCur)
+  const barPct = maxTotal > 0 ? sym.total_dividends / maxTotal * 100 : 0
 
   return (
     <div className="border border-slate-100 rounded-xl overflow-hidden mb-2">
@@ -113,7 +114,7 @@ function SymbolRow({ sym, currency, usdInr }: { sym: DividendSymbol; currency: C
         }`}>{sym.exchange}</span>
 
         <div className="flex-1 min-w-0">
-          <p className="text-[12px] font-semibold text-slate-700 leading-tight">{sym.symbol}</p>
+          <p className="text-[12px] font-semibold leading-tight" style={{ color: '#0b3b3a' }}>{sym.symbol}</p>
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             <span className="text-[10px] text-slate-400 leading-tight">{sym.event_count} payment{sym.event_count !== 1 ? 's' : ''} · last {sym.last_ex_date}</span>
             {sym.yield_on_cost !== null && (
@@ -135,6 +136,9 @@ function SymbolRow({ sym, currency, usdInr }: { sym: DividendSymbol; currency: C
           <path d="m6 9 6 6 6-6"/>
         </svg>
       </button>
+      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mx-3 mb-2" style={{ width: 'calc(100% - 24px)' }}>
+        <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }} />
+      </div>
 
       {open && (
         <div className="border-t border-slate-100 bg-teal-50/40 px-3 py-2">
@@ -252,6 +256,11 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr, yf_sy
     return syms
   }, [activeSymbols, selectedYears, selectedMonths, searchQuery])
 
+  const maxSymbolTotal = useMemo(
+    () => Math.max(0, ...visibleSymbols.map(s => s.total_dividends)),
+    [visibleSymbols],
+  )
+
   const periodTotal = useMemo(() => {
     if (!hasFilter) return null
     let total = 0
@@ -321,36 +330,35 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr, yf_sy
         </>
       )}
       {/* Summary strip */}
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        <div className="bg-teal-50 border border-teal-100 rounded-xl p-3">
-          <p className="text-[10px] font-medium" style={{ color: '#0b3b3a' }}>Total Earned</p>
-          <p className="text-[18px] font-bold leading-tight" style={{ color: '#0b3b3a' }}>
-            {fmtCompact(activeSummary.total_dividends_inr * summaryFx, summaryCur)}
-          </p>
-          <p className="text-[10px] text-teal-600 mt-0.5">{activeSummary.dividend_count} payments</p>
-        </div>
-        <div className="bg-teal-50 border border-teal-100 rounded-xl p-3">
-          <p className="text-[10px] font-medium" style={{ color: '#0b3b3a' }}>Projected / Year</p>
-          <p className="text-[18px] font-bold leading-tight" style={{ color: '#0b3b3a' }}>
-            {fmtCompact(activeSummary.projected_annual_inr * summaryFx, summaryCur)}
-          </p>
-          <p className="text-[10px] text-teal-600 mt-0.5">~trailing 12m</p>
-        </div>
-        <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
-          <p className="text-[10px] text-slate-500 font-medium">Stocks paying</p>
-          <p className="text-[18px] font-bold text-slate-700 leading-tight">{activeSummary.symbols_with_dividends}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">of your holdings</p>
-        </div>
-        <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
-          <p className="text-[10px] text-slate-500 font-medium">Best year</p>
-          {bestYear ? (
-            <>
-              <p className="text-[18px] font-bold text-slate-700 leading-tight">{fmtCompact(bestYear[1] * summaryFx, summaryCur)}</p>
-              <p className="text-[10px] text-slate-400 mt-0.5">{bestYear[0]}</p>
-            </>
-          ) : (
-            <p className="text-[18px] font-bold text-slate-700 leading-tight">—</p>
-          )}
+      <div className="bg-teal-50 border border-teal-200 rounded-xl p-3 mb-3">
+        <p className="text-[10px] font-bold text-white uppercase tracking-widest mb-2 rounded-full px-2.5 py-1 inline-block w-fit" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>Dividend Income</p>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+          <div>
+            <p className="text-[10px] text-slate-400 mb-0.5">Total Earned</p>
+            <p className="text-[15px] font-bold" style={{ color: '#0b3b3a' }}>{fmtCompact(activeSummary.total_dividends_inr * summaryFx, summaryCur)}</p>
+            <p className="text-[10px] text-teal-600 mt-0.5">{activeSummary.dividend_count} payments</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-slate-400 mb-0.5">Projected / Year</p>
+            <p className="text-[15px] font-bold" style={{ color: '#0b3b3a' }}>{fmtCompact(activeSummary.projected_annual_inr * summaryFx, summaryCur)}</p>
+            <p className="text-[10px] text-teal-600 mt-0.5">~trailing 12m</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-slate-400 mb-0.5">Stocks paying</p>
+            <p className="text-[15px] font-bold" style={{ color: '#0b3b3a' }}>{activeSummary.symbols_with_dividends}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">of your holdings</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-slate-400 mb-0.5">Best year</p>
+            {bestYear ? (
+              <>
+                <p className="text-[15px] font-bold" style={{ color: '#0b3b3a' }}>{fmtCompact(bestYear[1] * summaryFx, summaryCur)}</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">{bestYear[0]}</p>
+              </>
+            ) : (
+              <p className="text-[15px] font-bold" style={{ color: '#0b3b3a' }}>—</p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -365,7 +373,7 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr, yf_sy
           <div className="bg-white border border-slate-100 rounded-xl p-3 mb-3">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Year-by-year</p>
+                <p className="text-[10px] font-bold text-white uppercase tracking-widest rounded-full px-2.5 py-1 inline-block w-fit" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>Year-by-year</p>
                 {hasFilter && periodTotal !== null && (
                   <span className="text-[10px] font-semibold bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full">
                     {fmtCompact(periodTotal * summaryFx, summaryCur)} selected
@@ -388,10 +396,10 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr, yf_sy
 
           {/* Search + stock list */}
           <div className="flex items-center gap-2 mb-2">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex-1">
+            <p className="text-[10px] font-bold text-white uppercase tracking-widest rounded-full px-2.5 py-1 inline-block w-fit" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
               By stock
               {hasFilter || searchQuery ? (
-                <span className="ml-1.5 text-teal-500 normal-case font-normal">({visibleSymbols.length}/{activeSymbols.length})</span>
+                <span className="ml-1.5 normal-case font-normal">({visibleSymbols.length}/{activeSymbols.length})</span>
               ) : null}
             </p>
           </div>
@@ -414,7 +422,7 @@ export function DividendsTab({ currency, filterSymbols, portfolio, usdInr, yf_sy
             <p className="text-center text-[11px] text-slate-300 py-4">No stocks match this filter</p>
           ) : (
             visibleSymbols.map(sym => (
-              <SymbolRow key={sym.yf_symbol} sym={sym} currency={currency} usdInr={usdInr} />
+              <SymbolRow key={sym.yf_symbol} sym={sym} currency={currency} usdInr={usdInr} maxTotal={maxSymbolTotal} />
             ))
           )}
         </>

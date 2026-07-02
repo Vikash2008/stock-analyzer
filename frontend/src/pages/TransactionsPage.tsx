@@ -106,7 +106,7 @@ export default function TransactionsPage({ currency }: Props) {
   const [reportUse31,   setReportUse31]   = useState(false)
   const [reportUseKey,  setReportUseKey]  = useState<0 | 1 | 2>(() => { const v = localStorage.getItem('gemini:key_index'); return (v === '1' ? 1 : v === '2' ? 2 : 0) })
   const chatOpenerRef = React.useRef<{ open: (contextId?: string) => void } | null>(null)
-  const [reportGearOpen, setReportGearOpen] = useState(false)
+  const [settingsOpen,   setSettingsOpen]   = useState(false)
   const [chartZoomed,    setChartZoomed]    = useState(false)
 
   const decoded = {
@@ -390,34 +390,44 @@ export default function TransactionsPage({ currency }: Props) {
     <div className="max-w-xl mx-auto flex flex-col h-[100dvh]">
       <div className="shrink-0 px-2 bg-white relative z-20">
       {/* Nav bar */}
-      <div className="flex items-center justify-between px-4 py-2 min-h-[46px] rounded-t-[18px] border-4" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)', borderColor: '#0b3b3a' }}>
+      <div className="flex items-center justify-between px-4 py-2 min-h-[46px] rounded-t-[14px] border-4" style={{ background: 'linear-gradient(135deg, #14746f 0%, #14b8a6 100%)', borderColor: '#0b3b3a' }}>
         <button onClick={() => navigate(-1)} className="shrink-0 flex items-center gap-1.5 text-white active:opacity-70">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-          <span className="text-[14px] font-extrabold tracking-tight whitespace-nowrap">{backLabel.replace('← ', '')}</span>
+          <span className="text-[17px] font-extrabold tracking-tight whitespace-nowrap">{backLabel.replace('← ', '')}</span>
         </button>
-        {activeTab === 'report' && reportSubTab === 'deep' && (
+        <div className="flex items-center gap-1 shrink-0">
           <div className="relative shrink-0">
             <button
-              onClick={() => setReportGearOpen(o => !o)}
-              className={`w-[30px] h-[30px] flex items-center justify-center rounded-full transition-colors ${reportGearOpen ? 'bg-white/20 text-white' : 'text-emerald-100 active:bg-white/20 active:text-white'}`}
+              onClick={() => setSettingsOpen(o => !o)}
+              className={`w-[30px] h-[30px] flex items-center justify-center rounded-full transition-colors text-white ${settingsOpen ? 'bg-white/20' : 'active:bg-white/20'}`}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
               </svg>
             </button>
-            {reportGearOpen && (
+            {settingsOpen && (
               <>
-                <div className="fixed inset-0 z-[9]" onClick={() => setReportGearOpen(false)} />
-                <div className="absolute right-0 top-full mt-1.5 rounded-2xl shadow-xl overflow-hidden border border-violet-100 z-10 min-w-[230px]">
-                  <div className="bg-gradient-to-r from-violet-600 to-purple-600 px-3 py-2 flex items-center justify-between">
-                    <p className="text-[12px] font-semibold text-white tracking-tight">Deep Research Settings</p>
-                    <button onClick={() => setReportGearOpen(false)} className="text-violet-200 active:text-white text-lg leading-none">×</button>
+                <div className="fixed inset-0 z-[998]" onClick={() => setSettingsOpen(false)} />
+                <div className="absolute right-0 top-full mt-1.5 z-[999] w-[300px] max-w-[calc(100vw-24px)] rounded-2xl overflow-hidden shadow-xl">
+                  <div className="flex items-center justify-between px-2.5 py-1.5" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+                    <p className="text-[11px] font-semibold text-white tracking-tight">Settings</p>
+                    <button onClick={() => setSettingsOpen(false)} className="text-teal-200 active:text-white text-base leading-none">×</button>
                   </div>
-                  <div className="bg-white px-2 py-1.5 flex flex-col gap-1.5">
-                    <div className="bg-violet-50/60 border border-violet-100 rounded-lg px-2.5 py-1.5">
-                      <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Model</p>
-                      <div className="flex bg-white rounded-full p-0.5 gap-0.5 border border-violet-100">
+                  <div className="bg-white px-1.5 py-1 flex flex-col gap-1">
+                    <div className="bg-teal-50/60 border border-teal-100 rounded-lg px-2 py-1 flex items-center justify-between gap-2">
+                      <span className="text-[10.5px] font-semibold text-[#0b3b3a]">Add Transaction</span>
+                      <button
+                        onClick={() => { setSettingsOpen(false); setAddTxnOpen(true) }}
+                        className="w-[60px] text-center text-white text-[10px] font-semibold rounded-full px-2 py-0.5 active:opacity-80"
+                        style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+                      >
+                        Add Txn
+                      </button>
+                    </div>
+                    <div className="bg-teal-50/60 border border-teal-100 rounded-lg px-2 py-1 flex items-center justify-between gap-2">
+                      <span className="text-[10.5px] font-semibold text-[#0b3b3a] shrink-0">AI Model</span>
+                      <div className="flex bg-white rounded-full p-0.5 gap-0.5 border border-teal-100">
                         {([
                           { label: '2.5 Flash', lite: false, is31: false },
                           { label: '2.5 Lite',  lite: true,  is31: false },
@@ -427,20 +437,22 @@ export default function TransactionsPage({ currency }: Props) {
                           return (
                             <button key={opt.label}
                               onClick={() => { setReportUse31(opt.is31); setReportUseLite(opt.lite) }}
-                              className={`flex-1 text-[10px] px-2 py-1 rounded-full font-medium transition-colors ${active ? 'bg-violet-600 text-white shadow-sm' : 'text-slate-400'}`}
+                              className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium transition-colors whitespace-nowrap ${active ? 'text-white shadow-sm' : 'text-slate-400'}`}
+                              style={active ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
                             >{opt.label}</button>
                           )
                         })}
                       </div>
                     </div>
-                    <div className="bg-violet-50/60 border border-violet-100 rounded-lg px-2.5 py-1.5">
-                      <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">API Key</p>
-                      <div className="flex bg-white rounded-full p-0.5 gap-0.5 border border-violet-100">
+                    <div className="bg-teal-50/60 border border-teal-100 rounded-lg px-2 py-1 flex items-center justify-between gap-2">
+                      <span className="text-[10.5px] font-semibold text-[#0b3b3a] shrink-0">API Key</span>
+                      <div className="flex bg-white rounded-full p-0.5 gap-0.5 border border-teal-100">
                         {([0, 1, 2] as const).map(i => (
                           <button
                             key={i}
                             onClick={() => { setReportUseKey(i); localStorage.setItem('gemini:key_index', String(i)) }}
-                            className={`flex-1 text-[10px] px-2 py-1 rounded-full font-medium transition-colors ${reportUseKey === i ? 'bg-violet-600 text-white shadow-sm' : 'text-slate-400 active:bg-violet-50'}`}
+                            className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium transition-colors whitespace-nowrap ${reportUseKey === i ? 'text-white shadow-sm' : 'text-slate-400 active:bg-teal-50'}`}
+                            style={reportUseKey === i ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
                           >Key {i + 1}</button>
                         ))}
                       </div>
@@ -450,7 +462,7 @@ export default function TransactionsPage({ currency }: Props) {
               </>
             )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Summary card — same format as Holdings page */}
@@ -467,20 +479,16 @@ export default function TransactionsPage({ currency }: Props) {
         currency={dispCur}
       />
 
-      {/* Tabs — iOS segmented control */}
+      {/* Tabs */}
       <div className="flex bg-slate-100 rounded-full p-0.5 gap-0.5 mb-2">
         {([['transactions','Txns'],['charts','Charts'],['report','Research'],['notes','Notes']] as const).map(([tab, label]) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 text-[10px] py-2 rounded-full font-medium transition-all ${
-              activeTab === tab
-                ? tab === 'transactions' ? 'bg-teal-200 text-teal-800 shadow-sm'
-                : tab === 'charts'       ? 'bg-sky-200 text-sky-800 shadow-sm'
-                : tab === 'report'       ? 'bg-violet-200 text-violet-800 shadow-sm'
-                : 'bg-rose-200 text-rose-800 shadow-sm'
-                : 'text-slate-400'
+            className={`flex-1 text-[11px] py-1.5 rounded-full capitalize font-medium transition-all ${
+              activeTab === tab ? 'text-white shadow-sm' : 'text-slate-500'
             }`}
+            style={activeTab === tab ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
           >
             {label}
           </button>
@@ -489,42 +497,37 @@ export default function TransactionsPage({ currency }: Props) {
 
       {/* Transactions strip */}
       {activeTab === 'transactions' && (
-        <div className="bg-teal-50 border border-teal-100 rounded-xl px-2.5 py-1 mb-2 flex items-center justify-between">
-          <span className="text-[10px] text-teal-700">{symTxns.length} transactions</span>
-          <button
-            onClick={() => setAddTxnOpen(true)}
-            className="flex items-center gap-1 text-[10px] text-teal-700 font-semibold active:opacity-60"
-          >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/>
-            </svg>
-            Txn
-          </button>
+        <div className="bg-teal-50 border border-teal-100 rounded-xl px-2.5 py-1.5 mb-2 min-h-[38px] flex items-center justify-between">
+          <span className="text-[13px] font-semibold text-[#0b3b3a]">Total Transactions: {symTxns.length}</span>
         </div>
       )}
       {/* Report strip — sub-tab bar */}
       {activeTab === 'report' && (
-        <div className="bg-violet-50 border border-violet-100 rounded-xl px-2.5 py-1.5 mb-2 flex items-center justify-between">
+        <div className="bg-teal-50 border border-teal-100 rounded-xl px-2.5 py-1.5 mb-2 min-h-[38px] flex items-center justify-between">
           {/* Sub-tabs */}
-          <div className="flex items-center bg-violet-100 rounded-lg p-0.5 gap-0.5">
+          <div className="flex items-center bg-teal-100 rounded-lg p-0.5 gap-0.5">
             <button
               onClick={() => setReportSubTab('quickstats')}
-              className={`text-[10px] px-2.5 py-1 rounded-md transition-colors font-medium ${reportSubTab === 'quickstats' ? 'bg-emerald-500 text-white shadow-sm border border-emerald-600' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'}`}
+              className={`text-[10px] px-2.5 py-1 rounded-md transition-colors font-medium ${reportSubTab === 'quickstats' ? 'text-white shadow-sm border border-teal-700' : 'bg-teal-50 text-teal-700 border border-teal-200'}`}
+              style={reportSubTab === 'quickstats' ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
             >Quick Stats</button>
             <button
               onClick={() => setReportSubTab('deep')}
-              className={`text-[10px] px-2.5 py-1 rounded-md transition-colors font-medium ${reportSubTab === 'deep' ? 'bg-violet-600 text-white shadow-sm border border-violet-700' : 'bg-violet-200 text-violet-600 border border-violet-300'}`}
+              className={`text-[10px] px-2.5 py-1 rounded-md transition-colors font-medium ${reportSubTab === 'deep' ? 'text-white shadow-sm border border-teal-700' : 'bg-teal-50 text-teal-700 border border-teal-200'}`}
+              style={reportSubTab === 'deep' ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
             >Deep Research</button>
             <button
               onClick={() => setReportSubTab('links')}
-              className={`text-[10px] px-2.5 py-1 rounded-md transition-colors font-medium ${reportSubTab === 'links' ? 'bg-sky-500 text-white shadow-sm border border-sky-600' : 'bg-sky-100 text-sky-700 border border-sky-200'}`}
+              className={`text-[10px] px-2.5 py-1 rounded-md transition-colors font-medium ${reportSubTab === 'links' ? 'text-white shadow-sm border border-teal-700' : 'bg-teal-50 text-teal-700 border border-teal-200'}`}
+              style={reportSubTab === 'links' ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
             >Explore</button>
           </div>
           {/* Right controls */}
           {reportSubTab === 'links' ? null : reportSubTab === 'deep' ? (
             <button
               onClick={() => chatOpenerRef.current?.open()}
-              className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full text-white shrink-0 bg-gradient-to-r from-fuchsia-600 via-violet-600 to-indigo-600 shadow-[0_2px_10px_rgba(124,58,237,0.45)] ring-1 ring-white/40 active:scale-95 transition-transform"
+              className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full text-white shrink-0 shadow-sm ring-1 ring-white/40 active:scale-95 transition-transform"
+              style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2c-.5 4-4 7.5-10 10 6 2.5 9.5 6 10 10 .5-4 4-7.5 10-10-6-2.5-9.5-6-10-10z"/>
@@ -533,7 +536,8 @@ export default function TransactionsPage({ currency }: Props) {
             </button>
           ) : (
             <button
-              className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 border active:opacity-60 bg-gradient-to-br from-violet-600 to-purple-800 border-violet-700"
+              className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 border active:opacity-60 border-teal-700"
+              style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
               onClick={() => { if (reportSyncing) return; setReportSyncing(true); qc.resetQueries({ queryKey: ['quickstats', yf] }); setTimeout(() => setReportSyncing(false), 1500) }}
             >
               <span className={`text-[10px] text-white leading-none inline-block ${reportSyncing ? 'animate-spin' : ''}`}>↻</span>
@@ -543,34 +547,34 @@ export default function TransactionsPage({ currency }: Props) {
       )}
       {/* Notes strip */}
       {activeTab === 'notes' && (
-        <div className="bg-rose-50 border border-rose-200 rounded-xl px-2.5 py-1.5 mb-2 flex items-center">
-          <span className="text-[10px] text-rose-700">Personal notes</span>
+        <div className="bg-teal-50 border border-teal-100 rounded-xl px-2.5 py-1.5 mb-2 min-h-[38px] flex items-center">
+          <span className="text-[13px] font-semibold text-[#0b3b3a]">Personal notes</span>
         </div>
       )}
       {/* Charts strip — metric pills + sync */}
       {activeTab === 'charts' && (
-        <div className="border rounded-xl px-2.5 py-1.5 mb-2 bg-sky-50 border-sky-200">
+        <div className="border rounded-xl px-2.5 py-1.5 mb-2 min-h-[38px] flex flex-col justify-center bg-teal-50 border-teal-100">
           <div className="flex items-center gap-2">
             <div
               className="flex gap-0.5 overflow-x-auto flex-1 rounded-lg p-0.5"
-              style={{ backgroundColor: '#bae6fd44', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+              style={{ backgroundColor: '#99f6e444', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
             >
               {METRICS.map(m => (
                 <button
                   key={m}
                   onClick={() => setChartMetric(m)}
-                  className="text-[10px] whitespace-nowrap px-2.5 py-1 rounded-md font-medium transition-all"
-                  style={chartMetric === m
-                    ? { backgroundColor: METRIC_HEX[m].pillActiveBorder, color: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.15)', border: `1px solid ${METRIC_HEX[m].pillActiveBorder}` }
-                    : { backgroundColor: METRIC_HEX[m].pillInactiveBg, color: METRIC_HEX[m].pillInactiveColor, border: `1px solid ${METRIC_HEX[m].pillInactiveBorder}` }
-                  }
+                  className={`text-[10px] whitespace-nowrap px-2.5 py-1 rounded-md font-medium transition-all ${
+                    chartMetric === m ? 'text-white shadow-sm border border-teal-700' : 'text-teal-700 border border-teal-200'
+                  }`}
+                  style={chartMetric === m ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
                 >
                   {m}
                 </button>
               ))}
             </div>
             <button
-              className="flex items-center gap-0.5 shrink-0 rounded-full px-1.5 py-0.5 border active:opacity-60 bg-gradient-to-br from-sky-600 to-cyan-700 border-sky-700"
+              className="flex items-center gap-0.5 shrink-0 rounded-full px-1.5 py-0.5 border active:opacity-60 border-teal-700"
+              style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
               onClick={() => {
                 if (syncing) return
                 setSyncing(true)
@@ -699,20 +703,20 @@ export default function TransactionsPage({ currency }: Props) {
           { name: 'Finviz',          desc: 'Charts, screener & insider activity',         url: `https://finviz.com/quote.ashx?t=${cleanSym.toUpperCase()}`,                                                               color: '#0d9488' },
         ]
         return (
-          <div className="pt-1 pb-4 flex flex-col gap-2">
+          <div className="pt-1 pb-4 flex flex-col gap-1.5">
             {links.map(link => (
               <a
                 key={link.name}
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm active:opacity-60"
+                className="flex items-center justify-between rounded-lg border border-teal-100 bg-teal-50/60 px-2.5 py-1.5 active:opacity-60"
               >
                 <div>
-                  <p className="text-[12px] font-semibold text-slate-700">{link.name}</p>
+                  <p className="text-[11px] font-semibold text-[#0b3b3a]">{link.name}</p>
                   <p className="text-[10px] text-slate-400 mt-0.5">{link.desc}</p>
                 </div>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={link.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 ml-3">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 ml-3">
                   <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
                   <polyline points="15 3 21 3 21 9"/>
                   <line x1="10" y1="14" x2="21" y2="3"/>
