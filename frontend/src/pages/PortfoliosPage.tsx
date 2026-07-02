@@ -847,7 +847,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       {/* Header + hero wrapped together so space-y-2 doesn't add extra gap between them — matches Holdings/Txn spacing exactly */}
       <div>
       {/* Page header */}
-      <div className="flex items-center justify-between px-4 py-2 mb-[3px] min-h-[46px]" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+      <div className="flex items-center justify-between px-4 py-2 min-h-[46px] rounded-t-[18px] border-4" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)', borderColor: '#0b3b3a' }}>
         <p className="text-[19px] font-extrabold text-white tracking-tight leading-tight">Overview</p>
         <div className="flex items-center gap-2">
           <button

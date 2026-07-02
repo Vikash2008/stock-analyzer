@@ -390,7 +390,7 @@ export default function TransactionsPage({ currency }: Props) {
     <div className="max-w-xl mx-auto flex flex-col h-[100dvh]">
       <div className="shrink-0 px-2 bg-white relative z-20">
       {/* Nav bar */}
-      <div className="flex items-center justify-between px-4 py-2 mb-[3px] min-h-[46px]" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+      <div className="flex items-center justify-between px-4 py-2 min-h-[46px] rounded-t-[18px] border-4" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)', borderColor: '#0b3b3a' }}>
         <button onClick={() => navigate(-1)} className="shrink-0 flex items-center gap-1.5 text-white active:opacity-70">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
           <span className="text-[14px] font-extrabold tracking-tight whitespace-nowrap">{backLabel.replace('← ', '')}</span>
@@ -463,6 +463,7 @@ export default function TransactionsPage({ currency }: Props) {
         todayGain={tg}
         todayPct={tp}
         xirr={holdingXirr}
+        ltp={holding?.current_price ?? null}
         currency={dispCur}
       />
 

@@ -13,6 +13,7 @@ interface SummaryCardProps {
   todayGain:   number | null
   todayPct:    number | null
   xirr?:       number | null
+  ltp?:        number | null
   dividends?:  number          // pass when "include dividends" toggle is ON
   fxGain?:     number          // pass when "include FX gains" toggle is ON
   currency:    Currency
@@ -23,7 +24,7 @@ interface SummaryCardProps {
 
 export function SummaryCard({
   label, current, invested, realGain, realCost,
-  todayGain, todayPct, xirr, dividends, fxGain, currency, footer, onClick,
+  todayGain, todayPct, xirr, ltp, dividends, fxGain, currency, footer, onClick,
 }: SummaryCardProps) {
   const divAmt    = dividends ?? 0
   const fxAmt     = fxGain ?? 0
@@ -44,7 +45,12 @@ export function SummaryCard({
     >
       <div className="absolute top-[-40px] right-[-40px] w-[160px] h-[160px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(45,212,191,0.25), transparent 70%)' }} />
       <div className="relative">
-        <p className="text-[11px] font-bold uppercase tracking-[1.2px] mb-2" style={{ color: '#99e6dc' }}>{label}</p>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <p className="text-[11px] font-bold uppercase tracking-[1.2px]" style={{ color: '#99e6dc' }}>{label}</p>
+          {ltp != null && (
+            <span className="text-[11px] font-semibold whitespace-nowrap shrink-0" style={{ color: '#99e6dc' }}>LTP {fmt(ltp, currency)}</span>
+          )}
+        </div>
 
         <div className="flex items-center justify-between gap-2 mb-1">
           <span className="text-[22px] font-extrabold text-white tracking-tight">{fmt(current, currency)}</span>

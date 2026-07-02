@@ -133,16 +133,17 @@ export function FxGainsTab({ fxLots, usdInr, currency, asOf }: Props) {
     )
   }
 
-  const maxBucketUsd = Math.max(...buckets.map(([, b]) => b.usd))
+  const maxBucketUsd  = Math.max(...buckets.map(([, b]) => b.usd))
+  const maxHoldingUsd = Math.max(...holdings.map(h => h.totalUsd))
 
   return (
     <div className="space-y-4 pb-4">
 
       {/* Section 1: Summary strip */}
       <div className="bg-teal-50 border border-teal-200 rounded-xl p-3">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-[10px] font-bold text-[#0b3b3a] uppercase tracking-widest">FX Conversion Gains</p>
-          {asOf && <span className="text-[9px] text-teal-700/70 whitespace-nowrap">Rate as of {fmtSyncTime(new Date(asOf))}</span>}
+        <div className="flex items-start justify-between mb-2">
+          <p className="text-[10px] font-bold text-white uppercase tracking-widest rounded-full px-2.5 py-1 inline-block w-fit" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>FX Conversion Gains</p>
+          {asOf && <span className="text-[9px] text-teal-700/70 whitespace-nowrap -mt-1">Rate as of {fmtSyncTime(new Date(asOf))}</span>}
         </div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
           <div>
@@ -151,22 +152,22 @@ export function FxGainsTab({ fxLots, usdInr, currency, asOf }: Props) {
           </div>
           <div>
             <p className="text-[10px] text-slate-400 mb-0.5">Current Rate</p>
-            <p className="text-[15px] font-bold text-slate-700">₹{usdInr.toFixed(2)}<span className="text-[10px] font-normal text-slate-400">/USD</span></p>
+            <p className="text-[15px] font-bold text-[#0b3b3a]">₹{usdInr.toFixed(2)}<span className="text-[10px] font-normal text-slate-400">/USD</span></p>
           </div>
           <div>
             <p className="text-[10px] text-slate-400 mb-0.5">USD Invested</p>
-            <p className="text-[13px] font-semibold text-slate-700">{fmtUsd(stats.totalUsd)}</p>
+            <p className="text-[13px] font-semibold text-[#0b3b3a]">{fmtUsd(stats.totalUsd)}</p>
           </div>
           <div>
             <p className="text-[10px] text-slate-400 mb-0.5">Open Lots</p>
-            <p className="text-[13px] font-semibold text-slate-700">{stats.count}</p>
+            <p className="text-[13px] font-semibold text-[#0b3b3a]">{stats.count}</p>
           </div>
         </div>
       </div>
 
       {/* Section 2: Rate buckets */}
       <div className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm">
-        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Rate Buckets (INR/USD)</p>
+        <p className="text-[10px] font-bold text-white uppercase tracking-widest mb-3 rounded-full px-2.5 py-1 inline-block w-fit" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>Rate Buckets (INR/USD)</p>
         <div className="space-y-2.5">
           {buckets.map(([key, b]) => {
             const barPct = maxBucketUsd > 0 ? b.usd / maxBucketUsd * 100 : 0
@@ -188,7 +189,7 @@ export function FxGainsTab({ fxLots, usdInr, currency, asOf }: Props) {
 
       {/* Section 3: Year / Month timeline */}
       <div className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm">
-        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Timeline</p>
+        <p className="text-[10px] font-bold text-white uppercase tracking-widest mb-2 rounded-full px-2.5 py-1 inline-block w-fit" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>Timeline</p>
         <div className="space-y-2">
           {yearMonthData.map(({ year, months }) => {
             const isOpen  = expandedYears.has(year)
@@ -231,7 +232,7 @@ export function FxGainsTab({ fxLots, usdInr, currency, asOf }: Props) {
       {/* Section 4: Per-holding accordion */}
       <div className="bg-white border border-slate-100 rounded-xl overflow-hidden shadow-sm">
         <div className="px-3 py-2 border-b border-slate-100">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Per Holding</p>
+          <p className="text-[10px] font-bold text-white uppercase tracking-widest rounded-full px-2.5 py-1 inline-block w-fit" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>Per Holding</p>
         </div>
         <div className="divide-y divide-slate-100">
           {holdings.map(h => {
@@ -239,6 +240,7 @@ export function FxGainsTab({ fxLots, usdInr, currency, asOf }: Props) {
             const lots = fxLots
               .filter(l => l.symbol === h.symbol)
               .sort((a, b) => a.date.localeCompare(b.date))
+            const barPct = maxHoldingUsd > 0 ? h.totalUsd / maxHoldingUsd * 100 : 0
             return (
               <div key={h.symbol}>
                 {/* Header row — tap to expand */}
@@ -251,7 +253,7 @@ export function FxGainsTab({ fxLots, usdInr, currency, asOf }: Props) {
                   })}
                 >
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-semibold text-slate-700">{h.symbol.replace(/\.(NS|BO)$/i, '')}</span>
+                    <span className="text-[11px] font-semibold" style={{ color: '#0b3b3a' }}>{h.symbol.replace(/\.(NS|BO)$/i, '')}</span>
                     <span className="text-[10px] text-slate-400">{lots.length} lot{lots.length !== 1 ? 's' : ''}</span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -259,6 +261,9 @@ export function FxGainsTab({ fxLots, usdInr, currency, asOf }: Props) {
                     <span className="text-[10px] text-slate-300">{isOpen ? '▲' : '▼'}</span>
                   </div>
                 </button>
+                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mx-3 mb-2" style={{ width: 'calc(100% - 24px)' }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }} />
+                </div>
 
                 {/* Expanded lot table */}
                 {isOpen && (
