@@ -847,16 +847,16 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       {/* Header + hero wrapped together so space-y-2 doesn't add extra gap between them — matches Holdings/Txn spacing exactly */}
       <div>
       {/* Page header */}
-      <div className="flex items-center justify-between px-4 py-2 min-h-[46px] border-4" style={{ background: 'linear-gradient(135deg, #14746f 0%, #14b8a6 100%)', borderColor: '#0b3b3a' }}>
-        <p className="text-[19px] font-extrabold text-white tracking-tight leading-tight">Overview</p>
+      <div className="flex items-center justify-between px-4 py-2 min-h-[46px] border-4 rounded-t-[14px]" style={{ borderColor: '#0b3b3a', background: '#e6f7f5' }}>
+        <p className="text-[19px] font-extrabold text-[#0b3b3a] tracking-tight leading-tight">Overview</p>
         <div className="flex items-center gap-2">
           <button
             onClick={handleRefresh}
             disabled={refreshing || isFetching}
             className="flex items-center gap-1.5 active:opacity-70 transition-opacity"
           >
-            <span className={`text-[12px] leading-none text-white ${(refreshing || isFetching) ? "animate-spin" : ""}`}>↻</span>
-            <span className={`text-[10px] ${refreshError ? "text-red-200" : "text-white"}`}>
+            <span className={`text-[12px] leading-none text-[#0b3b3a] ${(refreshing || isFetching) ? "animate-spin" : ""}`}>↻</span>
+            <span className={`text-[10px] ${refreshError ? "text-red-500" : "text-[#0b3b3a]"}`}>
               {refreshError
                 ? 'Sync failed · retry'
                 : (() => { const d = new Date(data.as_of); const hh = String(d.getHours()).padStart(2,'0'); const mm = String(d.getMinutes()).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); const mon = d.toLocaleString('en-US',{month:'short'}); return `${hh}:${mm} · ${dd} ${mon}` })()}
@@ -865,7 +865,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           <div className="relative">
             <button
               onClick={() => { setCsvMeta(getCsvMeta()); setSettingsOpen(v => !v) }}
-              className="w-[30px] h-[30px] rounded-full flex items-center justify-center active:opacity-70 text-white"
+              className="w-[30px] h-[30px] rounded-full flex items-center justify-center active:opacity-70 text-[#0b3b3a]"
               aria-label="Portfolio settings"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">

@@ -390,8 +390,8 @@ export default function TransactionsPage({ currency }: Props) {
     <div className="max-w-xl mx-auto flex flex-col h-[100dvh]">
       <div className="shrink-0 px-1 bg-white relative z-20">
       {/* Nav bar */}
-      <div className="flex items-center justify-between px-4 py-2 min-h-[46px] border-4" style={{ background: 'linear-gradient(135deg, #14746f 0%, #14b8a6 100%)', borderColor: '#0b3b3a' }}>
-        <button onClick={() => navigate(-1)} className="shrink-0 flex items-center gap-1.5 text-white active:opacity-70">
+      <div className="flex items-center justify-between px-4 py-2 min-h-[46px] border-4 rounded-t-[14px]" style={{ borderColor: '#0b3b3a', background: '#e6f7f5' }}>
+        <button onClick={() => navigate(-1)} className="shrink-0 flex items-center gap-1.5 text-[#0b3b3a] active:opacity-70">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
           <span className="text-[17px] font-extrabold tracking-tight whitespace-nowrap">{backLabel.replace('← ', '')}</span>
         </button>
@@ -399,7 +399,7 @@ export default function TransactionsPage({ currency }: Props) {
           <div className="relative shrink-0">
             <button
               onClick={() => setSettingsOpen(o => !o)}
-              className={`w-[30px] h-[30px] flex items-center justify-center rounded-full transition-colors text-white ${settingsOpen ? 'bg-white/20' : 'active:bg-white/20'}`}
+              className={`w-[30px] h-[30px] flex items-center justify-center rounded-full transition-colors text-[#0b3b3a] ${settingsOpen ? 'bg-teal-50' : 'active:bg-teal-50'}`}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="3"/>
