@@ -37,7 +37,7 @@ export function SummaryCard({
 
   return (
     <div
-      className="rounded-[18px] p-4 mb-3 relative overflow-hidden"
+      className="rounded-b-[18px] p-4 mb-3 relative overflow-hidden"
       style={{ background: 'linear-gradient(150deg, #10243f 0%, #0b3b3a 100%)', boxShadow: '0 14px 30px -10px rgba(11,59,58,0.45)' }}
     >
       <div className="absolute top-[-40px] right-[-40px] w-[160px] h-[160px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(45,212,191,0.25), transparent 70%)' }} />

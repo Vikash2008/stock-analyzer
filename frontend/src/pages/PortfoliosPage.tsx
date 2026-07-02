@@ -843,7 +843,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       )}
 
       {/* Page header */}
-      <div className="flex items-center justify-between px-4 py-2 mb-3 rounded-xl" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+      <div className="flex items-center justify-between px-4 py-2 mb-3" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
         <p className="text-[19px] font-extrabold text-white tracking-tight leading-tight">Overview</p>
         <div className="flex items-center gap-2">
           <button
@@ -1079,7 +1079,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
       {/* Hero card — Total Portfolio */}
       <div
-        className="rounded-[18px] p-4 cursor-pointer active:opacity-90 transition-opacity relative overflow-hidden"
+        className="rounded-b-[18px] p-4 cursor-pointer active:opacity-90 transition-opacity relative overflow-hidden"
         style={{ background: 'linear-gradient(150deg, #10243f 0%, #0b3b3a 100%)', boxShadow: '0 14px 30px -10px rgba(11,59,58,0.45)' }}
         onClick={() => navigate('/holdings/segment/total')}
       >
