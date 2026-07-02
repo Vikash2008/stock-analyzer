@@ -164,19 +164,19 @@ function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor
       }}
       onClick={onClick}
     >
-      <p className="text-[9.5px] font-bold text-slate-500 uppercase tracking-[1.2px] mb-0.5">{card.label}</p>
+      <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[1.2px] mb-0.5">{card.label}</p>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[14px] font-bold text-slate-900">{fmt(card.current * scale, currency)}</span>
-        <span className="text-[9.5px] font-bold px-2 py-[3px] rounded-full whitespace-nowrap" style={{ background: xirr == null ? '#e2e8f0' : (xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2'), color: xirr == null ? '#64748b' : (xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b') }}>XIRR {xirr == null ? '—' : `${xirr.toFixed(1)}%`}</span>
+        <span className="text-[16px] font-bold text-slate-900">{fmt(card.current * scale, currency)}</span>
+        <span className="text-[11px] font-bold px-2 py-[3px] rounded-full whitespace-nowrap" style={{ background: xirr == null ? '#e2e8f0' : (xirr >= 0 ? (pillBlue ? '#bfdbfe' : '#d1fae5') : '#fee2e2'), color: xirr == null ? '#64748b' : (xirr >= 0 ? (pillBlue ? '#1e40af' : '#065f46') : '#991b1b') }}>XIRR {xirr == null ? '—' : `${xirr.toFixed(1)}%`}</span>
       </div>
       <div className="flex justify-between mt-1 pt-1 border-t border-slate-100">
         <div className="flex flex-col gap-0.5">
-          <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Today</span>
-          <span className="text-[10px] font-bold whitespace-nowrap" style={{ color: (card.todayGain ?? 0) >= 0 ? '#059669' : '#e11d48' }}>{fmtCompactGainLine1((card.todayGain ?? 0) * scale, card.todayGain !== null ? todayPct : 0, currency)}</span>
+          <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Today</span>
+          <span className="text-[11.5px] font-bold whitespace-nowrap" style={{ color: (card.todayGain ?? 0) >= 0 ? '#059669' : '#e11d48' }}>{fmtCompactGainLine1((card.todayGain ?? 0) * scale, card.todayGain !== null ? todayPct : 0, currency)}</span>
         </div>
         <div className="flex flex-col gap-0.5 items-end">
-          <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Total</span>
-          <span className="text-[10px] font-bold whitespace-nowrap" style={{ color: pos ? '#059669' : '#e11d48' }}>{fmtCompactGainLine1(totalGain * scale, pct, currency)}</span>
+          <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Total</span>
+          <span className="text-[11.5px] font-bold whitespace-nowrap" style={{ color: pos ? '#059669' : '#e11d48' }}>{fmtCompactGainLine1(totalGain * scale, pct, currency)}</span>
         </div>
       </div>
     </div>
@@ -823,7 +823,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
   return (
     <div
-      className="max-w-xl mx-auto pt-1 pb-24 space-y-2"
+      className="max-w-xl mx-auto px-2 pt-1 pb-24 space-y-2"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -843,7 +843,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       )}
 
       {/* Page header */}
-      <div className="flex items-center justify-between px-4 py-2 mb-0" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+      <div className="flex items-center justify-between px-4 py-2 mb-3 rounded-xl" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
         <p className="text-[19px] font-extrabold text-white tracking-tight leading-tight">Overview</p>
         <div className="flex items-center gap-2">
           <button
@@ -1079,29 +1079,29 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
       {/* Hero card — Total Portfolio */}
       <div
-        className="-mt-2 rounded-[18px] p-4 cursor-pointer active:opacity-90 transition-opacity relative overflow-hidden"
+        className="rounded-[18px] p-4 cursor-pointer active:opacity-90 transition-opacity relative overflow-hidden"
         style={{ background: 'linear-gradient(150deg, #10243f 0%, #0b3b3a 100%)', boxShadow: '0 14px 30px -10px rgba(11,59,58,0.45)' }}
         onClick={() => navigate('/holdings/segment/total')}
       >
         <div className="absolute top-[-40px] right-[-40px] w-[160px] h-[160px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(45,212,191,0.25), transparent 70%)' }} />
-        <p className="relative text-[11px] font-bold text-[#99e6dc] uppercase tracking-[1.2px] mb-2.5">Total Portfolio</p>
+        <p className="relative text-[12px] font-bold text-[#99e6dc] uppercase tracking-[1.2px] mb-2.5">Total Portfolio</p>
         <div className="relative flex items-center justify-between gap-2 mb-1">
-          <span className="text-[24px] font-extrabold text-white">{fmt(hero.cur, 'INR')}</span>
+          <span className="text-[26px] font-extrabold text-white">{fmt(hero.cur, 'INR')}</span>
           {heroXirr !== null
-            ? <span className="text-[11px] font-bold rounded-full px-3 py-1 whitespace-nowrap shrink-0" style={{ background: 'rgba(45,212,191,0.18)', color: '#5eead4', border: '1px solid rgba(94,234,212,0.3)' }}>XIRR {fmtPct1(heroXirr!)}</span>
-            : <span className="text-[11px] font-bold rounded-full px-3 py-1 whitespace-nowrap shrink-0" style={{ background: 'rgba(45,212,191,0.18)', color: '#5eead4', border: '1px solid rgba(94,234,212,0.3)' }}>XIRR —</span>
+            ? <span className="text-[12.5px] font-bold rounded-full px-3 py-1 whitespace-nowrap shrink-0" style={{ background: 'rgba(45,212,191,0.18)', color: '#5eead4', border: '1px solid rgba(94,234,212,0.3)' }}>XIRR {fmtPct1(heroXirr!)}</span>
+            : <span className="text-[12.5px] font-bold rounded-full px-3 py-1 whitespace-nowrap shrink-0" style={{ background: 'rgba(45,212,191,0.18)', color: '#5eead4', border: '1px solid rgba(94,234,212,0.3)' }}>XIRR —</span>
           }
         </div>
         <div className="relative flex justify-between pt-2.5 mt-2.5" style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }}>
           <div className="flex flex-col gap-0.5">
-            <span className="text-[8px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.45)' }}>Today</span>
-            <span className="text-[13px] font-bold whitespace-nowrap" style={{ color: hero.todayGain >= 0 ? '#5eead4' : '#fca5a5' }}>
+            <span className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.45)' }}>Today</span>
+            <span className="text-[14.5px] font-bold whitespace-nowrap" style={{ color: hero.todayGain >= 0 ? '#5eead4' : '#fca5a5' }}>
               {hero.todayGain !== 0 ? fmtCompactGainLine1(hero.todayGain, hero.todayPct, 'INR') : '—'}
             </span>
           </div>
           <div className="flex flex-col gap-0.5 items-end">
-            <span className="text-[8px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.45)' }}>Total</span>
-            <span className="text-[13px] font-bold whitespace-nowrap" style={{ color: heroPos ? '#5eead4' : '#fca5a5' }}>
+            <span className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.45)' }}>Total</span>
+            <span className="text-[14.5px] font-bold whitespace-nowrap" style={{ color: heroPos ? '#5eead4' : '#fca5a5' }}>
               {fmtCompactGainLine1(hero.totalGain, hero.returnPct, 'INR')}
             </span>
           </div>
@@ -1131,19 +1131,19 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               }}
               onClick={() => navigate(`/holdings/bucket/${encodeURIComponent('Asset Class')}/${encodeURIComponent(label)}`)}
             >
-              <p className="text-[9.5px] font-bold text-slate-500 uppercase tracking-[1.2px] mb-1">{label}</p>
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[1.2px] mb-1">{label}</p>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[14px] font-bold text-slate-900">{fmt(stats.cur, 'INR')}</span>
-                <span className="text-[9.5px] font-bold px-2 py-[3px] rounded-full whitespace-nowrap" style={{ background: xirr == null ? '#e2e8f0' : (xirr >= 0 ? '#d1fae5' : '#fee2e2'), color: xirr == null ? '#64748b' : (xirr >= 0 ? '#065f46' : '#991b1b') }}>XIRR {xirr == null ? '—' : `${xirr.toFixed(1)}%`}</span>
+                <span className="text-[16px] font-bold text-slate-900">{fmt(stats.cur, 'INR')}</span>
+                <span className="text-[11px] font-bold px-2 py-[3px] rounded-full whitespace-nowrap" style={{ background: xirr == null ? '#e2e8f0' : (xirr >= 0 ? '#d1fae5' : '#fee2e2'), color: xirr == null ? '#64748b' : (xirr >= 0 ? '#065f46' : '#991b1b') }}>XIRR {xirr == null ? '—' : `${xirr.toFixed(1)}%`}</span>
               </div>
               <div className="flex justify-between mt-1.5 pt-1.5 border-t border-slate-100">
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Today</span>
-                  <span className="text-[10px] font-bold whitespace-nowrap" style={{ color: tgC }}>{fmtCompactGainLine1(stats.todayGain, stats.todayPct ?? 0, 'INR')}</span>
+                  <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Today</span>
+                  <span className="text-[11.5px] font-bold whitespace-nowrap" style={{ color: tgC }}>{fmtCompactGainLine1(stats.todayGain, stats.todayPct ?? 0, 'INR')}</span>
                 </div>
                 <div className="flex flex-col gap-0.5 items-end">
-                  <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Total</span>
-                  <span className="text-[10px] font-bold whitespace-nowrap" style={{ color: tc }}>{fmtCompactGainLine1(stats.gain, stats.pct, 'INR')}</span>
+                  <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Total</span>
+                  <span className="text-[11.5px] font-bold whitespace-nowrap" style={{ color: tc }}>{fmtCompactGainLine1(stats.gain, stats.pct, 'INR')}</span>
                 </div>
               </div>
             </div>
@@ -1160,7 +1160,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               <button
                 key={m}
                 onClick={() => setMode(m)}
-                className={`relative z-10 flex-1 text-[11px] px-3 py-[4px] rounded-full whitespace-nowrap transition-colors font-semibold ${mode === m ? 'text-white shadow-sm' : ''}`}
+                className={`relative z-10 flex-1 text-[12.5px] px-3 py-[4px] rounded-full whitespace-nowrap transition-colors font-semibold ${mode === m ? 'text-white shadow-sm' : ''}`}
                 style={mode === m ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : { color: '#0b3b3a' }}
               >
                 {m === 'broker' ? 'By Broker' : `By ${m}`}
@@ -1287,10 +1287,10 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                           {s.symbol.slice(0, 2).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[12.5px] font-bold text-slate-900">{s.symbol}</p>
-                          <p className="text-[10.5px] text-slate-400 truncate">{s.name}</p>
+                          <p className="text-[14px] font-bold text-slate-900">{s.symbol}</p>
+                          <p className="text-[12px] text-slate-400 truncate">{s.name}</p>
                         </div>
-                        <span className="text-[9.5px] font-bold px-2 py-[3px] rounded-full shrink-0 whitespace-nowrap" style={{ background: badgeBg, color: badgeClr }}>{s.exchange}</span>
+                        <span className="text-[11px] font-bold px-2 py-[3px] rounded-full shrink-0 whitespace-nowrap" style={{ background: badgeBg, color: badgeClr }}>{s.exchange}</span>
                       </button>
                     )
                   })}
