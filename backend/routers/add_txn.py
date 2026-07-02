@@ -21,6 +21,7 @@ from src.cache import Cache
 from src.data_loader import EXCHANGE_SUFFIXES, load_transactions
 from src.engine import build
 from backend.serializers import serialize_bundle
+from backend.routers.portfolio_history import clear_portfolio_history_cache
 
 router = APIRouter()
 
@@ -139,6 +140,7 @@ async def add_transaction(
     bundle   = build(csv_content=new_csv)
     data     = serialize_bundle(bundle)
     data["csv_hash"] = new_hash
+    clear_portfolio_history_cache()  # new txn changes qty/invested — the 30-min chart cache must not serve pre-edit numbers
 
     return JSONResponse(content={"portfolio": data, "csv": new_csv, "csv_hash": new_hash})
 
@@ -305,5 +307,6 @@ async def delete_holding(
     bundle   = build(csv_content=new_csv)
     data     = serialize_bundle(bundle)
     data["csv_hash"] = new_hash
+    clear_portfolio_history_cache()  # deletion changes qty/invested — same reasoning as add_transaction above
 
     return JSONResponse(content={"portfolio": data, "csv": new_csv, "csv_hash": new_hash})

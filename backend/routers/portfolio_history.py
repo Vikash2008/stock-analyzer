@@ -14,8 +14,11 @@ from __future__ import annotations
 import calendar
 import ctypes
 import gc
+import pickle
+import threading
 import time
 from collections import defaultdict
+from pathlib import Path
 from typing import Optional
 
 import pandas as pd
@@ -35,7 +38,176 @@ except OSError:
     _libc = None
 
 _cache: dict[str, tuple[dict, float]] = {}
-_CACHE_TTL = 1800.0  # 30 minutes
+# 5 min (was 30) — the original 30-min TTL was chosen back when every recompute meant a full
+# multi-year re-download for every symbol; the incremental price cache above (_price_cache)
+# made that cheap, so a shorter TTL no longer means proportionally more yfinance load. 5 min
+# also keeps the chart's "today" point from visibly disagreeing with HoldingCard/SummaryCard,
+# which already refresh every 2 min — 30 min let the chart lag up to 30 min behind them.
+_CACHE_TTL = 300.0
+
+# Below this point count, a shrink comparison isn't meaningful — short real histories exist
+# (e.g. a portfolio that only started a few weeks ago).
+_MIN_HEALTHY_POINTS = 30
+
+
+def _guard_result(cache_key: str, prev: Optional[dict], fresh: dict) -> dict:
+    """Defense against a bad/partial yf.download() silently overwriting a good cache for the
+    full 30-min TTL. Unlike the frontend's incremental per-symbol cache (useHistory.ts), this
+    endpoint always does one atomic recompute on a cache miss — so there's no delta-merge to
+    guard, but also no comparison at all against the previous good result. A transient Yahoo
+    rate-limit or a symbol's column coming back all-NaN mid-download would otherwise be cached
+    and served to every user unchanged. Mirrors guardFullResponse() in useHistory.ts."""
+    prev_n = len(prev["dates"]) if prev else 0
+    fresh_n = len(fresh["dates"])
+    if prev_n < _MIN_HEALTHY_POINTS or fresh_n >= prev_n * 0.5:
+        fresh["guardRejected"] = False
+        return fresh
+    print(f"[portfolio_history] SUSPICIOUS SHRINK {cache_key}: fresh recompute had {fresh_n} "
+          f"points vs previous {prev_n} — keeping stale cache instead")
+    # Shallow copy — `prev` may still be referenced elsewhere in _cache; flip the flag on a
+    # copy so this rejection is visible to the caller without mutating the cached original.
+    # dataAsOf deliberately NOT bumped — the data itself didn't change, so the "as of" time
+    # shown to the user should keep reflecting when it was last genuinely good.
+    rejected = dict(prev)
+    rejected["guardRejected"] = True
+    return rejected
+
+
+# ── Incremental per-symbol price cache ──────────────────────────────────────────
+# Unlike history.py's _series_cache (trimmed to a short tail — the frontend's own IndexedDB
+# holds the deep history there), this endpoint is the ONLY place that holds raw multi-year
+# price series backing the aggregate chart: the frontend never receives per-symbol prices
+# from here, only the derived aggregate. So no trimming — every symbol's full history stays
+# resident once fetched, and each 30-min recompute only needs to fetch what's new since the
+# last run instead of redownloading years of data for every symbol every time.
+_PRICE_FILE = Path("data/.portfolio_hist_cache.pkl")
+_price_lock = threading.Lock()
+_PRICE_SAVE_DEBOUNCE = 5.0
+_last_price_write = 0.0
+
+
+def _load_price_cache() -> dict:
+    if _PRICE_FILE.exists():
+        try:
+            with open(_PRICE_FILE, "rb") as f:
+                return pickle.load(f)
+        except Exception:
+            pass
+    return {}
+
+
+def _persist_price_cache() -> None:
+    global _last_price_write
+    now = time.time()
+    if now - _last_price_write < _PRICE_SAVE_DEBOUNCE:
+        return
+    with _price_lock:
+        if now - _last_price_write < _PRICE_SAVE_DEBOUNCE:
+            return
+        _PRICE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(_PRICE_FILE, "wb") as f:
+            pickle.dump(_price_cache, f)
+        _last_price_write = now
+
+
+_price_cache: dict[str, dict] = _load_price_cache()  # yf_symbol -> {dates, prices, fetched_at}
+
+
+def _download_symbols(symbols: list[str], start) -> dict[str, dict]:
+    """Bulk-download close prices for `symbols` from `start`. Returns yf_symbol -> {dates, prices}."""
+    if not symbols:
+        return {}
+    try:
+        raw = yf.download(symbols, start=start, auto_adjust=True, progress=False, threads=False)
+    except Exception as e:
+        print(f"[portfolio_history] download error: {e}")
+        return {}
+    if raw.empty:
+        return {}
+
+    out: dict[str, dict] = {}
+
+    def _series_to_entry(s: pd.Series) -> Optional[dict]:
+        s = s.dropna()
+        if s.empty:
+            return None
+        idx = s.index
+        if hasattr(idx, "tz") and idx.tz is not None:
+            idx = idx.tz_localize(None)
+        return {
+            "dates":  idx.strftime("%Y-%m-%d").tolist(),
+            "prices": [round(float(p), 4) for p in s.tolist()],
+        }
+
+    if isinstance(raw.columns, pd.MultiIndex):
+        lvl0 = raw.columns.get_level_values(0)
+        if "Close" not in lvl0:
+            return {}
+        close = raw["Close"]
+        for sym in symbols:
+            if sym not in close.columns:
+                continue
+            entry = _series_to_entry(close[sym])
+            if entry:
+                out[sym] = entry
+    elif "Close" in raw.columns:
+        # A single-symbol request can collapse to flat (non-MultiIndex) columns.
+        entry = _series_to_entry(raw["Close"])
+        if entry:
+            out[symbols[0]] = entry
+
+    return out
+
+
+def _ensure_prices(symbols: list[str], needed_from: str) -> None:
+    """Make sure _price_cache has fresh, sufficiently-deep data for every symbol in `symbols`
+    — fetching only what's missing or new instead of redownloading full history every tick."""
+    missing_syms: list[str] = []
+    stale_syms:   list[str] = []
+    for s in symbols:
+        entry = _price_cache.get(s)
+        if not entry or not entry.get("dates") or entry["dates"][0] > needed_from:
+            # No cache, or cache doesn't reach back far enough for this request
+            # (e.g. a narrower filter cached a later start than a broader one now needs).
+            missing_syms.append(s)
+        else:
+            stale_syms.append(s)
+
+    if missing_syms:
+        fresh = _download_symbols(missing_syms, needed_from)
+        now = time.time()
+        for sym, entry in fresh.items():
+            _price_cache[sym] = {**entry, "fetched_at": now}
+
+    if stale_syms:
+        # One bulk delta call covers all of them, from the earliest last-cached-bar among
+        # them — symbols already fully current just get overlapping/no new data back.
+        since = min(_price_cache[s]["dates"][-1] for s in stale_syms if _price_cache[s]["dates"])
+        delta = _download_symbols(stale_syms, since)
+        now = time.time()
+        for sym in stale_syms:
+            d = delta.get(sym)
+            if not d or not d["dates"]:
+                continue
+            cached = _price_cache[sym]
+            merged = dict(zip(cached["dates"], cached["prices"]))
+            merged.update(dict(zip(d["dates"], d["prices"])))
+            dates = sorted(merged.keys())
+            _price_cache[sym] = {
+                "dates": dates, "prices": [merged[dt] for dt in dates], "fetched_at": now,
+            }
+
+    _persist_price_cache()
+    _force_trim()
+
+
+def clear_portfolio_history_cache() -> None:
+    """Called by mutating endpoints (add-txn, delete-holding, CSV reimport) so a portfolio
+    change shows up immediately instead of waiting out the 30-min result cache. Only clears
+    the computed-result cache — _price_cache (raw prices) is still valid, a transaction edit
+    doesn't change historical prices, so the next request recomputes from cache with no
+    redownload needed."""
+    _cache.clear()
 
 
 def _force_trim() -> None:
@@ -67,20 +239,35 @@ def _safe_float(v, default: float = 0.0) -> float:
         return default
 
 
-def _compute(currency: str, portfolio_filter: Optional[str], segment: Optional[str]) -> dict:
+def _compute(
+    currency: str,
+    portfolio_filter: Optional[str],
+    segment: Optional[str],
+    symbol_filter: Optional[str] = None,
+) -> dict:
     empty = {
         "dates": [], "values": [], "invested": [], "unrealized": [],
         "realized": [], "total": [], "returnPct": [],
         "xirrTrend": {"dates": [], "values": []},
+        "dataAsOf": time.time(), "guardRejected": False, "todayMismatch": False,
     }
 
     bundle = build(currency=currency)
     usd_inr = bundle.usd_inr or 95.5
 
+    # Comma-separated so both callers share one param: the Holdings page passes a single
+    # portfolio name (or none, for "all"); the Txn page passes an explicit list when a
+    # symbol is held across multiple specific portfolios (e.g. navigated from a segment
+    # view). Passing none at all (the Txn page's "aggregate" navigation case) already
+    # means "every non-skip portfolio", identical to the existing no-filter default.
+    portfolio_filter_set = (
+        {p.strip() for p in portfolio_filter.split(",") if p.strip()} if portfolio_filter else None
+    )
+
     def port_ok(port: str) -> bool:
         if port in _SKIP_PORTS:
             return False
-        if portfolio_filter and port != portfolio_filter:
+        if portfolio_filter_set and port not in portfolio_filter_set:
             return False
         return _segment_ok(port, segment)
 
@@ -95,6 +282,14 @@ def _compute(currency: str, portfolio_filter: Optional[str], segment: Optional[s
     if "portfolio" in df_realized.columns:
         df_realized = df_realized[df_realized["portfolio"].apply(port_ok)]
 
+    if symbol_filter:
+        if "symbol" in df_txns.columns:
+            df_txns = df_txns[df_txns["symbol"] == symbol_filter]
+        if "symbol" in df_holdings.columns:
+            df_holdings = df_holdings[df_holdings["symbol"] == symbol_filter]
+        if "symbol" in df_realized.columns:
+            df_realized = df_realized[df_realized["symbol"] == symbol_filter]
+
     buy_sell = df_txns[df_txns["type"].isin(["BUY", "SELL"])] if "type" in df_txns.columns else pd.DataFrame()
     if buy_sell.empty:
         return empty
@@ -106,39 +301,42 @@ def _compute(currency: str, portfolio_filter: Optional[str], segment: Optional[s
     earliest = pd.to_datetime(buy_sell["date"]).min() - pd.Timedelta(days=30)
     start_dt = earliest.strftime("%Y-%m-%d")
 
-    # ── Bulk price download ────────────────────────────────────────────────────
-    print(f"[portfolio_history] bulk download {len(symbols)} symbols from {start_dt}")
-    try:
-        raw = yf.download(symbols, start=start_dt, auto_adjust=True, progress=False, threads=False)
-        if raw.empty:
-            df_close: pd.DataFrame = pd.DataFrame()
-        elif isinstance(raw.columns, pd.MultiIndex):
-            lvl0 = raw.columns.get_level_values(0)
-            df_close = raw["Close"].copy() if "Close" in lvl0 else pd.DataFrame()
-        elif "Close" in raw.columns:
-            df_close = raw[["Close"]].rename(columns={"Close": symbols[0]}).copy()
-        else:
-            df_close = pd.DataFrame()
+    # ── Incremental price fetch ─────────────────────────────────────────────────
+    # _ensure_prices only downloads what's missing/new for each symbol (see its docstring)
+    # instead of redownloading full multi-year history on every 30-min recompute.
+    print(f"[portfolio_history] ensuring prices for {len(symbols)} symbols from {start_dt}")
+    _ensure_prices(symbols, start_dt)
 
-        if not df_close.empty:
-            if hasattr(df_close.index, "tz") and df_close.index.tz is not None:
-                df_close.index = df_close.index.tz_localize(None)
-            df_close.index = df_close.index.strftime("%Y-%m-%d")
-    except Exception as e:
-        print(f"[portfolio_history] download error: {e}")
+    price_rows: dict[str, dict[str, float]] = {}
+    for sym in symbols:
+        entry = _price_cache.get(sym)
+        if not entry:
+            continue
+        for d, p in zip(entry["dates"], entry["prices"]):
+            price_rows.setdefault(d, {})[sym] = p
+
+    if price_rows:
+        # Deliberately NOT reindexed to include every requested symbol as a column — a
+        # symbol with no price data at all (e.g. a NAV-based MF with nothing on yfinance)
+        # must stay absent from df_close.columns so `has_col` below is correctly False and
+        # the const_px/current_price fallback path is used, same as the pre-cache behavior.
+        df_close = pd.DataFrame.from_dict(price_rows, orient="index").sort_index()
+    else:
         df_close = pd.DataFrame()
-
-    del raw  # type: ignore[possibly-undefined]
-    _force_trim()
 
     # ── Build qty-delta map ────────────────────────────────────────────────────
     qty_deltas: dict[str, list[tuple[str, float]]] = defaultdict(list)
     first_tx_date: dict[str, str] = {}
+    # BUY-only running totals per key — the only way to derive avg_cost for a CLOSED
+    # position, which has no row in df_holdings at all to read avg_cost from (the FIFO
+    # engine drops a symbol from "holdings" once fully exited).
+    buy_totals: dict[str, tuple[float, float]] = {}
 
     for _, tx in buy_sell.iterrows():
-        key  = f"{tx['portfolio']}:{tx['yf_symbol']}"
-        d    = str(tx["date"])[:10]
-        delta = _safe_float(tx["quantity"]) if tx["type"] == "BUY" else -_safe_float(tx["quantity"])
+        key   = f"{tx['portfolio']}:{tx['yf_symbol']}"
+        d     = str(tx["date"])[:10]
+        qty_  = _safe_float(tx["quantity"])
+        delta = qty_ if tx["type"] == "BUY" else -qty_
         arr  = qty_deltas[key]
         merged = False
         for i, (ed, ev) in enumerate(arr):
@@ -150,6 +348,10 @@ def _compute(currency: str, portfolio_filter: Optional[str], segment: Optional[s
             arr.append((d, delta))
         if key not in first_tx_date or d < first_tx_date[key]:
             first_tx_date[key] = d
+        if tx["type"] == "BUY":
+            cost = qty_ * _safe_float(tx["price"]) + _safe_float(tx.get("charges", 0))
+            tq, tc = buy_totals.get(key, (0.0, 0.0))
+            buy_totals[key] = (tq + qty_, tc + cost)
 
     for k in qty_deltas:
         qty_deltas[k].sort()
@@ -160,24 +362,39 @@ def _compute(currency: str, portfolio_filter: Optional[str], segment: Optional[s
     inv_arr = [0.0] * n
 
     # ── Per-holding value contribution ────────────────────────────────────────
-    seen_keys: set[str] = set()
+    # Walk every portfolio:symbol key that ever had a BUY/SELL — not just currently-open
+    # holdings. df_holdings only contains OPEN positions, so limiting this loop to it would
+    # silently drop a fully-sold symbol's entire historical contribution to Value/Invested,
+    # not just after the exit but for every date it WAS held — understating both series.
+    holdings_by_key: dict[str, "pd.Series"] = {}
     for _, h in df_holdings.iterrows():
-        port   = str(h["portfolio"])
-        yf_sym = str(h["yf_symbol"])
-        key    = f"{port}:{yf_sym}"
-        if key in seen_keys:
-            continue
-        seen_keys.add(key)
+        holdings_by_key.setdefault(f"{h['portfolio']}:{h['yf_symbol']}", h)
+
+    for key in set(holdings_by_key) | set(qty_deltas):
+        port, yf_sym = key.split(":", 1)
 
         is_usd = port in _USD_PORTS
         fx = (usd_inr if is_usd else 1.0) if currency == "INR" else (1.0 if is_usd else 1.0 / usd_inr)
 
-        avg_cost = _safe_float(h.get("avg_cost"))
-        deltas   = qty_deltas.get(key, [])
-        first    = first_tx_date.get(key, "")
+        has_col = not df_close.empty and yf_sym in df_close.columns
+        h = holdings_by_key.get(key)
 
-        has_col  = not df_close.empty and yf_sym in df_close.columns
-        const_px = _safe_float(h.get("current_price")) if not has_col else None
+        if h is not None:
+            avg_cost = _safe_float(h.get("avg_cost"))
+            const_px = _safe_float(h.get("current_price")) if not has_col else None
+        else:
+            # Closed position — no live holdings row. avg_cost comes from its own BUY
+            # history instead (same method the frontend's Txn-page chart already used for
+            # synthetic closed-holding entries before this endpoint covered them itself).
+            # const_px falls back to 0 (matches the frontend's synthetic-holding fallback)
+            # — a closed symbol with literally no price data can't have its value curve
+            # reconstructed either way, and qty is 0 by "today" regardless.
+            tq, tc = buy_totals.get(key, (0.0, 0.0))
+            avg_cost = tc / tq if tq > 0 else 0.0
+            const_px = 0.0 if not has_col else None
+
+        deltas = qty_deltas.get(key, [])
+        first  = first_tx_date.get(key, "")
 
         qty = 0.0
         di  = 0
@@ -217,13 +434,36 @@ def _compute(currency: str, portfolio_filter: Optional[str], segment: Optional[s
     today_val = float(df_holdings["disp_current"].sum())  if "disp_current"  in df_holdings.columns else 0.0
     today_inv = float(df_holdings["disp_invested"].sum()) if "disp_invested" in df_holdings.columns else 0.0
 
-    if all_dates and all_dates[-1] == today_str:
+    # Capture what the historical qty-walk itself arrived at for today, BEFORE it gets
+    # overwritten by the live total below — comparing the two catches exactly the class of
+    # bug that caused the original "7-day jump" report (the historical build-up silently
+    # diverging from the true total) instead of only ever masking it with the pin.
+    pinned_today = bool(all_dates and all_dates[-1] == today_str)
+    computed_today_val = val_arr[-1] if pinned_today else None
+    computed_today_inv = inv_arr[-1] if pinned_today else None
+
+    if pinned_today:
         val_arr[-1] = today_val
         inv_arr[-1] = today_inv
     else:
         all_dates.append(today_str)
         val_arr.append(today_val)
         inv_arr.append(today_inv)
+
+    def _mismatch(computed: Optional[float], live: float) -> bool:
+        if computed is None or live <= 0:
+            return False
+        diff = abs(computed - live)
+        # Needs both a meaningful absolute AND relative gap — avoids flagging small accounts
+        # on ordinary FX-rounding noise while still catching a real divergence.
+        return diff > 10_000 and diff / live > 0.02
+
+    today_mismatch = _mismatch(computed_today_val, today_val) or _mismatch(computed_today_inv, today_inv)
+    if today_mismatch:
+        print(f"[portfolio_history] TODAY MISMATCH {currency}:{portfolio_filter or ''}:{segment or ''}:"
+              f"{symbol_filter or ''} — historical walk computed value={computed_today_val}, "
+              f"invested={computed_today_inv} but live totals are value={today_val:.0f}, "
+              f"invested={today_inv:.0f} — chart may be inaccurate")
 
     start_idx = next((i for i, v in enumerate(val_arr) if v > 0), -1)
     if start_idx < 0:
@@ -338,21 +578,32 @@ def _compute(currency: str, portfolio_filter: Optional[str], segment: Optional[s
         "total":      total_arr,
         "returnPct":  return_pct,
         "xirrTrend":  {"dates": xirr_dates, "values": xirr_vals},
+        # dataAsOf: when this was actually computed from live data — distinct from the outer
+        # _cache's own timestamp, which bumps on every retry attempt even when guard_result
+        # rejects the attempt and keeps old data. This is what the frontend should show as
+        # "as of" — it stays honest about how old the DATA really is, not how recently we
+        # last checked.
+        "dataAsOf":      time.time(),
+        "guardRejected": False,  # _guard_result flips this to True if it rejects this result
+        "todayMismatch": today_mismatch,
     }
 
 
 @router.get("/api/portfolio-history")
 def get_portfolio_history(
     currency:  str           = Query("INR"),
-    portfolio: Optional[str] = Query(None),
+    portfolio: Optional[str] = Query(None, description="Single portfolio name, or comma-separated list"),
     segment:   Optional[str] = Query(None),
+    symbol:    Optional[str] = Query(None, description="Clean symbol (not yf_symbol) — scopes to one holding, e.g. the Txn-page chart"),
 ) -> dict:
-    cache_key = f"{currency}:{portfolio or ''}:{segment or ''}"
-    if cache_key in _cache:
-        result, ts = _cache[cache_key]
+    cache_key = f"{currency}:{portfolio or ''}:{segment or ''}:{symbol or ''}"
+    prev_entry = _cache.get(cache_key)
+    if prev_entry:
+        result, ts = prev_entry
         if time.time() - ts < _CACHE_TTL:
             return result
 
-    result = _compute(currency, portfolio, segment)
+    fresh = _compute(currency, portfolio, segment, symbol)
+    result = _guard_result(cache_key, prev_entry[0] if prev_entry else None, fresh)
     _cache[cache_key] = (result, time.time())
     return result

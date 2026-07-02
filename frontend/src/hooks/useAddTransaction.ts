@@ -54,6 +54,10 @@ export function useAddTransaction() {
       qc.setQueryData(['portfolio'], data.portfolio)
       clearDividendLocalCache()
       qc.invalidateQueries({ queryKey: ['dividends'] })
+      // The aggregate chart (Invested/Value/Total lines) has its own 30-min staleTime and
+      // was never told a transaction changed — without this it'd keep showing pre-edit
+      // numbers until that timer runs out on its own.
+      qc.invalidateQueries({ predicate: q => q.queryKey[0] === 'portfolio-history' })
     },
   })
 }

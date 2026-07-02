@@ -77,6 +77,16 @@ export function lsGet(key: string, ttlMs: number = LS_TTL): HistoryData | undefi
   return readLsEntry(key, ttlMs)?.d
 }
 
+// TTL-agnostic read — used only as a shrink-guard baseline. A cache entry past its TTL is
+// still the best evidence of what "complete" history should look like; discarding it entirely
+// (as lsGet does) leaves guardFullResponse() with nothing to compare against right when it's
+// most needed — the first fetch after a cache expires is exactly when the backend's trimmed
+// resident-cache slice (15-day _series_cache) is likeliest to get mislabeled as "complete" and
+// silently truncate a multi-year history down to ~15 days.
+export function lsGetStale(key: string): HistoryData | undefined {
+  return idbGet<{ d: HistoryData; t: number }>(LS_PREFIX + key)?.d
+}
+
 // Real wall-clock timestamp the cached entry was written — fed to React Query as
 // `initialDataUpdatedAt` so staleTime is judged against the actual last-fetch time
 // instead of "just mounted" (which would otherwise look stale on every app reopen).
@@ -131,7 +141,7 @@ export function usePrefetchHoldingCharts(yf_symbols: string[]) {
                 ? await fetchHistory(sym, '2015-01-01')  // basis shifted — discard cache, refetch clean
                 : mergeHistory(existing, fetched)
             } else {
-              data = guardFullResponse(existing, fetched, sym)
+              data = guardFullResponse(existing ?? lsGetStale(lsk), fetched, sym)
             }
             if (data.dates?.length) lsSet(lsk, data)
             return data
@@ -188,7 +198,7 @@ export function useHistory(yf_symbol: string | null, start: string | null, perio
           ? await fetchHistory(yf_symbol!, start, period)  // basis shifted — discard cache, refetch clean
           : mergeHistory(cached, fetched)
       } else if (!period) {
-        data = guardFullResponse(cached, fetched, yf_symbol ?? '')
+        data = guardFullResponse(cached ?? lsGetStale(lsKey), fetched, yf_symbol ?? '')
       }
       // persist to localStorage so next cold-start shows data immediately
       if (data.dates?.length) lsSet(lsKey, data)

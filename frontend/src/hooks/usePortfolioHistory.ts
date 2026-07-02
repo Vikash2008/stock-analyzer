@@ -1,11 +1,7 @@
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo } from 'react'
-import type { Holding, Transaction, Realized } from '../api/types'
-import type { Currency } from '../App'
-import { USD_PORTS } from '../utils/segments'
-import { computeXIRR } from '../utils/xirr'
-import { lsGet, lsSet, lsGetTimestamp, mergeHistory, detectDrift, guardFullResponse, fetchHistory, CLOSED_LS_TTL, REFRESH_MS } from './useHistory'
-import { logDebug } from '../utils/debugLog'
+import type { Holding } from '../api/types'
+import { lsGet, lsGetStale, lsSet, lsGetTimestamp, mergeHistory, detectDrift, guardFullResponse, fetchHistory, CLOSED_LS_TTL, REFRESH_MS } from './useHistory'
 
 // Separate 3-year key — isolates symbolPriceMap cache from the full-history chart cache in useHistory.ts.
 const lsKey = (sym: string) => `${sym}:3y`
@@ -21,7 +17,7 @@ async function fetchSymHistory(sym: string, start: string) {
       ? await fetchHistory(sym, start)  // basis shifted — discard cache, refetch clean
       : mergeHistory(existing, fetched)
   } else {
-    d = guardFullResponse(existing, fetched, sym)
+    d = guardFullResponse(existing ?? lsGetStale(lsKey(sym)), fetched, sym)
   }
   lsSet(lsKey(sym), d)
   return d
@@ -37,6 +33,12 @@ export interface PortfolioSeries {
   total:      DatedSeries
   returnPct:  DatedSeries
   xirrTrend:  DatedSeries
+  // When this data was genuinely last computed fresh — distinct from the query's own
+  // dataUpdatedAt, which can be more recent than this if the backend rejected a suspicious
+  // update and kept serving prior data (see guardRejected below).
+  dataAsOf:      number
+  guardRejected: boolean  // backend's shrink-guard rejected an update and kept prior data
+  todayMismatch: boolean  // the historical build-up disagreed with the live total for "today"
 }
 
 const RANGE_DAYS: Record<string, number> = {
@@ -51,12 +53,12 @@ export function sliceSeries(s: DatedSeries, range: string): DatedSeries | null {
   return i < 0 ? null : { dates: s.dates.slice(i), values: s.values.slice(i) }
 }
 
+// Raw per-symbol price fetch + symbolPriceMap only — the aggregate Value/Invested/etc.
+// series computation that used to live here moved to the backend (portfolio_history.py,
+// via useBackendPortfolioHistory) so both the Holdings-page and Txn-page charts share one
+// engine instead of duplicating the same math in TypeScript and Python.
 export function usePortfolioHistory(
   holdings:      Holding[],
-  transactions:  Transaction[],
-  realized:      Realized[],
-  usdInr:        number,
-  currency:      Currency,
   enabled:       boolean,
   extraSymbols?:    string[],  // additional symbols to fetch for symbolPriceMap (e.g. closed positions)
   closedSymbols?:   string[],  // subset of (holdings yf_symbols ∪ extraSymbols) that are fully exited
@@ -185,226 +187,5 @@ export function usePortfolioHistory(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, isFetching, loadedCount, symbols])
 
-  const series = useMemo((): PortfolioSeries | null => {
-    if (!enabled || !holdings.length) return null
-
-    const priceMap = symbolPriceMap
-    if (!priceMap.size) return null
-
-    // Union of all trading dates, sorted
-    const dateSet = new Set<string>()
-    for (const [, m] of priceMap) for (const dt of m.keys()) dateSet.add(dt)
-    const allDates = [...dateSet].sort()
-    if (!allDates.length) return null
-
-    // qty deltas: `portfolio:yf_symbol` → sorted [dateStr, netDelta][]
-    const qtyDelta  = new Map<string, [string, number][]>()
-    const firstDate = new Map<string, string>()
-
-    for (const tx of transactions) {
-      if (tx.type === 'DIVIDEND') continue
-      const delta   = tx.type === 'BUY' ? tx.quantity : -tx.quantity
-      const key     = `${tx.portfolio}:${tx.yf_symbol}`
-      const dateStr = tx.date.slice(0, 10)
-      if (!qtyDelta.has(key)) qtyDelta.set(key, [])
-      const arr = qtyDelta.get(key)!
-      const existing = arr.find(e => e[0] === dateStr)
-      if (existing) existing[1] += delta
-      else arr.push([dateStr, delta])
-      if (!firstDate.has(key) || dateStr < firstDate.get(key)!) firstDate.set(key, dateStr)
-    }
-    for (const arr of qtyDelta.values()) arr.sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)
-
-    const n      = allDates.length
-    const valArr = new Array<number>(n).fill(0)
-    const invArr = new Array<number>(n).fill(0)
-    // TEMP DIAGNOSTIC (chart skew investigation) — index ~7 days back, used below to catch
-    // which single holding's contribution actually jumped within the last week.
-    const idx7DaysAgo = Math.max(0, n - 8)
-
-    for (const h of holdings) {
-      const pm     = priceMap.get(h.yf_symbol)
-      const key    = `${h.portfolio}:${h.yf_symbol}`
-      const deltas = qtyDelta.get(key) ?? []
-      const first  = firstDate.get(key) ?? allDates[0]
-      const isUsd  = USD_PORTS.has(h.portfolio)
-      const fx     = isUsd ? (currency === 'INR' ? usdInr : 1) : (currency === 'USD' ? 1 / usdInr : 1)
-
-      // Fallback: holdings with no yfinance history (e.g. NAV-based MFs) use
-      // current_price as a constant so the last chart point matches summary.
-      const constPx = pm?.size ? null : h.current_price
-
-      // Pre-accumulate qty from transactions that predate the price history start.
-      // yfinance history may start later than the first BUY (e.g. 2018-01-01 but
-      // first BUY was 2017-07-24) — those deltas never appear in allDates otherwise.
-      let qty = 0
-      let di  = 0
-      while (di < deltas.length && deltas[di][0] < allDates[0]) { qty += deltas[di][1]; di++ }
-      qty = Math.max(0, qty)
-      let lastPx: number | null = null
-      let invAt7DaysAgo: number | null = null  // TEMP DIAGNOSTIC
-
-      for (let i = 0; i < n; i++) {
-        const d = allDates[i]
-        if (d < first) continue
-        // Catch up any deltas dated on/before `d` that fell on a non-trading day
-        // (market holiday) and so never landed exactly on an allDates entry —
-        // otherwise that BUY/SELL's effect on qty is silently dropped from the
-        // whole rest of the series, undercounting invested/value vs the live total.
-        while (di < deltas.length && deltas[di][0] <= d) { qty = Math.max(0, qty + deltas[di][1]); di++ }
-        if (pm?.size) {
-          const px = pm.get(d)
-          if (px !== undefined) lastPx = px
-        } else {
-          lastPx = constPx
-        }
-        if (lastPx === null || qty <= 0) continue
-        valArr[i] += lastPx     * qty * fx
-        invArr[i] += h.avg_cost * qty * fx
-        if (i === idx7DaysAgo) invAt7DaysAgo = h.avg_cost * qty * fx
-      }
-
-      // TEMP DIAGNOSTIC (chart skew investigation) — the series' running qty for this holding
-      // is derived independently from transaction deltas; it should land on the same qty the
-      // backend reports as truth. A mismatch here means this holding's contribution to the
-      // Invested/Value chart was built from the wrong quantity — log it so the next occurrence
-      // is caught with hard evidence instead of a guess. Remove once root-caused.
-      if (Math.abs(qty - h.quantity) > Math.max(1e-6, h.quantity * 0.01)) {
-        logDebug(`CHART-QTY-MISMATCH ${key}: series-qty=${qty} vs holding.quantity=${h.quantity} (ratio=${(h.quantity > 0 ? qty / h.quantity : 0).toFixed(2)})`)
-      }
-      // TEMP DIAGNOSTIC — final qty matching truth (above) doesn't rule out a holding whose
-      // OWN invested contribution jumped hugely within just the last ~week (e.g. a brand-new
-      // position, or a transient duplicate-then-corrected delta). Surface any holding whose
-      // last-week jump is large in absolute terms so the specific culprit symbol is named
-      // directly instead of inferred from the aggregate curve.
-      const invNow = h.avg_cost * qty * fx
-      const weekJump = invNow - (invAt7DaysAgo ?? 0)
-      if (weekJump > 20000) {
-        logDebug(`CHART-WEEK-JUMP ${key}: invested 7d-ago=${(invAt7DaysAgo ?? 0).toFixed(0)} now=${invNow.toFixed(0)} jump=${weekJump.toFixed(0)} qty=${qty} avg_cost=${h.avg_cost}`)
-      }
-    }
-
-    // Pin the last data point to live prices so the chart endpoint matches the summary card.
-    // yfinance history uses EOD closes; current_price is live (30-min cache). The gap = intraday move.
-    // disp_current/disp_invested are always INR from the backend — apply FX so today pin matches
-    // the same currency as the historical series computed above.
-    const todayStr = new Date().toISOString().slice(0, 10)
-    const todayFx  = currency === 'USD' ? 1 / usdInr : 1
-    let todayVal = 0, todayInv = 0
-    for (const h of holdings) {
-      todayVal += h.disp_current  * todayFx
-      todayInv += h.disp_invested * todayFx
-    }
-    if (allDates.length > 0 && allDates[allDates.length - 1] === todayStr) {
-      valArr[valArr.length - 1] = todayVal
-      invArr[invArr.length - 1] = todayInv
-    } else if (todayVal > 0) {
-      allDates.push(todayStr)
-      valArr.push(todayVal)
-      invArr.push(todayInv)
-    }
-
-    const startIdx = valArr.findIndex(v => v > 0)
-    if (startIdx < 0) return null
-
-    const datesSlice = allDates.slice(startIdx)
-    const dates      = datesSlice.map(d => new Date(d))
-    const values     = valArr.slice(startIdx)
-    const invested   = invArr.slice(startIdx)
-    const unrealized = values.map((v, i) => v - invested[i])
-
-    // Realized — cumulative by sell_date; cost basis tracked for true Return %
-    const realEvts = realized
-      .map(r => {
-        const isUsd = r.currency === 'USD'
-        const fx    = isUsd && currency === 'INR' ? usdInr : !isUsd && currency === 'USD' ? 1 / usdInr : 1
-        return {
-          d:    r.sell_date.slice(0, 10),
-          pnl:  r.realized_pnl * fx,
-          cost: r.type === 'SELL' ? r.quantity * r.buy_price * fx : 0,
-        }
-      })
-      .sort((a, b) => a.d < b.d ? -1 : 1)
-
-    const realVals     = new Array<number>(dates.length).fill(0)
-    const realCostVals = new Array<number>(dates.length).fill(0)
-    let cumReal = 0, cumRealCost = 0, ri = 0
-    for (let i = 0; i < datesSlice.length; i++) {
-      while (ri < realEvts.length && realEvts[ri].d <= datesSlice[i]) {
-        cumReal     += realEvts[ri].pnl
-        cumRealCost += realEvts[ri].cost
-        ri++
-      }
-      realVals[i]     = cumReal
-      realCostVals[i] = cumRealCost
-    }
-
-    const totalVals = unrealized.map((u, i) => u + realVals[i])
-    const returnPct = totalVals.map((tg, i) => {
-      const totalCost = invested[i] + realCostVals[i]
-      return totalCost > 0 ? tg / totalCost * 100 : 0
-    })
-
-    // XIRR trend — one data point per month-end
-    const xirrDates:  Date[]   = []
-    const xirrVals:   number[] = []
-
-    if (transactions.length > 0) {
-      const sortedTxns = [...transactions].sort((a, b) => a.date.localeCompare(b.date))
-      const runCfs: { date: Date; amount: number }[] = []
-      let ti = 0
-      const now = new Date()
-      const t0  = new Date(sortedTxns[0].date)
-      let y = t0.getFullYear(), mo = t0.getMonth()
-
-      while (true) {
-        const monthEnd = new Date(y, mo + 1, 0)   // last day of this month
-        const isCurrentPeriod = monthEnd > now
-        const me    = isCurrentPeriod ? now : monthEnd   // clamp to today for the in-progress month
-        const meStr = me.toISOString().slice(0, 10)
-
-        // Accumulate transactions up to this month-end
-        while (ti < sortedTxns.length && sortedTxns[ti].date.slice(0, 10) <= meStr) {
-          const tx    = sortedTxns[ti++]
-          const isUsd = USD_PORTS.has(tx.portfolio)
-          const fx    = isUsd ? (currency === 'INR' ? usdInr : 1) : (currency === 'USD' ? 1 / usdInr : 1)
-          const amt   = tx.quantity * tx.price * fx
-          const chg   = tx.charges  * fx
-          if      (tx.type === 'BUY')      runCfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
-          else if (tx.type === 'SELL')     runCfs.push({ date: new Date(tx.date), amount: amt - chg })
-          else if (tx.type === 'DIVIDEND') runCfs.push({ date: new Date(tx.date), amount: amt })
-        }
-
-        // Find portfolio value at this month-end from value series
-        let vIdx = datesSlice.length - 1
-        while (vIdx >= 0 && datesSlice[vIdx] > meStr) vIdx--
-
-        if (vIdx >= 0 && values[vIdx] > 0) {
-          const allCfs = [...runCfs, { date: me, amount: values[vIdx] }]
-          const r = computeXIRR(allCfs)
-          if (r !== null && isFinite(r) && r > -0.99 && r < 50) {
-            xirrDates.push(new Date(me))
-            xirrVals.push(r * 100)
-          }
-        }
-
-        if (isCurrentPeriod) break
-        mo++
-        if (mo > 11) { mo = 0; y++ }
-      }
-    }
-
-    return {
-      value:      { dates, values },
-      invested:   { dates, values: invested },
-      unrealized: { dates, values: unrealized },
-      realized:   { dates, values: realVals },
-      total:      { dates, values: totalVals },
-      returnPct:  { dates, values: returnPct },
-      xirrTrend:  { dates: xirrDates, values: xirrVals },
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, loadedCount, holdings, transactions, realized, usdInr, currency, symbols, symbolPriceMap])
-
-  return { series, isLoading, isFetching, loadedCount, totalCount: symbols.length, fetchingCount, symbolPriceMap, lastFetchedAt }
+  return { isLoading, isFetching, loadedCount, totalCount: symbols.length, fetchingCount, symbolPriceMap, lastFetchedAt }
 }

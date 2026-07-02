@@ -384,7 +384,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           // jumping ~50% after a reimport. Clearing the cache forces a full, non-merged fetch so
           // every reimport's chart is built from one internally consistent series.
           for (const k of idbKeys('hist:')) idbDelete(k)
-          qc.invalidateQueries({ predicate: q => q.queryKey[0] === 'history' || q.queryKey[0] === 'history-closed' })
+          qc.invalidateQueries({ predicate: q => q.queryKey[0] === 'history' || q.queryKey[0] === 'history-closed' || q.queryKey[0] === 'portfolio-history' })
           localStorage.removeItem('portfolio:import:lastError')
           setLastImportError(null)
         } else {

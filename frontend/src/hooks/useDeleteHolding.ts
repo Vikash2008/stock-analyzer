@@ -48,6 +48,9 @@ export function useDeleteHolding() {
       qc.setQueryData(['portfolio'], data.portfolio)
       clearDividendLocalCache()
       qc.invalidateQueries({ queryKey: ['dividends'] })
+      // See useAddTransaction.ts — the aggregate chart's own 30-min staleTime never learns
+      // about a deletion on its own, so it must be told explicitly here too.
+      qc.invalidateQueries({ predicate: q => q.queryKey[0] === 'portfolio-history' })
     },
   })
 }
