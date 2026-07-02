@@ -11,6 +11,55 @@
 | 2026-05-24 | PWA manifest added | "Add to Home Screen" opens standalone (no browser bar) |
 | 2026-05-24 | Fixed P&L double-count | Equity + MF_Portfolio (SKIP_PORTS) excluded from all totals |
 
+### 2026-07-02 (session 161)
+
+**Dark teal green applied to Charts/Dividends/FX tabs** — Holdings Charts tab metric buttons + range selector, `DividendsTab.tsx`, and `FxGainsTab.tsx` all switched their selected/accent colors from mixed per-metric hues (blue/violet/pink/rose/teal-500) to the shared `#0b3b3a→#0d9488` gradient (or flat `#0b3b3a` for text), matching the summary card. Chart metrics strip's outer container fill/border removed per follow-up (buttons only, no wrapper chrome).
+
+**Top bar + hero/summary card unified across Overview, Holdings, and Txn pages** — `TransactionsPage.tsx` nav bar and per-symbol card rebuilt to match Holdings exactly (same gradient nav bar, same `SummaryCard` component instead of bespoke markup). `PortfoliosPage.tsx`'s "Total Portfolio" hero card also switched from bespoke markup to the shared `SummaryCard` (added `onClick` prop to the component for hero-card navigation). All three nav bars set to `min-h-[46px]` (not `min-h-[30px]` — Tailwind border-box sizing counts padding, so a 30px min-height on a `py-2` bar under-sized it by 16px versus the naturally-30px-content Holdings bar). Gap between nav bar and card set to `mb-[3px]` (halved from `mb-1.5` per follow-up) and the `pt-1` above the nav bar removed on all three, so the bar sits flush at the top everywhere.
+
+**Dividend/FX toggle display bug fixed** — `SummaryCard` was hiding the Dividend/FX row whenever the amount was exactly 0, making "toggle off" indistinguishable from "toggle on but ₹0". Callers (`HoldingsPage.tsx`, `PortfoliosPage.tsx`) now pass `dividends`/`fxGain` whenever their respective toggle is on (not gated on `amount > 0`), and `SummaryCard` renders the row based on the prop being defined, not its value.
+
+### 2026-07-02 (session 159)
+
+**Manage Portfolio / Manage Buckets / Delete Holding modals matched to Settings design language** — headers switched to `linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)` with circular `✕` close button (same shell as `ManageBucketsModal`/Settings popover); Delete Holding's boxes/borders/toggle recolored from rose to emerald, keeping red only on the actual Delete/Continue destructive buttons.
+
+**ManagePortfolioModal repositioned + compacted** — moved from centered overlay to anchored top-right (`right` computed via `calc((100vw-576px)/2 + 0.75rem)` so it hugs the app's `max-w-xl` column edge on desktop instead of the raw browser edge); option rows tightened (smaller padding/text) with labels colored `#0b3b3a`.
+
+**ManageBucketsModal redesigned** — bucket list is now white cards with a tinted header strip and icon-based delete (trash icon) instead of plain text rows; label rows use a grip-dots drag handle; width reduced to 320px, "add label" input moved into the bucket header row (next to hide-toggle/delete), and "+ Create bucket" moved to the top next to the bucket count for a smaller, denser modal.
+
+### 2026-06-29 (session 156)
+
+**Dividends loading progress bar** — replaced "Fetching… ~30s" spinner with determinate `h-1` teal bar showing `loadedCount / totalCount` symbols. Same bar used during background re-fetch (replaces infinite-sweep animation when `totalCount > 0`).
+
+**PriceChart "Fetching more data…" indicator** — background-fetch indicator upgraded from `text-[9px] text-slate-400 "Refreshing…"` to `text-xs text-slate-500 "Fetching more data…"` for visibility on 5Y/All load.
+
+### 2026-06-21 (session 146)
+
+**In-app dialogs replace native browser confirm()/select() in Delete/Copy Holdings modals**
+- `window.confirm()` and a native `<select>` for "Add a broker" looked like a system popup, not part of the app. Replaced with a rose-styled in-app confirm overlay (Cancel/Continue) in Delete Holding, and a custom button+list dropdown in Copy Holdings, matching each modal's existing visual language.
+
+**Manage Buckets: label reorder via drag handle, not tiny ▲▼ buttons**
+- The old up/down buttons were small (9px text) and fiddly on mobile. Replaced with a single grip handle (≡, 44px touch target) using native Pointer Events — press and drag, list reorders live as you cross another row's midpoint, no new dependency added.
+
+### 2026-06-21 (session 145)
+
+**XIRR 0(0%)-not-dash rule moved from display layer to the math layer**
+- Session 143 established "default to 0(0%) instead of —" for no-data XIRR, but each card was implementing this differently — `BreakCard` defaulted `null`→`0.0%` at render time while `SummaryCard` didn't, so the same null computation showed inconsistently across pages. Fixed by making `computeXIRR`/`xirr()` themselves return `0` for "no signal yet" (too few cashflows, no sign mix, sub-1-day span) — every card now renders identically off one source of truth, and `—` is reserved for an actual solver failure
+
+### 2026-06-22 (session 150)
+
+**Deep Research settings gear moved from pill-bar into the top nav banner**
+- Now matches the back-button-left/gear-right pattern every other page uses; only renders when the Deep Research sub-tab is active. Modal redesigned to match the app's standard popover shell (gradient header + bordered section boxes) instead of a plain white dropdown, using violet to tie to Deep Research's own accent color.
+
+**AI Assistant button restyled to stand out**
+- Flat solid-violet pill → fuchsia→violet→indigo gradient with a soft colored glow shadow + white ring, now alone at the far right of the pill bar since the gear moved out.
+
+**In-chat context-scope picker added instead of per-card AI icons**
+- Considered a separate Gemini icon per research card; rejected as redundant since each card isn't an independent live action. Instead added an "Asking about: X ▾" picker inside the existing chat sheet so one question can target a single card or all cards — switchable mid-conversation, not locked at open time.
+
+**Quick Stats footer links (Yahoo Finance / Analyst Ratings) removed**
+- Redundant with the Research Links pills tab; cut to declutter the card footer.
+
 ### 2026-07-02 (session 160)
 
 **Overview + Holdings top bar / hero card parity** — both pages' nav bar and hero/summary card iterated to a shared final shape: rectangular bar (no rounding), `mb-1.5` gap, card with square top corners + `rounded-b-[18px]` bottom, drop shadow kept. `HoldingsPage.tsx` nav bar matched to Overview's `px-4 py-2` sizing.
