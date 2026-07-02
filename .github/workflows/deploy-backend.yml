@@ -1,0 +1,29 @@
+name: Deploy backend to Oracle VM
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'backend/**'
+      - 'src/**'
+      - 'backend/requirements_backend.txt'
+      - 'backend/requirements_api.txt'
+      - '.github/workflows/deploy-backend.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ORACLE_VM_HOST }}
+          username: ubuntu
+          key: ${{ secrets.ORACLE_VM_SSH_KEY }}
+          script: |
+            cd ~/stock-analyzer
+            git fetch origin master
+            git reset --hard origin/master
+            source venv/bin/activate
+            pip install -q -r backend/requirements_backend.txt
+            sudo systemctl restart stock-analyzer
