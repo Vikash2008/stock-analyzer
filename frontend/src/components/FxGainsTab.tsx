@@ -141,13 +141,13 @@ export function FxGainsTab({ fxLots, usdInr, currency, asOf }: Props) {
       {/* Section 1: Summary strip */}
       <div className="bg-teal-50 border border-teal-200 rounded-xl p-3">
         <div className="flex items-center justify-between mb-2">
-          <p className="text-[10px] font-bold text-teal-700 uppercase tracking-widest">FX Conversion Gains</p>
-          {asOf && <span className="text-[9px] text-teal-600/70 whitespace-nowrap">Rate as of {fmtSyncTime(new Date(asOf))}</span>}
+          <p className="text-[10px] font-bold text-[#0b3b3a] uppercase tracking-widest">FX Conversion Gains</p>
+          {asOf && <span className="text-[9px] text-teal-700/70 whitespace-nowrap">Rate as of {fmtSyncTime(new Date(asOf))}</span>}
         </div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
           <div>
             <p className="text-[10px] text-slate-400 mb-0.5">Total FX Gain</p>
-            <p className="text-[15px] font-bold text-teal-700">{fmtGain(stats.totalFxGain, currency, usdInr)}</p>
+            <p className="text-[15px] font-bold text-[#0b3b3a]">{fmtGain(stats.totalFxGain, currency, usdInr)}</p>
           </div>
           <div>
             <p className="text-[10px] text-slate-400 mb-0.5">Current Rate</p>
@@ -175,10 +175,10 @@ export function FxGainsTab({ fxLots, usdInr, currency, asOf }: Props) {
                 <div className="flex items-center mb-0.5">
                   <span className="text-[10px] font-medium text-slate-600 w-[54px]">₹{key}</span>
                   <span className="text-[10px] text-slate-400 flex-1">{fmtUsd(b.usd)}</span>
-                  <span className="text-[10px] font-semibold text-teal-700">{fmtGain(b.fxGain, currency, usdInr)}</span>
+                  <span className="text-[10px] font-semibold text-[#0b3b3a]">{fmtGain(b.fxGain, currency, usdInr)}</span>
                 </div>
                 <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full bg-teal-400 transition-all" style={{ width: `${barPct}%` }} />
+                  <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }} />
                 </div>
               </div>
             )
@@ -207,7 +207,7 @@ export function FxGainsTab({ fxLots, usdInr, currency, asOf }: Props) {
                   <span className="text-[11px] font-semibold text-slate-700">{year}</span>
                   <div className="flex items-center gap-3">
                     <span className="text-[10px] text-slate-400">{fmtUsd(yrUsd)}</span>
-                    <span className="text-[10px] font-semibold text-teal-700">{fmtGain(yrFx, currency, usdInr)}</span>
+                    <span className="text-[10px] font-semibold text-[#0b3b3a]">{fmtGain(yrFx, currency, usdInr)}</span>
                     <span className="text-[10px] text-slate-300">{isOpen ? '▲' : '▼'}</span>
                   </div>
                 </button>
@@ -217,7 +217,7 @@ export function FxGainsTab({ fxLots, usdInr, currency, asOf }: Props) {
                       <div key={m.mo} className="flex items-center px-3 py-1.5 border-b border-slate-100 last:border-0">
                         <span className="text-[10px] text-slate-600 w-[40px]">{MONTHS[parseInt(m.mo, 10) - 1]}</span>
                         <span className="text-[10px] text-slate-400 flex-1">{fmtUsd(m.usd)}</span>
-                        <span className="text-[10px] font-medium text-teal-700">{fmtGain(m.fxGain, currency, usdInr)}</span>
+                        <span className="text-[10px] font-medium text-[#0b3b3a]">{fmtGain(m.fxGain, currency, usdInr)}</span>
                       </div>
                     ))}
                   </div>
@@ -255,7 +255,7 @@ export function FxGainsTab({ fxLots, usdInr, currency, asOf }: Props) {
                     <span className="text-[10px] text-slate-400">{lots.length} lot{lots.length !== 1 ? 's' : ''}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`text-[11px] font-semibold ${h.fxGain >= 0 ? 'text-teal-700' : 'text-red-500'}`}>{fmtGain(h.fxGain, currency, usdInr)}</span>
+                    <span className={`text-[11px] font-semibold ${h.fxGain >= 0 ? 'text-[#0b3b3a]' : 'text-red-500'}`}>{fmtGain(h.fxGain, currency, usdInr)}</span>
                     <span className="text-[10px] text-slate-300">{isOpen ? '▲' : '▼'}</span>
                   </div>
                 </button>
@@ -281,14 +281,14 @@ export function FxGainsTab({ fxLots, usdInr, currency, asOf }: Props) {
                           <span className="text-[10px] text-slate-600 text-right tabular-nums">{lot.qty % 1 === 0 ? lot.qty : lot.qty.toFixed(3)}</span>
                           <span className="text-[10px] text-slate-600 text-right tabular-nums">{fmtUsd(lotUsd)}</span>
                           <span className="text-[10px] text-slate-600 text-right tabular-nums">₹{lot.buy_fx_rate.toFixed(1)}</span>
-                          <span className={`text-[10px] font-medium text-right tabular-nums ${lotFxGain >= 0 ? 'text-teal-700' : 'text-red-500'}`}>{fmtGain(lotFxGain, currency, usdInr)}</span>
+                          <span className={`text-[10px] font-medium text-right tabular-nums ${lotFxGain >= 0 ? 'text-[#0b3b3a]' : 'text-red-500'}`}>{fmtGain(lotFxGain, currency, usdInr)}</span>
                         </div>
                       )
                     })}
                     {/* Total row */}
                     <div className="grid grid-cols-[90px_40px_52px_44px_1fr] gap-x-1 px-3 py-2 bg-teal-50 border-t border-teal-100">
                       <span className="text-[10px] font-bold text-slate-600 col-span-4">Total</span>
-                      <span className={`text-[10px] font-bold text-right tabular-nums ${h.fxGain >= 0 ? 'text-teal-700' : 'text-red-500'}`}>{fmtGain(h.fxGain, currency, usdInr)}</span>
+                      <span className={`text-[10px] font-bold text-right tabular-nums ${h.fxGain >= 0 ? 'text-[#0b3b3a]' : 'text-red-500'}`}>{fmtGain(h.fxGain, currency, usdInr)}</span>
                     </div>
                   </div>
                 )}
