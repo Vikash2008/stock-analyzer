@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo } from 'react'
 import { idbGet, idbSet } from '../utils/idbStore'
 import { logDebug } from '../utils/debugLog'
+import { mergeDateAligned, guardShrink } from '../utils/incrementalMerge'
 
 interface HistoryData {
   dates:      string[]
@@ -9,17 +10,20 @@ interface HistoryData {
   prev_close?: number | null
   error?:     string
   partial_since?: string  // delta-only response — merge into existing cache, don't replace
+  // Same envelope fields portfolio_history.py's response carries (Category 5/7 unification) —
+  // guardRejected is always false on this path (see backend/routers/history.py's _envelope()
+  // comment for why), present for shape consistency so the UI layer can treat both chart
+  // types uniformly rather than needing to know which endpoint answered.
+  dataAsOf?:      number
+  guardRejected?: boolean
 }
 
-// Merge a delta-only (`partial_since`) response into an existing cached entry — same
-// dedupe-by-date-then-sort pattern the backend itself uses to merge incremental fetches.
+// Merge a delta-only (`partial_since`) response into an existing cached entry — thin wrapper
+// around the shared incrementalMerge helper (also used by useBackendPortfolioHistory.ts).
 // Exported so usePortfolioHistory.ts's separate fetch path can reuse it too.
 export function mergeHistory(existing: HistoryData, delta: HistoryData): HistoryData {
-  const merged: Record<string, number> = {}
-  existing.dates.forEach((d, i) => { merged[d] = existing.prices[i] })
-  delta.dates.forEach((d, i) => { merged[d] = delta.prices[i] })
-  const dates = Object.keys(merged).sort()
-  return { dates, prices: dates.map(d => merged[d]), prev_close: delta.prev_close ?? existing.prev_close }
+  const merged = mergeDateAligned(existing, delta, ['prices'])
+  return { ...merged, prev_close: delta.prev_close ?? existing.prev_close }
 }
 
 // The backend always re-fetches the boundary bar (the `since` date itself, or the last
@@ -46,13 +50,16 @@ export function detectDrift(existing: HistoryData, delta: HistoryData): boolean 
 // don't trust a "complete" (non partial_since) response blindly — if it's suspiciously
 // shorter than what's already cached, merge instead of replacing, and log it loudly so any
 // recurrence (from this cause or a new one) is caught immediately instead of silently
-// collapsing the chart again.
-const MIN_HEALTHY_DATES = 30  // below this, a "shrink" comparison isn't meaningful — short real histories exist
+// collapsing the chart again. Thin wrapper around the shared guardShrink helper.
 export function guardFullResponse(existing: HistoryData | undefined, fetched: HistoryData, sym: string): HistoryData {
-  if (!existing?.dates?.length || existing.dates.length < MIN_HEALTHY_DATES) return fetched
-  if (fetched.dates.length >= existing.dates.length * 0.5) return fetched
-  logDebug(`CHART-SUSPICIOUS-SHRINK ${sym}: "complete" response had ${fetched.dates.length} dates vs existing ${existing.dates.length} — merging instead of replacing`)
-  return mergeHistory(existing, fetched)
+  const { data, rejected } = guardShrink(existing, fetched, (existingLen, freshLen) =>
+    logDebug(`CHART-SUSPICIOUS-SHRINK ${sym}: "complete" response had ${freshLen} dates vs existing ${existingLen} — merging instead of replacing`),
+  )
+  // guardRejected wasn't surfaced to the UI before — a detected shrink merged silently, with
+  // only a debug log to show for it. Flagging it here gives PriceChart.tsx's shared freshness
+  // UI (Category 7) something real to key off, same as the backend's own guardRejected already
+  // does for the portfolio-level chart.
+  return rejected ? { ...mergeHistory(existing!, fetched), guardRejected: true } : data
 }
 
 const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'

@@ -1,5 +1,7 @@
 """
-GET /api/portfolio-history
+GET  /api/portfolio-history                 — demo/no-CSV path
+POST /api/portfolio-history (body: raw CSV) — real uploaded-portfolio path, mirrors
+                                               backend/routers/portfolio.py's GET/POST split
 
 Computes the portfolio value time-series on the backend via a single bulk
 yfinance download. This eliminates the 80-request burst that caused OOM when
@@ -8,23 +10,25 @@ every symbol's full history was fetched individually.
 Returns a shape compatible with PortfolioSeries in usePortfolioHistory.ts:
   { dates, values, invested, unrealized, realized, total, returnPct,
     xirrTrend: {dates, values} }
+
+Result-cache key is prefixed with a hash of the caller's CSV content ("demo" when there is
+none) — previously this endpoint never received the caller's uploaded CSV at all (always
+computed from the server's default file) and the cache key had no per-user component, which
+would have let two different real users' charts collide on a common portfolio name once the
+CSV-blindness was fixed. Both gaps are closed together here.
 """
 from __future__ import annotations
 
 import calendar
-import ctypes
-import gc
-import pickle
-import threading
+import hashlib
 import time
 from collections import defaultdict
-from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-import yfinance as yf
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 
+from backend import price_store
 from src.engine import build
 
 router = APIRouter()
@@ -32,15 +36,10 @@ router = APIRouter()
 _SKIP_PORTS = {"Equity", "MF_Portfolio"}
 _USD_PORTS  = {"Vested", "IndMoney US", "IndMoney Mummy"}
 
-try:
-    _libc: Optional[ctypes.CDLL] = ctypes.CDLL("libc.so.6")
-except OSError:
-    _libc = None
-
 _cache: dict[str, tuple[dict, float]] = {}
 # 5 min (was 30) — the original 30-min TTL was chosen back when every recompute meant a full
-# multi-year re-download for every symbol; the incremental price cache above (_price_cache)
-# made that cheap, so a shorter TTL no longer means proportionally more yfinance load. 5 min
+# multi-year re-download for every symbol; the incremental price_store made that cheap, so a
+# shorter TTL no longer means proportionally more yfinance load. 5 min
 # also keeps the chart's "today" point from visibly disagreeing with HoldingCard/SummaryCard,
 # which already refresh every 2 min — 30 min let the chart lag up to 30 min behind them.
 _CACHE_TTL = 300.0
@@ -73,150 +72,27 @@ def _guard_result(cache_key: str, prev: Optional[dict], fresh: dict) -> dict:
     return rejected
 
 
-# ── Incremental per-symbol price cache ──────────────────────────────────────────
-# Unlike history.py's _series_cache (trimmed to a short tail — the frontend's own IndexedDB
-# holds the deep history there), this endpoint is the ONLY place that holds raw multi-year
-# price series backing the aggregate chart: the frontend never receives per-symbol prices
-# from here, only the derived aggregate. So no trimming — every symbol's full history stays
-# resident once fetched, and each 30-min recompute only needs to fetch what's new since the
-# last run instead of redownloading years of data for every symbol every time.
-_PRICE_FILE = Path("data/.portfolio_hist_cache.pkl")
-_price_lock = threading.Lock()
-_PRICE_SAVE_DEBOUNCE = 5.0
-_last_price_write = 0.0
+# Raw per-symbol price history now lives in backend.price_store — the ONE shared, disk-persisted
+# store also used by history.py, instead of a second independent copy of the same public market
+# data. price_store.ensure_prices()/get_entry() replace the old _ensure_prices()/_price_cache.
 
 
-def _load_price_cache() -> dict:
-    if _PRICE_FILE.exists():
-        try:
-            with open(_PRICE_FILE, "rb") as f:
-                return pickle.load(f)
-        except Exception:
-            pass
-    return {}
+def clear_portfolio_history_cache(csv_hash: Optional[str] = None) -> None:
+    """Called by mutating endpoints (add-txn, delete-holding) so a portfolio change shows up
+    immediately instead of waiting out the result-cache TTL. Only clears the computed-result
+    cache — the raw price store is still valid, a transaction edit doesn't change historical
+    prices, so the next request recomputes from cache with no redownload needed.
 
-
-def _persist_price_cache() -> None:
-    global _last_price_write
-    now = time.time()
-    if now - _last_price_write < _PRICE_SAVE_DEBOUNCE:
+    Scoped to `csv_hash` — every cache key is prefixed with the CSV-content hash it was
+    computed under (see get_portfolio_history), so this only clears the mutating user's own
+    entries, never every other concurrently-active user's cached chart data. Passing None
+    clears everything (demo-file-affecting scenarios only)."""
+    if csv_hash is None:
+        _cache.clear()
         return
-    with _price_lock:
-        if now - _last_price_write < _PRICE_SAVE_DEBOUNCE:
-            return
-        _PRICE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(_PRICE_FILE, "wb") as f:
-            pickle.dump(_price_cache, f)
-        _last_price_write = now
-
-
-_price_cache: dict[str, dict] = _load_price_cache()  # yf_symbol -> {dates, prices, fetched_at}
-
-
-def _download_symbols(symbols: list[str], start) -> dict[str, dict]:
-    """Bulk-download close prices for `symbols` from `start`. Returns yf_symbol -> {dates, prices}."""
-    if not symbols:
-        return {}
-    try:
-        raw = yf.download(symbols, start=start, auto_adjust=True, progress=False, threads=False)
-    except Exception as e:
-        print(f"[portfolio_history] download error: {e}")
-        return {}
-    if raw.empty:
-        return {}
-
-    out: dict[str, dict] = {}
-
-    def _series_to_entry(s: pd.Series) -> Optional[dict]:
-        s = s.dropna()
-        if s.empty:
-            return None
-        idx = s.index
-        if hasattr(idx, "tz") and idx.tz is not None:
-            idx = idx.tz_localize(None)
-        return {
-            "dates":  idx.strftime("%Y-%m-%d").tolist(),
-            "prices": [round(float(p), 4) for p in s.tolist()],
-        }
-
-    if isinstance(raw.columns, pd.MultiIndex):
-        lvl0 = raw.columns.get_level_values(0)
-        if "Close" not in lvl0:
-            return {}
-        close = raw["Close"]
-        for sym in symbols:
-            if sym not in close.columns:
-                continue
-            entry = _series_to_entry(close[sym])
-            if entry:
-                out[sym] = entry
-    elif "Close" in raw.columns:
-        # A single-symbol request can collapse to flat (non-MultiIndex) columns.
-        entry = _series_to_entry(raw["Close"])
-        if entry:
-            out[symbols[0]] = entry
-
-    return out
-
-
-def _ensure_prices(symbols: list[str], needed_from: str) -> None:
-    """Make sure _price_cache has fresh, sufficiently-deep data for every symbol in `symbols`
-    — fetching only what's missing or new instead of redownloading full history every tick."""
-    missing_syms: list[str] = []
-    stale_syms:   list[str] = []
-    for s in symbols:
-        entry = _price_cache.get(s)
-        if not entry or not entry.get("dates") or entry["dates"][0] > needed_from:
-            # No cache, or cache doesn't reach back far enough for this request
-            # (e.g. a narrower filter cached a later start than a broader one now needs).
-            missing_syms.append(s)
-        else:
-            stale_syms.append(s)
-
-    if missing_syms:
-        fresh = _download_symbols(missing_syms, needed_from)
-        now = time.time()
-        for sym, entry in fresh.items():
-            _price_cache[sym] = {**entry, "fetched_at": now}
-
-    if stale_syms:
-        # One bulk delta call covers all of them, from the earliest last-cached-bar among
-        # them — symbols already fully current just get overlapping/no new data back.
-        since = min(_price_cache[s]["dates"][-1] for s in stale_syms if _price_cache[s]["dates"])
-        delta = _download_symbols(stale_syms, since)
-        now = time.time()
-        for sym in stale_syms:
-            d = delta.get(sym)
-            if not d or not d["dates"]:
-                continue
-            cached = _price_cache[sym]
-            merged = dict(zip(cached["dates"], cached["prices"]))
-            merged.update(dict(zip(d["dates"], d["prices"])))
-            dates = sorted(merged.keys())
-            _price_cache[sym] = {
-                "dates": dates, "prices": [merged[dt] for dt in dates], "fetched_at": now,
-            }
-
-    _persist_price_cache()
-    _force_trim()
-
-
-def clear_portfolio_history_cache() -> None:
-    """Called by mutating endpoints (add-txn, delete-holding, CSV reimport) so a portfolio
-    change shows up immediately instead of waiting out the 30-min result cache. Only clears
-    the computed-result cache — _price_cache (raw prices) is still valid, a transaction edit
-    doesn't change historical prices, so the next request recomputes from cache with no
-    redownload needed."""
-    _cache.clear()
-
-
-def _force_trim() -> None:
-    gc.collect()
-    if _libc is not None:
-        try:
-            _libc.malloc_trim(0)
-        except Exception:
-            pass
+    prefix = f"{csv_hash}:"
+    for key in [k for k in _cache if k.startswith(prefix)]:
+        _cache.pop(key, None)
 
 
 def _segment_ok(portfolio: str, segment: Optional[str]) -> bool:
@@ -244,6 +120,7 @@ def _compute(
     portfolio_filter: Optional[str],
     segment: Optional[str],
     symbol_filter: Optional[str] = None,
+    csv_content: Optional[str] = None,
 ) -> dict:
     empty = {
         "dates": [], "values": [], "invested": [], "unrealized": [],
@@ -252,7 +129,7 @@ def _compute(
         "dataAsOf": time.time(), "guardRejected": False, "todayMismatch": False,
     }
 
-    bundle = build(currency=currency)
+    bundle = build(currency=currency, csv_content=csv_content)
     usd_inr = bundle.usd_inr or 95.5
 
     # Comma-separated so both callers share one param: the Holdings page passes a single
@@ -302,14 +179,15 @@ def _compute(
     start_dt = earliest.strftime("%Y-%m-%d")
 
     # ── Incremental price fetch ─────────────────────────────────────────────────
-    # _ensure_prices only downloads what's missing/new for each symbol (see its docstring)
-    # instead of redownloading full multi-year history on every 30-min recompute.
+    # price_store.ensure_prices() only downloads what's missing/new for each symbol instead of
+    # redownloading full multi-year history on every recompute — shared with history.py so the
+    # same symbol is never fetched/stored twice across the two chart endpoints.
     print(f"[portfolio_history] ensuring prices for {len(symbols)} symbols from {start_dt}")
-    _ensure_prices(symbols, start_dt)
+    price_store.ensure_prices(symbols, start_dt)
 
     price_rows: dict[str, dict[str, float]] = {}
     for sym in symbols:
-        entry = _price_cache.get(sym)
+        entry = price_store.get_entry(sym)
         if not entry:
             continue
         for d, p in zip(entry["dates"], entry["prices"]):
@@ -589,6 +467,30 @@ def _compute(
     }
 
 
+def _portfolio_history_response(
+    currency: str,
+    portfolio: Optional[str],
+    segment: Optional[str],
+    symbol: Optional[str],
+    csv_content: Optional[str],
+) -> dict:
+    # Every cache key is prefixed with a hash of the caller's own CSV content ("demo" when
+    # there is none) — two different real users filtering to a same-named portfolio (e.g.
+    # both have a "Zerodha") must never read/write the same entry.
+    csv_hash = hashlib.md5(csv_content.encode()).hexdigest() if csv_content else "demo"
+    cache_key = f"{csv_hash}:{currency}:{portfolio or ''}:{segment or ''}:{symbol or ''}"
+    prev_entry = _cache.get(cache_key)
+    if prev_entry:
+        result, ts = prev_entry
+        if time.time() - ts < _CACHE_TTL:
+            return result
+
+    fresh = _compute(currency, portfolio, segment, symbol, csv_content)
+    result = _guard_result(cache_key, prev_entry[0] if prev_entry else None, fresh)
+    _cache[cache_key] = (result, time.time())
+    return result
+
+
 @router.get("/api/portfolio-history")
 def get_portfolio_history(
     currency:  str           = Query("INR"),
@@ -596,14 +498,21 @@ def get_portfolio_history(
     segment:   Optional[str] = Query(None),
     symbol:    Optional[str] = Query(None, description="Clean symbol (not yf_symbol) — scopes to one holding, e.g. the Txn-page chart"),
 ) -> dict:
-    cache_key = f"{currency}:{portfolio or ''}:{segment or ''}:{symbol or ''}"
-    prev_entry = _cache.get(cache_key)
-    if prev_entry:
-        result, ts = prev_entry
-        if time.time() - ts < _CACHE_TTL:
-            return result
+    """No-CSV path — always computes from the server's demo file, same as before."""
+    return _portfolio_history_response(currency, portfolio, segment, symbol, csv_content=None)
 
-    fresh = _compute(currency, portfolio, segment, symbol)
-    result = _guard_result(cache_key, prev_entry[0] if prev_entry else None, fresh)
-    _cache[cache_key] = (result, time.time())
-    return result
+
+@router.post("/api/portfolio-history")
+async def post_portfolio_history(
+    request: Request,
+    currency:  str           = Query("INR"),
+    portfolio: Optional[str] = Query(None, description="Single portfolio name, or comma-separated list"),
+    segment:   Optional[str] = Query(None),
+    symbol:    Optional[str] = Query(None, description="Clean symbol (not yf_symbol) — scopes to one holding, e.g. the Txn-page chart"),
+) -> dict:
+    """Real-portfolio path — body is the caller's raw CSV text, same convention as
+    backend/routers/portfolio.py's POST. Without this, the chart was always computed from the
+    server's default file regardless of who was asking (the pre-existing pending bug)."""
+    body = await request.body()
+    csv_content = body.decode("utf-8", errors="replace") if body else None
+    return _portfolio_history_response(currency, portfolio, segment, symbol, csv_content)

@@ -12,6 +12,7 @@ import { useDividendForSymbol, getIncludeFxGains, getIncludeDividends } from '..
 import { sliceSeries } from '../hooks/usePortfolioHistory'
 import type { DatedSeries, PortfolioSeries } from '../hooks/usePortfolioHistory'
 import { useBackendPortfolioHistory, getChartFreshness } from '../hooks/useBackendPortfolioHistory'
+import { ChartFreshnessLabel, ChartErrorState, ChartEmptyState } from '../components/ChartStateBlock'
 import { idbFlush } from '../utils/idbStore'
 import type { Holding } from '../api/types'
 import { TxRow } from '../components/TxRow'
@@ -807,11 +808,7 @@ export default function TransactionsPage({ currency }: Props) {
           {/* Historical series charts */}
           {chartMetric !== 'Price' && (
             <>
-              {chartFreshness && (
-                <div className={`text-[9px] mb-1 ${chartFreshness.warning ? 'text-amber-600 font-semibold' : 'text-slate-400'}`}>
-                  {chartFreshness.label}{chartFreshness.detail ? ` · ${chartFreshness.detail}` : ''}
-                </div>
-              )}
+              <ChartFreshnessLabel freshness={chartFreshness} />
 
               {portSeries && !metricSeries && (
                 <div className="text-center py-10 text-slate-400 text-xs">
@@ -831,18 +828,9 @@ export default function TransactionsPage({ currency }: Props) {
                 </div>
               )}
               {!portSeries && !histLoading && histError && (
-                <div className="text-center py-10 text-xs">
-                  <p className="text-slate-400 mb-2">Couldn't load chart.</p>
-                  <button onClick={() => refetchPortSeries()} className="text-teal-700 font-semibold underline underline-offset-2 inline-block py-3 px-4 min-h-[44px]">
-                    Tap to retry
-                  </button>
-                </div>
+                <ChartErrorState onRetry={() => refetchPortSeries()} />
               )}
-              {!portSeries && !histLoading && !histError && (
-                <div className="text-center py-10 text-slate-400 text-xs">
-                  No price history available.
-                </div>
-              )}
+              {!portSeries && !histLoading && !histError && <ChartEmptyState />}
 
               {metricSeries && rechartsData.length > 0 && (
                 <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3">

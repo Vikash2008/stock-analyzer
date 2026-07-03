@@ -7,10 +7,12 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
-import { useHistory } from '../hooks/useHistory'
+import { useHistory, REFRESH_MS } from '../hooks/useHistory'
 import type { Transaction } from '../api/types'
 import type { Currency } from '../App'
 import { fmt } from '../utils/fmt'
+import { computeChartFreshness } from '../utils/incrementalMerge'
+import { ChartFreshnessLabel, ChartErrorState, ChartEmptyState, ChartManualRefreshSpinner } from './ChartStateBlock'
 
 interface PriceChartProps {
   transactions: Transaction[]
@@ -139,8 +141,11 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
     if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
   }
   const start = '2015-01-01'
-  const { data: history,         isLoading: dailyLoading, isFetching: dailyFetching } = useHistory(yf_symbol, start, undefined, isClosed)
-  const { data: intradayHistory, isLoading: intLoading,   isFetching: intFetching   } = useHistory(yf_symbol, null, '1d')
+  const {
+    data: history, isLoading: dailyLoading, isFetching: dailyFetching,
+    isError: dailyIsError, refetch: refetchDaily,
+  } = useHistory(yf_symbol, start, undefined, isClosed)
+  const { data: intradayHistory, isLoading: intLoading, isFetching: intFetching } = useHistory(yf_symbol, null, '1d')
 
   const allChartData = useMemo(() => {
     if (!history?.dates.length) return []
@@ -200,12 +205,16 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
   }
 
   if (!chartData.length) {
+    // Distinguish genuine failure from genuine emptiness (Category 7) — previously both (plus
+    // a stale-rejected recompute) collapsed into one identical "No price history available"
+    // message, which is exactly what made this class of bug hard to diagnose.
+    const dailyError = range !== '1d' && (dailyIsError || history?.error)
     return (
       <div className="mt-2">
-        <div className="h-36 flex flex-col items-center justify-center gap-1">
-          <p className="text-slate-400 text-xs">No price history available</p>
-          {isBgFetch && <p className="text-slate-300 text-xs animate-pulse">Retrying…</p>}
-        </div>
+        {dailyError
+          ? <ChartErrorState onRetry={() => refetchDaily()} />
+          : <ChartEmptyState />}
+        {isBgFetch && <p className="text-slate-300 text-xs text-center animate-pulse -mt-6">Retrying…</p>}
         {rangeBar}
       </div>
     )
@@ -220,9 +229,15 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
     ? (lastPrice - prevClose) / prevClose * 100
     : (firstPrice && lastPrice ? (lastPrice - firstPrice) / firstPrice * 100 : null)
   const priceColor = pctChange !== null ? (pctChange >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8'
+  // Only meaningful for the daily path — intraday bars are a separate fetch shape with no
+  // dataAsOf/guardRejected envelope (Category 3 decision to keep them distinct).
+  const freshness = range !== '1d' && history?.dataAsOf
+    ? computeChartFreshness({ dataAsOfMs: history.dataAsOf * 1000, guardRejected: history.guardRejected }, REFRESH_MS)
+    : null
 
   return (
     <div className="mt-2">
+      <ChartFreshnessLabel freshness={freshness} />
       {lastPrice !== null && (
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-baseline gap-2">
@@ -241,6 +256,9 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
                 <span className="inline-block animate-spin leading-none">↻</span>
                 Fetching more data…
               </span>
+            )}
+            {range !== '1d' && (
+              <ChartManualRefreshSpinner refreshing={dailyFetching} onClick={() => refetchDaily()} />
             )}
             {showZoom && (
               <button onClick={handleOpenZoom} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 active:opacity-70">

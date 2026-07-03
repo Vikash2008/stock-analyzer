@@ -160,6 +160,10 @@ def get_tickers_info(symbols: List[str]) -> Dict[str, dict]:
             "name":       info.get("longName") or info.get("shortName") or name or None,
             "quote_type": info.get("quoteType") or _infer_quote_type_from_symbol(sym),
         }
+        # Cache in-process so a repeated request for the same never-seen-before symbol (e.g.
+        # several users' portfolios sharing a symbol not yet in the static file) doesn't
+        # re-pay the yf.Ticker() cost every time within this process's lifetime.
+        _static_names[sym] = result[sym]
     return result
 
 

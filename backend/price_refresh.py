@@ -14,13 +14,13 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-from src.cache import Cache
+from src.cache import Cache, get_known_symbols
 
 _REFRESH_SECONDS = 120.0
 
 
 def _known_symbols() -> list[str]:
-    symbols = Cache().get("known_symbols")
+    symbols = get_known_symbols()
     if symbols:
         return list(symbols)
     # Cold boot — nothing cached yet. Seed from the bundled demo file so the

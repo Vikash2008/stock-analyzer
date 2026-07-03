@@ -20,6 +20,7 @@ import { usePortfolioHistory, sliceSeries } from '../hooks/usePortfolioHistory'
 import { useBackendPortfolioHistory, getChartFreshness } from '../hooks/useBackendPortfolioHistory'
 import { usePrefetchHoldingCharts, REFRESH_MS } from '../hooks/useHistory'
 import { idbFlush } from '../utils/idbStore'
+import { ChartFreshnessLabel, ChartErrorState, ChartEmptyState } from '../components/ChartStateBlock'
 import type { DatedSeries, PortfolioSeries } from '../hooks/usePortfolioHistory'
 import { HoldingCard } from '../components/HoldingCard'
 import { SummaryCard } from '../components/SummaryCard'
@@ -953,7 +954,9 @@ export default function HoldingsPage({ currency }: Props) {
     if (!data) return null
     // For the default all-holdings view without adjustments, the backend value is correct
     // and avoids closed-position bleed from other portfolios in the frontend recomputation.
-    if (holdingFilter === 'all' && !includeDivs && !includeFxGains) return summaryXirr
+    // Bucket/Label views have no backend-precomputed equivalent (summaryXirr falls back to
+    // xirr_total there) — always recompute so it matches the home page's tag-based XIRR.
+    if (!bucket && holdingFilter === 'all' && !includeDivs && !includeFxGains) return summaryXirr
     const targetRows =
       holdingFilter === 'closed' ? closedRows :
       holdingFilter === 'open'   ? rows :
@@ -986,7 +989,7 @@ export default function HoldingsPage({ currency }: Props) {
     }
     const r = computeXIRR(cfs)
     return r !== null ? r * 100 : null
-  }, [holdingFilter, data, closedRows, rows, filtPorts, segment, viewMode, currency, includeDivs, divData, includeFxGains, summaryXirr])
+  }, [holdingFilter, data, closedRows, rows, filtPorts, segment, viewMode, currency, includeDivs, divData, includeFxGains, summaryXirr, bucket])
 
 
   // ── Returns tab: per-sector daily value series ──────────────────────────────
@@ -1684,11 +1687,7 @@ export default function HoldingsPage({ currency }: Props) {
             </div>
           )}
 
-          {chartFreshness && (
-            <div className={`text-[9px] mb-1 ${chartFreshness.warning ? 'text-amber-600 font-semibold' : 'text-slate-400'}`}>
-              {chartFreshness.label}{chartFreshness.detail ? ` · ${chartFreshness.detail}` : ''}
-            </div>
-          )}
+          <ChartFreshnessLabel freshness={chartFreshness} />
 
           {portSeries && !metricSeries && (
             <div className="text-center py-10 text-slate-400 text-xs">
@@ -1697,19 +1696,10 @@ export default function HoldingsPage({ currency }: Props) {
           )}
 
           {!portSeries && !chartLoading && chartError && (
-            <div className="text-center py-10 text-xs">
-              <p className="text-slate-400 mb-2">Couldn't load chart.</p>
-              <button onClick={() => refetchPortSeries()} className="text-teal-700 font-semibold underline underline-offset-2 inline-block py-3 px-4 min-h-[44px]">
-                Tap to retry
-              </button>
-            </div>
+            <ChartErrorState onRetry={() => refetchPortSeries()} />
           )}
 
-          {!portSeries && !chartLoading && !chartError && (
-            <div className="text-center py-10 text-slate-400 text-xs">
-              No price history available.
-            </div>
-          )}
+          {!portSeries && !chartLoading && !chartError && <ChartEmptyState />}
 
           {metricSeries && rechartsData.length > 0 && (
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3 mt-1">
@@ -2087,20 +2077,11 @@ export default function HoldingsPage({ currency }: Props) {
 
           {analysisSubTab === 'returns' && (
             <div>
-              {chartFreshness && (
-                <div className={`text-[9px] mb-1 ${chartFreshness.warning ? 'text-amber-600 font-semibold' : 'text-slate-400'}`}>
-                  {chartFreshness.label}{chartFreshness.detail ? ` · ${chartFreshness.detail}` : ''}
-                </div>
-              )}
+              <ChartFreshnessLabel freshness={chartFreshness} />
               {!portSeries && chartLoading ? (
                 <p className="text-center text-[11px] text-slate-400 py-6">Loading price history…</p>
               ) : !portSeries && chartError ? (
-                <div className="text-center py-6 text-xs">
-                  <p className="text-slate-400 mb-2">Couldn't load chart.</p>
-                  <button onClick={() => refetchPortSeries()} className="text-teal-700 font-semibold underline underline-offset-2 inline-block py-3 px-4 min-h-[44px]">
-                    Tap to retry
-                  </button>
-                </div>
+                <ChartErrorState onRetry={() => refetchPortSeries()} />
               ) : periodData.length === 0 ? (
                 <p className="text-center text-[11px] text-slate-400 py-6">No data for this selection.</p>
               ) : (() => {

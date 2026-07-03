@@ -22,7 +22,7 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
-from src.cache import Cache
+from src.cache import Cache, get_known_symbols, set_known_symbols
 
 _DATA_FILE  = Path("data/demo_msp_v2.csv")
 _USD_PORTS  = {"Vested", "IndMoney US", "IndMoney Mummy"}
@@ -163,10 +163,10 @@ def build(
         # when the actual symbol set changed; otherwise let the price cache's own 30-min TTL
         # govern as usual.
         new_symbols = set(holdings_raw["yf_symbol"].unique())
-        old_symbols = cache.get("known_symbols")
+        old_symbols = get_known_symbols()
         if old_symbols is None or new_symbols != set(old_symbols):
             force_refresh_prices = True
-        cache.set("known_symbols", sorted(new_symbols))
+        set_known_symbols(sorted(new_symbols))
     else:
         txns, holdings_raw, realized_all, fx_lots_all = cache.get_fifo(fifo_key)
 

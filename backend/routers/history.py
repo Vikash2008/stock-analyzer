@@ -5,25 +5,18 @@ GET /api/history?yf_symbol=INFY.NS&period=1d   (intraday 5-min bars)
 Returns price history for the Charts tab.
 Uses query param (not path param) so dots in yf_symbol are URL-safe.
 
-Daily history: one in-memory entry per symbol, trimmed to a short recent window
-(_RETENTION_DAYS) — the client's own localStorage holds the deep multi-year
-history, so the server only needs enough of a tail to serve cheap deltas.
-Re-fetches only pull data since the last cached bar and merge it in, instead
-of re-downloading the whole range every time. Whether a re-fetch happens at
-all is gated by market_hours.is_stale() — open-market symbols recheck every
-30 min (matching the frontend's own auto-refresh tick), closed-market symbols
-only recheck once per exchange close.
+Daily history now reads/writes backend.price_store — the same shared, full-history store
+portfolio_history.py's aggregate chart uses, instead of a second independent copy of the same
+public market data. Re-fetches only pull data since the last cached bar and merge it in, instead
+of re-downloading the whole range every time. Whether a re-fetch happens at all is gated by
+market_hours.is_stale() — open-market symbols recheck every 30 min (matching the frontend's own
+auto-refresh tick), closed-market symbols only recheck once per exchange close.
 """
 
 from __future__ import annotations
 
 import asyncio
-import ctypes
-import gc
-import pickle
-import threading
 import time
-from pathlib import Path
 from typing import Optional
 
 import pandas as pd
@@ -31,85 +24,12 @@ import yfinance as yf
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
+from backend import price_store
 from backend.market_hours import is_stale
 from src.price_fetcher import get_prices_and_prev_close
 
 router = APIRouter()
 
-# glibc's malloc doesn't hand freed memory back to the OS on its own — after a multi-symbol
-# chart-fetch burst, the process's reported RSS can stay elevated near its peak for a long
-# time even though the actual resident cache (trimmed to _RETENTION_DAYS) is tiny. Forcing a
-# trim after each burst settles closes that gap. Debounced — malloc_trim itself walks the
-# whole heap and isn't free, so it shouldn't run on every single fetch.
-try:
-    _libc: Optional[ctypes.CDLL] = ctypes.CDLL("libc.so.6")
-except OSError:
-    _libc = None  # not Linux (e.g. local Windows dev) — no-op
-
-_TRIM_DEBOUNCE = 5.0
-_last_trim = 0.0
-
-
-def _direct_trim() -> None:
-    """Called immediately after each per-symbol _download(). Not debounced — each
-    download frees one large DataFrame and we want those pages back to the OS
-    before the next symbol starts, not held across the whole burst."""
-    gc.collect()
-    if _libc is not None:
-        try:
-            _libc.malloc_trim(0)
-        except Exception:
-            pass
-
-
-def _trim_memory() -> None:
-    global _last_trim
-    now = time.time()
-    if now - _last_trim < _TRIM_DEBOUNCE:
-        return
-    _last_trim = now
-    gc.collect()
-    if _libc is not None:
-        try:
-            _libc.malloc_trim(0)
-        except Exception:
-            pass
-
-# _series_cache is persisted directly to its own file (not mirrored into src.cache's shared
-# Cache singleton) — that singleton stays resident in RAM for the whole process, so mirroring
-# the same full-size daily series into it duplicated this entire cache's memory footprint for
-# no benefit (the mirror was only ever read once, to reseed this dict after a restart).
-_HIST_FILE = Path("data/.hist_cache.pkl")
-_hist_lock = threading.Lock()
-_HIST_SAVE_DEBOUNCE = 5.0
-_last_hist_write = 0.0
-
-
-def _load_series_cache() -> dict:
-    if _HIST_FILE.exists():
-        try:
-            with open(_HIST_FILE, "rb") as f:
-                return pickle.load(f)
-        except Exception:
-            pass
-    return {}
-
-
-def _persist_series_cache() -> None:
-    global _last_hist_write
-    now = time.time()
-    if now - _last_hist_write < _HIST_SAVE_DEBOUNCE:
-        return
-    with _hist_lock:
-        if now - _last_hist_write < _HIST_SAVE_DEBOUNCE:
-            return
-        _HIST_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(_HIST_FILE, "wb") as f:
-            pickle.dump(_series_cache, f)
-        _last_hist_write = now
-
-
-_series_cache: dict[str, dict] = _load_series_cache()  # yf_symbol -> {dates, prices, fetched_at, last_bar_date}
 _intraday_cache: dict[str, tuple[dict, float]] = {}
 _INTRADAY_TTL = 3600.0  # 1 hour  — intraday
 _FETCH_TIMEOUT = 20.0   # per-request cap on the underlying yfinance call — a single slow/stuck
@@ -122,16 +42,11 @@ _sem          = asyncio.Semaphore(3)  # max concurrent yfinance fetches — was 
                                        # (~15.4MB/call observed). Reverted to 4, then to 3 — a first
                                        # post-deploy cold burst (every symbol cold on both client and
                                        # server caches at once) still plateaued at ~513MB; trading a
-                                       # bit more burst-clear time for a lower peak. See _download()'s
-                                       # del df + the disk-backed cache + _trim_memory() for the rest
-                                       # of the fix to the slow-burst problem this was trying to solve.
+                                       # bit more burst-clear time for a lower peak.
 
-# Neither cache above ever had entries removed — every distinct symbol ever requested
-# (not just current portfolio holdings, but every Explore/Quick-Stats lookup too) stayed
-# in memory for the life of the process. Cap each to the most-recently-fetched N symbols —
-# lowered from 300: the real portfolio only has ~80-90 distinct symbols, so 300 was mostly
-# holding one-off Explore-page lookups that don't need to survive long-term.
-_MAX_SERIES_SYMBOLS = 120
+# The intraday cache is local to this file (a different fetch shape — today's 5-min bars, not
+# daily history — kept separate per the plan's Category 3 decision). Never had entries removed —
+# cap it to the most-recently-fetched N symbols.
 _MAX_INTRADAY_SYMBOLS = 120
 
 
@@ -140,28 +55,6 @@ def _evict_oldest(cache: dict, max_size: int, ts_of) -> None:
         return
     for sym, _ in sorted(cache.items(), key=lambda kv: ts_of(kv[1]))[: len(cache) - max_size]:
         cache.pop(sym, None)
-
-
-def _download(yf_symbol: str, start) -> dict:
-    try:
-        df = yf.download(yf_symbol, start=start, progress=False, auto_adjust=True)
-        # Some yfinance versions return empty for index symbols (^NDX, ^GSPC etc.)
-        # with auto_adjust=True; retry without it as a fallback.
-        if df.empty:
-            df = yf.download(yf_symbol, start=start, progress=False, auto_adjust=False)
-        if df.empty:
-            return {"dates": [], "prices": []}
-        # Flatten multi-level columns (yfinance ≥ 0.2.38)
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = [c[0] for c in df.columns]
-        closes = df["Close"].dropna().copy()
-        del df  # full OHLCV frame no longer needed — free it before returning, not on GC
-        return {
-            "dates":  closes.index.strftime("%Y-%m-%d").tolist(),
-            "prices": [round(float(p), 4) for p in closes.tolist()],
-        }
-    except Exception as exc:
-        return {"dates": [], "prices": [], "error": str(exc)}
 
 
 _SINCE_FLOOR = pd.Timestamp("2000-01-01")
@@ -184,98 +77,36 @@ def _valid_since(since: Optional[str], start_dt: pd.Timestamp) -> Optional[pd.Ti
     return dt
 
 
-# Resident window kept in RAM/disk. The client's own localStorage is the long-term home
-# for the deep multi-year history (it already persists every symbol's full series there
-# with a 7/30-day TTL) — the backend only needs enough of a tail to serve cheap deltas on
-# the next request. A client without a usable local cache (first-ever load, or one older
-# than this) pays one full re-fetch instead of getting it from a warm resident cache;
-# that fetch is transient (freed right after, per _download's `del df`), not retained.
-_RETENTION_DAYS = 15
-
-
-def _trim(entry: dict) -> dict:
-    dates, prices = entry["dates"], entry["prices"]
-    if len(dates) <= _RETENTION_DAYS:
-        return entry
-    return {**entry, "dates": dates[-_RETENTION_DAYS:], "prices": prices[-_RETENTION_DAYS:]}
-
-
-def _save_entry(yf_symbol: str, entry: dict) -> dict:
-    _series_cache[yf_symbol] = _trim(entry)
-    _evict_oldest(_series_cache, _MAX_SERIES_SYMBOLS, lambda e: e["fetched_at"])
-    _persist_series_cache()
-    _trim_memory()
-    return entry  # caller gets the untrimmed entry for this response
-
-
-def _covers(entry: Optional[dict], needed_from: pd.Timestamp) -> bool:
-    """Does the resident (possibly trimmed) entry reach back far enough to answer this
-    request without a fresh fetch?"""
-    return bool(entry and entry["dates"] and pd.Timestamp(entry["dates"][0]) <= needed_from)
-
-
 def _fetch_incremental(yf_symbol: str, start: str, since: Optional[str] = None) -> dict:
-    """Fetch full or delta history for yf_symbol and merge into _series_cache."""
-    cached = _series_cache.get(yf_symbol)  # already seeded from disk at process start
+    """Ensure the shared price_store covers yf_symbol, then shape this endpoint's response
+    from it. price_store holds full (untrimmed) history now, shared with portfolio_history.py —
+    no more "resident trimmed window vs caller's real history" distinction to track here."""
     start_dt = pd.Timestamp(start) - pd.Timedelta(days=30)
     since_dt = _valid_since(since, start_dt)
     needed_from = since_dt if since_dt is not None else start_dt
 
-    if not _covers(cached, needed_from):
-        # Resident window (if any) doesn't reach back far enough for this request — full
-        # fetch from the earliest date actually needed. Returned to the caller in full;
-        # only the trimmed recent window is kept resident afterward.
-        fresh = _download(yf_symbol, needed_from)
-        _direct_trim()
-        if fresh.get("error") or not fresh["dates"]:
-            if not cached:
-                return fresh
-            # `cached` is the resident window and (by definition of this branch) doesn't even
-            # reach back to `needed_from` — returning it bare would understate the caller's
-            # history further and, unflagged, get treated as a complete replacement. Flag it.
-            fallback = dict(cached)
-            fallback["partial_since"] = (since_dt or pd.Timestamp(cached["dates"][0])).strftime("%Y-%m-%d")
-            return fallback
-        entry = {
-            "dates": fresh["dates"], "prices": fresh["prices"],
-            "fetched_at": time.time(), "last_bar_date": fresh["dates"][-1],
-        }
-        if since_dt is not None:
-            # `fresh` was downloaded starting at `since_dt`, not `start` — it's a delta
-            # relative to the caller's own full local history regardless of whether the
-            # resident cache was missing (`cached is None`) or just too short to cover this
-            # request. Mislabeling this as a full response (the old check only caught the
-            # `cached is None` case) makes the caller replace its real multi-year cache with
-            # this short window — collapsing its chart to almost nothing, sometimes one point.
-            _save_entry(yf_symbol, entry)
-            fresh["partial_since"] = since_dt.strftime("%Y-%m-%d")
-            return fresh
-        return _save_entry(yf_symbol, entry)
+    price_store.ensure_prices([yf_symbol], needed_from.strftime("%Y-%m-%d"))
+    entry = price_store.get_entry(yf_symbol)
 
-    # Resident window covers what's needed — delta-merge from the last cached bar onward
-    # (yfinance can revise an in-progress daily bar).
-    delta = _download(yf_symbol, cached["last_bar_date"])
-    _direct_trim()
-    if delta.get("error"):
-        # Keep serving the existing cache on a transient fetch failure.
-        return cached
+    if not entry or not entry["dates"]:
+        return {"dates": [], "prices": []}
 
-    merged = dict(zip(cached["dates"], cached["prices"]))
-    merged.update(dict(zip(delta["dates"], delta["prices"])))
-    dates  = sorted(merged.keys())
-    prices = [merged[d] for d in dates]
+    if not price_store.covers(yf_symbol, needed_from):
+        # Fetch didn't reach back far enough — a genuinely bad/delisted symbol, or a transient
+        # failure. Return whatever's resident, flagged partial so the caller merges instead of
+        # treating this as a complete replacement of its own (possibly deeper) local history.
+        fallback = dict(entry)
+        fallback["partial_since"] = (since_dt or pd.Timestamp(entry["dates"][0])).strftime("%Y-%m-%d")
+        return fallback
 
-    entry = {
-        "dates": dates, "prices": prices,
-        "fetched_at": time.time(),
-        "last_bar_date": dates[-1] if dates else cached["last_bar_date"],
-    }
-    result = _save_entry(yf_symbol, entry)
     if since_dt is not None:
-        # `cached` here is only the trimmed resident window, not the caller's full
-        # history — flag delta-only so the caller merges instead of replacing its cache.
+        # Caller already has everything before `since` themselves — send only the delta,
+        # not the full multi-year series, over the wire.
+        result = _slice_response(entry, since_dt.strftime("%Y-%m-%d"))
         result["partial_since"] = since_dt.strftime("%Y-%m-%d")
-    return result
+        return result
+
+    return _slice_response(entry, start)
 
 
 def _slice_response(entry: dict, start: str) -> dict:
@@ -284,6 +115,16 @@ def _slice_response(entry: dict, start: str) -> dict:
     while i < len(dates) and dates[i] < start:
         i += 1
     return {"dates": dates[i:], "prices": prices[i:]}
+
+
+def _envelope(d: dict) -> dict:
+    """Add the same freshness fields portfolio_history.py's response already carries, so the
+    frontend can treat both chart types uniformly (Category 7 UI states). guardRejected is
+    always False here — unlike portfolio_history.py's atomic per-request recompute, this
+    endpoint's data can only grow via price_store's merge (never silently overwritten by a
+    worse result), so there's no equivalent "reject and revert" scenario to protect against;
+    the field is present for envelope consistency, not because this path needs the guard."""
+    return {**d, "dataAsOf": time.time(), "guardRejected": False}
 
 
 def _fetch_intraday_bars(yf_symbol: str) -> dict:
@@ -360,25 +201,23 @@ async def get_history(
         return JSONResponse(content=data)
 
     if not start:
-        return JSONResponse(content={"dates": [], "prices": [], "error": "start required"})
+        return JSONResponse(content=_envelope({"dates": [], "prices": [], "error": "start required"}))
 
     start_dt = pd.Timestamp(start) - pd.Timedelta(days=30)
     since_dt = _valid_since(since, start_dt)
     needed_from = since_dt if since_dt is not None else start_dt
 
-    cached = _series_cache.get(yf_symbol)
+    cached = price_store.get_entry(yf_symbol)
     if (
-        _covers(cached, needed_from)
+        price_store.covers(yf_symbol, needed_from)
         and not is_stale(yf_symbol, cached["fetched_at"], cached["last_bar_date"])
     ):
         result = _slice_response(cached, start)
         if since_dt is not None:
-            # `cached` is only the resident (possibly trimmed) window, not the caller's full
-            # multi-year local history — slicing it against `start` still only returns this
-            # short window. Returning it unflagged makes the caller replace its real cache
-            # with just this window. Flag it so the caller merges instead.
+            # Caller already has everything before `since` — flag so it merges the delta
+            # instead of treating this slice as a full replacement of its own local history.
             result["partial_since"] = since_dt.strftime("%Y-%m-%d")
-        return JSONResponse(content=result)
+        return JSONResponse(content=_envelope(result))
 
     try:
         async with _sem:
@@ -386,20 +225,17 @@ async def get_history(
                 asyncio.to_thread(_fetch_incremental, yf_symbol, start, since), timeout=_FETCH_TIMEOUT
             )
     except asyncio.TimeoutError:
-        # Same as above — the thread isn't killed, it'll finish and cache in the background.
-        # Serve whatever we already had rather than hanging the request indefinitely. `cached`
-        # is only the resident (possibly trimmed) window — same reasoning as the fast path
-        # above, this must be flagged partial so the caller merges instead of replacing its
-        # own full local cache with this short fallback window.
+        # The background thread isn't killed — it'll finish and populate price_store for the
+        # next request either way. Serve whatever's already resident rather than hanging.
         if cached:
             result = _slice_response(cached, start)
             result["partial_since"] = (since_dt or pd.Timestamp(cached["dates"][0])).strftime("%Y-%m-%d")
-            return JSONResponse(content=result)
-        return JSONResponse(content={"dates": [], "prices": [], "error": "timeout"})
+            return JSONResponse(content=_envelope(result))
+        return JSONResponse(content=_envelope({"dates": [], "prices": [], "error": "timeout"}))
     if "error" in entry:
-        return JSONResponse(content=entry)
+        return JSONResponse(content=_envelope(entry))
     if entry.get("partial_since"):
         # Delta-only result for a cold cache, sized off the caller's own `since` hint —
         # not a full range, the caller must merge it into what it already has, not replace.
-        return JSONResponse(content=entry)
-    return JSONResponse(content=_slice_response(entry, start))
+        return JSONResponse(content=_envelope(entry))
+    return JSONResponse(content=_envelope(_slice_response(entry, start)))

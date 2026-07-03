@@ -95,6 +95,21 @@ _INSTANCE: Optional[dict] = None
 # fine: a cache miss just costs one recompute from the browser's own localStorage CSV copy.
 _RAM_FIFO: dict[str, dict] = {}
 
+# The last-seen ticker list (no amounts/quantities, but still derived from a real uploaded
+# portfolio) — used only to detect "did the symbol set change" for a force-refresh decision.
+# RAM-only for the same reason _RAM_FIFO is: real-portfolio-derived data shouldn't touch disk,
+# even a low-severity list like this one. Lost on restart — worst case, one extra force-refresh.
+_known_symbols_ram: Optional[list[str]] = None
+
+
+def get_known_symbols() -> Optional[list[str]]:
+    return _known_symbols_ram
+
+
+def set_known_symbols(symbols: list[str]) -> None:
+    global _known_symbols_ram
+    _known_symbols_ram = symbols
+
 
 class Cache:
     def __init__(self) -> None:

@@ -23,19 +23,12 @@ from fastapi.responses import FileResponse, JSONResponse
 from src.engine import build
 from backend.serializers import serialize_bundle
 from backend.routers.dividends import clear_cache as _clear_div_cache
-from backend.routers.portfolio_history import clear_portfolio_history_cache
 
 router = APIRouter()
 
 _mem_cache: dict[str, tuple[dict, float]] = {}
 _MEM_TTL = 60.0  # seconds
 _MAX_CSV_BYTES = 5 * 1024 * 1024  # 5 MB guard
-
-# POST /api/portfolio is hit on every routine ~2-min live-price poll for a user with a real
-# uploaded CSV (usePortfolio.ts always re-POSTs the same stored CSV content), not just on an
-# actual reimport — so the portfolio-history cache must only be cleared when the CSV content
-# itself changed, not on every poll, or the incremental 30-min chart cache never gets to work.
-_last_csv_hash: str | None = None
 
 
 @router.get("/api/portfolio")
@@ -90,10 +83,12 @@ async def post_portfolio(
     _mem_cache[cache_key] = (data, now)
     _clear_div_cache()
 
-    global _last_csv_hash
-    if csv_hash != _last_csv_hash:
-        clear_portfolio_history_cache()
-        _last_csv_hash = csv_hash
+    # No portfolio-history invalidation needed here: that cache is now keyed by csv_hash
+    # (see portfolio_history.py), so identical content always maps to the same valid entry —
+    # nothing to clear on a routine re-POST of unchanged content. The old code compared this
+    # request's hash against a single global "last seen" hash, which under concurrent
+    # multi-user traffic would flip on every *other* user's request too, forcing this user's
+    # already-correct chart cache to be wiped and recomputed for no reason.
 
     return JSONResponse(content=data)
 

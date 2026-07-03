@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import type { Currency } from '../App'
 import type { PortfolioSeries } from './usePortfolioHistory'
 import { idbGet, idbSet } from '../utils/idbStore'
+import { guardShrink, computeChartFreshness, type ChartFreshness } from '../utils/incrementalMerge'
 
 interface RawResponse {
   dates:      string[]
@@ -18,6 +19,22 @@ interface RawResponse {
   todayMismatch: boolean
 }
 
+// Same localStorage key usePortfolio.ts reads for the main bundle fetch — this endpoint needs
+// the caller's own uploaded CSV too (previously it never received it at all and always computed
+// from the server's default file, regardless of who was asking).
+function getCsvContent(): string | undefined {
+  return localStorage.getItem('portfolio:csv') ?? undefined
+}
+
+// Cheap non-cryptographic hash — only needs to be short and stable-per-content so the local
+// cache key changes when (and only when) the CSV content actually changes; doesn't need to
+// match the backend's md5 (that's an internal detail of the server-side cache key).
+function shortHash(s: string): string {
+  let h = 5381
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0
+  return (h >>> 0).toString(36)
+}
+
 async function fetchPortfolioHistory(
   currency: Currency,
   portfolio?: string,
@@ -30,7 +47,13 @@ async function fetchPortfolioHistory(
   if (segment)   params.set('segment',   segment)
   if (symbol)    params.set('symbol',    symbol)
 
-  const res = await fetch(`${base}/api/portfolio-history?${params}`)
+  const csvContent = getCsvContent()
+  const res = await fetch(
+    `${base}/api/portfolio-history?${params}`,
+    csvContent
+      ? { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: csvContent }
+      : undefined,
+  )
   if (!res.ok) throw new Error(`portfolio-history ${res.status}`)
   const raw: RawResponse = await res.json()
 
@@ -63,8 +86,15 @@ async function fetchPortfolioHistory(
 // raw price chart already does.
 const LS_PREFIX = 'portfolioHist:'
 
-function lsKeyFor(currency: Currency, portfolio?: string, segment?: string, symbol?: string): string {
-  return `${LS_PREFIX}${currency}:${portfolio ?? ''}:${segment ?? ''}:${symbol ?? ''}`
+// csvHash scopes both the local cache key and the query key to the caller's own uploaded CSV —
+// without this, two different real users filtering to a same-named portfolio (e.g. both have a
+// "Zerodha") would read/write the same local cache entry on a shared device, and switching
+// which CSV is active on the same browser wouldn't invalidate the previous CSV's cached chart.
+// A hash-scoped key sidesteps needing an explicit wipe-on-mismatch step (unlike usePortfolio.ts's
+// wipeCsvMismatch): a different CSV naturally produces a different key, so stale data under the
+// old key is simply never read again, not overwritten in place.
+function lsKeyFor(csvHash: string, currency: Currency, portfolio?: string, segment?: string, symbol?: string): string {
+  return `${LS_PREFIX}${csvHash}:${currency}:${portfolio ?? ''}:${segment ?? ''}:${symbol ?? ''}`
 }
 
 function lsGet(key: string): { d: PortfolioSeries; t: number } | undefined {
@@ -85,25 +115,13 @@ function lsSet(key: string, data: PortfolioSeries) {
 // fetch is skipped, so the chart would otherwise never update while the page just sits open.
 export const PORTFOLIO_CHART_REFRESH_MS = 5 * 60 * 1000
 
-export interface ChartFreshness {
-  label:   string   // "As of 14:32"
-  warning: boolean  // true → render with warning styling instead of plain gray
-  detail?: string   // short reason appended after the label when warning is true
-}
+export type { ChartFreshness }
 
-// Turns a fetched PortfolioSeries into a user-facing freshness signal — the whole point of
-// dataAsOf/guardRejected/todayMismatch existing on the backend is so the UI can say "this may
-// be wrong or old" instead of silently showing possibly-stale data as if it were current.
+// Turns a fetched PortfolioSeries into a user-facing freshness signal — thin wrapper around the
+// shared computeChartFreshness (now also used by PriceChart.tsx for the holding-level chart).
 export function getChartFreshness(series: PortfolioSeries | null | undefined): ChartFreshness | null {
   if (!series) return null
-  const d = new Date(series.dataAsOf)
-  const label = `As of ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-  if (series.guardRejected) return { label, warning: true, detail: "couldn't verify latest update" }
-  if (series.todayMismatch) return { label, warning: true, detail: 'numbers may be off' }
-  if (Date.now() - series.dataAsOf > 2 * PORTFOLIO_CHART_REFRESH_MS) {
-    return { label, warning: true, detail: 'refresh may be delayed' }
-  }
-  return { label, warning: false }
+  return computeChartFreshness({ ...series, dataAsOfMs: series.dataAsOf }, PORTFOLIO_CHART_REFRESH_MS)
 }
 
 export function useBackendPortfolioHistory(
@@ -114,8 +132,10 @@ export function useBackendPortfolioHistory(
   symbol?:   string,
 ) {
   const qc = useQueryClient()
-  const queryKey = ['portfolio-history', currency, portfolio ?? '', segment ?? '', symbol ?? '']
-  const lsKey    = lsKeyFor(currency, portfolio, segment, symbol)
+  const csvContent = getCsvContent()
+  const csvHash = csvContent ? shortHash(csvContent) : 'demo'
+  const queryKey = ['portfolio-history', csvHash, currency, portfolio ?? '', segment ?? '', symbol ?? '']
+  const lsKey    = lsKeyFor(csvHash, currency, portfolio, segment, symbol)
   const cached   = lsGet(lsKey)
 
   useEffect(() => {
@@ -134,21 +154,47 @@ export function useBackendPortfolioHistory(
     }
     document.addEventListener('visibilitychange', handleVisibility)
     // Backstop for a continuously-foregrounded session: poll real elapsed time every
-    // minute so the fetch always lands at the true 30-min mark, not just on tab-switch.
+    // minute so the fetch always lands at the true 5-min mark, not just on tab-switch. Kept
+    // as a fallback (e.g. this chart's page open with no portfolio bundle query active) —
+    // the subscription below is the primary trigger now.
     const pollId = window.setInterval(refetchIfStale, 60_000)
+
+    // Re-check (and, unlike the timer above, force it regardless of this chart's own 5-min
+    // staleTime) the instant usePortfolio.ts's bundle refreshes — that's what drives
+    // HoldingCard/SummaryCard's "today" numbers, on its own independent ~2-min cycle. Without
+    // this, the two were "fresh within their own TTL" but not fresh at the same instant, which
+    // is exactly what produced the todayMismatch class of bug this session. The backend's own
+    // 5-min result cache still avoids real recomputation more than once per TTL window — this
+    // just makes the frontend check in lockstep instead of on an independently-drifting timer.
+    const unsubscribe = qc.getQueryCache().subscribe(event => {
+      if (event.type !== 'updated') return
+      if (event.query.queryKey[0] !== 'portfolio') return
+      qc.refetchQueries({ queryKey, type: 'active' })
+    })
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility)
       window.clearInterval(pollId)
+      unsubscribe()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, currency, portfolio, segment, symbol, qc])
+  }, [enabled, currency, portfolio, segment, symbol, csvHash, qc])
 
   return useQuery<PortfolioSeries | null>({
     queryKey,
     queryFn: async () => {
-      const data = await fetchPortfolioHistory(currency, portfolio, segment, symbol)
-      if (data) lsSet(lsKey, data)
-      return data
+      const fresh = await fetchPortfolioHistory(currency, portfolio, segment, symbol)
+      if (!fresh) return fresh
+      // This endpoint doesn't support delta responses (unlike useHistory.ts) — every request
+      // is a full recompute, so there's no merge step here, only the same shrink-guard applied
+      // client-side: don't let a suspiciously-shorter fresh response silently overwrite good
+      // cached data (shares the guardShrink helper from incrementalMerge.ts with useHistory.ts).
+      const { rejected } = guardShrink(cached?.d ? { dates: cached.d.value.dates } : undefined, { dates: fresh.value.dates })
+      if (rejected && cached?.d) {
+        return { ...cached.d, guardRejected: true }
+      }
+      lsSet(lsKey, fresh)
+      return fresh
     },
     enabled,
     staleTime: PORTFOLIO_CHART_REFRESH_MS,
