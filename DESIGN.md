@@ -434,3 +434,7 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 **Chart freshness indicator** — small "As of HH:MM" label added directly on both Holdings-page and Txn-page charts (`text-[9px] text-slate-400`, matching the existing sync-timestamp sizing convention). Switches to `text-amber-600 font-semibold` with a short appended reason ("couldn't verify latest update" / "numbers may be off" / "refresh may be delayed") when the backend flags a rejected update or a today-number mismatch — chart honestly signals when it might be wrong instead of always looking fine. New "Couldn't load chart — tap to retry" empty state alongside the existing "No price history available" one; retry buttons given `min-h-[44px]` touch targets (mobile-check catch during `/ship`).
 
+### 2026-07-03 (chart architecture rework, same day)
+
+Same-day follow-on: extracted the freshness label / retry / empty states above into a shared `ChartStateBlock.tsx` and applied it to `PriceChart.tsx` too, which previously had none of this — one generic "No price history available" covered genuine-empty, real errors, and stale data alike. Added a manual-refresh icon on `PriceChart.tsx` matching the existing zoom-icon's `w-6 h-6` sizing/style (same row, kept visually consistent rather than making it a full 44px target that would look mismatched next to its neighbor).
+
