@@ -64,7 +64,7 @@ _store: dict[str, dict] = _load()
 # Safety cap on distinct symbols resident. NOT the active-concurrent-user-sourced eviction
 # design (deferred — see plan doc Category 1 items 2-4) — just a basic ceiling so an unbounded
 # number of one-off Explore-page lookups can't grow this dict forever.
-_MAX_SYMBOLS = 150
+_MAX_SYMBOLS = 400
 
 
 def _evict_oldest() -> None:

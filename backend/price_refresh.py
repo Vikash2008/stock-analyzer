@@ -39,8 +39,17 @@ def _refresh_once() -> None:
     cache = Cache()
     prices, prev_closes = get_prices_and_prev_close(symbols)
     usd_inr = get_usd_inr_rate()
-    cache.set("prices", prices)
-    cache.set("prev_closes", prev_closes)
+
+    # A partial/failed fetch (hard timeout, batch error) returns None for whichever
+    # symbols didn't come back in time — merge over the last-known-good cache instead
+    # of replacing it outright, so one bad cycle doesn't wipe prices for symbols the
+    # fresh fetch simply missed (that wipe was the cause of portfolio value randomly
+    # cratering until the next successful refresh or a manual sync).
+    merged_prices      = {**(cache.get_stale("prices") or {}),      **{s: p for s, p in prices.items() if p is not None}}
+    merged_prev_closes = {**(cache.get_stale("prev_closes") or {}), **{s: p for s, p in prev_closes.items() if p is not None}}
+
+    cache.set("prices", merged_prices)
+    cache.set("prev_closes", merged_prev_closes)
     cache.set("fx", usd_inr)
 
 

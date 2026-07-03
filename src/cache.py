@@ -185,6 +185,12 @@ class Cache:
             return None
         return self._data.get(f"{layer}:value")
 
+    def get_stale(self, layer: str) -> Optional[Any]:
+        """Return the cached value regardless of TTL freshness, or None if never set.
+        Used as a merge baseline when a fresh fetch comes back partial, so a bad cycle
+        doesn't wipe out still-good data for symbols the fresh fetch missed."""
+        return self._data.get(f"{layer}:value")
+
     def set(self, layer: str, value: Any) -> None:
         """Write value and record timestamp. The in-memory dict updates immediately
         (visible to every Cache() instance/get() call); the disk write itself is
