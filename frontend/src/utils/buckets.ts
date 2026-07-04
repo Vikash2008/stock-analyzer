@@ -8,9 +8,11 @@
 // localStorage — not portable, but trivial to recreate.
 
 import type { Holding, Transaction, PortfolioData } from '../api/types'
+import type { Currency } from '../App'
 
 const ASSET_CLASS = 'Asset Class'
 const CATALOG_KEY = 'buckets:catalog'
+const LABEL_CURRENCY_KEY = 'buckets:label-currency'
 
 export interface BucketDef {
   name:        string
@@ -148,6 +150,36 @@ export function reconcileBucketsFromTags(data: PortfolioData): void {
     }
   }
   if (changed) saveBuckets(merged)
+}
+
+// ── Per-Label display currency (Manage Buckets modal) ───────────────────────────────────
+// Kept as its own map (bucket+label -> currency), separate from BucketDef.labels, so nothing
+// that treats labels as plain strings elsewhere needs to change. Only used for a Label's own
+// rollup tile — an individual holding's own numbers always use its own CSV `currency` field.
+
+function readLabelCurrencyMap(): Record<string, Currency> {
+  try {
+    const raw = localStorage.getItem(LABEL_CURRENCY_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+// ';' is safe as a separator — Bucket/Label names may never contain ';' or '=' (see
+// handleNewBucket/handleAddLabel validation in ManageBucketsModal.tsx).
+function labelCurrencyKey(bucket: string, label: string): string {
+  return bucket + ';' + label
+}
+
+export function getLabelCurrency(bucket: string, label: string): Currency {
+  return readLabelCurrencyMap()[labelCurrencyKey(bucket, label)] ?? 'INR'
+}
+
+export function setLabelCurrency(bucket: string, label: string, currency: Currency) {
+  const map = readLabelCurrencyMap()
+  map[labelCurrencyKey(bucket, label)] = currency
+  try { localStorage.setItem(LABEL_CURRENCY_KEY, JSON.stringify(map)) } catch {}
 }
 
 /** The catalog's known Labels for a Bucket, in their saved order, followed by any label

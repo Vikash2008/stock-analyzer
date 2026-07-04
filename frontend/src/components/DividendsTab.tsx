@@ -6,9 +6,18 @@ import { useDividendsBatched, useForceRefreshDividends } from '../hooks/useDivid
 import type { DividendSymbol } from '../api/dividends'
 import { fmtCompact, fmt } from '../utils/fmt'
 import type { Currency } from '../App'
-import { USD_PORTS } from '../utils/segments'
+import { resolveDisplayCurrency, fxMultiplier as computeFx } from '../utils/currency'
 
-interface Props { currency: Currency; filterSymbols?: Set<string>; portfolio?: string; usdInr?: number; yf_symbols?: string[] }
+interface Props {
+  currency: Currency
+  // This view's own native currency (portfolio/segment/bucket-label configured currency) —
+  // caller resolves it (HoldingsPage's pageNativeCurrency); defaults to 'INR' if omitted.
+  nativeCurrency?: Currency
+  filterSymbols?: Set<string>
+  portfolio?: string
+  usdInr?: number
+  yf_symbols?: string[]
+}
 
 const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -94,9 +103,14 @@ function MonthCalendar({
 
 function SymbolRow({ sym, currency, usdInr, maxTotal }: { sym: DividendSymbol; currency: Currency; usdInr?: number; maxTotal: number }) {
   const [open, setOpen] = useState(false)
-  const isUsSym = sym.exchange !== 'NSE' && sym.exchange !== 'BSE'
-  const symCur: Currency = isUsSym && currency === 'USD' ? 'USD' : 'INR'
-  const symFx = symCur === 'USD' ? 1 / (usdInr ?? 95.5) : 1
+  // DividendSymbol has no direct `.currency` field — prefer the first event's real
+  // `div_currency` (CSV-derived, via the backend) when present, else fall back to the
+  // exchange heuristic (NSE/BSE = INR, everything else = USD — same rule data_loader.py uses).
+  const nativeSymCur: Currency = sym.events[0]?.div_currency === 'USD' || sym.events[0]?.div_currency === 'INR'
+    ? sym.events[0].div_currency
+    : (sym.exchange !== 'NSE' && sym.exchange !== 'BSE' ? 'USD' : 'INR')
+  const symCur = resolveDisplayCurrency(nativeSymCur, currency)
+  const symFx = computeFx(symCur, usdInr ?? 95.5)
   const fmtAmt = (v: number) => fmt(v * symFx, symCur)
   const barPct = maxTotal > 0 ? sym.total_dividends / maxTotal * 100 : 0
 
@@ -173,10 +187,9 @@ function SymbolRow({ sym, currency, usdInr, maxTotal }: { sym: DividendSymbol; c
   )
 }
 
-export function DividendsTab({ currency, filterSymbols, portfolio, usdInr, yf_symbols = [] }: Props) {
-  const isUsdPort = portfolio ? USD_PORTS.has(portfolio) : false
-  const summaryCur: Currency = isUsdPort && currency === 'USD' ? 'USD' : 'INR'
-  const summaryFx = summaryCur === 'USD' ? 1 / (usdInr ?? 95.5) : 1
+export function DividendsTab({ currency, nativeCurrency = 'INR', filterSymbols, portfolio, usdInr, yf_symbols = [] }: Props) {
+  const summaryCur = resolveDisplayCurrency(nativeCurrency, currency)
+  const summaryFx  = computeFx(summaryCur, usdInr ?? 95.5)
   const { data, isLoading, isError, isFetching, loadedCount, totalCount, forceRefresh: batchedRefresh } = useDividendsBatched(portfolio, yf_symbols)
   const legacyRefresh = useForceRefreshDividends(portfolio)
   const [retrying, setRetrying] = useState(false)

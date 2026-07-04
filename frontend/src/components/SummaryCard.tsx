@@ -14,6 +14,7 @@ interface SummaryCardProps {
   todayPct:    number | null
   xirr?:       number | null
   ltp?:        number | null
+  ltpCurrency?: Currency        // native quote currency for ltp; defaults to `currency` if omitted
   dividends?:  number          // pass when "include dividends" toggle is ON
   fxGain?:     number          // pass when "include FX gains" toggle is ON
   currency:    Currency
@@ -24,7 +25,7 @@ interface SummaryCardProps {
 
 export function SummaryCard({
   label, current, invested, realGain, realCost,
-  todayGain, todayPct, xirr, ltp, dividends, fxGain, currency, footer, onClick,
+  todayGain, todayPct, xirr, ltp, ltpCurrency, dividends, fxGain, currency, footer, onClick,
 }: SummaryCardProps) {
   const divAmt    = dividends ?? 0
   const fxAmt     = fxGain ?? 0
@@ -48,7 +49,7 @@ export function SummaryCard({
         <div className="flex items-center justify-between gap-2 mb-2">
           <p className="text-[11px] font-bold uppercase tracking-[1.2px]" style={{ color: '#99e6dc' }}>{label}</p>
           {ltp != null && (
-            <span className="text-[11px] font-semibold whitespace-nowrap shrink-0" style={{ color: '#99e6dc' }}>LTP {fmt(ltp, currency)}</span>
+            <span className="text-[11px] font-semibold whitespace-nowrap shrink-0" style={{ color: '#99e6dc' }}>LTP {fmt(ltp, ltpCurrency ?? currency)}</span>
           )}
         </div>
 

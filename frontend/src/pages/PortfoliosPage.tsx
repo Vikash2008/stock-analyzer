@@ -6,8 +6,9 @@ import { usePortfolio, useForceRefresh } from '../hooks/usePortfolio'
 import { usePrefetchHoldingCharts } from '../hooks/useHistory'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
 import { fmt, fmtCompact } from '../utils/fmt'
-import { SKIP_PORTS, USD_PORTS } from '../utils/segments'
-import { getLabel, resolveLabel, filterByLabel, getAllLabelsInBucket, getBuckets, reconcileBucketsFromTags } from '../utils/buckets'
+import { SKIP_PORTS, USD_PORTS, getPortfolioCurrency } from '../utils/segments'
+import { getLabel, resolveLabel, filterByLabel, getAllLabelsInBucket, getBuckets, reconcileBucketsFromTags, getLabelCurrency } from '../utils/buckets'
+import { resolveDisplayCurrency, fxMultiplier } from '../utils/currency'
 import { ManageBucketsModal } from '../components/ManageBucketsModal'
 import { SummaryCard } from '../components/SummaryCard'
 import { aggRealized, realizedForPorts } from '../utils/realized'
@@ -820,8 +821,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   if (isLoading) return <LoadingSkeleton />
   if (error || !data) return <ErrorState message={(error as Error)?.message ?? 'Unknown error'} />
 
-  const usdScale = (isUsd: boolean) => isUsd && currency === 'USD' ? 1 / data.usd_inr : 1
-  const usdCur   = (isUsd: boolean): Currency => isUsd && currency === 'USD' ? 'USD' : 'INR'
+  const cardCurrency = (native: Currency): Currency => resolveDisplayCurrency(native, currency)
+  const cardScale     = (native: Currency): number   => fxMultiplier(cardCurrency(native), data.usd_inr)
 
   return (
     <div
@@ -1165,7 +1166,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         <div className="flex flex-col gap-2">
           {cards.map((card, idx) => {
             const s = LABEL_CARD_STYLE[card.key] ?? CARD_COLOR_PALETTE[idx % CARD_COLOR_PALETTE.length]
-            return <BreakCard key={card.key} card={card} currency={currency} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={s.accent} cardBg={s.bg} divGain={cardDivGainMap.get(card.key) ?? 0} fxGain={cardFxGainMap.get(card.key) ?? 0} />
+            return <BreakCard key={card.key} card={card} currency={cardCurrency(getLabelCurrency(mode, card.key))} scale={cardScale(getLabelCurrency(mode, card.key))} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={s.accent} cardBg={s.bg} divGain={cardDivGainMap.get(card.key) ?? 0} fxGain={cardFxGainMap.get(card.key) ?? 0} />
           })}
         </div>
       ) : (
@@ -1182,7 +1183,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 <div className="flex flex-col gap-2">
                   {gc.map((card, i) => {
                     const s = CARD_COLOR_PALETTE[i % CARD_COLOR_PALETTE.length]
-                    return <BreakCard key={card.key} card={card} currency={usdCur(USD_PORTS.has(card.key))} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={s.accent} cardBg={s.bg} scale={usdScale(USD_PORTS.has(card.key))} divGain={cardDivGainMap.get(card.key) ?? 0} fxGain={cardFxGainMap.get(card.key) ?? 0} />
+                    return <BreakCard key={card.key} card={card} currency={cardCurrency(getPortfolioCurrency(card.key))} xirr={cardXirrMap.get(card.key) ?? null} onClick={() => navigate(card.navPath)} compact accentColor={s.accent} cardBg={s.bg} scale={cardScale(getPortfolioCurrency(card.key))} divGain={cardDivGainMap.get(card.key) ?? 0} fxGain={cardFxGainMap.get(card.key) ?? 0} />
                   })}
                 </div>
               </div>

@@ -23,6 +23,7 @@ import { ReportTab } from '../components/ReportTab'
 import { useQuickStats } from '../hooks/useQuickStats'
 import { aggRealized } from '../utils/realized'
 import { SKIP_PORTS, USD_PORTS } from '../utils/segments'
+import { resolveDisplayCurrency, fxMultiplier } from '../utils/currency'
 import { computeXIRR } from '../utils/xirr'
 import { fmt, fmtGainLine } from '../utils/fmt'
 import type { Currency } from '../App'
@@ -162,6 +163,10 @@ export default function TransactionsPage({ currency }: Props) {
       .sort((a, b) => b.date.localeCompare(a.date))  // newest first
   }, [data, decoded.symbol, portfolioFilter, isAggregate])
 
+  // This symbol's own native currency (from its CSV `currency` field) — `holding` covers open
+  // positions, `symTxns[0]` covers fully-closed ones (no open holding left to read from).
+  const holdingNativeCurrency: Currency = holding?.currency ?? symTxns[0]?.currency ?? 'INR'
+
   const holdingArr = useMemo(() => holdingList, [holdingList])
 
   // For closed holdings (no open position), build synthetic holding objects so
@@ -227,7 +232,7 @@ export default function TransactionsPage({ currency }: Props) {
     const includeFxGains = getIncludeFxGains()
     const cfs: { date: Date; amount: number }[] = []
     for (const tx of symTxns) {
-      const isUsd = USD_PORTS.has(tx.portfolio)
+      const isUsd = tx.currency === 'USD'
       // Must match HoldingsPage.tsx's xirrMap: when the FX-gains toggle is on, a BUY's true
       // historical buy_fx_rate is used instead of today's live rate — otherwise this page's
       // XIRR diverges from the Holdings page for the same holding (e.g. a USD stock whose
@@ -247,8 +252,8 @@ export default function TransactionsPage({ currency }: Props) {
 
   const txGains = useMemo(() => {
     if (!data) return []
-    const isUsdPort = USD_PORTS.has(decoded.portfolio)
-    const fx = isUsdPort ? (currency === 'USD' ? 1 : data.usd_inr) : 1
+    const isUsd = holding?.currency === 'USD'
+    const fx = isUsd ? (currency === 'USD' ? 1 : data.usd_inr) : 1
 
     // Aggregate realized entries by sell_date (for SELL tx rows) and buy_date (for BUY tx rows)
     const sellMap = new Map<string, { gain: number; cost: number }>()
@@ -319,7 +324,9 @@ export default function TransactionsPage({ currency }: Props) {
     dataUpdatedAt: portSeriesUpdatedAt,
     refetch:       refetchPortSeries,
   } = useBackendPortfolioHistory(
-    currency,
+    // Symbol-scoped chart (single holding) — resolve against this symbol's own native
+    // currency, never the raw toggle, so an INR-native stock's chart never gets dollarized.
+    resolveDisplayCurrency(holdingNativeCurrency, currency),
     isAggregate ? undefined : portfolioFilter.join(','),
     undefined,
     !!data && !!decoded.symbol,
@@ -376,11 +383,9 @@ export default function TransactionsPage({ currency }: Props) {
   if (isLoading) return <LoadingSkeleton />
   if (error || !data) return <ErrorState message={(error as Error)?.message ?? 'Unknown error'} />
 
-  // USD portfolios (Vested/IndMoney US/IndMoney Mummy) show in USD when toggle is USD;
-  // all Indian portfolios always display in INR regardless of the toggle.
-  const isUsdHolding = USD_PORTS.has(decoded.portfolio)
-  const dispCur: Currency = isUsdHolding ? currency : 'INR'
-  const holdFx = isUsdHolding && currency === 'USD' ? 1 / (data?.usd_inr ?? 95.5) : 1
+  // Shows in USD when the toggle is USD and this symbol is USD-native; INR-native always INR.
+  const dispCur = resolveDisplayCurrency(holdingNativeCurrency, currency)
+  const holdFx  = fxMultiplier(dispCur, data?.usd_inr ?? 95.5)
 
   // Aggregate realized across all portfolios in view (always in INR from aggRealized)
   const [realGainINR, realCostINR] = portfolioFilter.reduce<[number, number]>(
@@ -528,6 +533,7 @@ export default function TransactionsPage({ currency }: Props) {
         todayPct={tp}
         xirr={holdingXirr}
         ltp={holding?.current_price ?? null}
+        ltpCurrency={holdingNativeCurrency}
         dividends={includeDividends ? (symDividends?.total_dividends ?? 0) * holdFx : undefined}
         fxGain={includeFxGains ? fxGainRaw * holdFx : undefined}
         currency={dispCur}

@@ -1,11 +1,31 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import type { PortfolioData } from '../api/types'
+import type { Currency } from '../App'
 import { useSetTags } from '../hooks/useSetTags'
 import {
   getBuckets, createBucket, addLabel, setBucketToggle, getAllLabelsInBucket,
-  deleteBucket, deleteLabel, getLabel, setLabelOrder,
+  deleteBucket, deleteLabel, getLabel, setLabelOrder, getLabelCurrency, setLabelCurrency,
   type BucketDef,
 } from '../utils/buckets'
+import { SKIP_PORTS, getPortfolioCurrency, setPortfolioCurrency } from '../utils/segments'
+
+// Compact INR/USD pill — used for both the non-deletable Portfolios section and per-Label rows.
+function CurrencyPill({ value, onChange }: { value: Currency; onChange: (c: Currency) => void }) {
+  return (
+    <div className="flex bg-white rounded-full p-0.5 gap-0.5 border border-emerald-100 shrink-0">
+      {(['INR', 'USD'] as const).map(c => (
+        <button
+          key={c}
+          onClick={() => onChange(c)}
+          className={`px-2 py-1 text-[10px] font-bold rounded-full transition-colors whitespace-nowrap ${c === value ? 'text-white' : 'text-slate-400'}`}
+          style={c === value ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
+        >
+          {c}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 interface Props {
   open:    boolean
@@ -20,6 +40,14 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
   const [buckets, setBuckets] = useState<BucketDef[]>(getBuckets)
   const [newBucketName, setNewBucketName] = useState('')
   const [newLabelByBucket, setNewLabelByBucket] = useState<Record<string, string>>({})
+
+  const portfolioNames = useMemo(() => {
+    const set = new Set<string>()
+    for (const tx of data.transactions) {
+      if (!SKIP_PORTS.has(tx.portfolio)) set.add(tx.portfolio)
+    }
+    return [...set].sort()
+  }, [data])
 
   function refreshBuckets() {
     setBuckets(getBuckets())
@@ -184,6 +212,24 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
             </button>
           </div>
 
+          {/* Portfolios — non-deletable, currency-only (replaces the hardcoded USD_PORTS list) */}
+          <div className="bg-white rounded-lg border border-emerald-100 shadow-sm overflow-hidden">
+            <div className="px-2 py-1.5" style={{ background: 'rgba(13,148,136,0.06)' }}>
+              <span className="text-[13px] font-bold text-[#0b3b3a]">Portfolios</span>
+            </div>
+            <div className="px-2 py-1.5 space-y-1">
+              {portfolioNames.map(name => (
+                <div key={name} className="flex items-center gap-1.5 bg-emerald-50/60 border border-emerald-100 rounded-lg pl-2 pr-1.5 py-1">
+                  <span className="flex-1 min-w-0 text-[13px] font-medium text-slate-700 truncate">{name}</span>
+                  <CurrencyPill
+                    value={getPortfolioCurrency(name)}
+                    onChange={c => { setPortfolioCurrency(name, c); refreshBuckets() }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
           {buckets.map(b => (
             <div key={b.name} className="bg-white rounded-lg border border-emerald-100 shadow-sm overflow-hidden">
               <div className="flex items-center gap-1 px-2 py-1.5" style={{ background: 'rgba(13,148,136,0.06)' }}>
@@ -248,7 +294,11 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
                       >
                         <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor"><circle cx="2" cy="2" r="1.3" /><circle cx="8" cy="2" r="1.3" /><circle cx="2" cy="7" r="1.3" /><circle cx="8" cy="7" r="1.3" /><circle cx="2" cy="12" r="1.3" /><circle cx="8" cy="12" r="1.3" /></svg>
                       </button>
-                      <span className="flex-1 text-[13px] font-medium text-slate-700">{l}</span>
+                      <span className="flex-1 text-[13px] font-medium text-slate-700 truncate min-w-0">{l}</span>
+                      <CurrencyPill
+                        value={getLabelCurrency(b.name, l)}
+                        onChange={c => { setLabelCurrency(b.name, l, c); refreshBuckets() }}
+                      />
                       <button
                         onClick={() => handleDeleteLabel(b.name, l)}
                         disabled={isPending}

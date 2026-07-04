@@ -14,6 +14,7 @@ interface HoldingCardProps {
   todayGain:  number | null
   todayPct:   number | null
   ltp:        number | null
+  ltpCurrency?: Currency      // native quote currency for ltp; defaults to `currency` if omitted
   xirr:       number | null
   dividends?: number          // pass when "include dividends" toggle is ON
   fxGain?:    number          // pass when "include FX gains" toggle is ON
@@ -23,7 +24,7 @@ interface HoldingCardProps {
 
 export function HoldingCard({
   ticker, subLabel, current, invested, realGain, realCost,
-  todayGain, todayPct, ltp, xirr, dividends, fxGain, currency, onClick,
+  todayGain, todayPct, ltp, ltpCurrency, xirr, dividends, fxGain, currency, onClick,
 }: HoldingCardProps) {
   const divAmt    = dividends ?? 0
   const fxAmt     = fxGain ?? 0
@@ -45,7 +46,7 @@ export function HoldingCard({
           {(subLabel || ticker).replace(/\.(NS|BO)$/i, '')}
         </p>
         {ltp != null && (
-          <span className="text-[10px] font-semibold whitespace-nowrap shrink-0 text-slate-500">LTP {fmt(ltp, currency)}</span>
+          <span className="text-[10px] font-semibold whitespace-nowrap shrink-0 text-slate-500">LTP {fmt(ltp, ltpCurrency ?? currency)}</span>
         )}
       </div>
       <div className="flex items-center justify-between gap-2">

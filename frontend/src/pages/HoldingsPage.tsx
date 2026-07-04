@@ -26,8 +26,9 @@ import { HoldingCard } from '../components/HoldingCard'
 import { SummaryCard } from '../components/SummaryCard'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
 import { aggRealized, realizedForPorts } from '../utils/realized'
-import { SKIP_PORTS, USD_PORTS } from '../utils/segments'
-import { getLabel, resolveLabel, filterByLabel } from '../utils/buckets'
+import { SKIP_PORTS, USD_PORTS, getPortfolioCurrency } from '../utils/segments'
+import { getLabel, resolveLabel, filterByLabel, getLabelCurrency } from '../utils/buckets'
+import { resolveDisplayCurrency, fxMultiplier } from '../utils/currency'
 import { fmt, fmtGainLine, fmtCompact } from '../utils/fmt'
 import { getSectorForHolding, SECTOR_COLOR, BENCHMARK_LABEL, type SectorKey, getMarketCapForHolding, MARKET_CAP_COLOR, type MarketCapKey } from '../utils/sectors'
 import { useBenchmarkXirr, useRefreshAllBenchmarks } from '../hooks/useBenchmarkXirr'
@@ -128,6 +129,7 @@ interface CardRow {
   todayGain:  number | null
   todayPct:   number | null
   ltp:        number | null
+  currency:   Currency   // native (CSV-derived) currency of the holding, not the display toggle
   navPort:    string
   navSym:     string
   portfolios: string[]
@@ -152,6 +154,7 @@ function buildRows(
           todayGain:  h.disp_today_gain,
           todayPct:   h.today_pct,
           ltp:        h.current_price,
+          currency:   h.currency,
           navPort:    h.portfolio,
           navSym:     h.symbol,
           portfolios: [h.portfolio],
@@ -175,6 +178,7 @@ function buildRows(
         todayGain:  h.disp_today_gain,
         todayPct:   null,
         ltp:        h.current_price,
+        currency:   h.currency,
         navPort:    h.portfolio,
         navSym:     h.symbol,
         portfolios: [h.portfolio],
@@ -221,6 +225,16 @@ export default function HoldingsPage({ currency }: Props) {
   const { portfolio, segment, bucket: bucketParam, label: labelParam } = useParams<{ portfolio?: string; segment?: string; bucket?: string; label?: string }>()
   const bucket = bucketParam ? decodeURIComponent(bucketParam) : undefined
   const label  = labelParam  ? decodeURIComponent(labelParam)  : undefined
+  // This view's own native currency — portfolio/bucket-label configured currency, or implicit
+  // for US/Indian By-Type segments; "total" (or no scope at all) always stays INR. Drives the
+  // page header SummaryCard, the aggregate chart's requested currency, and the Dividends tab.
+  const pageNativeCurrency: Currency = portfolio
+    ? getPortfolioCurrency(portfolio)
+    : (bucket && label)
+    ? getLabelCurrency(bucket, label)
+    : (segment === 'us_stock' || segment === 'us_mf')
+    ? 'USD'
+    : 'INR'
   const { data, isLoading, error } = usePortfolio(currency)
   // Pre-fetch history for ALL holdings across all portfolios so switching portfolio views
   // hits cache instead of waiting for per-symbol fetches to restart.
@@ -607,30 +621,32 @@ export default function HoldingsPage({ currency }: Props) {
     const nameMap = new Map<string, string>()
     for (const tx of data.transactions) { if (tx.name) nameMap.set(tx.symbol, tx.name) }
 
-    const symMap = new Map<string, { rg: number; rc: number; firstPort: string; ports: string[] }>()
+    const symMap = new Map<string, { rg: number; rc: number; firstPort: string; ports: string[]; currency: Currency }>()
     for (const r of data.realized) {
       if (SKIP_PORTS.has(r.portfolio)) continue
       if (portfolio && r.portfolio !== portfolio) continue
       if (bucket && label && resolveLabel(r.tags, bucket, quoteTypeBySymbol.get(r.symbol)) !== label) continue
       const fx = r.currency === 'USD' ? data.usd_inr : 1.0
-      const e  = symMap.get(r.symbol) ?? { rg: 0, rc: 0, firstPort: r.portfolio, ports: [] }
+      const e  = symMap.get(r.symbol) ?? { rg: 0, rc: 0, firstPort: r.portfolio, ports: [], currency: r.currency }
       if (!e.ports.includes(r.portfolio)) e.ports.push(r.portfolio)
       symMap.set(r.symbol, {
         rg: e.rg + r.realized_pnl * fx,
         rc: e.rc + (r.type === 'SELL' ? r.quantity * r.buy_price * fx : 0),
         firstPort: e.firstPort,
         ports: e.ports,
+        currency: e.currency,
       })
     }
     return [...symMap.entries()]
       .filter(([sym]) => !openSymbols.has(sym))
-      .map(([sym, { rg, rc, firstPort, ports }]) => ({
+      .map(([sym, { rg, rc, firstPort, ports, currency: nativeCurrency }]) => ({
         key: `closed:${sym}`,
         ticker: sym,
         subLabel: nameMap.get(sym) ?? '',
         current: 0, invested: 0,
         realGain: rg, realCost: rc,
         todayGain: null, todayPct: null, ltp: null,
+        currency: nativeCurrency,
         navPort: firstPort, navSym: sym,
         portfolios: ports,
       }))
@@ -734,7 +750,16 @@ export default function HoldingsPage({ currency }: Props) {
     dataUpdatedAt: portSeriesUpdatedAt,
     refetch:       refetchPortSeries,
   } = useBackendPortfolioHistory(
-    currency, portfolio, segment, !!data,
+    // This hook only scopes by portfolio/segment (no bucket/label filter param exists on the
+    // backend endpoint) — deliberately NOT pageNativeCurrency here, since for a bucket/label
+    // view that resolves to the Label's configured currency, but this hook actually fetches
+    // the unfiltered full-portfolio aggregate in that case (portfolio+segment both undefined),
+    // so requesting USD there would dollarize the whole portfolio's chart, not just the label.
+    resolveDisplayCurrency(
+      portfolio ? getPortfolioCurrency(portfolio) : (segment === 'us_stock' || segment === 'us_mf') ? 'USD' : 'INR',
+      currency,
+    ),
+    portfolio, segment, !!data,
   )
   const chartFreshness = getChartFreshness(portSeries)
 
@@ -1420,11 +1445,11 @@ export default function HoldingsPage({ currency }: Props) {
         </div>
       </div>
 
-      {/* Summary card — USD portfolio-specific views convert to USD; aggregates stay INR */}
+      {/* Summary card — USD-native views (portfolio/segment/bucket-label configured as USD)
+          convert to USD; INR-native + "total" aggregates stay INR regardless of the toggle. */}
       {(() => {
-        const isUsdPortView = portfolio ? USD_PORTS.has(portfolio) : false
-        const summCur: Currency = isUsdPortView && currency === 'USD' ? 'USD' : 'INR'
-        const summFx = summCur === 'USD' ? 1 / (data?.usd_inr ?? 95.5) : 1
+        const summCur = resolveDisplayCurrency(pageNativeCurrency, currency)
+        const summFx  = fxMultiplier(summCur, data?.usd_inr ?? 95.5)
         const totalFxForView = includeFxGains
           ? filteredHoldings.filter(h => h.currency === 'USD').reduce((s, h) => s + (h.disp_fx_gain ?? 0), 0)
           : 0
@@ -1613,9 +1638,8 @@ export default function HoldingsPage({ currency }: Props) {
           <div className="space-y-2">
             {visibleRows.map(r => {
               const usdInr   = data?.usd_inr ?? 95.5
-              const isUsdRow = r.portfolios.some(p => USD_PORTS.has(p))
-              const cardCur: Currency = isUsdRow && currency === 'USD' ? 'USD' : 'INR'
-              const cardFx   = cardCur === 'USD' ? 1 / usdInr : 1
+              const cardCur  = resolveDisplayCurrency(r.currency, currency)
+              const cardFx   = fxMultiplier(cardCur, usdInr)
               const rawDiv   = divBySymbol.get(r.ticker) ?? 0
               const rawFx    = fxGainBySymbol.get(r.ticker) ?? 0
               return (
@@ -1630,6 +1654,7 @@ export default function HoldingsPage({ currency }: Props) {
                 todayGain={r.todayGain !== null ? r.todayGain * cardFx : null}
                 todayPct={r.todayPct}
                 ltp={r.ltp}
+                ltpCurrency={r.currency}
                 xirr={xirrMap.get(r.key) ?? null}
                 dividends={rawDiv > 0 ? rawDiv * cardFx : undefined}
                 fxGain={rawFx > 0 ? rawFx * cardFx : undefined}
@@ -1693,6 +1718,10 @@ export default function HoldingsPage({ currency }: Props) {
             <div className="text-center py-10 text-slate-400 text-xs">
               No data for this period.
             </div>
+          )}
+
+          {!portSeries && chartLoading && (
+            <p className="text-center text-[11px] text-slate-400 py-6">Loading price history…</p>
           )}
 
           {!portSeries && !chartLoading && chartError && (
@@ -2511,7 +2540,7 @@ export default function HoldingsPage({ currency }: Props) {
 
       {/* ── Dividends tab ── */}
       {activeTab === 'dividends' && (
-        <DividendsTab key={`${portfolio ?? ''}:${segment ?? ''}`} currency={currency} portfolio={portfolio} filterSymbols={filteredDivSymbols} usdInr={data?.usd_inr ?? 95.5} yf_symbols={portfolio ? filteredHoldings.map((h: Holding) => h.yf_symbol) : allSymbols} />
+        <DividendsTab key={`${portfolio ?? ''}:${segment ?? ''}`} currency={currency} nativeCurrency={pageNativeCurrency} portfolio={portfolio} filterSymbols={filteredDivSymbols} usdInr={data?.usd_inr ?? 95.5} yf_symbols={portfolio ? filteredHoldings.map((h: Holding) => h.yf_symbol) : allSymbols} />
       )}
       {activeTab === 'fx' && (
         <FxGainsTab fxLots={filteredFxLots} usdInr={data.usd_inr} currency={currency} asOf={data.as_of} />

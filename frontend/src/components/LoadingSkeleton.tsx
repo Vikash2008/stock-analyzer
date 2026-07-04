@@ -50,7 +50,6 @@ export function ErrorState({ message }: { message: string }) {
     <div className="p-8 text-center space-y-2">
       <p className="text-[#be1c1c] text-sm font-semibold">Failed to load portfolio</p>
       <p className="text-slate-500 text-xs">{message}</p>
-      <p className="text-slate-400 text-xs">The server may be waking up — wait ~60s and refresh the page</p>
     </div>
   )
 }
