@@ -38,7 +38,7 @@ export function HoldingCard({
   return (
     <div
       className="rounded-[13px] px-2 py-1.5 border cursor-pointer active:opacity-80 transition-opacity select-none"
-      style={{ background: '#fff', borderColor: '#e2e8f0', borderLeftWidth: 4, borderLeftColor: '#0d9488' }}
+      style={{ background: '#fff', borderColor: '#e2e8f0', borderLeftWidth: 4, borderLeftColor: xirr !== null && xirr < 0 ? '#e11d48' : '#0d9488' }}
       onClick={onClick}
     >
       <div className="flex items-center justify-between gap-2 mb-0.5">
@@ -52,7 +52,9 @@ export function HoldingCard({
       <div className="flex items-center justify-between gap-2">
         <span className="text-[16px] font-bold text-slate-900">{fmt(current, currency)}</span>
         {xirr !== null
-          ? <span className="text-[11px] font-bold px-2 py-[3px] rounded-full whitespace-nowrap" style={{ background: '#d1fae5', color: '#065f46' }}>XIRR {fmtPct(xirr)}</span>
+          ? (xirr < 0
+              ? <span className="text-[11px] font-bold px-2 py-[3px] rounded-full whitespace-nowrap" style={{ background: '#fee2e2', color: '#991b1b' }}>XIRR {fmtPct(xirr)}</span>
+              : <span className="text-[11px] font-bold px-2 py-[3px] rounded-full whitespace-nowrap" style={{ background: '#d1fae5', color: '#065f46' }}>XIRR {fmtPct(xirr)}</span>)
           : <span className="text-[11px] font-bold px-2 py-[3px] rounded-full whitespace-nowrap" style={{ background: '#e2e8f0', color: '#64748b' }}>XIRR —</span>
         }
       </div>

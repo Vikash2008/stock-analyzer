@@ -245,6 +245,14 @@ export default function HoldingsPage({ currency }: Props) {
     [data?.holdings.length],
   )
   usePrefetchHoldingCharts(allSymbols)
+  // Dividends need every symbol ever traded, not just currently-open holdings — a fully-sold
+  // position still earned dividends during the period it was held, but drops out of
+  // data.holdings (and so out of allSymbols) the moment it's fully exited.
+  const allDividendSymbols = useMemo(
+    () => data ? [...new Set(data.transactions.map(t => t.yf_symbol))] : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data?.transactions.length],
+  )
   // Shared store — same data/progress every other dividend-consuming component observes; never
   // fetched automatically (see hooks/useDividends.ts), only via the Settings-popover button below.
   const { data: divEventsBySymbol, isFetching: divFetching, isError: divError, loadedCount: divLoadedCount, totalCount: divTotalCount, lastFetchedAt: divLastFetchedAt } = useDividendEvents()
@@ -477,12 +485,15 @@ export default function HoldingsPage({ currency }: Props) {
     return lots
   }, [data, portfolio, segment, bucket, label, quoteTypeBySymbol])
 
-  // Restrict shares-held math to exactly the real portfolios contributing to this view (single
-  // portfolio, or every portfolio behind the current segment/bucket-label) — correct for all
-  // view types, since filteredHoldings is already scoped correctly for each of them.
+  // Restrict shares-held math to exactly the real portfolios contributing to this view. Derived
+  // from data.transactions (not filteredHoldings) so a portfolio that's been fully wound down
+  // (every position sold) still counts — its historical dividends shouldn't vanish just because
+  // it has zero open positions today.
   const divScopePortfolios = useMemo(
-    () => portfolio ? [portfolio] : [...new Set(filteredHoldings.map(h => h.portfolio))],
-    [portfolio, filteredHoldings],
+    () => portfolio
+      ? [portfolio]
+      : [...new Set((data?.transactions ?? []).filter(t => !SKIP_PORTS.has(t.portfolio)).map(t => t.portfolio))],
+    [portfolio, data],
   )
   const divComputed = useMemo(
     () => (divEventsBySymbol && data)
@@ -1391,7 +1402,7 @@ export default function HoldingsPage({ currency }: Props) {
                       <button
                         onClick={() => {
                           if (divFetching) return
-                          refreshDividendEvents(allSymbols, filteredHoldings.map(h => h.yf_symbol))
+                          refreshDividendEvents(allDividendSymbols, filteredHoldings.map(h => h.yf_symbol))
                             .then(skipped => {
                               if (skipped.length === 0) return
                               logDebug(`Dividends refresh: skipped ${skipped.length} symbol(s) — ${skipped.join(', ')}`)
@@ -2546,7 +2557,7 @@ export default function HoldingsPage({ currency }: Props) {
           usdInr={data.usd_inr}
           scopePortfolios={divScopePortfolios}
           filterSymbols={filteredDivSymbols}
-          allYfSymbols={allSymbols}
+          allYfSymbols={allDividendSymbols}
           priorityYfSymbols={filteredHoldings.map((h: Holding) => h.yf_symbol)}
         />
         )

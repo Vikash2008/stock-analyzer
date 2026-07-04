@@ -35,14 +35,11 @@ _INTRADAY_TTL = 3600.0  # 1 hour  — intraday
 _FETCH_TIMEOUT = 20.0   # per-request cap on the underlying yfinance call — a single slow/stuck
                         # symbol can no longer hang a request indefinitely; the background thread
                         # still finishes and populates the cache for the next request either way.
-_sem          = asyncio.Semaphore(3)  # max concurrent yfinance fetches — was briefly raised to 8 to
-                                       # clear mass-refetch bursts faster, but each concurrent
-                                       # yf.download() holds a full OHLCV DataFrame in memory; 8 at
-                                       # once pinned Render's 512MB free-tier instance at its ceiling
-                                       # (~15.4MB/call observed). Reverted to 4, then to 3 — a first
-                                       # post-deploy cold burst (every symbol cold on both client and
-                                       # server caches at once) still plateaued at ~513MB; trading a
-                                       # bit more burst-clear time for a lower peak.
+_sem          = asyncio.Semaphore(6)  # max concurrent yfinance fetches — was capped at 3 on Render's
+                                       # 512MB free tier (8 concurrent pinned it at ~513MB, ~15.4MB/call
+                                       # observed). Raised to 6 after the 2026-07 move to the Oracle VM
+                                       # (1GB RAM, double Render's), leaving headroom below the 8 that
+                                       # previously maxed out the smaller instance.
 
 # The intraday cache is local to this file (a different fetch shape — today's 5-min bars, not
 # daily history — kept separate per the plan's Category 3 decision). Never had entries removed —
