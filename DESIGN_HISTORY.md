@@ -1,4 +1,4 @@
-﻿# Design Decisions Log — Archive
+# Design Decisions Log — Archive
 
 > Archived from DESIGN.md. See DESIGN.md for the 15 most recent entries.
 
@@ -10,6 +10,59 @@
 | 2026-05-24 | Vercel for frontend | Free, auto-deploys from GitHub, global CDN |
 | 2026-05-24 | PWA manifest added | "Add to Home Screen" opens standalone (no browser bar) |
 | 2026-05-24 | Fixed P&L double-count | Equity + MF_Portfolio (SKIP_PORTS) excluded from all totals |
+
+### 2026-07-02 (session 163)
+
+**Transactions page unified to Holdings' teal design language** — tab bar switched from per-tab teal/sky/violet/rose to the single `#0b3b3a→#0d9488` gradient; txn-count/add-txn row, Report strip (sub-tabs, gear popover, AI Assistant button), Notes strip, and Charts strip (metric pills, sync button) all recolored to teal; per-section chart line colors (`METRIC_HEX`) and gain/loss green/red left untouched as semantic data.
+
+**Deep Research cards recolored to one teal accent** — all 8 `SECTIONS` in `reportLinks.ts` (previously blue/sky/indigo/cyan/emerald/green/blue-50 per card) now share `bg-teal-50`/`border-teal-200`/`accentHex: #0d9488`; the "Research" button switched from per-section outline to a solid `#0b3b3a→#0d9488` pill with bold white text.
+
+**Research Links (Explore tab) made compact + teal** — rows tightened (`py-2.5`→`py-1.5`, `gap-2`→`gap-1.5`), per-site icon colors (blue/purple/orange/red) replaced with a single teal icon/border/text treatment.
+
+**Add Transaction modal (Txn page) merged into Settings** — the inline "Add Txn" pill and separate "Deep Research Settings" gear were both folded into one top-bar Settings popover with three rows (Add Transaction, AI Model, API Key); Model/API Key rows changed from stacked label+full-width-toggle to inline label-left/toggle-right layout, popover widened to `300px` (`max-w-[calc(100vw-24px)]`) with `whitespace-nowrap` on all pills so options never wrap.
+
+**AddTransactionModal (Add Holding) compacted + recolored** — padding/spacing tightened throughout (`p-2.5`→`p-2`, `space-y-2.5`→`space-y-1.5`, shorter header/footer); BUY/SELL toggle and all emerald accents switched to the teal `#0b3b3a→#0d9488` gradient language.
+
+**Holdings Analysis tab (Allocation/Benchmarking/Returns) unified to teal** — sub-tab bar (was orange/sky/emerald per tab) now single teal gradient; "By Sector"/"By Market Cap"/"By Holdings Concentration" headings and their table-header rows (was blue/orange/emerald/violet) recolored teal, each section given a `border-l-4 border-l-teal-500` accent bar; Benchmarking's loading bars, date-filter chip/popover, sector table header, and "By Sector" accent bar switched from sky/green to teal; Returns tab's settings popover rebuilt with the same teal gradient header shell as other Settings modals, Period toggle's sliding indicator changed from white to teal-filled. Per-sector chart/pie colors and green/red gain-loss indicators explicitly left untouched (user confirmed those should stay).
+
+**AnalysisTab "Add Note" button** — height reduced (`py-3`→`py-1.5`) and color changed from blue (`#2563eb`) to the teal `#0b3b3a→#0d9488` gradient.
+
+### 2026-07-02 (session 162)
+
+**FxGainsTab and DividendsTab restyled to match** — all section titles (FX Conversion Gains, Rate Buckets, Timeline, Per Holding, Dividend Income, Year-by-year, By stock) converted to white-text rounded pill badges filled with the `#0b3b3a→#0d9488` gradient. Per-holding/per-stock rows in both tabs gained a relative-magnitude progress bar (teal gradient fill, same style as Rate Buckets). Value/symbol text unified to `#0b3b3a`. Dividends summary strip merged from 4 separate cards into one bordered box under a single pill header, mirroring FX's Section 1 layout.
+
+**Top bar redesign on Overview/Holdings/Txn** — nav bar switched from flush borderless gradient to a bordered box: `border-4` solid `#0b3b3a`, `rounded-t-[14px]` (down from an interim 18px), fill lightened to `#14746f→#14b8a6`. Bar still sits flush against the hero/summary card below (no gap) — border only wraps the bar itself, not merged into one continuous outline with the card.
+
+**LTP added to HoldingCard and SummaryCard** — `HoldingCard.tsx` shows LTP top-right of the holding-name row; `SummaryCard.tsx` gained an optional `ltp?` prop rendered top-right of the label row, wired on `TransactionsPage.tsx` from `holding.current_price`. Fixed a white-screen crash from the initial `HoldingCard` LTP addition — `ltp` was added to the props interface but never destructured in the function signature (`ReferenceError`).
+
+**Holdings page tab bar unified to one accent** — the 4-5 tabs (Holdings/Charts/Analysis/Dividends/FX) previously had per-tab active colors (teal/sky/violet); now all use the same `#0b3b3a→#0d9488` gradient with white text when active.
+
+**Misc Holdings/Txn polish** — back-button label bumped `14px`→`17px`; Holdings search/sort/sector strip recolored to match the new lighter top-bar gradient; page-edge gutter halved (`px-2`→`px-1`) on Overview/Holdings.
+
+### 2026-07-02 (session 164)
+
+**Top-bar corners squared off** — removed `rounded-t-[14px]` from the nav bar on Overview/Holdings/Txn (now flush rectangular corners).
+
+**Holdings search/sort strip flipped to white with teal chrome** — outer strip and search input switched from teal-filled to `bg-white` with a teal border (later softened to `border-teal-100` — the original `border-2 border-teal-600` read as too heavy); search icon enlarged 10px→13px; Sector/Sort text switched from white to `text-teal-700`.
+
+**Page-edge gutters halved again** — Holdings/Overview `px-1`→`px-0.5`, Txn `px-2`→`px-1`.
+
+**DividendsTab top padding removed** — dropped `pt-2` on the root wrapper to close the gap above the Dividend Income box, matching FxGainsTab's no-padding pattern.
+
+**Txn Charts range selector recolored** — active-range pill color was still blue (`#2563eb`, pre-teal-unification leftover) on both the inline and landscape-zoom range bars; switched to teal `#0d9488`.
+
+**Deep Research card header row tightened + top-aligned** — chevron+emoji now `items-start` (was `items-center`, which vertically centered them against the full two-line title+description block instead of aligning with the heading); chevron placeholder shrunk `w-3`→`w-2`, row `gap-2`→`gap-1`, header `px-3`→`pl-1.5 pr-3` to pull content off the left border.
+
+**Quick Stats metric grid recolored to teal** — tile labels `text-emerald-600/70`→`text-teal-600/70`; neutral (non-signal) values `#1e293b`→teal `#0f766e`. ROCE/ROE/ROA/margin/growth tiles keep their green/red `colorNum()` signal coloring untouched (same rule as gain/loss elsewhere).
+
+**HoldingCard compacted** — `py-1.5`→`py-1`, Today/Total divider `mt-1 pt-1`→`mt-0.5 pt-0.5`; right padding bumped `pr-2`→`pr-3.5` so LTP and Total get breathing room from the border.
+
+**SummaryCard Invested/Realized + FX/Dividend rows merged into one shared grid** — was two independent `flex justify-between` rows (each right-aligning to its own container edge), so "Realized" and "Dividend" didn't line up. Now one `grid-template-columns: 1fr auto` grid across both rows — column 2 auto-sizes to the wider of the two labels and hugs the real right edge (matching the XIRR badge), giving true cross-row alignment. Redundant `+` prefix removed from FX gains/Dividend lines since `fmtCompactGainLine()` already prepends a ▲/▼ arrow.
+
+### 2026-07-02 (session 165)
+
+**Top bar switched from filled gradient to outline-only** — Overview/Holdings/Txn nav bar background changed from the `#14746f→#14b8a6` gradient fill to a very light teal (`#e6f7f5`), border kept solid `#0b3b3a`, corners rounded again (`rounded-t-[14px]`, reversing session 164's squaring-off). Text/icons (back label, refresh, settings gear) switched from white to `#0b3b3a` to stay readable against the light fill.
+
 
 ### 2026-07-02 (session 161)
 
