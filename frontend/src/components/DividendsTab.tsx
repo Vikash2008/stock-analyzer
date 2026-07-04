@@ -2,21 +2,25 @@ import React, { useState, useMemo } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts'
-import { useDividendsBatched, useForceRefreshDividends } from '../hooks/useDividends'
+import { useDividendEvents, refreshDividendEvents } from '../hooks/useDividends'
 import type { DividendSymbol } from '../api/dividends'
-import { fmtCompact, fmt } from '../utils/fmt'
+import type { PortfolioData } from '../api/types'
+import { fmtCompact, fmt, fmtSyncTime } from '../utils/fmt'
 import type { Currency } from '../App'
 import { resolveDisplayCurrency, fxMultiplier as computeFx } from '../utils/currency'
+import { computeDividendsForScope } from '../utils/dividends'
 
 interface Props {
+  data: PortfolioData
   currency: Currency
   // This view's own native currency (portfolio/segment/bucket-label configured currency) —
   // caller resolves it (HoldingsPage's pageNativeCurrency); defaults to 'INR' if omitted.
   nativeCurrency?: Currency
-  filterSymbols?: Set<string>
-  portfolio?: string
   usdInr?: number
-  yf_symbols?: string[]
+  scopePortfolios?: string[]      // restrict shares-held math to these portfolios; undefined = all
+  filterSymbols?: Set<string>     // restrict displayed symbols (Bucket/Label, segment views)
+  allYfSymbols: string[]          // every held symbol across all portfolios — what refresh() fetches
+  priorityYfSymbols?: string[]    // this view's own symbols — fetched first
 }
 
 const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -187,21 +191,22 @@ function SymbolRow({ sym, currency, usdInr, maxTotal }: { sym: DividendSymbol; c
   )
 }
 
-export function DividendsTab({ currency, nativeCurrency = 'INR', filterSymbols, portfolio, usdInr, yf_symbols = [] }: Props) {
+export function DividendsTab({ data, currency, nativeCurrency = 'INR', usdInr, scopePortfolios, filterSymbols, allYfSymbols, priorityYfSymbols }: Props) {
   const summaryCur = resolveDisplayCurrency(nativeCurrency, currency)
   const summaryFx  = computeFx(summaryCur, usdInr ?? 95.5)
-  const { data, isLoading, isError, isFetching, loadedCount, totalCount, forceRefresh: batchedRefresh } = useDividendsBatched(portfolio, yf_symbols)
-  const legacyRefresh = useForceRefreshDividends(portfolio)
-  const [retrying, setRetrying] = useState(false)
-  const [retryFailed, setRetryFailed] = useState(false)
 
-  const handleRetry = () => {
-    setRetrying(true)
-    setRetryFailed(false)
-    ;(yf_symbols.length ? Promise.resolve(batchedRefresh()) : legacyRefresh())
-      .catch(() => setRetryFailed(true))
-      .finally(() => setRetrying(false))
-  }
+  // Shared store — same data/progress every other dividend-consuming component observes.
+  // Never fetched automatically; `handleRefresh` (manual only) is the sole trigger.
+  const { data: eventsBySymbol, isFetching, isError, loadedCount, totalCount, lastFetchedAt } = useDividendEvents()
+  const neverFetched = eventsBySymbol === undefined
+  const handleRefresh = () => { refreshDividendEvents(allYfSymbols, priorityYfSymbols).catch(() => {}) }
+
+  // Turning the "Include dividends" toggle on elsewhere in the app reads this same last-fetched
+  // snapshot for total-return/XIRR math — it never triggers a fetch either.
+  const computed = useMemo(
+    () => eventsBySymbol ? computeDividendsForScope(eventsBySymbol, data.transactions, usdInr ?? 95.5, scopePortfolios) : null,
+    [eventsBySymbol, data.transactions, usdInr, scopePortfolios],
+  )
 
   const [selectedYears, setSelectedYears] = useState<Set<string>>(new Set())
   const [selectedMonths, setSelectedMonths] = useState<Set<number>>(new Set())
@@ -214,23 +219,22 @@ export function DividendsTab({ currency, nativeCurrency = 'INR', filterSymbols, 
     const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n
   })
 
-  // Derived data — computed before early returns so useMemo hooks below are always called
-  const by_symbol = data?.by_symbol ?? []
-  const by_year   = data?.by_year   ?? {}
-  const summary   = data?.summary
-
+  // Derived data — computed before early returns so useMemo hooks below are always called.
+  // `filterSymbols` (Bucket/Label or segment views) narrows the already portfolio-scoped
+  // `computed` result down by symbol name — mirrors the old backend-era filtering exactly.
+  const allSymbolsInScope = computed?.by_symbol ?? []
   const activeSymbols = filterSymbols !== undefined
-    ? by_symbol.filter(s => filterSymbols.has(s.symbol))
-    : by_symbol
+    ? allSymbolsInScope.filter(s => filterSymbols.has(s.symbol))
+    : allSymbolsInScope
 
   const activeSummary = filterSymbols !== undefined
     ? {
-        total_dividends_inr: activeSymbols.reduce((sum, s) => sum + s.total_dividends, 0),
-        dividend_count:       activeSymbols.reduce((sum, s) => sum + s.event_count, 0),
+        total_dividends_inr:    activeSymbols.reduce((sum, s) => sum + s.total_dividends, 0),
+        dividend_count:         activeSymbols.reduce((sum, s) => sum + s.event_count, 0),
         symbols_with_dividends: activeSymbols.length,
-        projected_annual_inr: activeSymbols.reduce((sum, s) => sum + s.projected_annual, 0),
+        projected_annual_inr:   activeSymbols.reduce((sum, s) => sum + s.projected_annual, 0),
       }
-    : summary ?? { total_dividends_inr: 0, dividend_count: 0, symbols_with_dividends: 0, projected_annual_inr: 0 }
+    : computed?.summary ?? { total_dividends_inr: 0, dividend_count: 0, symbols_with_dividends: 0, projected_annual_inr: 0 }
 
   const activeByYear = filterSymbols !== undefined
     ? activeSymbols.reduce<Record<string, number>>((acc, s) => {
@@ -240,7 +244,7 @@ export function DividendsTab({ currency, nativeCurrency = 'INR', filterSymbols, 
         })
         return acc
       }, {})
-    : by_year
+    : computed?.by_year ?? {}
 
   const bestYear = useMemo(() => {
     const entries = Object.entries(activeByYear)
@@ -289,58 +293,66 @@ export function DividendsTab({ currency, nativeCurrency = 'INR', filterSymbols, 
     return total
   }, [activeSymbols, selectedYears, selectedMonths, hasFilter])
 
-  // Early returns AFTER all hooks
-  if (isLoading) {
+  // Early returns AFTER all hooks — never fetched yet, no automatic fetch, so this is the
+  // only way the first-ever fetch happens (a manual tap).
+  if (neverFetched && !isFetching) {
     return (
-      <div className="pt-4 px-1">
-        {totalCount > 0 ? (
-          <>
-            <div className="h-1 bg-slate-100 rounded-full overflow-hidden mb-2">
-              <div
-                className="h-full rounded-full transition-all duration-300"
-                style={{ width: `${Math.round((loadedCount / totalCount) * 100)}%`, background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
-              />
-            </div>
-            <p className="text-[11px] text-slate-400 text-center">
-              Fetching dividends… {loadedCount} / {totalCount}
-            </p>
-          </>
-        ) : (
-          <div className="text-center">
-            <div className="animate-spin w-5 h-5 border-2 border-teal-100 rounded-full mx-auto mb-2" style={{ borderTopColor: '#0b3b3a' }} />
-            <p className="text-[11px] text-slate-400">Fetching dividend history…</p>
-          </div>
-        )}
+      <div className="pt-10 text-center px-4">
+        <p className="text-[12px] text-slate-400 mb-1">Dividend data hasn't been fetched yet.</p>
+        <p className="text-[10px] text-slate-300 mb-3">Fetches every held stock's dividend history — this can take a moment the first time.</p>
+        <button
+          onClick={handleRefresh}
+          className="text-[12px] font-semibold text-white rounded-full px-4 py-2"
+          style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+        >
+          Fetch dividends
+        </button>
+        {isError && <p className="text-[10px] text-red-400 mt-2">Last attempt failed — try again</p>}
       </div>
     )
   }
 
-  if (isError || !data) {
+  if (neverFetched && isFetching) {
     return (
-      <div className="pt-4 text-center">
-        <p className="text-[12px] text-red-400 mb-2">Could not load dividend data</p>
-        <button onClick={handleRetry} disabled={retrying} className="text-[11px] text-[#0b3b3a] underline disabled:opacity-50">
-          {retrying ? 'Retrying…' : 'Retry'}
-        </button>
-        {retryFailed && (
-          <p className="text-[10px] text-red-400 mt-1.5">Retry failed — backend may still be starting up, try again in a moment</p>
-        )}
+      <div className="pt-4 px-1">
+        <div className="h-1 bg-slate-100 rounded-full overflow-hidden mb-2">
+          <div
+            className="h-full rounded-full transition-all duration-300"
+            style={{ width: `${totalCount > 0 ? Math.round((loadedCount / totalCount) * 100) : 0}%`, background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+          />
+        </div>
+        <p className="text-[11px] text-slate-400 text-center">
+          Fetching dividends… {loadedCount} / {totalCount}
+        </p>
       </div>
     )
   }
 
   return (
     <div>
+      {/* Last updated + manual refresh — always visible, never automatic */}
+      <div className="flex items-center justify-between mb-2 px-0.5">
+        <span className="text-[10px] text-slate-400">
+          {lastFetchedAt ? `Updated ${fmtSyncTime(new Date(lastFetchedAt))}` : 'Never updated'}
+        </span>
+        <button
+          onClick={handleRefresh}
+          disabled={isFetching}
+          className="text-[10px] font-semibold text-white rounded-full px-2.5 py-1 whitespace-nowrap disabled:opacity-60"
+          style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+        >
+          {isFetching ? `${loadedCount} / ${totalCount || '?'}` : 'Refresh'}
+        </button>
+      </div>
       {isFetching && (
-        <>
-          {totalCount === 0 && <style>{`@keyframes div-progress{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}`}</style>}
-          <div className="h-1 bg-teal-50 rounded-full overflow-hidden mb-2">
-            {totalCount > 0
-              ? <div className="h-full bg-teal-500 rounded-full transition-all duration-300" style={{ width: `${Math.round((loadedCount / totalCount) * 100)}%` }} />
-              : <div className="h-full w-2/5 rounded-full" style={{ animation: 'div-progress 1.2s ease-in-out infinite', background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }} />
-            }
-          </div>
-        </>
+        <div className="h-1 bg-teal-50 rounded-full overflow-hidden mb-2">
+          <div className="h-full bg-teal-500 rounded-full transition-all duration-300" style={{ width: `${totalCount > 0 ? Math.round((loadedCount / totalCount) * 100) : 0}%` }} />
+        </div>
+      )}
+      {isError && !isFetching && (
+        <p className="text-[10px] text-red-400 text-center mb-2">
+          Refresh failed — showing data as of {lastFetchedAt ? fmtSyncTime(new Date(lastFetchedAt)) : 'the last successful fetch'}.
+        </p>
       )}
       {/* Summary strip */}
       <div className="bg-teal-50 border border-teal-200 rounded-xl p-3 mb-3">

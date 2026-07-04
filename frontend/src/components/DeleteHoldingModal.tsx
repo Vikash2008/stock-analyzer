@@ -181,32 +181,11 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
     if (!scope) { setError('Pick a portfolio.'); return }
     setError('')
 
-    // Label/Bucket scope is a pseudo-portfolio view — checking the whole-holding row only
-    // clears the Label tag, never touching the real transactions (the same symbol can be
-    // tagged into this Label from more than one broker). Picking individual transactions via
-    // "Show txn" is a real, permanent delete from their actual broker portfolio(s) instead —
-    // same mechanism as a Portfolio-scope delete, just reachable from the Label view too.
+    // Label/Bucket scope is a pseudo-portfolio view — it can only ever untag, never touch the
+    // real transactions (the same symbol can be tagged into this Label from more than one
+    // broker, and a tag isn't transaction-scoped). "Show txn" here is read-only detail, not a
+    // selection — the real per-transaction delete only exists from the Portfolio scope.
     if (scope.kind === 'label') {
-      if (!allHoldings && selectedTxns.size > 0) {
-        const targets = displayRows.flatMap(txnsFor).filter(t => selectedTxns.has(txnKey(t)))
-        const holdingCount = new Set(targets.map(t => holdingKey(t.portfolio, t.symbol))).size
-        const confirmMsg = `This will permanently delete ${targets.length} transaction(s) across ${holdingCount} holding(s) — removed from their real broker portfolio(s), not just "${scopeLabel(scope)}". This cannot be undone. Continue?`
-        setConfirmState({
-          message: confirmMsg,
-          run: () => {
-            const deletions = targets.map(t => ({
-              portfolio: t.portfolio, symbol: t.symbol,
-              date: t.date.slice(0, 10), type: t.type, quantity: t.quantity, price: t.price,
-            }))
-            mutate(deletions, {
-              onSuccess: () => { setDone(true); setSelectedTxns(new Set()); setTimeout(() => { setDone(false); onClose() }, 1200) },
-              onError: (e: Error) => setError(e.message || 'Failed to delete.'),
-            })
-          },
-        })
-        return
-      }
-
       const targets = allHoldings ? displayRows : displayRows.filter(h => selectedHoldings.has(rowKey(scope, h)))
       if (targets.length === 0) { setError('Select at least one holding, or turn on All Holdings.'); return }
       const confirmMsg = `This will remove ${targets.length} holding(s) from "${scopeLabel(scope)}". They stay untouched in their original broker portfolio(s) — only the Label tag is cleared. Continue?`
@@ -354,6 +333,17 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
                             {txns.length === 0 && <p className="text-[10px] text-slate-400">No transactions.</p>}
                             {txns.map(t => {
                               const tKey = txnKey(t)
+                              // Label scope: read-only detail only — a tag isn't transaction-scoped,
+                              // so there's no per-transaction action to select here (see handleApply).
+                              if (isLabelScope) {
+                                return (
+                                  <div key={tKey} className="flex items-center gap-2 pr-2.5 py-1 text-[10px]">
+                                    <span className="text-slate-500 shrink-0 w-14">{DATE_FMT(t.date)}</span>
+                                    <span className="font-semibold shrink-0 w-14" style={{ color: TYPE_COLOR[t.type] ?? '#64748b' }}>{t.type}</span>
+                                    <span className="text-slate-400 truncate">{t.quantity} sh @ {t.price}</span>
+                                  </div>
+                                )
+                              }
                               return (
                                 <label key={tKey} className="flex items-center gap-2 pr-2.5 py-1 text-[10px] cursor-pointer active:bg-emerald-50">
                                   <input type="checkbox" checked={selectedTxns.has(tKey)} onChange={() => toggleTxn(tKey)} className="shrink-0" />

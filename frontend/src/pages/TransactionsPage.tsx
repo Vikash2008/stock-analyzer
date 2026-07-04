@@ -123,7 +123,6 @@ export default function TransactionsPage({ currency }: Props) {
     portfolio: decodeURIComponent(portfolio),
     symbol:    decodeURIComponent(symbol),
   }
-  const symDividends = useDividendForSymbol(decoded.symbol)
   const [divSectionOpen, setDivSectionOpen] = useState(false)
 
   // portfolios passed via nav state when navigating from a segment (cumulative) view;
@@ -132,6 +131,8 @@ export default function TransactionsPage({ currency }: Props) {
     const s = (location.state as { from?: string; portfolios?: string[] } | null)?.portfolios
     return s?.length ? s : [decoded.portfolio]
   }, [location.state, decoded.portfolio])
+
+  const symDividends = useDividendForSymbol(decoded.symbol, data?.transactions ?? [], data?.usd_inr ?? 95.5, portfolioFilter)
 
   // When navigating from an aggregate portfolio (Equity / MF_Portfolio), the URL portfolio
   // is a SKIP_PORT but actual transactions live in the constituent portfolios (MF_Vikash etc.)
@@ -403,6 +404,8 @@ export default function TransactionsPage({ currency }: Props) {
   // Symbol overview card values — aggregated across all portfolios in view
   const cur     = holdingList.reduce((s, h) => s + h.disp_current,  0) * holdFx
   const inv     = holdingList.reduce((s, h) => s + h.disp_invested, 0) * holdFx
+  const totalQty = holdingList.reduce((s, h) => s + h.quantity, 0)
+  const avgPrice = totalQty > 0 ? inv / totalQty : 0
 
   const tgRaw = holdingList.some(h => h.disp_today_gain !== null)
     ? holdingList.reduce((s, h) => s + (h.disp_today_gain ?? 0), 0) * holdFx
@@ -557,8 +560,11 @@ export default function TransactionsPage({ currency }: Props) {
 
       {/* Transactions strip */}
       {activeTab === 'transactions' && (
-        <div className="bg-teal-50 border border-teal-100 rounded-xl px-2.5 py-1.5 mb-2 min-h-[38px] flex items-center justify-between">
-          <span className="text-[13px] font-semibold text-[#0b3b3a]">Total Transactions: {symTxns.length}</span>
+        <div className="bg-teal-50 border border-teal-100 rounded-xl px-2.5 py-1.5 mb-2 min-h-[38px] flex items-center justify-between gap-2">
+          <span className="text-[13px] font-semibold text-[#0b3b3a] whitespace-nowrap">Total Transactions: {symTxns.length}</span>
+          {totalQty > 0 && (
+            <span className="text-[12px] font-medium text-[#0b3b3a] whitespace-nowrap">{totalQty} sh · Avg {fmt(avgPrice, dispCur)}</span>
+          )}
         </div>
       )}
       {/* Report strip — sub-tab bar */}

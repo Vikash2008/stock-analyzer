@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import type { PortfolioData } from '../api/types'
 import type { Currency } from '../App'
 import { useSetTags } from '../hooks/useSetTags'
@@ -40,6 +40,18 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
   const [buckets, setBuckets] = useState<BucketDef[]>(getBuckets)
   const [newBucketName, setNewBucketName] = useState('')
   const [newLabelByBucket, setNewLabelByBucket] = useState<Record<string, string>>({})
+
+  // All sections collapsed on every open — modal stays mounted between opens (see `open` prop
+  // below), so this needs a reset effect, not just a useState default.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  useEffect(() => { if (open) setExpanded(new Set()) }, [open])
+  function toggleExpanded(key: string) {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
 
   const portfolioNames = useMemo(() => {
     const set = new Set<string>()
@@ -212,29 +224,18 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
             </button>
           </div>
 
-          {/* Portfolios — non-deletable, currency-only (replaces the hardcoded USD_PORTS list) */}
-          <div className="bg-white rounded-lg border border-emerald-100 shadow-sm overflow-hidden">
-            <div className="px-2 py-1.5" style={{ background: 'rgba(13,148,136,0.06)' }}>
-              <span className="text-[13px] font-bold text-[#0b3b3a]">Portfolios</span>
-            </div>
-            <div className="px-2 py-1.5 space-y-1">
-              {portfolioNames.map(name => (
-                <div key={name} className="flex items-center gap-1.5 bg-emerald-50/60 border border-emerald-100 rounded-lg pl-2 pr-1.5 py-1">
-                  <span className="flex-1 min-w-0 text-[13px] font-medium text-slate-700 truncate">{name}</span>
-                  <CurrencyPill
-                    value={getPortfolioCurrency(name)}
-                    onChange={c => { setPortfolioCurrency(name, c); refreshBuckets() }}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {buckets.map(b => (
+          {buckets.map(b => {
+            const isOpen = expanded.has(b.name)
+            return (
             <div key={b.name} className="bg-white rounded-lg border border-emerald-100 shadow-sm overflow-hidden">
-              <div className="flex items-center gap-1 px-2 py-1.5" style={{ background: 'rgba(13,148,136,0.06)' }}>
+              <div
+                className="flex items-center gap-1 px-2 py-1.5 cursor-pointer"
+                style={{ background: 'rgba(13,148,136,0.06)' }}
+                onClick={() => toggleExpanded(b.name)}
+              >
+                <span className="text-slate-400 text-[10px] shrink-0 w-3">{isOpen ? '▾' : '▸'}</span>
                 <span className="text-[13px] font-bold text-[#0b3b3a] truncate flex-1 min-w-0">{b.name}</span>
-                <div className="relative shrink-0 w-[84px]">
+                <div className="relative shrink-0 w-[84px]" onClick={e => e.stopPropagation()}>
                   <input
                     value={newLabelByBucket[b.name] ?? ''}
                     onChange={e => setNewLabelByBucket(prev => ({ ...prev, [b.name]: e.target.value }))}
@@ -252,7 +253,7 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
                   </button>
                 </div>
                 {b.name !== 'Asset Class' && (
-                  <>
+                  <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                     <button
                       role="switch"
                       aria-checked={b.showToggle}
@@ -271,11 +272,11 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
                     >
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" /></svg>
                     </button>
-                  </>
+                  </div>
                 )}
               </div>
 
-              {getAllLabelsInBucket(data, b.name).length > 0 && (
+              {isOpen && getAllLabelsInBucket(data, b.name).length > 0 && (
                 <div className="px-2 py-1.5 space-y-1">
                   {getAllLabelsInBucket(data, b.name).map(l => {
                     const isDragging = drag?.bucket === b.name && drag.label === l
@@ -313,7 +314,39 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
                 </div>
               )}
             </div>
-          ))}
+            )
+          })}
+
+          {/* Portfolios — non-deletable, currency-only (replaces the hardcoded USD_PORTS list);
+              kept last so custom Buckets/Labels stay the primary focus of this modal. */}
+          {(() => {
+            const portfoliosOpen = expanded.has('__portfolios__')
+            return (
+            <div className="bg-white rounded-lg border border-emerald-100 shadow-sm overflow-hidden">
+              <div
+                className="flex items-center gap-1 px-2 py-1.5 cursor-pointer"
+                style={{ background: 'rgba(13,148,136,0.06)' }}
+                onClick={() => toggleExpanded('__portfolios__')}
+              >
+                <span className="text-slate-400 text-[10px] shrink-0 w-3">{portfoliosOpen ? '▾' : '▸'}</span>
+                <span className="text-[13px] font-bold text-[#0b3b3a] flex-1">Broker Portfolios</span>
+              </div>
+              {portfoliosOpen && (
+                <div className="px-2 py-1.5 space-y-1">
+                  {portfolioNames.map(name => (
+                    <div key={name} className="flex items-center gap-1.5 bg-emerald-50/60 border border-emerald-100 rounded-lg pl-2 pr-1.5 py-1">
+                      <span className="flex-1 min-w-0 text-[13px] font-medium text-slate-700 truncate">{name}</span>
+                      <CurrencyPill
+                        value={getPortfolioCurrency(name)}
+                        onChange={c => { setPortfolioCurrency(name, c); refreshBuckets() }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            )
+          })()}
         </div>
       </div>
     </>

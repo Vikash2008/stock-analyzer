@@ -22,7 +22,6 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from src.engine import build
 from backend.serializers import serialize_bundle
-from backend.routers.dividends import clear_cache as _clear_div_cache
 
 router = APIRouter()
 
@@ -81,7 +80,6 @@ async def post_portfolio(
     data = serialize_bundle(bundle)
     data["csv_hash"] = csv_hash
     _mem_cache[cache_key] = (data, now)
-    _clear_div_cache()
 
     # No portfolio-history invalidation needed here: that cache is now keyed by csv_hash
     # (see portfolio_history.py), so identical content always maps to the same valid entry —

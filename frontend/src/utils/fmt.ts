@@ -63,3 +63,13 @@ export function fmtDate(iso: string): string {
     day: 'numeric', month: 'short', year: 'numeric',
   })
 }
+
+// "14:32 04 Jul" — used by every "last synced"/"last fetched" label (Charts, Benchmarking,
+// Dividends refresh controls)
+export function fmtSyncTime(d: Date): string {
+  const hh  = String(d.getHours()).padStart(2, '0')
+  const mm  = String(d.getMinutes()).padStart(2, '0')
+  const dd  = String(d.getDate()).padStart(2, '0')
+  const mon = d.toLocaleString('en-US', { month: 'short' })
+  return `${hh}:${mm} ${dd} ${mon}`
+}

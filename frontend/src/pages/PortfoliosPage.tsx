@@ -1,5 +1,6 @@
 ﻿import { useMemo, useRef, useState, useEffect, useCallback } from 'react'
-import { useDividends, getIncludeDividends, setIncludeDividends, clearDividendLocalCache, getIncludeFxGains, setIncludeFxGains } from '../hooks/useDividends'
+import { useDividendEvents, getIncludeDividends, setIncludeDividends, clearDividendLocalCache, getIncludeFxGains, setIncludeFxGains } from '../hooks/useDividends'
+import { computeDividendsForScope } from '../utils/dividends'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { usePortfolio, useForceRefresh } from '../hooks/usePortfolio'
@@ -205,7 +206,14 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const navigate     = useNavigate()
   const qc           = useQueryClient()
   const { data, isLoading, error, isFetching } = usePortfolio(currency)
-  const { data: divData } = useDividends()
+  // Global (all-portfolio) scope — matches the old useDividends()'s no-portfolio-arg behavior
+  // exactly; every card/tile below already narrows this down to its own symbols itself. Never
+  // fetched automatically — see hooks/useDividends.ts; reads whatever was last manually refreshed.
+  const { data: divEventsBySymbol } = useDividendEvents()
+  const divData = useMemo(
+    () => (divEventsBySymbol && data) ? computeDividendsForScope(divEventsBySymbol, data.transactions, data.usd_inr) : null,
+    [divEventsBySymbol, data],
+  )
   const forceRefresh  = useForceRefresh(currency)
 
   // Prefetch history for all holdings so chart tabs open instantly.
@@ -1113,7 +1121,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           return (
             <div
               key={label}
-              className="rounded-[13px] p-2 border cursor-pointer active:opacity-80 transition-opacity"
+              className="rounded-[13px] px-2 py-1.5 border cursor-pointer active:opacity-80 transition-opacity"
               style={{
                 background:      tileBg,
                 borderColor:     '#e2e8f0',
@@ -1122,12 +1130,12 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               }}
               onClick={() => navigate(`/holdings/bucket/${encodeURIComponent('Asset Class')}/${encodeURIComponent(label)}`)}
             >
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[1.2px] mb-1">{label}</p>
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[1.2px] mb-0.5">{label}</p>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[16px] font-bold text-slate-900">{fmt(stats.cur, 'INR')}</span>
                 <span className="text-[11px] font-bold px-2 py-[3px] rounded-full whitespace-nowrap" style={{ background: xirr == null ? '#e2e8f0' : (xirr >= 0 ? '#d1fae5' : '#fee2e2'), color: xirr == null ? '#64748b' : (xirr >= 0 ? '#065f46' : '#991b1b') }}>XIRR {xirr == null ? '—' : `${xirr.toFixed(1)}%`}</span>
               </div>
-              <div className="flex justify-between mt-1.5 pt-1.5 border-t border-slate-100">
+              <div className="flex justify-between mt-1 pt-1 border-t border-slate-100">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Today</span>
                   <span className="text-[11.5px] font-bold whitespace-nowrap" style={{ color: tgC }}>{fmtCompactGainLine1(stats.todayGain, stats.todayPct ?? 0, 'INR')}</span>

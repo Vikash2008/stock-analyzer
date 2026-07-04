@@ -5,7 +5,8 @@ import { DeleteHoldingModal } from '../components/DeleteHoldingModal'
 import { ManagePortfolioModal } from '../components/ManagePortfolioModal'
 import { DividendsTab } from '../components/DividendsTab'
 import { FxGainsTab } from '../components/FxGainsTab'
-import { useDividends, useRefreshAllDividends, getIncludeDividends, getIncludeFxGains, getDividendsLastFetched } from '../hooks/useDividends'
+import { useDividendEvents, refreshDividendEvents, getIncludeDividends, getIncludeFxGains } from '../hooks/useDividends'
+import { computeDividendsForScope } from '../utils/dividends'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   LineChart, Line, BarChart, Bar, ComposedChart,
@@ -29,7 +30,7 @@ import { aggRealized, realizedForPorts } from '../utils/realized'
 import { SKIP_PORTS, USD_PORTS, getPortfolioCurrency } from '../utils/segments'
 import { getLabel, resolveLabel, filterByLabel, getLabelCurrency } from '../utils/buckets'
 import { resolveDisplayCurrency, fxMultiplier } from '../utils/currency'
-import { fmt, fmtGainLine, fmtCompact } from '../utils/fmt'
+import { fmt, fmtGainLine, fmtCompact, fmtSyncTime } from '../utils/fmt'
 import { getSectorForHolding, SECTOR_COLOR, BENCHMARK_LABEL, type SectorKey, getMarketCapForHolding, MARKET_CAP_COLOR, type MarketCapKey } from '../utils/sectors'
 import { useBenchmarkXirr, useRefreshAllBenchmarks } from '../hooks/useBenchmarkXirr'
 import { computeXIRR } from '../utils/xirr'
@@ -244,8 +245,9 @@ export default function HoldingsPage({ currency }: Props) {
     [data?.holdings.length],
   )
   usePrefetchHoldingCharts(allSymbols)
-  const { data: divData, isLoading: divLoading, isFetching: divFetching } = useDividends(portfolio)
-  const refreshAllDividends = useRefreshAllDividends()
+  // Shared store — same data/progress every other dividend-consuming component observes; never
+  // fetched automatically (see hooks/useDividends.ts), only via the Settings-popover button below.
+  const { data: divEventsBySymbol, isFetching: divFetching, isError: divError, loadedCount: divLoadedCount, totalCount: divTotalCount, lastFetchedAt: divLastFetchedAt } = useDividendEvents()
   const [includeDivs, setIncludeDivs] = useState(getIncludeDividends)
   useEffect(() => {
     const handler = () => setIncludeDivs(getIncludeDividends())
@@ -310,9 +312,6 @@ export default function HoldingsPage({ currency }: Props) {
   const [histLastSynced,  setHistLastSynced]  = useState<Date | null>(null)
   const [chartsUpToDate,  setChartsUpToDate]  = useState(false)
   const [benchLastSynced, setBenchLastSynced] = useState<Date | null>(null)
-  const [divSyncing,      setDivSyncing]      = useState(false)
-  const [divLastSynced,   setDivLastSynced]   = useState<Date | null>(null)
-  const [divUpToDate,     setDivUpToDate]     = useState(false)
   const [divSkipped,      setDivSkipped]      = useState<string[]>([])
   const [expandedSectors,     setExpandedSectors]     = useState<Set<string>>(new Set())
   const [benchSectorSectionOpen, setBenchSectorSectionOpen] = useState(true)
@@ -478,31 +477,45 @@ export default function HoldingsPage({ currency }: Props) {
     return lots
   }, [data, portfolio, segment, bucket, label, quoteTypeBySymbol])
 
+  // Restrict shares-held math to exactly the real portfolios contributing to this view (single
+  // portfolio, or every portfolio behind the current segment/bucket-label) — correct for all
+  // view types, since filteredHoldings is already scoped correctly for each of them.
+  const divScopePortfolios = useMemo(
+    () => portfolio ? [portfolio] : [...new Set(filteredHoldings.map(h => h.portfolio))],
+    [portfolio, filteredHoldings],
+  )
+  const divComputed = useMemo(
+    () => (divEventsBySymbol && data)
+      ? computeDividendsForScope(divEventsBySymbol, data.transactions, data.usd_inr, divScopePortfolios)
+      : null,
+    [divEventsBySymbol, data, divScopePortfolios],
+  )
+
   // Dividend lookup maps — only populated when toggle is ON
   const divBySymbol = useMemo(() => {
-    if (!includeDivs || !divData) return new Map<string, number>()
-    return new Map(divData.by_symbol.map(s => [s.symbol, s.total_dividends]))
-  }, [includeDivs, divData])
+    if (!includeDivs || !divComputed) return new Map<string, number>()
+    return new Map(divComputed.by_symbol.map(s => [s.symbol, s.total_dividends]))
+  }, [includeDivs, divComputed])
 
-  // Segment filter only — portfolio filtering is handled by the backend via the portfolio param
+  // Bucket/Label filter only — portfolio filtering is already applied via divScopePortfolios
   const filteredDivSymbols = useMemo(() => {
     if (!bucket || !label) return undefined
-    if (!divData || !data) return new Set<string>()
+    if (!divComputed || !data) return new Set<string>()
     const syms = new Set<string>()
-    for (const s of divData.by_symbol) {
+    for (const s of divComputed.by_symbol) {
       const tx = data.transactions.find(t => t.symbol === s.symbol)
       const lbl = tx ? getLabel(tx, bucket) : resolveLabel('', bucket, quoteTypeBySymbol.get(s.symbol))
       if (lbl === label) syms.add(s.symbol)
     }
     return syms
-  }, [bucket, label, divData, data, quoteTypeBySymbol])
+  }, [bucket, label, divComputed, data, quoteTypeBySymbol])
 
   const totalDivForView = useMemo(() => {
-    if (!includeDivs || !divData) return 0
-    if (!filteredDivSymbols && !portfolio) return divData.by_symbol.reduce((sum, s) => sum + s.total_dividends, 0)
+    if (!includeDivs || !divComputed) return 0
+    if (!filteredDivSymbols && !portfolio) return divComputed.by_symbol.reduce((sum, s) => sum + s.total_dividends, 0)
     const syms = filteredDivSymbols ?? new Set(filteredHoldings.map(h => h.symbol))
-    return divData.by_symbol.filter(s => syms.has(s.symbol)).reduce((sum, s) => sum + s.total_dividends, 0)
-  }, [includeDivs, divData, filteredDivSymbols, portfolio, filteredHoldings])
+    return divComputed.by_symbol.filter(s => syms.has(s.symbol)).reduce((sum, s) => sum + s.total_dividends, 0)
+  }, [includeDivs, divComputed, filteredDivSymbols, portfolio, filteredHoldings])
 
   // Allocation tab always uses one-per-symbol grouping regardless of viewMode
   const allocGroupedRows = useMemo(
@@ -804,13 +817,6 @@ export default function HoldingsPage({ currency }: Props) {
     if (benchSyncing && !benchLoading && !benchFetching) setBenchSyncing(false)
   }, [benchSyncing, benchLoading, benchFetching])
 
-  const fmtSyncTime = (d: Date) => {
-    const hh  = String(d.getHours()).padStart(2, '0')
-    const mm  = String(d.getMinutes()).padStart(2, '0')
-    const dd  = String(d.getDate()).padStart(2, '0')
-    const mon = d.toLocaleString('en-US', { month: 'short' })
-    return `${hh}:${mm} ${dd} ${mon}`
-  }
 
   // Set histLastSynced to the aggregate chart's real fetch timestamp (not "now") whenever
   // it's available — this drives the Refresh button's cooldown gate and displayed "last
@@ -844,19 +850,15 @@ export default function HoldingsPage({ currency }: Props) {
     if (!benchLoading && benchLastFetchedAt) setBenchLastSynced(new Date(benchLastFetchedAt))
   }, [benchLoading, benchLastFetchedAt])
 
-  // Set divLastSynced to the real cache timestamp (not "now") whenever dividend data is
-  // available — reopening the app with hours/days-old cached data shows its true age.
-  useEffect(() => {
-    if (divLoading || divFetching || !divData) return
-    const ts = getDividendsLastFetched(portfolio)
-    if (ts) setDivLastSynced(new Date(ts))
-  }, [divLoading, divFetching, divData, portfolio])
+  // Dividend data's last-fetched time comes straight from the shared store — a single global
+  // timestamp now (not per-portfolio), always accurate the moment a refresh actually completes.
+  const divLastSynced = divLastFetchedAt ? new Date(divLastFetchedAt) : null
   const xirrMap = useMemo(() => {
     if (!data) return new Map<string, number | null>()
     const today = new Date()
     const map   = new Map<string, number | null>()
-    const divEventsMap = (includeDivs && divData)
-      ? new Map(divData.by_symbol.map(s => [s.symbol, s.events]))
+    const divEventsMap = (includeDivs && divComputed)
+      ? new Map(divComputed.by_symbol.map(s => [s.symbol, s.events]))
       : new Map<string, never[]>()
 
     for (const row of [...rows, ...(holdingFilter !== 'open' ? closedRows : [])]) {
@@ -885,7 +887,7 @@ export default function HoldingsPage({ currency }: Props) {
       map.set(row.key, r !== null ? r * 100 : null)
     }
     return map
-  }, [rows, closedRows, holdingFilter, data, currency, filtPorts, segment, viewMode, includeDivs, divData, includeFxGains])
+  }, [rows, closedRows, holdingFilter, data, currency, filtPorts, segment, viewMode, includeDivs, divComputed, includeFxGains])
 
   // Patch ltp on closed rows using latest price from symbolPriceMap (available after usePortfolioHistory)
   const closedRowsWithLtp = useMemo(() => {
@@ -989,8 +991,8 @@ export default function HoldingsPage({ currency }: Props) {
     if (targetRows.length === 0) return null
     const today = new Date()
     const cfs: { date: Date; amount: number }[] = []
-    const divEventsMap = (includeDivs && divData)
-      ? new Map(divData.by_symbol.map(s => [s.symbol, s.events]))
+    const divEventsMap = (includeDivs && divComputed)
+      ? new Map(divComputed.by_symbol.map(s => [s.symbol, s.events]))
       : new Map<string, never[]>()
     for (const row of targetRows) {
       const txns = data.transactions.filter(t =>
@@ -1014,7 +1016,7 @@ export default function HoldingsPage({ currency }: Props) {
     }
     const r = computeXIRR(cfs)
     return r !== null ? r * 100 : null
-  }, [holdingFilter, data, closedRows, rows, filtPorts, segment, viewMode, currency, includeDivs, divData, includeFxGains, summaryXirr, bucket])
+  }, [holdingFilter, data, closedRows, rows, filtPorts, segment, viewMode, currency, includeDivs, divComputed, includeFxGains, summaryXirr, bucket])
 
 
   // ── Returns tab: per-sector daily value series ──────────────────────────────
@@ -1277,11 +1279,6 @@ export default function HoldingsPage({ currency }: Props) {
           Charts already up to date
         </div>
       )}
-      {divUpToDate && (
-        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[9999] bg-emerald-600 text-white font-bold text-[12px] px-4 py-2 rounded-full shadow-lg whitespace-nowrap">
-          Dividends recently updated
-        </div>
-      )}
       {divSkipped.length > 0 && (
         <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[9999] bg-amber-600 text-white font-bold text-[12px] px-4 py-2 rounded-full shadow-lg max-w-[90vw] truncate">
           {divSkipped.length} symbol{divSkipped.length > 1 ? 's' : ''} didn't refresh: {divSkipped.join(', ')}
@@ -1393,29 +1390,29 @@ export default function HoldingsPage({ currency }: Props) {
                     <div className="flex flex-col items-center gap-0.5 shrink-0">
                       <button
                         onClick={() => {
-                          if (divSyncing) return
-                          if (divLastSynced && Date.now() - divLastSynced.getTime() < REFRESH_MS) {
-                            setDivUpToDate(true)
-                            setTimeout(() => setDivUpToDate(false), 3000)
-                            return
-                          }
-                          setDivSyncing(true)
-                          refreshAllDividends(data?.all_portfolios ?? [], portfolio)
+                          if (divFetching) return
+                          refreshDividendEvents(allSymbols, filteredHoldings.map(h => h.yf_symbol))
                             .then(skipped => {
                               if (skipped.length === 0) return
                               logDebug(`Dividends refresh: skipped ${skipped.length} symbol(s) — ${skipped.join(', ')}`)
                               setDivSkipped(skipped)
                               setTimeout(() => setDivSkipped([]), 6000)
                             })
-                            .finally(() => setDivSyncing(false))
+                            .catch(() => {})
                         }}
-                        className="w-[70px] text-center text-white text-[10px] font-semibold rounded-full px-3 py-1 active:opacity-80"
+                        disabled={divFetching}
+                        className="w-[70px] text-center text-white text-[10px] font-semibold rounded-full px-3 py-1 active:opacity-80 disabled:opacity-60"
                         style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
                       >
-                        {divSyncing ? 'Syncing…' : 'Update'}
+                        {divFetching ? `${divLoadedCount}/${divTotalCount || '?'}` : 'Update'}
                       </button>
-                      {divLastSynced && (
+                      {divLastSynced ? (
                         <span className="text-[9px] text-slate-400 whitespace-nowrap leading-none">{fmtSyncTime(divLastSynced)}</span>
+                      ) : (
+                        <span className="text-[9px] text-slate-300 whitespace-nowrap leading-none">Never</span>
+                      )}
+                      {divError && !divFetching && (
+                        <span className="text-[9px] text-red-400 whitespace-nowrap leading-none">Refresh failed</span>
                       )}
                     </div>
                   </div>
@@ -2540,7 +2537,19 @@ export default function HoldingsPage({ currency }: Props) {
 
       {/* ── Dividends tab ── */}
       {activeTab === 'dividends' && (
-        <DividendsTab key={`${portfolio ?? ''}:${segment ?? ''}`} currency={currency} nativeCurrency={pageNativeCurrency} portfolio={portfolio} filterSymbols={filteredDivSymbols} usdInr={data?.usd_inr ?? 95.5} yf_symbols={portfolio ? filteredHoldings.map((h: Holding) => h.yf_symbol) : allSymbols} />
+        data && (
+        <DividendsTab
+          key={`${portfolio ?? ''}:${segment ?? ''}`}
+          data={data}
+          currency={currency}
+          nativeCurrency={pageNativeCurrency}
+          usdInr={data.usd_inr}
+          scopePortfolios={divScopePortfolios}
+          filterSymbols={filteredDivSymbols}
+          allYfSymbols={allSymbols}
+          priorityYfSymbols={filteredHoldings.map((h: Holding) => h.yf_symbol)}
+        />
+        )
       )}
       {activeTab === 'fx' && (
         <FxGainsTab fxLots={filteredFxLots} usdInr={data.usd_inr} currency={currency} asOf={data.as_of} />
