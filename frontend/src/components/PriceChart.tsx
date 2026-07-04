@@ -12,7 +12,7 @@ import type { Transaction } from '../api/types'
 import type { Currency } from '../App'
 import { fmt } from '../utils/fmt'
 import { computeChartFreshness } from '../utils/incrementalMerge'
-import { ChartFreshnessLabel, ChartErrorState, ChartEmptyState, ChartManualRefreshSpinner } from './ChartStateBlock'
+import { ChartFreshnessLabel, ChartErrorState, ChartEmptyState } from './ChartStateBlock'
 
 interface PriceChartProps {
   transactions: Transaction[]
@@ -254,11 +254,8 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
             {isBgFetch && (
               <span className="flex items-center gap-1 text-xs text-slate-500">
                 <span className="inline-block animate-spin leading-none">↻</span>
-                Fetching more data…
+                Refreshing…
               </span>
-            )}
-            {range !== '1d' && (
-              <ChartManualRefreshSpinner refreshing={dailyFetching} onClick={() => refetchDaily()} />
             )}
             {showZoom && (
               <button onClick={handleOpenZoom} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 active:opacity-70">

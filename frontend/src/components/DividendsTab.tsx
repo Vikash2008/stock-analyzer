@@ -330,19 +330,11 @@ export function DividendsTab({ data, currency, nativeCurrency = 'INR', usdInr, s
 
   return (
     <div>
-      {/* Last updated + manual refresh — always visible, never automatic */}
-      <div className="flex items-center justify-between mb-2 px-0.5">
-        <span className="text-[10px] text-slate-400">
+      {/* Last updated — top-right, matches FxGainsTab's "Rate as of" placement */}
+      <div className="flex items-center justify-end mb-2 px-0.5">
+        <span className="text-[10px] text-slate-400 whitespace-nowrap">
           {lastFetchedAt ? `Updated ${fmtSyncTime(new Date(lastFetchedAt))}` : 'Never updated'}
         </span>
-        <button
-          onClick={handleRefresh}
-          disabled={isFetching}
-          className="text-[10px] font-semibold text-white rounded-full px-2.5 py-1 whitespace-nowrap disabled:opacity-60"
-          style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
-        >
-          {isFetching ? `${loadedCount} / ${totalCount || '?'}` : 'Refresh'}
-        </button>
       </div>
       {isFetching && (
         <div className="h-1 bg-teal-50 rounded-full overflow-hidden mb-2">

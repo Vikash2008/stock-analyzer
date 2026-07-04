@@ -105,15 +105,20 @@ function lsSet(key: string, data: PortfolioSeries) {
   idbSet(key, { d: data, t: Date.now() })
 }
 
-// Matches the backend's 5-min result-cache TTL (portfolio_history.py's _CACHE_TTL — shortened
-// from 30 min once the backend's own price fetch became incremental, see that file's comment).
+// Matches the backend's result-cache TTL (portfolio_history.py's _CACHE_TTL). Raised back to
+// 30 min (2026-07-04) — the underlying daily-close price data only actually updates every 30
+// min during market hours anyway (market_hours.py's is_stale gate), so polling faster than that
+// doesn't get fresher data, just extra round-trips. Accepted tradeoff: the chart's "today" point
+// can now visibly lag the Hero/Holding cards (which refresh every 2 min via the separate
+// live-price pipeline) by up to 30 min — a manual refresh is available for anyone who needs it
+// to match immediately.
 // Same elapsed-time-poll + visibilitychange pattern as usePortfolio.ts/useHistory.ts/
 // usePortfolioHistory.ts, not a flat refetchInterval — a flat interval is mount-relative
 // (fires N minutes after mount, not N minutes after the real last fetch), which lets the
 // actual gap drift up to ~2x the interval. Without this poll, staleTime alone never
 // triggers a refetch on its own — it only gates whether the *next* mount/refocus-driven
 // fetch is skipped, so the chart would otherwise never update while the page just sits open.
-export const PORTFOLIO_CHART_REFRESH_MS = 5 * 60 * 1000
+export const PORTFOLIO_CHART_REFRESH_MS = 30 * 60 * 1000
 
 export type { ChartFreshness }
 

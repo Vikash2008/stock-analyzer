@@ -37,12 +37,13 @@ _SKIP_PORTS = {"Equity", "MF_Portfolio"}
 _USD_PORTS  = {"Vested", "IndMoney US", "IndMoney Mummy"}
 
 _cache: dict[str, tuple[dict, float]] = {}
-# 5 min (was 30) — the original 30-min TTL was chosen back when every recompute meant a full
-# multi-year re-download for every symbol; the incremental price_store made that cheap, so a
-# shorter TTL no longer means proportionally more yfinance load. 5 min
-# also keeps the chart's "today" point from visibly disagreeing with HoldingCard/SummaryCard,
-# which already refresh every 2 min — 30 min let the chart lag up to 30 min behind them.
-_CACHE_TTL = 300.0
+# 30 min (2026-07-04, was 5 min — briefly 30 before that too). Raised back to match the
+# frontend's own market_hours.is_stale gate: the underlying daily-close price data only
+# actually updates every 30 min during market hours, so a shorter result-cache TTL was just
+# recomputing off the same unchanged price data more often than useful. Accepted tradeoff:
+# the chart's "today" point can now visibly lag HoldingCard/SummaryCard (which refresh every
+# 2 min via the separate live-price pipeline) by up to 30 min.
+_CACHE_TTL = 1800.0
 
 # Below this point count, a shrink comparison isn't meaningful — short real histories exist
 # (e.g. a portfolio that only started a few weeks ago).

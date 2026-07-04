@@ -1710,17 +1710,17 @@ export default function HoldingsPage({ currency }: Props) {
           })()}
 
           {/* Charts already rendered from cache — silent background revalidation, no blocking bar.
-              Aggregate "Total" view uses the fuller progress bar above instead (heavier, many symbols). */}
-          {!histLoading && !syncing && histIsFetching && segment !== 'total' && (
-            <div className="flex justify-end text-[9px] text-slate-400 mb-2">
-              <span className="flex items-center gap-1">
-                <span className="inline-block animate-spin leading-none text-[9px]">↻</span>
+              Aggregate "Total" view uses the fuller progress bar above instead (heavier, many symbols).
+              Freshness label + refreshing indicator share one row instead of stacking two lines. */}
+          <div className="flex items-center justify-between mb-1">
+            <ChartFreshnessLabel freshness={chartFreshness} />
+            {!histLoading && !syncing && histIsFetching && segment !== 'total' && (
+              <span className="flex items-center gap-1 text-[9px] text-slate-400">
+                <span className="inline-block animate-spin leading-none">↻</span>
                 Refreshing…
               </span>
-            </div>
-          )}
-
-          <ChartFreshnessLabel freshness={chartFreshness} />
+            )}
+          </div>
 
           {portSeries && !metricSeries && (
             <div className="text-center py-10 text-slate-400 text-xs">

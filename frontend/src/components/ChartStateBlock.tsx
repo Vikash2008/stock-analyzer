@@ -35,19 +35,3 @@ export function ChartEmptyState({ message = 'No price history available.' }: { m
     </div>
   )
 }
-
-// Distinct from the silent automatic background refresh (which never shows anything, per the
-// "never flash/blank the chart" invariant) — this is only for a user-initiated manual refresh,
-// which should give visible feedback that the tap actually did something.
-export function ChartManualRefreshSpinner({ refreshing, onClick }: { refreshing: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={refreshing}
-      aria-label="Refresh chart"
-      className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 active:opacity-70 disabled:opacity-50"
-    >
-      <span className={`inline-block leading-none text-[11px] ${refreshing ? 'animate-spin' : ''}`}>↻</span>
-    </button>
-  )
-}

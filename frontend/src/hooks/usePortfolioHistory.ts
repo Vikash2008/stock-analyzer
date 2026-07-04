@@ -1,10 +1,17 @@
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo } from 'react'
 import type { Holding } from '../api/types'
-import { lsGet, lsGetStale, lsSet, lsGetTimestamp, mergeHistory, detectDrift, guardFullResponse, fetchHistory, CLOSED_LS_TTL, REFRESH_MS } from './useHistory'
+import { lsGet, lsGetStale, lsSet, lsGetTimestamp, mergeHistory, detectDrift, guardFullResponse, fetchHistory, CLOSED_LS_TTL } from './useHistory'
 
 // Separate 3-year key — isolates symbolPriceMap cache from the full-history chart cache in useHistory.ts.
 const lsKey = (sym: string) => `${sym}:3y`
+
+// This feeds symbolPriceMap for XIRR/benchmarking, not a live-quote view — the backend's own
+// daily-close data only actually updates every 30 min during market hours (market_hours.py's
+// is_stale gate), so polling more often than that just re-asks for data that hasn't changed.
+// Deliberately its own constant, separate from useHistory.ts's REFRESH_MS (2 min), which still
+// governs PriceChart.tsx's own fetch — that one stays fast since it's the live-quote-like view.
+const OPEN_REFRESH_MS = 30 * 60 * 1000
 
 async function fetchSymHistory(sym: string, start: string) {
   const existing = lsGet(lsKey(sym))
@@ -85,24 +92,24 @@ export function usePortfolioHistory(
         queryFn:   () => fetchSymHistory(sym, '2022-01-01'),
         // Closed symbols: skip the network entirely once a still-fresh (<30 day) cache exists.
         enabled:   enabled && (!isClosed || !lsGet(lsKey(sym), CLOSED_LS_TTL)),
-        staleTime:    isClosed ? CLOSED_LS_TTL : REFRESH_MS,
+        staleTime:    isClosed ? CLOSED_LS_TTL : OPEN_REFRESH_MS,
         gcTime:       Infinity,  // keep in memory for entire session
         // No refetchInterval here — a flat interval is mount-relative (fires N minutes after
         // mount, not N minutes after the real last fetch), which lets the actual gap drift up
-        // to ~2x REFRESH_MS. The elapsed-time poll below checks against the real dataUpdatedAt
-        // instead, so a fetch only ever happens once REFRESH_MS has truly passed.
+        // to ~2x OPEN_REFRESH_MS. The elapsed-time poll below checks against the real dataUpdatedAt
+        // instead, so a fetch only ever happens once OPEN_REFRESH_MS has truly passed.
         retry:        2,
         retryDelay:   8_000,
         retryOnMount: false,     // error-state queries stay counted on navigation; avoids backwards counter
         // Without this, React Query's default refetch-on-mount-if-stale silently refetches
-        // as soon as the app reopens with cache older than REFRESH_MS, instantly overwriting
+        // as soon as the app reopens with cache older than OPEN_REFRESH_MS, instantly overwriting
         // dataUpdatedAt to "now" before the user ever sees the cache's true age. The
         // elapsed-time poll + visibilitychange handler below already cover staleness
         // while the app stays open — mount itself should never force it.
         refetchOnMount: false,
         // Open symbols: seed with the real cache timestamp so staleTime is judged against
-        // actual last-fetch time — on app reopen within 30min this skips the fetch entirely
-        // instead of always kicking one off in the background (placeholderData's behavior).
+        // actual last-fetch time — on app reopen within OPEN_REFRESH_MS this skips the fetch
+        // entirely instead of always kicking one off in the background (placeholderData's behavior).
         // Closed symbols keep placeholderData — their fetch is already gated off by `enabled`
         // above once a fresh cache exists, so there's nothing for initialData to skip.
         ...(isClosed
@@ -128,7 +135,7 @@ export function usePortfolioHistory(
       for (const sym of openSymbols) {
         const state = qc.getQueryState(['history', sym])
         const lastFetch = state?.dataUpdatedAt ?? 0
-        if (Date.now() - lastFetch >= REFRESH_MS) {
+        if (Date.now() - lastFetch >= OPEN_REFRESH_MS) {
           qc.refetchQueries({ queryKey: ['history', sym], type: 'active' })
         }
       }
@@ -136,7 +143,7 @@ export function usePortfolioHistory(
     // `visibilitychange` never fires on a fresh page load (the document is already
     // "visible" at mount) — it only catches background→foreground transitions on an
     // already-open app. A cold reopen needs its own elapsed-time check at mount, or a
-    // cache older than REFRESH_MS would sit there indefinitely with refetchOnMount off.
+    // cache older than OPEN_REFRESH_MS would sit there indefinitely with refetchOnMount off.
     refetchStaleSymbols()
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') refetchStaleSymbols()
@@ -144,7 +151,7 @@ export function usePortfolioHistory(
     document.addEventListener('visibilitychange', handleVisibility)
     // Backstop for a continuously-foregrounded session (no visibilitychange transition ever
     // fires): poll the real elapsed time every minute rather than relying on a single timer
-    // fired N minutes after mount, so the fetch always lands at the true REFRESH_MS mark.
+    // fired N minutes after mount, so the fetch always lands at the true OPEN_REFRESH_MS mark.
     const pollId = window.setInterval(refetchStaleSymbols, 60_000)
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility)

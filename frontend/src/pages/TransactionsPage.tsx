@@ -486,6 +486,31 @@ export default function TransactionsPage({ currency }: Props) {
                       </button>
                     </div>
                     <div className="bg-teal-50/60 border border-teal-100 rounded-lg px-2 py-1 flex items-center justify-between gap-2">
+                      <span className="text-[10.5px] font-semibold text-[#0b3b3a]">Charts</span>
+                      <div className="flex flex-col items-center gap-0.5 shrink-0">
+                        <button
+                          onClick={() => {
+                            if (syncing) return
+                            if (syncedAt && Date.now() - syncedAt.getTime() < CHARTS_MANUAL_COOLDOWN_MS) {
+                              setChartsUpToDate(true)
+                              setTimeout(() => setChartsUpToDate(false), 3000)
+                              return
+                            }
+                            setSyncing(true)
+                            refetchPortSeries()
+                            qc.invalidateQueries({ queryKey: ['history', yf] })
+                          }}
+                          className="w-[60px] text-center text-white text-[10px] font-semibold rounded-full px-2 py-0.5 active:opacity-80"
+                          style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+                        >
+                          {syncing ? 'Syncing…' : 'Refresh'}
+                        </button>
+                        {syncedAt && (
+                          <span className="text-[9px] text-slate-400 whitespace-nowrap leading-none">{fmtSyncTime(syncedAt)}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="bg-teal-50/60 border border-teal-100 rounded-lg px-2 py-1 flex items-center justify-between gap-2">
                       <span className="text-[10.5px] font-semibold text-[#0b3b3a] shrink-0">AI Model</span>
                       <div className="flex bg-white rounded-full p-0.5 gap-0.5 border border-teal-100">
                         {([
@@ -617,7 +642,7 @@ export default function TransactionsPage({ currency }: Props) {
           <span className="text-[13px] font-semibold text-[#0b3b3a]">Personal notes</span>
         </div>
       )}
-      {/* Charts strip — metric pills + sync */}
+      {/* Charts strip — metric pills (sync control moved to Settings modal) */}
       {activeTab === 'charts' && (
         <div className="border rounded-xl px-2.5 py-1.5 mb-2 min-h-[38px] flex flex-col justify-center bg-teal-50 border-teal-100">
           <div className="flex items-center gap-2">
@@ -638,27 +663,6 @@ export default function TransactionsPage({ currency }: Props) {
                 </button>
               ))}
             </div>
-            <button
-              className="flex items-center gap-0.5 shrink-0 rounded-full px-1.5 py-0.5 border active:opacity-60 border-teal-700"
-              style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
-              onClick={() => {
-                if (syncing) return
-                if (syncedAt && Date.now() - syncedAt.getTime() < CHARTS_MANUAL_COOLDOWN_MS) {
-                  setChartsUpToDate(true)
-                  setTimeout(() => setChartsUpToDate(false), 3000)
-                  return
-                }
-                setSyncing(true)
-                // Refetches the chart actually on screen; also invalidates the raw price
-                // cache for this symbol (['history', yf] — shared with PriceChart, which
-                // reads the same query key), so the "Price" metric tab stays in sync too.
-                refetchPortSeries()
-                qc.invalidateQueries({ queryKey: ['history', yf] })
-              }}
-            >
-              <span className={`text-[10px] text-white leading-none inline-block ${syncing ? 'animate-spin' : ''}`}>↻</span>
-              {syncedAt && <span className="text-[10px] text-white whitespace-nowrap leading-none ml-0.5">{fmtSyncTime(syncedAt)}</span>}
-            </button>
           </div>
         </div>
       )}
@@ -820,7 +824,15 @@ export default function TransactionsPage({ currency }: Props) {
           {/* Historical series charts */}
           {chartMetric !== 'Price' && (
             <>
-              <ChartFreshnessLabel freshness={chartFreshness} />
+              <div className="flex items-center justify-between mb-1">
+                <ChartFreshnessLabel freshness={chartFreshness} />
+                {!histLoading && !syncing && histIsFetching && (
+                  <span className="flex items-center gap-1 text-[9px] text-slate-400">
+                    <span className="inline-block animate-spin leading-none">↻</span>
+                    Refreshing…
+                  </span>
+                )}
+              </div>
 
               {portSeries && !metricSeries && (
                 <div className="text-center py-10 text-slate-400 text-xs">
@@ -830,14 +842,6 @@ export default function TransactionsPage({ currency }: Props) {
 
               {(histLoading || (syncing && histIsFetching)) && (
                 <p className="text-center text-[11px] text-slate-400 py-6">Loading price history…</p>
-              )}
-              {!histLoading && !syncing && histIsFetching && (
-                <div className="flex justify-end text-[9px] text-slate-400 mb-2">
-                  <span className="flex items-center gap-1">
-                    <span className="inline-block animate-spin leading-none text-[9px]">↻</span>
-                    Refreshing…
-                  </span>
-                </div>
               )}
               {!portSeries && !histLoading && histError && (
                 <ChartErrorState onRetry={() => refetchPortSeries()} />

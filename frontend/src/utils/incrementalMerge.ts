@@ -40,7 +40,10 @@ export function mergeDateAligned<T extends DatedShape>(
   })
 
   const dates = Object.keys(merged[numericKeys[0] as string] ?? {}).sort()
-  const out: Record<string, unknown> = { ...(existing as object), dates }
+  // delta must win for non-array metadata (dataAsOf, guardRejected, ...) — otherwise every
+  // delta merge after the first fetch keeps re-serving the original fetch's stale timestamp
+  // forever, even though the underlying data keeps refreshing successfully.
+  const out: Record<string, unknown> = { ...(existing as object), ...(delta as object), dates }
   for (const key of numericKeys) {
     out[key as string] = dates.map(d => merged[key as string][d])
   }
