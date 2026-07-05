@@ -108,6 +108,18 @@ def _segment_ok(portfolio: str, segment: Optional[str]) -> bool:
     return True
 
 
+def _resolve_label(tags: object, bucket: str) -> str:
+    """Python port of frontend/src/utils/buckets.ts's resolveLabel() — explicit
+    'Bucket=Label;...' tag entry only, else 'Unassigned'."""
+    for part in str(tags or "").split(";"):
+        if "=" not in part:
+            continue
+        k, v = part.split("=", 1)
+        if k == bucket:
+            return v or "Unassigned"
+    return "Unassigned"
+
+
 def _safe_float(v, default: float = 0.0) -> float:
     try:
         f = float(v)
@@ -122,6 +134,8 @@ def _compute(
     segment: Optional[str],
     symbol_filter: Optional[str] = None,
     csv_content: Optional[str] = None,
+    bucket: Optional[str] = None,
+    label: Optional[str] = None,
 ) -> dict:
     empty = {
         "dates": [], "values": [], "invested": [], "unrealized": [],
@@ -167,6 +181,17 @@ def _compute(
             df_holdings = df_holdings[df_holdings["symbol"] == symbol_filter]
         if "symbol" in df_realized.columns:
             df_realized = df_realized[df_realized["symbol"] == symbol_filter]
+
+    # Bucket/Label scope (e.g. Asset Class "Stocks"/"Mutual Funds") — no portfolio/segment
+    # param covers this, so without it this endpoint silently fell through to the unfiltered
+    # full-portfolio aggregate for every bucket/label chart view.
+    if bucket and label:
+        if "tags" in df_txns.columns:
+            df_txns = df_txns[df_txns["tags"].apply(lambda t: _resolve_label(t, bucket) == label)]
+        if "tags" in df_holdings.columns:
+            df_holdings = df_holdings[df_holdings["tags"].apply(lambda t: _resolve_label(t, bucket) == label)]
+        if "tags" in df_realized.columns:
+            df_realized = df_realized[df_realized["tags"].apply(lambda t: _resolve_label(t, bucket) == label)]
 
     buy_sell = df_txns[df_txns["type"].isin(["BUY", "SELL"])] if "type" in df_txns.columns else pd.DataFrame()
     if buy_sell.empty:
@@ -474,19 +499,21 @@ def _portfolio_history_response(
     segment: Optional[str],
     symbol: Optional[str],
     csv_content: Optional[str],
+    bucket: Optional[str] = None,
+    label: Optional[str] = None,
 ) -> dict:
     # Every cache key is prefixed with a hash of the caller's own CSV content ("demo" when
     # there is none) — two different real users filtering to a same-named portfolio (e.g.
     # both have a "Zerodha") must never read/write the same entry.
     csv_hash = hashlib.md5(csv_content.encode()).hexdigest() if csv_content else "demo"
-    cache_key = f"{csv_hash}:{currency}:{portfolio or ''}:{segment or ''}:{symbol or ''}"
+    cache_key = f"{csv_hash}:{currency}:{portfolio or ''}:{segment or ''}:{symbol or ''}:{bucket or ''}:{label or ''}"
     prev_entry = _cache.get(cache_key)
     if prev_entry:
         result, ts = prev_entry
         if time.time() - ts < _CACHE_TTL:
             return result
 
-    fresh = _compute(currency, portfolio, segment, symbol, csv_content)
+    fresh = _compute(currency, portfolio, segment, symbol, csv_content, bucket, label)
     result = _guard_result(cache_key, prev_entry[0] if prev_entry else None, fresh)
     _cache[cache_key] = (result, time.time())
     return result
@@ -498,9 +525,11 @@ def get_portfolio_history(
     portfolio: Optional[str] = Query(None, description="Single portfolio name, or comma-separated list"),
     segment:   Optional[str] = Query(None),
     symbol:    Optional[str] = Query(None, description="Clean symbol (not yf_symbol) — scopes to one holding, e.g. the Txn-page chart"),
+    bucket:    Optional[str] = Query(None, description="Bucket name (e.g. 'Asset Class') — scopes to one Bucket/Label pair, requires label too"),
+    label:     Optional[str] = Query(None, description="Label within bucket (e.g. 'Stocks')"),
 ) -> dict:
     """No-CSV path — always computes from the server's demo file, same as before."""
-    return _portfolio_history_response(currency, portfolio, segment, symbol, csv_content=None)
+    return _portfolio_history_response(currency, portfolio, segment, symbol, csv_content=None, bucket=bucket, label=label)
 
 
 @router.post("/api/portfolio-history")
@@ -510,10 +539,12 @@ async def post_portfolio_history(
     portfolio: Optional[str] = Query(None, description="Single portfolio name, or comma-separated list"),
     segment:   Optional[str] = Query(None),
     symbol:    Optional[str] = Query(None, description="Clean symbol (not yf_symbol) — scopes to one holding, e.g. the Txn-page chart"),
+    bucket:    Optional[str] = Query(None, description="Bucket name (e.g. 'Asset Class') — scopes to one Bucket/Label pair, requires label too"),
+    label:     Optional[str] = Query(None, description="Label within bucket (e.g. 'Stocks')"),
 ) -> dict:
     """Real-portfolio path — body is the caller's raw CSV text, same convention as
     backend/routers/portfolio.py's POST. Without this, the chart was always computed from the
     server's default file regardless of who was asking (the pre-existing pending bug)."""
     body = await request.body()
     csv_content = body.decode("utf-8", errors="replace") if body else None
-    return _portfolio_history_response(currency, portfolio, segment, symbol, csv_content)
+    return _portfolio_history_response(currency, portfolio, segment, symbol, csv_content, bucket=bucket, label=label)

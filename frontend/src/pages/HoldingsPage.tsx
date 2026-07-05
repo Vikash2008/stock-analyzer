@@ -774,16 +774,8 @@ export default function HoldingsPage({ currency }: Props) {
     dataUpdatedAt: portSeriesUpdatedAt,
     refetch:       refetchPortSeries,
   } = useBackendPortfolioHistory(
-    // This hook only scopes by portfolio/segment (no bucket/label filter param exists on the
-    // backend endpoint) — deliberately NOT pageNativeCurrency here, since for a bucket/label
-    // view that resolves to the Label's configured currency, but this hook actually fetches
-    // the unfiltered full-portfolio aggregate in that case (portfolio+segment both undefined),
-    // so requesting USD there would dollarize the whole portfolio's chart, not just the label.
-    resolveDisplayCurrency(
-      portfolio ? getPortfolioCurrency(portfolio) : (segment === 'us_stock' || segment === 'us_mf') ? 'USD' : 'INR',
-      currency,
-    ),
-    portfolio, segment, !!data,
+    resolveDisplayCurrency(pageNativeCurrency, currency),
+    portfolio, segment, !!data, undefined, bucket, label,
   )
   const chartFreshness = getChartFreshness(portSeries)
 

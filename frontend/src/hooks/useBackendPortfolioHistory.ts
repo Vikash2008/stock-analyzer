@@ -40,12 +40,16 @@ async function fetchPortfolioHistory(
   portfolio?: string,
   segment?:  string,
   symbol?:   string,
+  bucket?:   string,
+  label?:    string,
 ): Promise<PortfolioSeries | null> {
   const base = import.meta.env.VITE_API_URL ?? ''
   const params = new URLSearchParams({ currency })
   if (portfolio) params.set('portfolio', portfolio)
   if (segment)   params.set('segment',   segment)
   if (symbol)    params.set('symbol',    symbol)
+  if (bucket)    params.set('bucket',    bucket)
+  if (label)     params.set('label',     label)
 
   const csvContent = getCsvContent()
   const res = await fetch(
@@ -93,8 +97,8 @@ const LS_PREFIX = 'portfolioHist:'
 // A hash-scoped key sidesteps needing an explicit wipe-on-mismatch step (unlike usePortfolio.ts's
 // wipeCsvMismatch): a different CSV naturally produces a different key, so stale data under the
 // old key is simply never read again, not overwritten in place.
-function lsKeyFor(csvHash: string, currency: Currency, portfolio?: string, segment?: string, symbol?: string): string {
-  return `${LS_PREFIX}${csvHash}:${currency}:${portfolio ?? ''}:${segment ?? ''}:${symbol ?? ''}`
+function lsKeyFor(csvHash: string, currency: Currency, portfolio?: string, segment?: string, symbol?: string, bucket?: string, label?: string): string {
+  return `${LS_PREFIX}${csvHash}:${currency}:${portfolio ?? ''}:${segment ?? ''}:${symbol ?? ''}:${bucket ?? ''}:${label ?? ''}`
 }
 
 function lsGet(key: string): { d: PortfolioSeries; t: number } | undefined {
@@ -135,12 +139,14 @@ export function useBackendPortfolioHistory(
   segment?:  string,
   enabled = true,
   symbol?:   string,
+  bucket?:   string,
+  label?:    string,
 ) {
   const qc = useQueryClient()
   const csvContent = getCsvContent()
   const csvHash = csvContent ? shortHash(csvContent) : 'demo'
-  const queryKey = ['portfolio-history', csvHash, currency, portfolio ?? '', segment ?? '', symbol ?? '']
-  const lsKey    = lsKeyFor(csvHash, currency, portfolio, segment, symbol)
+  const queryKey = ['portfolio-history', csvHash, currency, portfolio ?? '', segment ?? '', symbol ?? '', bucket ?? '', label ?? '']
+  const lsKey    = lsKeyFor(csvHash, currency, portfolio, segment, symbol, bucket, label)
   const cached   = lsGet(lsKey)
 
   useEffect(() => {
@@ -183,12 +189,12 @@ export function useBackendPortfolioHistory(
       unsubscribe()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, currency, portfolio, segment, symbol, csvHash, qc])
+  }, [enabled, currency, portfolio, segment, symbol, bucket, label, csvHash, qc])
 
   return useQuery<PortfolioSeries | null>({
     queryKey,
     queryFn: async () => {
-      const fresh = await fetchPortfolioHistory(currency, portfolio, segment, symbol)
+      const fresh = await fetchPortfolioHistory(currency, portfolio, segment, symbol, bucket, label)
       if (!fresh) return fresh
       // This endpoint doesn't support delta responses (unlike useHistory.ts) — every request
       // is a full recompute, so there's no merge step here, only the same shrink-guard applied
