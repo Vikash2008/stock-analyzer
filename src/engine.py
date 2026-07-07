@@ -189,9 +189,12 @@ def build(
         usd_inr     = cache.get("fx") or 95.5
 
     # ── Layer 3: Sector / company info (7-day TTL) ────────────────────────────
+    # Covers every symbol ever transacted, not just currently-open holdings — a fully
+    # exited position (all shares sold/redeemed) still needs its name for closed-row
+    # displays (HoldingsPage closed rows, TransactionsPage summary for a closed symbol).
     if not cache.is_fresh("info"):
         print("[engine] Fetching ticker info (sector/name)…")
-        symbols = list(holdings_raw["yf_symbol"].unique())
+        symbols = list(set(holdings_raw["yf_symbol"]) | set(txns["yf_symbol"]))
         info = get_tickers_info(symbols)
         cache.set("info", info)
     else:
@@ -222,6 +225,17 @@ def build(
                    if port_col else holdings_all.copy()
     transactions = txns[txns["portfolio"].isin(selected_portfolios)].copy() \
                    if "portfolio" in txns.columns else txns.copy()
+
+    # Backfill each transaction's holding name from ticker_info — the CSV schema has no
+    # "name" column at all for most users, and a fully-exited symbol has no holdings row
+    # to carry a company name either, so this is the only place closed positions get one.
+    company_by_symbol = {s: (v.get("name") or None) for s, v in info.items()}
+    if "name" in transactions.columns:
+        blank = transactions["name"].isna() | (transactions["name"].astype(str).str.strip() == "")
+        transactions.loc[blank, "name"] = transactions.loc[blank, "yf_symbol"].map(company_by_symbol)
+    else:
+        transactions["name"] = transactions["yf_symbol"].map(company_by_symbol)
+
     realized     = realized_all[realized_all["portfolio"].isin(selected_portfolios)].copy() \
                    if "portfolio" in realized_all.columns else realized_all.copy()
 

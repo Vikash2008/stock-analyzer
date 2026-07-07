@@ -423,7 +423,7 @@ export default function TransactionsPage({ currency }: Props) {
   // for closed holdings (no open position), try any portfolio's holding for LTP/name/yf_symbol
   const anyHolding = holding ?? data.holdings.find(h => h.symbol === decoded.symbol && !SKIP_PORTS.has(h.portfolio)) ?? null
   const yf    = anyHolding?.yf_symbol ?? symTxns.find(t => t.yf_symbol)?.yf_symbol ?? decoded.symbol
-  const co    = anyHolding?.company ?? anyHolding?.name ?? ''
+  const co    = anyHolding?.company ?? anyHolding?.name ?? symTxns.find(t => t.name)?.name ?? ''
 
   const isPct       = PCT_METRICS.has(chartMetric)
   const chartLast   = metricSeries?.values[metricSeries.values.length - 1] ?? null

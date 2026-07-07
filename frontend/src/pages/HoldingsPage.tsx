@@ -2579,7 +2579,7 @@ export default function HoldingsPage({ currency }: Props) {
           {analysisSubTab === 'activity' && (
             <div>
               {/* Filter strip */}
-              <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+              <div className="flex items-center justify-between gap-1.5 mb-2 pl-1 flex-wrap">
                 <div className="flex gap-0.5 bg-teal-100 rounded-lg p-0.5">
                   {(['7d', '1m', '3m', '6m', '1y', 'all'] as const).map(r => (
                     <button
