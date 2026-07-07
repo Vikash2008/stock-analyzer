@@ -1,7 +1,7 @@
 // Individual holding tile — mirrors design-mockups/holdings-page.html .metric-card.compact.
 // Entire card is tappable (onClick). No separate button needed.
 
-import { fmt, fmtCompactGainLine, fmtPct } from '../utils/fmt'
+import { fmt, fmtCompactGainLine, fmtPct, truncateName } from '../utils/fmt'
 import type { Currency } from '../App'
 
 interface HoldingCardProps {
@@ -43,7 +43,7 @@ export function HoldingCard({
     >
       <div className="flex items-center justify-between gap-2 mb-0.5">
         <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[1.2px] truncate">
-          {(subLabel || ticker).replace(/\.(NS|BO)$/i, '')}
+          {truncateName((subLabel || ticker).replace(/\.(NS|BO)$/i, ''))}
         </p>
         {ltp != null && (
           <span className="text-[10px] font-semibold whitespace-nowrap shrink-0 text-slate-500">LTP {fmt(ltp, ltpCurrency ?? currency)}</span>

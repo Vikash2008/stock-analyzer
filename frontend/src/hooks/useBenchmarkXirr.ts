@@ -185,7 +185,7 @@ export function useBenchmarkXirr(
   // app shows the true age instead of always looking freshly synced.
   const lastFetchedAt = histResults.reduce((max, q) => Math.max(max, q.dataUpdatedAt ?? 0), 0) || null
 
-  const output = useMemo((): Omit<BenchmarkOutput, 'isLoading' | 'isFetching' | 'hasError' | 'loadedCount' | 'totalCount' | 'fetchingCount'> | null => {
+  const output = useMemo((): Omit<BenchmarkOutput, 'isLoading' | 'isFetching' | 'hasError' | 'loadedCount' | 'totalCount' | 'fetchingCount' | 'lastFetchedAt'> | null => {
     if (!enabled || isLoading) return null
     // Period mode requires symbolPriceMap to compute opening balance actual values
     if (periodStart && (!symbolPriceMap || symbolPriceMap.size === 0)) return null

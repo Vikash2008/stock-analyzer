@@ -25,7 +25,7 @@ import { aggRealized } from '../utils/realized'
 import { SKIP_PORTS, USD_PORTS } from '../utils/segments'
 import { resolveDisplayCurrency, fxMultiplier } from '../utils/currency'
 import { computeXIRR } from '../utils/xirr'
-import { fmt, fmtGainLine } from '../utils/fmt'
+import { fmt, fmtGainLine, truncateName } from '../utils/fmt'
 import type { Currency } from '../App'
 
 // Same cooldown value/purpose as HoldingsPage.tsx's Settings→Charts→Refresh button — kept as
@@ -552,7 +552,7 @@ export default function TransactionsPage({ currency }: Props) {
 
       {/* Summary card — same format as Holdings page */}
       <SummaryCard
-        label={co || decoded.symbol}
+        label={truncateName(co || decoded.symbol)}
         current={cur}
         invested={inv}
         realGain={realGain}

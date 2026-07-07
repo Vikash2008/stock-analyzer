@@ -200,7 +200,8 @@ def build(
     # ── Enrich holdings ───────────────────────────────────────────────────────
     holdings_all = enrich_holdings(holdings_raw, prices, info, prev_closes)
     if "name" in txns.columns and "name" not in holdings_all.columns:
-        name_map = txns.groupby("yf_symbol")["name"].first()
+        named_txns = txns[txns["name"].fillna("").str.strip() != ""]
+        name_map = named_txns.groupby("yf_symbol")["name"].first()
         holdings_all["name"] = holdings_all["yf_symbol"].map(name_map).fillna("")
 
     # Fill null company names from transaction names (MF symbols often missing from yfinance)

@@ -19,6 +19,10 @@ export function fmt(value: number, currency: 'INR' | 'USD'): string {
   return currency === 'INR' ? fmtINR(value) : fmtUSD(value)
 }
 
+export function truncateName(name: string, maxLen = 24): string {
+  return name.length > maxLen ? `${name.slice(0, maxLen - 1).trimEnd()}…` : name
+}
+
 export function fmtPct(value: number): string {
   const sign = value >= 0 ? '+' : ''
   return `${sign}${value.toFixed(2)}%`

@@ -166,17 +166,8 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
     const unsubs = SECTIONS.map(s =>
       subscribeGeneration(yf_symbol, s.id, state => {
         setSectionStates(prev => ({ ...prev, [s.id]: state }))
-        if (typeof state === 'object' && 'text' in state) {
-          if (state.streaming) {
-            setExpandedSections(prev => prev[s.id] ? prev : (() => {
-              const next: Record<string, boolean> = {}
-              for (const sec of SECTIONS) next[sec.id] = false
-              next[s.id] = true
-              return next
-            })())
-          } else {
-            setShowUnavailable(prev => ({ ...prev, [s.id]: false }))
-          }
+        if (typeof state === 'object' && 'text' in state && !state.streaming) {
+          setShowUnavailable(prev => ({ ...prev, [s.id]: false }))
         }
       })
     )
@@ -241,6 +232,12 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
     }
     setElapsed(prev => ({ ...prev, [sectionId]: 0 }))
     setProgressNotes(prev => { const next = { ...prev }; delete next[sectionId]; return next })
+    setExpandedSections(() => {
+      const next: Record<string, boolean> = {}
+      for (const s of SECTIONS) next[s.id] = false
+      next[sectionId] = true
+      return next
+    })
     const effectiveLite = force31 ? false : (forceLite !== undefined ? forceLite : useLite)
     const effectiveForce31 = force31 ? true : (forceLite !== undefined ? false : use31)
     const prompt = buildGeminiPrompt(displayName, sectionId, isIndian, yf_symbol, API_URL)

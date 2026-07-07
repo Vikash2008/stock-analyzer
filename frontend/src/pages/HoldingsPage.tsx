@@ -30,7 +30,7 @@ import { aggRealized, realizedForPorts } from '../utils/realized'
 import { SKIP_PORTS, USD_PORTS, getPortfolioCurrency } from '../utils/segments'
 import { getLabel, resolveLabel, filterByLabel, getLabelCurrency } from '../utils/buckets'
 import { resolveDisplayCurrency, fxMultiplier } from '../utils/currency'
-import { fmt, fmtGainLine, fmtCompact, fmtSyncTime } from '../utils/fmt'
+import { fmt, fmtGainLine, fmtCompact, fmtSyncTime, fmtDate } from '../utils/fmt'
 import { getSectorForHolding, SECTOR_COLOR, BENCHMARK_LABEL, type SectorKey, getMarketCapForHolding, MARKET_CAP_COLOR, type MarketCapKey } from '../utils/sectors'
 import { useBenchmarkXirr, useRefreshAllBenchmarks } from '../hooks/useBenchmarkXirr'
 import { computeXIRR } from '../utils/xirr'
@@ -140,6 +140,7 @@ function buildRows(
   holdings: Holding[],
   realizedMap: ReturnType<typeof aggRealized>,
   mode: 'cumulative' | 'standalone',
+  singlePortfolio?: string,
 ): CardRow[] {
   if (mode === 'standalone') {
     return holdings
@@ -199,16 +200,21 @@ function buildRows(
   // Backfill portfolios that no longer hold this symbol (fully closed position) but still
   // contributed realized gain/cost — otherwise their transaction history silently drops out
   // of the merged card's nav target and its realized total understates the true gain.
-  for (const [key, [rg, rc]] of realizedMap) {
-    const ci   = key.indexOf(':')
-    const port = key.slice(0, ci)
-    const sym  = key.slice(ci + 1)
-    if (SKIP_PORTS.has(port)) continue
-    const existing = map.get(sym)
-    if (existing && !existing.portfolios.includes(port)) {
-      existing.portfolios.push(port)
-      existing.realGain += rg
-      existing.realCost += rc
+  // Skipped when scoped to a single portfolio — closedRows (built separately) already covers
+  // that portfolio's own closed positions, and pulling from the global realizedMap here would
+  // incorrectly merge in other portfolios' current value/txns (e.g. Vested bleeding into IndMoney US).
+  if (!singlePortfolio) {
+    for (const [key, [rg, rc]] of realizedMap) {
+      const ci   = key.indexOf(':')
+      const port = key.slice(0, ci)
+      const sym  = key.slice(ci + 1)
+      if (SKIP_PORTS.has(port)) continue
+      const existing = map.get(sym)
+      if (existing && !existing.portfolios.includes(port)) {
+        existing.portfolios.push(port)
+        existing.realGain += rg
+        existing.realCost += rc
+      }
     }
   }
 
@@ -282,7 +288,7 @@ export default function HoldingsPage({ currency }: Props) {
   const [activeTab,   setActiveTab]   = useState<'holdings' | 'charts' | 'analysis' | 'dividends' | 'fx'>(
     () => (localStorage.getItem('hp:activeTab') as 'holdings' | 'charts' | 'analysis' | 'dividends' | 'fx') ?? 'holdings'
   )
-  const [analysisSubTab, setAnalysisSubTab] = useState<'allocation' | 'benchmarking' | 'returns'>('allocation')
+  const [analysisSubTab, setAnalysisSubTab] = useState<'allocation' | 'benchmarking' | 'returns' | 'activity'>('allocation')
   const [chartMetric, setChartMetric] = useState<ChartMetric>('Portfolio Value')
   const [chartRange,  setChartRange]  = useState<ChartRange>('1y')
   const [sortField,   setSortField]   = useState<SortField>(
@@ -341,6 +347,12 @@ export default function HoldingsPage({ currency }: Props) {
   const [benchStartYear,   setBenchStartYear]   = useState(new Date().getFullYear() - 1)
   const [benchEndMonth,    setBenchEndMonth]    = useState(new Date().getMonth() + 1)
   const [benchEndYear,     setBenchEndYear]     = useState(new Date().getFullYear())
+  const [activityRange,      setActivityRange]      = useState<'7d' | '1m' | '3m' | '6m' | '1y' | 'all' | 'custom'>('all')
+  const [activityCustomFrom, setActivityCustomFrom] = useState('')
+  const [activityCustomTo,   setActivityCustomTo]   = useState('')
+  const [activitySymbol,     setActivitySymbol]     = useState('all')
+  const [activityType,       setActivityType]       = useState<'all' | 'BUY' | 'SELL'>('all')
+  const [activityFilterOpen, setActivityFilterOpen] = useState(false)
   const qc = useQueryClient()
 
   const pendingScrollY = useRef<number | null>(null)
@@ -447,8 +459,8 @@ export default function HoldingsPage({ currency }: Props) {
   }, [filteredHoldings, realizedMap, segment, bucket, label, data, quoteTypeBySymbol])
 
   const rows = useMemo(
-    () => buildRows(filteredHoldings, realizedMap, viewMode),
-    [filteredHoldings, realizedMap, viewMode],
+    () => buildRows(filteredHoldings, realizedMap, viewMode, portfolio),
+    [filteredHoldings, realizedMap, viewMode, portfolio],
   )
 
   // FX gain per symbol — only populated when toggle is ON; sums across portfolios for cumulative views
@@ -530,8 +542,8 @@ export default function HoldingsPage({ currency }: Props) {
 
   // Allocation tab always uses one-per-symbol grouping regardless of viewMode
   const allocGroupedRows = useMemo(
-    () => buildRows(filteredHoldings, realizedMap, 'cumulative'),
-    [filteredHoldings, realizedMap],
+    () => buildRows(filteredHoldings, realizedMap, 'cumulative', portfolio),
+    [filteredHoldings, realizedMap, portfolio],
   )
 
   const allocSectorXirrMap = useMemo(() => {
@@ -729,6 +741,34 @@ export default function HoldingsPage({ currency }: Props) {
       !SKIP_PORTS.has(t.portfolio) && resolveLabel(t.tags, bucket, quoteTypeBySymbol.get(t.symbol)) === label,
     )
   }, [data, filtPorts, closedRows, portfolio, segment, bucket, label, quoteTypeBySymbol])
+  // Activity tab — recent buy/sell log for whatever scope is active; reuses benchTxns since
+  // it already resolves the same portfolio/segment/bucket/label scoping (incl. closed positions).
+  const activityBuySellTxns = useMemo(
+    () => benchTxns.filter(t => t.type === 'BUY' || t.type === 'SELL'),
+    [benchTxns],
+  )
+  const activitySymbolOptions = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const t of activityBuySellTxns) if (!map.has(t.symbol)) map.set(t.symbol, t.name || t.symbol)
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]))
+  }, [activityBuySellTxns])
+  const activityDateBounds = useMemo((): { from: string | null; to: string | null } => {
+    if (activityRange === 'custom') return { from: activityCustomFrom || null, to: activityCustomTo || null }
+    if (activityRange === 'all') return { from: null, to: null }
+    const daysBack: Record<string, number> = { '7d': 7, '1m': 30, '3m': 90, '6m': 182, '1y': 365 }
+    const d = new Date()
+    d.setDate(d.getDate() - daysBack[activityRange])
+    return { from: d.toISOString().slice(0, 10), to: null }
+  }, [activityRange, activityCustomFrom, activityCustomTo])
+  const activityTxns = useMemo(() => {
+    let rows = activityBuySellTxns
+    if (activitySymbol !== 'all') rows = rows.filter(t => t.symbol === activitySymbol)
+    if (activityType !== 'all') rows = rows.filter(t => t.type === activityType)
+    const { from, to } = activityDateBounds
+    if (from) rows = rows.filter(t => t.date.slice(0, 10) >= from)
+    if (to) rows = rows.filter(t => t.date.slice(0, 10) <= to)
+    return [...rows].sort((a, b) => b.date.localeCompare(a.date))
+  }, [activityBuySellTxns, activitySymbol, activityType, activityDateBounds])
   const txnYears = useMemo(() => {
     if (!data) return [new Date().getFullYear()]
     const years = new Set(data.transactions.map(t => parseInt(t.date.slice(0, 4), 10)))
@@ -1610,7 +1650,7 @@ export default function HoldingsPage({ currency }: Props) {
         <div className="bg-teal-50 border border-teal-100 rounded-xl px-2.5 py-1.5 mt-2">
           <div className="flex items-center gap-2">
             <div className="flex gap-0.5 flex-1 bg-teal-100 rounded-lg p-0.5">
-              {(['allocation', 'benchmarking', 'returns'] as const).map(st => (
+              {(['allocation', 'benchmarking', 'returns', 'activity'] as const).map(st => (
                 <button
                   key={st}
                   onClick={() => setAnalysisSubTab(st)}
@@ -1619,7 +1659,7 @@ export default function HoldingsPage({ currency }: Props) {
                   }`}
                   style={analysisSubTab === st ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
                 >
-                  {st === 'allocation' ? 'Allocation' : st === 'benchmarking' ? 'Benchmarking' : 'Returns'}
+                  {st === 'allocation' ? 'Allocation' : st === 'benchmarking' ? 'Benchmarking' : st === 'returns' ? 'Returns' : 'Activity'}
                 </button>
               ))}
             </div>
@@ -2533,6 +2573,129 @@ export default function HoldingsPage({ currency }: Props) {
                   </div>
                 )
               })()}
+            </div>
+          )}
+
+          {analysisSubTab === 'activity' && (
+            <div>
+              {/* Filter strip */}
+              <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                <div className="flex gap-0.5 bg-teal-100 rounded-lg p-0.5">
+                  {(['7d', '1m', '3m', '6m', '1y', 'all'] as const).map(r => (
+                    <button
+                      key={r}
+                      onClick={() => setActivityRange(r)}
+                      className={`text-[9px] px-2 py-1 rounded-md font-medium whitespace-nowrap ${activityRange === r ? 'text-white shadow-sm' : 'text-teal-700'}`}
+                      style={activityRange === r ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
+                    >
+                      {r === 'all' ? 'All' : r}
+                    </button>
+                  ))}
+                </div>
+                <div className="relative shrink-0">
+                  <button
+                    onClick={() => setActivityFilterOpen(o => !o)}
+                    className={`flex items-center gap-1 rounded-lg px-2 py-1 border ${
+                      activityRange === 'custom' || activitySymbol !== 'all' || activityType !== 'all'
+                        ? 'bg-teal-100 border-teal-200 text-teal-700' : 'bg-teal-50 border-teal-100 text-teal-600'
+                    }`}
+                  >
+                    <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 2h9L7 6.5V10l-2-1V6.5L1.5 2z"/></svg>
+                    <span className="text-[10px] whitespace-nowrap">Filters</span>
+                  </button>
+                  {activityFilterOpen && (
+                    <>
+                      <div className="fixed inset-0 z-[9]" onClick={() => setActivityFilterOpen(false)} />
+                      <div className="absolute right-0 top-full mt-1.5 bg-white border border-teal-100 rounded-xl shadow-lg z-10 p-3 w-[220px] space-y-2.5">
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Stock</p>
+                          <select
+                            value={activitySymbol}
+                            onChange={e => setActivitySymbol(e.target.value)}
+                            className="w-full text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1.5 text-slate-700"
+                          >
+                            <option value="all">All Stocks</option>
+                            {activitySymbolOptions.map(([sym, name]) => <option key={sym} value={sym}>{name}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Type</p>
+                          <div className="flex gap-1">
+                            {(['all', 'BUY', 'SELL'] as const).map(t => (
+                              <button
+                                key={t}
+                                onClick={() => setActivityType(t)}
+                                className={`flex-1 text-[10px] py-1 rounded-lg font-medium ${activityType === t ? 'text-white' : 'bg-slate-100 text-slate-500'}`}
+                                style={activityType === t ? { background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' } : undefined}
+                              >
+                                {t === 'all' ? 'All' : t}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Custom Range</p>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="date"
+                              value={activityCustomFrom}
+                              onChange={e => { setActivityCustomFrom(e.target.value); setActivityRange('custom') }}
+                              className="flex-1 text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-slate-700"
+                            />
+                            <span className="text-[9px] text-slate-400">to</span>
+                            <input
+                              type="date"
+                              value={activityCustomTo}
+                              onChange={e => { setActivityCustomTo(e.target.value); setActivityRange('custom') }}
+                              className="flex-1 text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-slate-700"
+                            />
+                          </div>
+                        </div>
+                        {(activitySymbol !== 'all' || activityType !== 'all' || activityRange === 'custom') && (
+                          <button
+                            onClick={() => { setActivitySymbol('all'); setActivityType('all'); setActivityRange('all'); setActivityCustomFrom(''); setActivityCustomTo('') }}
+                            className="w-full text-[10px] bg-slate-100 text-slate-600 rounded-full py-2 font-medium"
+                          >
+                            Clear Filters
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <p className="text-[10px] text-slate-400 mb-2">{activityTxns.length} transaction{activityTxns.length === 1 ? '' : 's'}</p>
+
+              {activityTxns.length === 0 ? (
+                <p className="text-center text-[11px] text-slate-400 py-6">No transactions match these filters.</p>
+              ) : (
+                <div>
+                  {activityTxns.map((t, i) => {
+                    const usdInr  = data?.usd_inr ?? 95.5
+                    const cardCur = resolveDisplayCurrency(t.currency, currency)
+                    const cardFx  = fxMultiplier(cardCur, usdInr)
+                    const value   = t.quantity * t.price * cardFx
+                    return (
+                      <div key={`${t.portfolio}-${t.symbol}-${t.date}-${i}`} className="flex items-center gap-2 border border-slate-100 rounded-lg px-2.5 py-2 mb-1.5 bg-white shadow-sm">
+                        <span className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-1 rounded shrink-0 ${t.type === 'BUY' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {t.type}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-semibold text-slate-800 truncate">{t.name || t.symbol}</p>
+                          <p className="text-[9px] text-slate-400 truncate">
+                            {fmtDate(t.date)}{!portfolio ? ` · ${t.portfolio}` : ''}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-[11px] font-bold text-slate-900 whitespace-nowrap">{fmtCompact(value, cardCur)}</p>
+                          <p className="text-[9px] text-slate-400 whitespace-nowrap">{t.quantity % 1 === 0 ? t.quantity : t.quantity.toFixed(2)}sh @ {t.price.toFixed(2)}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>

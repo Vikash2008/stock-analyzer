@@ -47,7 +47,7 @@ export function SummaryCard({
       <div className="absolute top-[-40px] right-[-40px] w-[160px] h-[160px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(45,212,191,0.25), transparent 70%)' }} />
       <div className="relative">
         <div className="flex items-center justify-between gap-2 mb-2">
-          <p className="text-[11px] font-bold uppercase tracking-[1.2px]" style={{ color: '#99e6dc' }}>{label}</p>
+          <p className="text-[11px] font-bold uppercase tracking-[1.2px] truncate min-w-0" style={{ color: '#99e6dc' }}>{label}</p>
           {ltp != null && (
             <span className="text-[11px] font-semibold whitespace-nowrap shrink-0" style={{ color: '#99e6dc' }}>LTP {fmt(ltp, ltpCurrency ?? currency)}</span>
           )}
