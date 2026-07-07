@@ -18,6 +18,7 @@
 | **Zoom overlay** | `frontend/src/components/ZoomChartOverlay.tsx` | — |
 | **Benchmarking tab** | `frontend/src/pages/HoldingsPage.tsx` | `frontend/src/hooks/useBenchmarkXirr.ts` |
 | **Allocation tab** | `frontend/src/pages/HoldingsPage.tsx` | — |
+| **Activity tab (Analysis, added 2026-07-07)** | `frontend/src/pages/HoldingsPage.tsx` — reuses the existing `benchTxns` memo (already scoped to portfolio/segment/bucket/label) filtered to BUY/SELL, with range preset/custom-date/stock/type filters | — |
 | **Holding card** | `frontend/src/components/HoldingCard.tsx` | — |
 | **Summary card / hero card** | `frontend/src/components/SummaryCard.tsx` — shared by `PortfoliosPage.tsx` (Total Portfolio hero), `HoldingsPage.tsx`, `TransactionsPage.tsx` (per-symbol card); identical top-bar+card format on all three | — |
 | **TxRow (transaction row)** | `frontend/src/components/TxRow.tsx` | — |
@@ -84,8 +85,9 @@
 | Tab bar + tab switch | 1369–1392 |
 | Holdings tab content | 1413–1532 |
 | Charts tab content | 1392, 1570 |
-| Analysis tab (Allocation/Benchmarking/Returns sub-tabs) | 1503–1726 |
-| Dividends tab | 2416 |
+| Analysis tab (Allocation/Benchmarking/Returns/Activity sub-tabs) | 1873–2703 |
+| Activity sub-tab (filters + txn list) | 2573 |
+| Dividends tab | 2575 |
 | FX tab | 2419 |
 
 **PortfoliosPage.tsx**

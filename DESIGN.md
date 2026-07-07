@@ -141,11 +141,11 @@ DATE    BUY/SELL/DIV    QTY @ PRICE    VALUE
 - List of HoldingCards, tappable; each shows XIRR computed client-side
 - Closed holdings (no open position): current=0, Total G/L = realized P&L, XIRR from BUY+SELL cashflows only (no terminal value)
 - **3 tabs**: Holdings | Charts | Analysis â€” each tab a colored pill (Holdings=blue, Charts=emerald, Analysis=violet)
-- Analysis sub-tabs: Allocation (amber pill) | Benchmarking (sky pill)
+- Analysis sub-tabs (teal segmented control, see below): Allocation | Benchmarking | Returns | Activity
 
 ### Analysis Tab (HoldingsPage)
 
-Two sub-tabs: **Allocation** and **Benchmarking**
+Four sub-tabs: **Allocation**, **Benchmarking**, **Returns**, **Activity** (2026-07-07)
 
 #### Allocation sub-tab
 - **No** stacked color bar (removed â€” was visually noisy)
@@ -378,6 +378,10 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Keep only the 3 most recent sessions here (size guard, same pattern as ROADMAP_ARCHIVE.md). Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-07-02 (session 165)
 
+### 2026-07-07
+
+Analysis tab gains a 4th sub-tab, **Activity** (alongside Allocation/Benchmarking/Returns) — recent BUY/SELL transaction log for whatever scope is active (broker/segment/bucket/label), newest-first. Quick range presets (7d/1m/3m/6m/1y/All) sit in the tab strip; a "Filters" popover holds a stock dropdown, BUY/SELL toggle, and custom from/to date inputs — same popover pattern as Benchmarking's date-range control. Rows are a lighter-weight card than `TxRow` (no per-transaction gain computation, since that needs holding-level state TxRow already tracks for a single symbol) — just badge, date, name, portfolio (shown only when scope spans more than one), qty@price, value in the display currency.
+
 ### 2026-07-04
 
 Manage Buckets modal: every section (custom Buckets + the new "Broker Portfolios" section) now collapses by default whenever the modal opens (tap header to expand) — was always fully expanded, unwieldy with several Buckets. "Broker Portfolios" moved to the very end, below custom Buckets, since those are the primary reason to open this modal.
@@ -391,8 +395,4 @@ Dividends tab: new explicit empty state ("Dividend data hasn't been fetched yet"
 ### 2026-07-03 (session 167)
 
 **Chart freshness indicator** — small "As of HH:MM" label added directly on both Holdings-page and Txn-page charts (`text-[9px] text-slate-400`, matching the existing sync-timestamp sizing convention). Switches to `text-amber-600 font-semibold` with a short appended reason ("couldn't verify latest update" / "numbers may be off" / "refresh may be delayed") when the backend flags a rejected update or a today-number mismatch — chart honestly signals when it might be wrong instead of always looking fine. New "Couldn't load chart — tap to retry" empty state alongside the existing "No price history available" one; retry buttons given `min-h-[44px]` touch targets (mobile-check catch during `/ship`).
-
-### 2026-07-03 (chart architecture rework, same day)
-
-Same-day follow-on: extracted the freshness label / retry / empty states above into a shared `ChartStateBlock.tsx` and applied it to `PriceChart.tsx` too, which previously had none of this — one generic "No price history available" covered genuine-empty, real errors, and stale data alike. Added a manual-refresh icon on `PriceChart.tsx` matching the existing zoom-icon's `w-6 h-6` sizing/style (same row, kept visually consistent rather than making it a full 44px target that would look mismatched next to its neighbor).
 

@@ -11,6 +11,11 @@
 | 2026-05-24 | PWA manifest added | "Add to Home Screen" opens standalone (no browser bar) |
 | 2026-05-24 | Fixed P&L double-count | Equity + MF_Portfolio (SKIP_PORTS) excluded from all totals |
 
+### 2026-07-03 (chart architecture rework, same day)
+
+Same-day follow-on: extracted the freshness label / retry / empty states above into a shared `ChartStateBlock.tsx` and applied it to `PriceChart.tsx` too, which previously had none of this — one generic "No price history available" covered genuine-empty, real errors, and stale data alike. Added a manual-refresh icon on `PriceChart.tsx` matching the existing zoom-icon's `w-6 h-6` sizing/style (same row, kept visually consistent rather than making it a full 44px target that would look mismatched next to its neighbor).
+
+
 ### 2026-07-02 (session 163)
 
 **Transactions page unified to Holdings' teal design language** — tab bar switched from per-tab teal/sky/violet/rose to the single `#0b3b3a→#0d9488` gradient; txn-count/add-txn row, Report strip (sub-tabs, gear popover, AI Assistant button), Notes strip, and Charts strip (metric pills, sync button) all recolored to teal; per-section chart line colors (`METRIC_HEX`) and gain/loss green/red left untouched as semantic data.
