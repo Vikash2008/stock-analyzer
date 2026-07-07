@@ -2606,7 +2606,7 @@ export default function HoldingsPage({ currency }: Props) {
                   {activityFilterOpen && (
                     <>
                       <div className="fixed inset-0 z-[9]" onClick={() => setActivityFilterOpen(false)} />
-                      <div className="absolute right-0 top-full mt-1.5 bg-white border border-teal-100 rounded-xl shadow-lg z-10 p-3 w-[220px] space-y-2.5">
+                      <div className="absolute right-0 top-full mt-1.5 bg-white border border-teal-100 rounded-xl shadow-lg z-10 p-3 w-[260px] space-y-2.5">
                         <div>
                           <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Stock</p>
                           <select
@@ -2635,30 +2635,42 @@ export default function HoldingsPage({ currency }: Props) {
                         </div>
                         <div>
                           <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Custom Range</p>
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="date"
-                              value={activityCustomFrom}
-                              onChange={e => { setActivityCustomFrom(e.target.value); setActivityRange('custom') }}
-                              className="flex-1 text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-slate-700"
-                            />
-                            <span className="text-[9px] text-slate-400">to</span>
-                            <input
-                              type="date"
-                              value={activityCustomTo}
-                              onChange={e => { setActivityCustomTo(e.target.value); setActivityRange('custom') }}
-                              className="flex-1 text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-slate-700"
-                            />
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] text-slate-400 w-6 shrink-0">From</span>
+                              <input
+                                type="date"
+                                value={activityCustomFrom}
+                                onChange={e => { setActivityCustomFrom(e.target.value); setActivityRange('custom') }}
+                                className="flex-1 min-w-0 text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-slate-700"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] text-slate-400 w-6 shrink-0">To</span>
+                              <input
+                                type="date"
+                                value={activityCustomTo}
+                                onChange={e => { setActivityCustomTo(e.target.value); setActivityRange('custom') }}
+                                className="flex-1 min-w-0 text-[10px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-slate-700"
+                              />
+                            </div>
                           </div>
                         </div>
-                        {(activitySymbol !== 'all' || activityType !== 'all' || activityRange === 'custom') && (
+                        <div className="flex gap-1.5 pt-0.5">
                           <button
                             onClick={() => { setActivitySymbol('all'); setActivityType('all'); setActivityRange('all'); setActivityCustomFrom(''); setActivityCustomTo('') }}
-                            className="w-full text-[10px] bg-slate-100 text-slate-600 rounded-full py-2 font-medium"
+                            className="flex-1 text-[10px] bg-slate-100 text-slate-600 rounded-full py-1.5 font-medium"
                           >
-                            Clear Filters
+                            Clear
                           </button>
-                        )}
+                          <button
+                            onClick={() => setActivityFilterOpen(false)}
+                            className="flex-1 text-[10px] text-white rounded-full py-1.5 font-semibold"
+                            style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+                          >
+                            Apply
+                          </button>
+                        </div>
                       </div>
                     </>
                   )}
