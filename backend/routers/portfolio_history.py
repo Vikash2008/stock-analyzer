@@ -56,13 +56,30 @@ def _guard_result(cache_key: str, prev: Optional[dict], fresh: dict) -> dict:
     endpoint always does one atomic recompute on a cache miss — so there's no delta-merge to
     guard, but also no comparison at all against the previous good result. A transient Yahoo
     rate-limit or a symbol's column coming back all-NaN mid-download would otherwise be cached
-    and served to every user unchanged. Mirrors guardFullResponse() in useHistory.ts."""
+    and served to every user unchanged. Mirrors guardFullResponse() in useHistory.ts.
+
+    Checks two independent failure modes: a fresh recompute with far fewer DATES (a truncated
+    history), and one with the same dates but a far lower latest VALUE — e.g. a concurrent
+    refresh burst evicting entries this segment's symbols need from the shared price_store
+    (backend/price_store.py's 400-symbol cap) mid-computation, which drops several symbols to
+    their fallback price without shrinking the date range at all. Only checking date count let
+    a bad low-value recompute sail through and become the new cached (and client-cached) truth."""
     prev_n = len(prev["dates"]) if prev else 0
     fresh_n = len(fresh["dates"])
-    if prev_n < _MIN_HEALTHY_POINTS or fresh_n >= prev_n * 0.5:
+    shrink_ok = prev_n < _MIN_HEALTHY_POINTS or fresh_n >= prev_n * 0.5
+
+    value_ok = True
+    if prev and prev_n >= _MIN_HEALTHY_POINTS and prev.get("values") and fresh.get("values"):
+        prev_last = prev["values"][-1]
+        fresh_last = fresh["values"][-1]
+        if prev_last > 0 and fresh_last < prev_last * 0.5:
+            value_ok = False
+
+    if shrink_ok and value_ok:
         fresh["guardRejected"] = False
         return fresh
-    print(f"[portfolio_history] SUSPICIOUS SHRINK {cache_key}: fresh recompute had {fresh_n} "
+    reason = "SHRINK" if not shrink_ok else "VALUE DROP"
+    print(f"[portfolio_history] SUSPICIOUS {reason} {cache_key}: fresh recompute had {fresh_n} "
           f"points vs previous {prev_n} — keeping stale cache instead")
     # Shallow copy — `prev` may still be referenced elsewhere in _cache; flip the flag on a
     # copy so this rejection is visible to the caller without mutating the cached original.

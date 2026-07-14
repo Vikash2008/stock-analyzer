@@ -588,7 +588,7 @@ export default function TransactionsPage({ currency }: Props) {
         <div className="bg-teal-50 border border-teal-100 rounded-xl px-2.5 py-1.5 mb-2 min-h-[38px] flex items-center justify-between gap-2">
           <span className="text-[13px] font-semibold text-[#0b3b3a] whitespace-nowrap">Total Transactions: {symTxns.length}</span>
           {totalQty > 0 && (
-            <span className="text-[12px] font-medium text-[#0b3b3a] whitespace-nowrap">{totalQty} sh · Avg {fmt(avgPrice, dispCur)}</span>
+            <span className="text-[12px] font-medium text-[#0b3b3a] whitespace-nowrap">{Number(totalQty.toFixed(1))} sh · Avg {fmt(Number(avgPrice.toFixed(1)), dispCur)}</span>
           )}
         </div>
       )}

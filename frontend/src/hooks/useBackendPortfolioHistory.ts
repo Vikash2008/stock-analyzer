@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import type { Currency } from '../App'
 import type { PortfolioSeries } from './usePortfolioHistory'
 import { idbGet, idbSet } from '../utils/idbStore'
-import { guardShrink, computeChartFreshness, type ChartFreshness } from '../utils/incrementalMerge'
+import { guardShrink, MIN_HEALTHY_POINTS, computeChartFreshness, type ChartFreshness } from '../utils/incrementalMerge'
 
 interface RawResponse {
   dates:      string[]
@@ -201,7 +201,17 @@ export function useBackendPortfolioHistory(
       // client-side: don't let a suspiciously-shorter fresh response silently overwrite good
       // cached data (shares the guardShrink helper from incrementalMerge.ts with useHistory.ts).
       const { rejected } = guardShrink(cached?.d ? { dates: cached.d.value.dates } : undefined, { dates: fresh.value.dates })
-      if (rejected && cached?.d) {
+      // guardShrink only catches a truncated DATE range — it misses a same-length recompute
+      // whose latest VALUE is far lower (e.g. a concurrent Refresh burst evicting entries this
+      // view's symbols need from the backend's shared price_store mid-computation). Mirrors the
+      // backend's own _guard_result value check so a bad low-value recompute can't become the
+      // new cached truth on either side and stick around after a reload.
+      const cachedLast = cached?.d?.value.values.at(-1)
+      const freshLast  = fresh.value.values.at(-1)
+      const valueDropped = (cached?.d?.value.dates.length ?? 0) >= MIN_HEALTHY_POINTS
+        && cachedLast !== undefined && cachedLast > 0
+        && freshLast !== undefined && freshLast < cachedLast * 0.5
+      if ((rejected || valueDropped) && cached?.d) {
         return { ...cached.d, guardRejected: true }
       }
       lsSet(lsKey, fresh)

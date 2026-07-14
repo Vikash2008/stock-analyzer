@@ -1459,25 +1459,6 @@ export default function HoldingsPage({ currency }: Props) {
                       )}
                     </div>
                   </div>
-                  <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-semibold text-[#0b3b3a]">Benchmarking analysis</span>
-                    <div className="flex flex-col items-center gap-0.5 shrink-0">
-                      <button
-                        onClick={() => {
-                          if (benchSyncing) return
-                          setBenchSyncing(true)
-                          refreshAllBenchmarks().finally(() => setBenchSyncing(false))
-                        }}
-                        className="w-[70px] text-center text-white text-[10px] font-semibold rounded-full px-3 py-1 active:opacity-80"
-                        style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
-                      >
-                        {benchSyncing ? 'Syncing…' : 'Refresh'}
-                      </button>
-                      {benchLastSynced && (
-                        <span className="text-[9px] text-slate-400 whitespace-nowrap leading-none">{fmtSyncTime(benchLastSynced)}</span>
-                      )}
-                    </div>
-                  </div>
                 </div>
               </div>
             </>
