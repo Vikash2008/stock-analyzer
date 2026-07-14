@@ -330,12 +330,6 @@ export function DividendsTab({ data, currency, nativeCurrency = 'INR', usdInr, s
 
   return (
     <div>
-      {/* Last updated — top-right, matches FxGainsTab's "Rate as of" placement */}
-      <div className="flex items-center justify-end mb-2 px-0.5">
-        <span className="text-[10px] text-slate-400 whitespace-nowrap">
-          {lastFetchedAt ? `Updated ${fmtSyncTime(new Date(lastFetchedAt))}` : 'Never updated'}
-        </span>
-      </div>
       {isFetching && (
         <div className="h-1 bg-teal-50 rounded-full overflow-hidden mb-2">
           <div className="h-full bg-teal-500 rounded-full transition-all duration-300" style={{ width: `${totalCount > 0 ? Math.round((loadedCount / totalCount) * 100) : 0}%` }} />
@@ -348,7 +342,12 @@ export function DividendsTab({ data, currency, nativeCurrency = 'INR', usdInr, s
       )}
       {/* Summary strip */}
       <div className="bg-teal-50 border border-teal-200 rounded-xl p-3 mb-3">
-        <p className="text-[10px] font-bold text-white uppercase tracking-widest mb-2 rounded-full px-2.5 py-1 inline-block w-fit" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>Dividend Income</p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] font-bold text-white uppercase tracking-widest rounded-full px-2.5 py-1 inline-block w-fit" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>Dividend Income</p>
+          <span className="text-[10px] text-slate-400 whitespace-nowrap">
+            {lastFetchedAt ? `Updated ${fmtSyncTime(new Date(lastFetchedAt))}` : 'Never updated'}
+          </span>
+        </div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
           <div>
             <p className="text-[10px] text-slate-400 mb-0.5">Total Earned</p>
