@@ -1,5 +1,16 @@
 # Design Decisions Log — Archive
 
+### 2026-07-04
+
+Manage Buckets modal: every section (custom Buckets + the new "Broker Portfolios" section) now collapses by default whenever the modal opens (tap header to expand) — was always fully expanded, unwieldy with several Buckets. "Broker Portfolios" moved to the very end, below custom Buckets, since those are the primary reason to open this modal.
+
+Stocks/Mutual Funds tiles (PortfoliosPage, Asset Class summary) now use the exact same padding/margins as `BreakCard` (`px-2 py-1.5`, `mb-0.5` label, `mt-1 pt-1` footer divider) — they'd drifted slightly taller (`p-2`, `mb-1`, `mt-1.5 pt-1.5`) despite being designed to look identical.
+
+Dividends tab: new explicit empty state ("Dividend data hasn't been fetched yet" + a manual "Fetch dividends" button) replaces silent auto-fetch-on-mount — no automatic refresh exists anywhere now. A persistent "Updated HH:MM DD Mon / Never · Refresh" header row lives at the top of the tab itself (not just the Settings popover), showing live `loaded/total` progress while a refresh runs and a "Refresh failed — showing data as of ..." notice if a background refresh errors while stale data is still shown.
+
+**Later same day (session 172+)**: `HoldingCard.tsx`'s left-border accent and XIRR pill turn red (`#e11d48`/`#fee2e2`+`#991b1b`) when XIRR is negative, instead of always teal/green. Dividends tab header simplified: dropped the in-tab Refresh button (redundant with Settings popover), now just shows "Updated HH:MM" top-right, matching `FxGainsTab`'s "Rate as of" placement. Charts tab (Holdings + Txn pages): consolidated to one refresh control per page (Settings modal only — Txn page's Charts tab strip and `PriceChart.tsx` both had their own duplicate manual-refresh buttons/spinners, removed); any inline "Refreshing…" indicator is now plain text (no button), same wording everywhere, and shares one row with the "As of HH:MM" freshness label instead of stacking on its own line.
+
+
 ### 2026-07-03 (session 167)
 
 **Chart freshness indicator** — small "As of HH:MM" label added directly on both Holdings-page and Txn-page charts (`text-[9px] text-slate-400`, matching the existing sync-timestamp sizing convention). Switches to `text-amber-600 font-semibold` with a short appended reason ("couldn't verify latest update" / "numbers may be off" / "refresh may be delayed") when the backend flags a rejected update or a today-number mismatch — chart honestly signals when it might be wrong instead of always looking fine. New "Couldn't load chart — tap to retry" empty state alongside the existing "No price history available" one; retry buttons given `min-h-[44px]` touch targets (mobile-check catch during `/ship`).

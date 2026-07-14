@@ -378,6 +378,10 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Keep only the 3 most recent sessions here (size guard, same pattern as ROADMAP_ARCHIVE.md). Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-07-03 (session 167)
 
+### 2026-07-14
+
+Removed the "Benchmarking analysis" Refresh row from the Holdings-page Settings popover — benchmarking data already refreshes on its own, the manual button was redundant. Dividends tab: moved the "Updated HH:MM" timestamp off its own standalone line and into the same row as the "Dividend Income" pill label (right-aligned), matching the inline pattern already used elsewhere. Transactions-page top summary bar: shares/avg price now round to at most 1 decimal place (whole numbers show with no decimal).
+
 ### 2026-07-08
 
 Activity tab filter popover: added a two-button footer (grey "Clear" + teal-gradient "Apply", matching the Refresh/Update pill style used elsewhere on the page) instead of a single standalone Clear button. Custom From/To date inputs stacked into labeled full-width rows instead of a cramped side-by-side pair (popover widened 220px→260px) — the old layout squeezed each date input to ~90px. Filter strip container: range-preset pills get left padding instead of sitting flush against the edge, and `justify-between` pushes the Filters button to the row's right end instead of trailing immediately after the pills.
@@ -385,14 +389,4 @@ Activity tab filter popover: added a two-button footer (grey "Clear" + teal-grad
 ### 2026-07-07
 
 Analysis tab gains a 4th sub-tab, **Activity** (alongside Allocation/Benchmarking/Returns) — recent BUY/SELL transaction log for whatever scope is active (broker/segment/bucket/label), newest-first. Quick range presets (7d/1m/3m/6m/1y/All) sit in the tab strip; a "Filters" popover holds a stock dropdown, BUY/SELL toggle, and custom from/to date inputs — same popover pattern as Benchmarking's date-range control. Rows are a lighter-weight card than `TxRow` (no per-transaction gain computation, since that needs holding-level state TxRow already tracks for a single symbol) — just badge, date, name, portfolio (shown only when scope spans more than one), qty@price, value in the display currency.
-
-### 2026-07-04
-
-Manage Buckets modal: every section (custom Buckets + the new "Broker Portfolios" section) now collapses by default whenever the modal opens (tap header to expand) — was always fully expanded, unwieldy with several Buckets. "Broker Portfolios" moved to the very end, below custom Buckets, since those are the primary reason to open this modal.
-
-Stocks/Mutual Funds tiles (PortfoliosPage, Asset Class summary) now use the exact same padding/margins as `BreakCard` (`px-2 py-1.5`, `mb-0.5` label, `mt-1 pt-1` footer divider) — they'd drifted slightly taller (`p-2`, `mb-1`, `mt-1.5 pt-1.5`) despite being designed to look identical.
-
-Dividends tab: new explicit empty state ("Dividend data hasn't been fetched yet" + a manual "Fetch dividends" button) replaces silent auto-fetch-on-mount — no automatic refresh exists anywhere now. A persistent "Updated HH:MM DD Mon / Never · Refresh" header row lives at the top of the tab itself (not just the Settings popover), showing live `loaded/total` progress while a refresh runs and a "Refresh failed — showing data as of ..." notice if a background refresh errors while stale data is still shown.
-
-**Later same day (session 172+)**: `HoldingCard.tsx`'s left-border accent and XIRR pill turn red (`#e11d48`/`#fee2e2`+`#991b1b`) when XIRR is negative, instead of always teal/green. Dividends tab header simplified: dropped the in-tab Refresh button (redundant with Settings popover), now just shows "Updated HH:MM" top-right, matching `FxGainsTab`'s "Rate as of" placement. Charts tab (Holdings + Txn pages): consolidated to one refresh control per page (Settings modal only — Txn page's Charts tab strip and `PriceChart.tsx` both had their own duplicate manual-refresh buttons/spinners, removed); any inline "Refreshing…" indicator is now plain text (no button), same wording everywhere, and shares one row with the "As of HH:MM" freshness label instead of stacking on its own line.
 
