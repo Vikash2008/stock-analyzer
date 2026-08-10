@@ -742,7 +742,7 @@ export default function TransactionsPage({ currency }: Props) {
       )}
 
       {activeTab === 'notes' && (
-        <AnalysisTab portfolio={decoded.portfolio} symbol={decoded.symbol} />
+        <AnalysisTab portfolio={decoded.portfolio} symbol={decoded.symbol} transactions={data?.transactions ?? []} />
       )}
 
       {activeTab === 'report' && reportSubTab !== 'links' && (

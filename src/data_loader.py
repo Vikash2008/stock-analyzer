@@ -67,4 +67,12 @@ def load_transactions(source: Union[str, Path, object]) -> pd.DataFrame:
     else:
         df["tags"] = ""
 
+    # Per-symbol notes (JSON-encoded note list), if present — same redundant-per-row
+    # storage pattern as tags, but keyed by symbol only (not portfolio), since a note is
+    # conceptually about the stock, not a specific broker holding of it.
+    if "notes" in df.columns:
+        df["notes"] = df["notes"].fillna("").astype(str).str.strip()
+    else:
+        df["notes"] = ""
+
     return df.sort_values("date").reset_index(drop=True)

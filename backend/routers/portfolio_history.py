@@ -37,6 +37,21 @@ _SKIP_PORTS = {"Equity", "MF_Portfolio"}
 _USD_PORTS  = {"Vested", "IndMoney US", "IndMoney Mummy"}
 
 _cache: dict[str, tuple[dict, float]] = {}
+# Safety cap on distinct (csv_hash:currency:portfolio:segment:symbol:bucket:label) result
+# entries resident — this dict previously had no eviction at all, which was the root cause
+# of the Render OOM migration and has since caused the same OOM kill on the Oracle VM
+# (Jul 7, Jul 28, Aug 9 2026). Mirrors price_store.py's _MAX_SYMBOLS/_evict_oldest pattern.
+_MAX_CACHE_ENTRIES = 500
+
+
+def _evict_oldest_cache_entries() -> None:
+    if len(_cache) <= _MAX_CACHE_ENTRIES:
+        return
+    oldest = sorted(_cache.items(), key=lambda kv: kv[1][1])[: len(_cache) - _MAX_CACHE_ENTRIES]
+    for key, _ in oldest:
+        _cache.pop(key, None)
+
+
 # 30 min (2026-07-04, was 5 min — briefly 30 before that too). Raised back to match the
 # frontend's own market_hours.is_stale gate: the underlying daily-close price data only
 # actually updates every 30 min during market hours, so a shorter result-cache TTL was just
@@ -533,6 +548,7 @@ def _portfolio_history_response(
     fresh = _compute(currency, portfolio, segment, symbol, csv_content, bucket, label)
     result = _guard_result(cache_key, prev_entry[0] if prev_entry else None, fresh)
     _cache[cache_key] = (result, time.time())
+    _evict_oldest_cache_entries()
     return result
 
 

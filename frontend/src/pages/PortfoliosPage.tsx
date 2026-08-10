@@ -951,7 +951,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                       </div>
                       <button
                         onClick={handleDownload}
-                        title="Download a backup CSV — includes your Bucket/Label tags; re-import this (not your raw broker export) to restore them"
+                        title="Download a backup CSV — includes your Bucket/Label tags and notes; re-import this (not your raw broker export) to restore them"
                         className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] text-white"
                         style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
                       >

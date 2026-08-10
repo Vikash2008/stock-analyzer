@@ -55,6 +55,7 @@ export interface Transaction {
   name:         string | null
   buy_fx_rate:  number | null    // INR/USD rate at purchase time; null for INR or SELL/DIVIDEND
   tags:         string           // Bucket->Label assignments, e.g. "Asset Class=Stocks;Type=Indian Stocks"
+  notes:        string           // JSON-encoded note list for this symbol (all portfolios share one); "" if none
 }
 
 export interface Realized {

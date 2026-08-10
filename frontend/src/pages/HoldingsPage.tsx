@@ -1299,6 +1299,10 @@ export default function HoldingsPage({ currency }: Props) {
 
   const pageTitle  = portfolio ?? label ?? (segment === 'total' ? 'All Holdings' : 'Holdings')
   const backLabel  = (segment || bucket) ? '← Overview' : '← All Portfolios'
+  // The aggregate chart's values are fetched from the backend in resolveDisplayCurrency(pageNativeCurrency, currency)
+  // (see useBackendPortfolioHistory call below) — must format with that same resolved currency,
+  // not the raw page toggle, or a USD-native/native-mismatched scope shows a wrongly-scaled $ label.
+  const chartDisplayCurrency = resolveDisplayCurrency(pageNativeCurrency, currency)
   const isPct      = PCT_METRICS.has(chartMetric)
   const chartLast  = metricSeries?.values[metricSeries.values.length - 1] ?? null
   const chartFirst = metricSeries?.values[0] ?? null
@@ -1760,13 +1764,13 @@ export default function HoldingsPage({ currency }: Props) {
                     {chartLast !== null
                       ? isPct
                         ? `${chartLast >= 0 ? '+' : ''}${chartLast.toFixed(2)}%`
-                        : fmt(chartLast, currency)
+                        : fmt(chartLast, chartDisplayCurrency)
                       : '—'
                     }
                   </span>
                   {chartChange !== null && !isPct && (
                     <span className="text-[10px]" style={{ color: chartChange >= 0 ? '#0a7a42' : '#be1c1c' }}>
-                      {fmtGainLine(chartChange, null, currency)} in period
+                      {fmtGainLine(chartChange, null, chartDisplayCurrency)} in period
                     </span>
                   )}
                   {chartChange !== null && isPct && (
@@ -2667,7 +2671,7 @@ export default function HoldingsPage({ currency }: Props) {
                   {activityTxns.map((t, i) => {
                     const usdInr  = data?.usd_inr ?? 95.5
                     const cardCur = resolveDisplayCurrency(t.currency, currency)
-                    const cardFx  = fxMultiplier(cardCur, usdInr)
+                    const cardFx  = t.currency === 'USD' && currency === 'INR' ? usdInr : 1
                     const value   = t.quantity * t.price * cardFx
                     return (
                       <div key={`${t.portfolio}-${t.symbol}-${t.date}-${i}`} className="flex items-center gap-2 border border-slate-100 rounded-lg px-2.5 py-2 mb-1.5 bg-white shadow-sm">
@@ -2734,7 +2738,7 @@ export default function HoldingsPage({ currency }: Props) {
                       <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                       <XAxis dataKey="t" tick={{ fontSize: 10, fill: '#94a3b8' }} interval={Math.max(0, Math.floor(rechartsData.length / 8) - 1)} tickFormatter={(d: string) => { const ms = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const [yr, mo] = d.split('-'); return `${ms[parseInt(mo,10)-1]}'${yr.slice(2)}` }} tickLine={false} axisLine={false} />
                       <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={yTickFmt} width={52} tickLine={false} axisLine={false} domain={['auto','auto']} />
-                      <Tooltip formatter={(v: number) => [isPct ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%` : fmt(v, currency), chartMetric]} contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #334155', background: '#1e293b', color: '#e2e8f0' }} labelStyle={{ fontSize: 10, color: '#94a3b8' }} />
+                      <Tooltip formatter={(v: number) => [isPct ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%` : fmt(v, chartDisplayCurrency), chartMetric]} contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #334155', background: '#1e293b', color: '#e2e8f0' }} labelStyle={{ fontSize: 10, color: '#94a3b8' }} />
                       {ZERO_LINE_METRICS.has(chartMetric) && <ReferenceLine y={0} stroke="#475569" strokeDasharray="3 3" strokeWidth={1} />}
                       <Line type="monotone" dataKey="v" stroke={lineColor} strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
                     </LineChart>

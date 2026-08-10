@@ -30,7 +30,7 @@ _DATA_FILE   = Path("data/demo_msp_v2.csv")
 # from exchange, re-fetched from yfinance, or simply not load-bearing) — dropped so the
 # exported backup CSV matches the same minimal schema the app now requires on import.
 _EXPORT_COLS = [
-    "date", "symbol", "exchange", "type", "quantity", "price", "portfolio", "tags",
+    "date", "symbol", "exchange", "type", "quantity", "price", "portfolio", "tags", "notes",
 ]
 
 
@@ -203,6 +203,53 @@ async def set_tags(
     return JSONResponse(content={"portfolio": data, "csv": new_csv, "csv_hash": new_hash})
 
 
+class SetNotesRequest(BaseModel):
+    symbol: str
+    notes:  str   # JSON-encoded note list, e.g. '[{"id":"...","timestamp":"...","text":"..."}]'; "" clears
+
+
+@router.post("/api/portfolio/set-notes")
+async def set_notes(
+    body: SetNotesRequest,
+    csv_hash: str = Query("demo"),
+):
+    """Notes are scoped per-symbol, not per-portfolio — a note added while viewing a stock
+    held in one broker portfolio is visible when viewing the same stock in another. Writes
+    the same JSON-encoded note list into every transaction row for that symbol (all
+    portfolios), so it round-trips through CSV export/re-import instead of living only in
+    this browser's localStorage."""
+    cache  = Cache()
+    cached = cache.get_fifo(csv_hash)
+
+    if cached is not None:
+        existing_txns: pd.DataFrame = cached[0].copy()
+    elif csv_hash == "demo":
+        existing_txns = load_transactions(_DATA_FILE)
+    else:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "Portfolio not in cache. Please re-import your CSV first."},
+        )
+
+    if "notes" not in existing_txns.columns:
+        existing_txns["notes"] = ""
+
+    sym = body.symbol.strip().upper()
+    existing_txns.loc[existing_txns["symbol"] == sym, "notes"] = body.notes
+
+    export_cols = [c for c in _EXPORT_COLS if c in existing_txns.columns]
+    buf = io.StringIO()
+    existing_txns[export_cols].to_csv(buf, index=False, date_format="%Y-%m-%d")
+    new_csv = buf.getvalue()
+
+    new_hash = hashlib.md5(new_csv.encode()).hexdigest()
+    bundle   = build(csv_content=new_csv)
+    data     = serialize_bundle(bundle)
+    data["csv_hash"] = new_hash
+
+    return JSONResponse(content={"portfolio": data, "csv": new_csv, "csv_hash": new_hash})
+
+
 class MergeTagsRequest(BaseModel):
     old_csv: str   # previously imported CSV (source of existing Bucket/Label tags); "" if none
     new_csv: str   # freshly uploaded CSV (e.g. a re-exported broker tradebook) — usually untagged
@@ -210,11 +257,13 @@ class MergeTagsRequest(BaseModel):
 
 @router.post("/api/portfolio/import-merge-tags")
 async def import_merge_tags(body: MergeTagsRequest):
-    """Re-importing a fresh broker export normally has no `tags` column, which would wipe
-    every Bucket/Label assignment for symbols that are otherwise unchanged. Carry tags forward
-    from the previous CSV by portfolio+symbol — a tag is conceptually scoped to a holding, not
-    a specific transaction row, so this survives the new export having different individual
-    rows (different dates, re-ordering, rounding) as long as the holding itself persists."""
+    """Re-importing a fresh broker export normally has no `tags`/`notes` columns, which would
+    wipe every Bucket/Label assignment and every note for symbols that are otherwise
+    unchanged. Carry both forward from the previous CSV — tags by portfolio+symbol (a tag is
+    conceptually scoped to a holding), notes by symbol only (a note is scoped to the stock,
+    not a specific broker holding of it) — so this survives the new export having different
+    individual rows (different dates, re-ordering, rounding) as long as the holding/symbol
+    itself persists."""
     try:
         new_df = load_transactions(io.StringIO(body.new_csv))
     except Exception as e:
@@ -240,6 +289,21 @@ async def import_merge_tags(body: MergeTagsRequest):
                         return row["tags"]
                     return tag_map.get(tuple(row[c] for c in key_cols), "")
                 new_df["tags"] = new_df.apply(_fill_tag, axis=1)
+
+        if old_df is not None and "notes" in old_df.columns and "symbol" in new_df.columns:
+            notes_map: dict[str, str] = {}
+            for _, row in old_df.iterrows():
+                notes = row.get("notes", "")
+                if not notes:
+                    continue
+                notes_map.setdefault(row["symbol"], notes)
+
+            if notes_map:
+                def _fill_notes(row):
+                    if row.get("notes"):
+                        return row["notes"]
+                    return notes_map.get(row["symbol"], "")
+                new_df["notes"] = new_df.apply(_fill_notes, axis=1)
 
     export_cols = [c for c in _EXPORT_COLS if c in new_df.columns]
     buf = io.StringIO()
