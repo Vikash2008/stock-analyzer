@@ -187,7 +187,7 @@ Four sub-tabs: **Allocation**, **Benchmarking**, **Returns**, **Activity** (2026
   - Add note textarea + full-width "Add Note" button â†’ saves with IST timestamp, newest first
   - Each note: timestamp (slate-400, 9px) + text (slate-700, 12px) + Edit / Delete actions
   - Edit: inline textarea with Save / Cancel buttons
-  - Persisted to localStorage keyed by `notes:${portfolio}:${symbol}`
+  - 2026-08-10: for real holdings (TransactionsPage), notes persist to the CSV — per-symbol, shared across every broker portfolio holding that stock, survives reimport. ResearchPage's Notes tab (exploring a stock that may not be held) still uses localStorage keyed by `notes:research:${symbol}`, since there's no transaction row to attach a note to.
 
 
 ---
@@ -376,7 +376,11 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 ## Design Decisions Log
 
-> Keep only the 3 most recent sessions here (size guard, same pattern as ROADMAP_ARCHIVE.md). Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-07-03 (session 167)
+> Keep only the 3 most recent sessions here (size guard, same pattern as ROADMAP_ARCHIVE.md). Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-07-07
+
+### 2026-08-10
+
+No new UI/layout decisions — the Notes tab's on-screen design is unchanged, only its storage moved from localStorage to the CSV (see Notes section above and ARCHITECTURE.md's set-notes endpoint).
 
 ### 2026-07-14
 
@@ -385,8 +389,4 @@ Removed the "Benchmarking analysis" Refresh row from the Holdings-page Settings 
 ### 2026-07-08
 
 Activity tab filter popover: added a two-button footer (grey "Clear" + teal-gradient "Apply", matching the Refresh/Update pill style used elsewhere on the page) instead of a single standalone Clear button. Custom From/To date inputs stacked into labeled full-width rows instead of a cramped side-by-side pair (popover widened 220px→260px) — the old layout squeezed each date input to ~90px. Filter strip container: range-preset pills get left padding instead of sitting flush against the edge, and `justify-between` pushes the Filters button to the row's right end instead of trailing immediately after the pills.
-
-### 2026-07-07
-
-Analysis tab gains a 4th sub-tab, **Activity** (alongside Allocation/Benchmarking/Returns) — recent BUY/SELL transaction log for whatever scope is active (broker/segment/bucket/label), newest-first. Quick range presets (7d/1m/3m/6m/1y/All) sit in the tab strip; a "Filters" popover holds a stock dropdown, BUY/SELL toggle, and custom from/to date inputs — same popover pattern as Benchmarking's date-range control. Rows are a lighter-weight card than `TxRow` (no per-transaction gain computation, since that needs holding-level state TxRow already tracks for a single symbol) — just badge, date, name, portfolio (shown only when scope spans more than one), qty@price, value in the display currency.
 

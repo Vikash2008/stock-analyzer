@@ -1,5 +1,11 @@
 # Design Decisions Log — Archive
 
+### 2026-07-07
+
+Analysis tab gains a 4th sub-tab, **Activity** (alongside Allocation/Benchmarking/Returns) — recent BUY/SELL transaction log for whatever scope is active (broker/segment/bucket/label), newest-first. Quick range presets (7d/1m/3m/6m/1y/All) sit in the tab strip; a "Filters" popover holds a stock dropdown, BUY/SELL toggle, and custom from/to date inputs — same popover pattern as Benchmarking's date-range control. Rows are a lighter-weight card than `TxRow` (no per-transaction gain computation, since that needs holding-level state TxRow already tracks for a single symbol) — just badge, date, name, portfolio (shown only when scope spans more than one), qty@price, value in the display currency.
+
+
+
 ### 2026-07-04
 
 Manage Buckets modal: every section (custom Buckets + the new "Broker Portfolios" section) now collapses by default whenever the modal opens (tap header to expand) — was always fully expanded, unwieldy with several Buckets. "Broker Portfolios" moved to the very end, below custom Buckets, since those are the primary reason to open this modal.
