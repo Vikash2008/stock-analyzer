@@ -777,8 +777,8 @@ export default function TransactionsPage({ currency }: Props) {
           { name: 'YFinance',        desc: 'Price, news & analyst consensus',             url: `https://finance.yahoo.com/quote/${yf}`,                                                                                    color: '#2563eb' },
           { name: 'MacroTrends',     desc: 'Long-term historical financials',             url: `https://www.macrotrends.net/stocks/charts/${cleanSym.toUpperCase()}/${cleanSym.toLowerCase()}/stock-price-history`,        color: '#7c3aed' },
           { name: 'TipRanks',        desc: 'Analyst ratings & price targets',             url: `https://www.tipranks.com/stocks/${cleanSym.toLowerCase()}`,                                                                color: '#ea580c' },
-          { name: 'SEC EDGAR',       desc: '10-K / 20-F & earnings filings',             url: `https://www.sec.gov/cgi-bin/browse-edgar?company=${cleanSym}&CIK=&type=&dateb=&owner=include&count=40&search_text=&action=getcompany`,        color: '#dc2626' },
-          { name: 'Finviz',          desc: 'Charts, screener & insider activity',         url: `https://finviz.com/quote.ashx?t=${cleanSym.toUpperCase()}`,                                                               color: '#0d9488' },
+          { name: 'IndMoney',        desc: 'Buy/track on IndMoney',                       url: `https://www.indmoney.com/investments/us-stocks/explore-all?stockSlug=${cleanSym.toUpperCase()}`,                            color: '#dc2626' },
+          { name: 'Vested',          desc: 'Buy/track on Vested Finance',                 url: `https://app.vestedfinance.com/en/global/stocks/${cleanSym.toUpperCase()}`,                                                 color: '#0d9488' },
         ]
         return (
           <div className="pt-1 pb-4 flex flex-col gap-1.5">
