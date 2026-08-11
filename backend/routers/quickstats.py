@@ -339,7 +339,7 @@ def _get_sec_cik(ticker: str) -> str | None:
         if _cik_map is None:
             req = urllib.request.Request(
                 "https://www.sec.gov/files/company_tickers.json",
-                headers={"User-Agent": "StockAnalyzer vikashgoyal2701@gmail.com"},
+                headers={"User-Agent": "StockAnalyzer (github.com/Vikash2008/stock-analyzer)"},
             )
             raw = json.loads(urllib.request.urlopen(req, timeout=12).read())
             _cik_map = {
@@ -360,7 +360,7 @@ def _fetch_sec_segments(ticker_sym: str) -> dict | None:
             print(f"[SEC] no CIK for {clean}")
             return None
 
-        ua = {"User-Agent": "StockAnalyzer vikashgoyal2701@gmail.com"}
+        ua = {"User-Agent": "StockAnalyzer (github.com/Vikash2008/stock-analyzer)"}
 
         # Latest 10-K accession + period
         subs = json.loads(urllib.request.urlopen(

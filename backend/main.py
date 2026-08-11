@@ -29,6 +29,7 @@ from backend.routers.search      import router as search_router
 from backend.routers.dividends   import router as dividends_router
 from backend.routers.add_txn           import router as add_txn_router
 from backend.routers.portfolio_history import router as portfolio_history_router
+from backend.routers.alerts            import router as alerts_router
 from backend.price_refresh             import price_refresh_loop
 
 _ORIGINS = [
@@ -51,7 +52,7 @@ app = FastAPI(title="Stock Analyzer API", version="1.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_ORIGINS,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -64,6 +65,7 @@ app.include_router(search_router)
 app.include_router(dividends_router)
 app.include_router(add_txn_router)
 app.include_router(portfolio_history_router)
+app.include_router(alerts_router)
 
 @app.api_route("/health", methods=["GET", "HEAD"])
 def health():

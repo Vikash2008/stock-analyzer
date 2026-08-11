@@ -317,20 +317,10 @@ ${CLASSIFICATION_NOTE}`,
       indian: `Analyze {name}'s ({symbol}) valuation. Structure your answer exactly as these sections, in order:
 
 ## Valuation Framework & Thesis
-First classify {name}'s sector and maturity stage (early-growth / high-growth / mature-stable / cyclical / declining). State which valuation method(s) you're using and why, based on this classification (see Primary Valuation below for the mapping). Then derive the growth assumption you'll use — do NOT use a fixed market-wide range. Instead state: this company's own historical revenue/earnings CAGR (1yr and 3yr), analyst consensus forward estimates (FY+1/FY+2), and management's own guidance — then state the blended growth assumption you're using as an explicit sentence, e.g. "Growth assumption: 18% — derived from 3yr historical CAGR of 22%, consensus FY+1 estimate of 16%, management guidance of 'high-teens'; blended toward the lower end given the deceleration trend."
+First classify {name}'s sector and maturity stage (early-growth / high-growth / mature-stable / cyclical / declining). Then derive the growth assumption you'll use — do NOT use a fixed market-wide range. Instead state: this company's own historical revenue/earnings CAGR (1yr and 3yr), analyst consensus forward estimates (FY+1/FY+2), and management's own guidance — then state the blended growth assumption you're using as an explicit sentence, e.g. "Growth assumption: 18% — derived from 3yr historical CAGR of 22%, consensus FY+1 estimate of 16%, management guidance of 'high-teens'; blended toward the lower end given the deceleration trend."
 
 ## Growth & Price Trend Analysis
-Revenue/profit growth over the last few quarters and years plotted against price performance over the same period — has price kept pace with fundamentals or diverged? Historical P/E band (5yr min/avg/max) vs current P/E — always show this even if P/E isn't the primary valuation lens for this sector. Current price vs all-time-high and 52-week high — % drawdown from top. Stagnation check — has the stock been range-bound for an extended period (6-12 months) despite fundamentals progressing? Frame this as valuation context only (is the drawdown/stagnation justified by a real business slowdown, or is price lagging fundamentals) — do not give trading-setup mechanics here, that belongs in the Technical Analysis card.
-
-## Primary Valuation
-Apply the method selected in the Framework above:
-- Mature, stable non-financial businesses: DCF — project FCF 3 years using the derived growth assumption, terminal growth 8-10% for high-growth or 5-7% for mature Indian companies, WACC 12-14%. Show FCF Year 1/2/3, terminal value, intrinsic value, implied upside/downside.
-- High-growth/pre-profit or hyper-growth businesses: EV/Revenue or EV/ARR forward multiples + PEG (using the derived growth assumption) — standard DCF is unreliable here since near-term FCF is negative or volatile.
-- Banks/NBFC/Housing Finance/Insurance/AMC: P/B justified via a Gordon-growth-on-equity approach (P/B implied by ROE and growth) — NOT a cash-flow DCF, since FCF isn't a meaningful concept for a financial company.
-- Infra/capital-goods/asset-heavy/utilities: FCF yield + EV/EBITDA + order-book-adjusted earnings multiple.
-- Real Estate: P/NAV.
-- Cyclicals (semiconductors, metals, oil & gas): normalized/mid-cycle EV/EBITDA, since trailing multiples are distorted at cycle peaks/troughs.
-State every assumption explicitly.
+Table: **Window** | **Revenue CAGR** | **Net Income CAGR** | **Price CAGR** — rows for 1yr, 3yr, 5yr. Then state in which window the gap between fundamentals growth and price growth is widest, and whether price has outrun or lagged the business. Historical P/E band (5yr min/avg/max) vs current P/E. Current price vs 52-week high and 52-week low — % off the high and % above the low. Stagnation check — has the stock been range-bound for an extended period (6-12 months) despite fundamentals progressing? Frame this as valuation context only (is the drawdown/stagnation justified by a real business slowdown, or is price lagging fundamentals) — do not give trading-setup mechanics here, that belongs in the Technical Analysis card.
 
 ## Multiples Snapshot
 Table: **Metric** | **Current** | **5Y Hist Avg** | **Sector Median** | **Growth-Adjusted Fair Range**
@@ -348,7 +338,7 @@ Rows: Bull, Base, Bear — using the company-derived growth range from the Frame
 Multiple compression risks and re-rating catalysts.
 
 ## Valuation Verdict
-One line: Undervalued / Fairly Valued / Overvalued — and which method drove the conclusion and why.
+One line: Undervalued / Fairly Valued / Overvalued — and what drove the conclusion (growth-vs-price gap, PE band, or peer multiples) and why.
 
 ${CLASSIFICATION_NOTE}
 
@@ -356,20 +346,10 @@ Data requirement: Use the current live CMP and the most recently available finan
       us:     `Analyze {name}'s ({symbol}) valuation. Structure your answer exactly as these sections, in order:
 
 ## Valuation Framework & Thesis
-First classify {name}'s sector and maturity stage (early-growth / high-growth / mature-stable / cyclical / declining). State which valuation method(s) you're using and why, based on this classification (see Primary Valuation below for the mapping). Then derive the growth assumption you'll use — do NOT use a fixed market-wide range. Instead state: this company's own historical revenue/earnings CAGR (1yr and 3yr), analyst consensus NTM/NTM+1 estimates, and management's own guidance — then state the blended growth assumption you're using as an explicit sentence, e.g. "Growth assumption: 18% — derived from 3yr historical CAGR of 22%, consensus NTM estimate of 16%, management guidance of 'high-teens'; blended toward the lower end given the deceleration trend."
+First classify {name}'s sector and maturity stage (early-growth / high-growth / mature-stable / cyclical / declining). Then derive the growth assumption you'll use — do NOT use a fixed market-wide range. Instead state: this company's own historical revenue/earnings CAGR (1yr and 3yr), analyst consensus NTM/NTM+1 estimates, and management's own guidance — then state the blended growth assumption you're using as an explicit sentence, e.g. "Growth assumption: 18% — derived from 3yr historical CAGR of 22%, consensus NTM estimate of 16%, management guidance of 'high-teens'; blended toward the lower end given the deceleration trend."
 
 ## Growth & Price Trend Analysis
-Revenue/profit growth over the last few quarters and years plotted against price performance over the same period — has price kept pace with fundamentals or diverged? Historical P/E band (5yr min/avg/max) vs current P/E — always show this even if P/E isn't the primary valuation lens for this sector. Current price vs all-time-high and 52-week high — % drawdown from top. Stagnation check — has the stock been range-bound for an extended period (6-12 months) despite fundamentals progressing? Frame this as valuation context only (is the drawdown/stagnation justified by a real business slowdown, or is price lagging fundamentals) — do not give trading-setup mechanics here, that belongs in the Technical Analysis card.
-
-## Primary Valuation
-Apply the method selected in the Framework above:
-- Mature, stable non-financial businesses: DCF — project FCF 3 years using the derived growth assumption, terminal growth 3-4%, WACC 9-11%. Show FCF Year 1/2/3, terminal value, intrinsic value, implied upside/downside.
-- High-growth/pre-profit or hyper-growth businesses: EV/Revenue or EV/ARR forward multiples + PEG (using the derived growth assumption); for SaaS also use Rule of 40 — standard DCF is unreliable here since near-term FCF is negative or volatile.
-- Banks/NBFC/Insurance/AMC: P/B justified via a Gordon-growth-on-equity approach (P/B implied by ROE and growth) — NOT a cash-flow DCF, since FCF isn't a meaningful concept for a financial company.
-- Infra/capital-goods/asset-heavy/utilities: FCF yield + EV/EBITDA + order-book-adjusted earnings multiple.
-- Real Estate/REITs: P/NAV.
-- Cyclicals (semiconductors, metals, oil & gas): normalized/mid-cycle EV/EBITDA, since trailing multiples are distorted at cycle peaks/troughs.
-State every assumption explicitly.
+Table: **Window** | **Revenue CAGR** | **Net Income CAGR** | **Price CAGR** — rows for 1yr, 3yr, 5yr. Then state in which window the gap between fundamentals growth and price growth is widest, and whether price has outrun or lagged the business. Historical P/E band (5yr min/avg/max) vs current P/E. Current price vs 52-week high and 52-week low — % off the high and % above the low. Stagnation check — has the stock been range-bound for an extended period (6-12 months) despite fundamentals progressing? Frame this as valuation context only (is the drawdown/stagnation justified by a real business slowdown, or is price lagging fundamentals) — do not give trading-setup mechanics here, that belongs in the Technical Analysis card.
 
 ## Multiples Snapshot
 Table: **Metric** | **Current** | **5Y Hist Avg** | **Peer Median** | **Growth-Adjusted Fair Range**
@@ -387,7 +367,7 @@ Rows: Bull, Base, Bear — using the company-derived growth range from the Frame
 Multiple compression risks and re-rating catalysts.
 
 ## Valuation Verdict
-One line: Undervalued / Fairly Valued / Overvalued — and which method drove the conclusion and why.
+One line: Undervalued / Fairly Valued / Overvalued — and what drove the conclusion (growth-vs-price gap, PE band, or peer multiples) and why.
 
 ${CLASSIFICATION_NOTE}
 

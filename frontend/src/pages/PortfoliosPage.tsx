@@ -11,6 +11,8 @@ import { SKIP_PORTS, USD_PORTS, getPortfolioCurrency } from '../utils/segments'
 import { getLabel, resolveLabel, filterByLabel, getAllLabelsInBucket, getBuckets, reconcileBucketsFromTags, getLabelCurrency } from '../utils/buckets'
 import { resolveDisplayCurrency, fxMultiplier } from '../utils/currency'
 import { ManageBucketsModal } from '../components/ManageBucketsModal'
+import { NotificationBell } from '../components/NotificationBell'
+import { useAlertSettings, useSetDeliveryMode } from '../hooks/useAlerts'
 import { SummaryCard } from '../components/SummaryCard'
 import { aggRealized, realizedForPorts } from '../utils/realized'
 import { computeXIRR } from '../utils/xirr'
@@ -247,6 +249,9 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const [settingsOpen, setSettingsOpen]     = useState(false)
   const [includeDivs, setIncludeDivs]           = useState(getIncludeDividends)
   const [includeFxGainsState, setIncludeFxGainsStateLocal] = useState(getIncludeFxGains)
+  const { data: alertSettings } = useAlertSettings()
+  const setDeliveryMode = useSetDeliveryMode()
+  const [deliveryModeError, setDeliveryModeError] = useState('')
   const [importProgress, setImportProgress] = useState<number | null>(null)
   const [importDone, setImportDone]         = useState(false)
   const [importStatus, setImportStatus]     = useState('')
@@ -871,6 +876,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 : (() => { const d = new Date(data.as_of); const hh = String(d.getHours()).padStart(2,'0'); const mm = String(d.getMinutes()).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); const mon = d.toLocaleString('en-US',{month:'short'}); return `${hh}:${mm} · ${dd} ${mon}` })()}
             </span>
           </button>
+          <NotificationBell />
           <div className="relative">
             <button
               onClick={() => { setCsvMeta(getCsvMeta()); setSettingsOpen(v => !v) }}
@@ -1028,6 +1034,33 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                       >
                         <span className={`absolute top-[2px] left-[2px] w-[14px] h-[14px] bg-white rounded-full shadow transition-transform duration-200 ${includeFxGainsState ? 'translate-x-[14px]' : 'translate-x-0'}`} />
                       </button>
+                    </div>
+
+                    {/* Alert delivery toggle */}
+                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex flex-col gap-0.5">
+                      <div className="flex items-center justify-between gap-2.5">
+                        <div>
+                          <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Push notifications</p>
+                          <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Also notify via push, not just the 🔔 list</p>
+                        </div>
+                        <button
+                          role="switch"
+                          aria-checked={alertSettings?.delivery_mode === 'in_app_push'}
+                          disabled={setDeliveryMode.isPending}
+                          onClick={() => {
+                            const next = alertSettings?.delivery_mode === 'in_app_push' ? 'in_app' : 'in_app_push'
+                            setDeliveryModeError('')
+                            setDeliveryMode.mutate(next, {
+                              onError: (e: Error) => setDeliveryModeError(e.message || 'Could not enable push notifications.'),
+                            })
+                          }}
+                          className="relative shrink-0 w-8 h-[18px] rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50"
+                          style={{ background: alertSettings?.delivery_mode === 'in_app_push' ? 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' : '#e2e8f0' }}
+                        >
+                          <span className={`absolute top-[2px] left-[2px] w-[14px] h-[14px] bg-white rounded-full shadow transition-transform duration-200 ${alertSettings?.delivery_mode === 'in_app_push' ? 'translate-x-[14px]' : 'translate-x-0'}`} />
+                        </button>
+                      </div>
+                      {deliveryModeError && <p className="text-[10px] text-red-500">{deliveryModeError}</p>}
                     </div>
 
                     {/* Currency toggle */}

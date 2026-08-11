@@ -52,6 +52,9 @@ def _refresh_once() -> None:
     cache.set("prev_closes", merged_prev_closes)
     cache.set("fx", usd_inr)
 
+    from backend import alerts_engine
+    alerts_engine.evaluate(merged_prices)
+
 
 async def price_refresh_loop() -> None:
     while True:

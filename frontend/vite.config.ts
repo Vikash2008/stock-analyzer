@@ -14,10 +14,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      workbox: {
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
-        skipWaiting: true,
-        clientsClaim: true,
       },
       manifest: {
         name: 'Stock Analyzer',
