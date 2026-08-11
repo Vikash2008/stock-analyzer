@@ -1,5 +1,7 @@
 # Cache
 data/.cache.pkl
+data/.alerts.json
+data/.watchlist.json
 
 # Real portfolio CSV — never commit; use demo_msp_v2.csv for public default
 data/msp_v2.csv

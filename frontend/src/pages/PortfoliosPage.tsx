@@ -13,6 +13,7 @@ import { resolveDisplayCurrency, fxMultiplier } from '../utils/currency'
 import { ManageBucketsModal } from '../components/ManageBucketsModal'
 import { NotificationBell } from '../components/NotificationBell'
 import { useAlertSettings, useSetDeliveryMode } from '../hooks/useAlerts'
+import { useWatchlistItems, useWatchlistQuotes, useRemoveFromWatchlist } from '../hooks/useWatchlist'
 import { SummaryCard } from '../components/SummaryCard'
 import { aggRealized, realizedForPorts } from '../utils/realized'
 import { computeXIRR } from '../utils/xirr'
@@ -451,6 +452,10 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
   // Explore New Holdings
   const API_URL = (import.meta.env.VITE_API_URL ?? '') as string
+  const [exploreTab,      setExploreTab]      = useState<'search' | 'watchlist'>('search')
+  const { items: watchlistItems } = useWatchlistItems()
+  const { quotes: watchlistQuotes } = useWatchlistQuotes(sheetOpen && exploreTab === 'watchlist')
+  const removeWatchlistItem = useRemoveFromWatchlist()
   const [exploreInput,    setExploreInput]    = useState('')
   const [recentSearches,  setRecentSearches]  = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('research:recent') || '[]') } catch { return [] }
@@ -1265,90 +1270,164 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
             <button onClick={() => setSheetOpen(false)} className="relative w-[26px] h-[26px] rounded-full flex items-center justify-center text-white text-[13px] leading-none shrink-0" style={{ background: 'rgba(255,255,255,0.12)' }}>✕</button>
           </div>
 
-          {/* Search bar */}
-          <div className="px-3.5 pt-3 pb-2 shrink-0">
-            <div className="flex items-center gap-2 rounded-full px-3 py-2.5" style={{ background: '#f0fdfa', border: '1px solid #ccfbf1' }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-              <input
-                value={exploreInput}
-                onChange={e => { setExploreInput(e.target.value); setShowSuggestions(true) }}
-                onFocus={() => { setInputFocused(true); suggestions.length > 0 && setShowSuggestions(true) }}
-                onKeyDown={e => e.key === 'Enter' && navigateToResearch(exploreInput)}
-                onBlur={() => { setTimeout(() => setShowSuggestions(false), 150); setInputFocused(false) }}
-                placeholder="e.g. AMZN, RELIANCE, HDFC Bank…"
-                className="flex-1 bg-transparent border-none outline-none text-[12.5px] text-slate-900"
-                style={{ caretColor: '#0d9488' }}
-              />
-              {exploreInput && (
-                <button onClick={() => setExploreInput('')} className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold shrink-0" style={{ background: '#ccfbf1', color: '#0f766e' }}>✕</button>
-              )}
-            </div>
+          {/* Tab pills — Search / Watchlist */}
+          <div className="px-3.5 pt-3 shrink-0 flex gap-1.5">
+            {([['search', 'Search'], ['watchlist', `Watchlist${watchlistItems.length ? ` (${watchlistItems.length})` : ''}`]] as const).map(([tab, label]) => (
+              <button
+                key={tab}
+                onClick={() => setExploreTab(tab)}
+                className={`text-[11px] font-semibold px-3 py-1.5 rounded-full transition-colors ${
+                  exploreTab === tab ? 'bg-teal-500 text-white' : 'bg-slate-100 text-slate-500'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
-          {/* Body */}
-          <div className="flex-1 overflow-y-auto px-3.5 pb-6">
-
-            {/* Searching indicator */}
-            {isSearching && exploreInput.trim().length > 0 && suggestions.length === 0 && (
-              <div className="flex items-center gap-2 py-3 px-1 text-slate-500 text-[12px]">
-                <div className="w-3.5 h-3.5 rounded-full border-2 border-[#ccfbf1] border-t-[#0d9488] animate-spin shrink-0" />
-                Searching…
+          {exploreTab === 'search' && (
+            <>
+              {/* Search bar */}
+              <div className="px-3.5 pt-2.5 pb-2 shrink-0">
+                <div className="flex items-center gap-2 rounded-full px-3 py-2.5" style={{ background: '#f0fdfa', border: '1px solid #ccfbf1' }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  <input
+                    value={exploreInput}
+                    onChange={e => { setExploreInput(e.target.value); setShowSuggestions(true) }}
+                    onFocus={() => { setInputFocused(true); suggestions.length > 0 && setShowSuggestions(true) }}
+                    onKeyDown={e => e.key === 'Enter' && navigateToResearch(exploreInput)}
+                    onBlur={() => { setTimeout(() => setShowSuggestions(false), 150); setInputFocused(false) }}
+                    placeholder="e.g. AMZN, RELIANCE, HDFC Bank…"
+                    className="flex-1 bg-transparent border-none outline-none text-[12.5px] text-slate-900"
+                    style={{ caretColor: '#0d9488' }}
+                  />
+                  {exploreInput && (
+                    <button onClick={() => setExploreInput('')} className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold shrink-0" style={{ background: '#ccfbf1', color: '#0f766e' }}>✕</button>
+                  )}
+                </div>
               </div>
-            )}
 
-            {/* Results */}
-            {showSuggestions && suggestions.length > 0 && (
-              <>
-                <p className="text-[9.5px] font-bold uppercase tracking-[1.1px] text-slate-500 pt-2.5 pb-1.5 px-0.5">Results</p>
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto px-3.5 pb-6">
+
+                {/* Searching indicator */}
+                {isSearching && exploreInput.trim().length > 0 && suggestions.length === 0 && (
+                  <div className="flex items-center gap-2 py-3 px-1 text-slate-500 text-[12px]">
+                    <div className="w-3.5 h-3.5 rounded-full border-2 border-[#ccfbf1] border-t-[#0d9488] animate-spin shrink-0" />
+                    Searching…
+                  </div>
+                )}
+
+                {/* Results */}
+                {showSuggestions && suggestions.length > 0 && (
+                  <>
+                    <p className="text-[9.5px] font-bold uppercase tracking-[1.1px] text-slate-500 pt-2.5 pb-1.5 px-0.5">Results</p>
+                    <div className="flex flex-col gap-1.5">
+                      {suggestions.map(s => {
+                        const isUS = s.exchange === 'NASDAQ' || s.exchange === 'NYSE'
+                        const isBSE = s.exchange === 'BSE'
+                        const avatarBg = isUS ? '#0284c7' : isBSE ? '#0891b2' : '#0d9488'
+                        const badgeBg  = isUS ? '#e0f2fe' : '#ccfbf1'
+                        const badgeClr = isUS ? '#0369a1' : '#0f766e'
+                        return (
+                          <button
+                            key={s.symbol}
+                            onMouseDown={() => navigateToResearch(s.symbol, s.name)}
+                            className="flex items-center gap-2.5 px-2.5 py-2 rounded-[12px] border border-[#eef1f5] bg-white text-left active:bg-slate-50 transition-colors w-full"
+                          >
+                            <div className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center text-[11px] font-extrabold text-white shrink-0" style={{ background: avatarBg }}>
+                              {s.symbol.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[14px] font-bold text-slate-900">{s.symbol}</p>
+                              <p className="text-[12px] text-slate-400 truncate">{s.name}</p>
+                            </div>
+                            <span className="text-[11px] font-bold px-2 py-[3px] rounded-full shrink-0 whitespace-nowrap" style={{ background: badgeBg, color: badgeClr }}>{s.exchange}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {/* Recent searches */}
+                {recentSearches.length > 0 && !exploreInput && (
+                  <>
+                    <p className="text-[9.5px] font-bold uppercase tracking-[1.1px] text-slate-500 pt-2.5 pb-1.5 px-0.5">Recent</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {recentSearches.map(sym => (
+                        <button
+                          key={sym}
+                          onClick={() => navigateToResearch(sym)}
+                          className="text-[11px] font-semibold rounded-full px-3 py-1.5 active:opacity-70"
+                          style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #dbeafe' }}
+                        >
+                          {sym}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+
+          {exploreTab === 'watchlist' && (
+            <div className="flex-1 overflow-y-auto px-3.5 pt-2.5 pb-6">
+              {watchlistItems.length === 0 ? (
+                <p className="text-[12px] text-slate-400 text-center py-8 px-4">
+                  Nothing starred yet — tap ☆ on any stock's Research page to add it here.
+                </p>
+              ) : (
                 <div className="flex flex-col gap-1.5">
-                  {suggestions.map(s => {
-                    const isUS = s.exchange === 'NASDAQ' || s.exchange === 'NYSE'
-                    const isBSE = s.exchange === 'BSE'
+                  {watchlistItems.map(w => {
+                    const q = watchlistQuotes[w.yf_symbol]
+                    const price = q?.price ?? null
+                    const chg   = q?.change_pct ?? null
+                    const fmtPx = (v: number) => w.currency === 'INR'
+                      ? `₹${v.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+                      : `$${v.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+                    const isUS  = w.exchange !== 'NSE' && w.exchange !== 'BSE'
+                    const isBSE = w.exchange === 'BSE'
                     const avatarBg = isUS ? '#0284c7' : isBSE ? '#0891b2' : '#0d9488'
-                    const badgeBg  = isUS ? '#e0f2fe' : '#ccfbf1'
-                    const badgeClr = isUS ? '#0369a1' : '#0f766e'
                     return (
-                      <button
-                        key={s.symbol}
-                        onMouseDown={() => navigateToResearch(s.symbol, s.name)}
-                        className="flex items-center gap-2.5 px-2.5 py-2 rounded-[12px] border border-[#eef1f5] bg-white text-left active:bg-slate-50 transition-colors w-full"
+                      <div
+                        key={w.yf_symbol}
+                        className="flex items-center gap-2.5 px-2.5 py-2 rounded-[12px] border border-[#eef1f5] bg-white w-full"
                       >
-                        <div className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center text-[11px] font-extrabold text-white shrink-0" style={{ background: avatarBg }}>
-                          {s.symbol.slice(0, 2).toUpperCase()}
+                        <button
+                          onMouseDown={() => navigateToResearch(w.yf_symbol, w.name)}
+                          className="flex items-center gap-2.5 flex-1 min-w-0 text-left active:opacity-70"
+                        >
+                          <div className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center text-[11px] font-extrabold text-white shrink-0" style={{ background: avatarBg }}>
+                            {w.symbol.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[14px] font-bold text-slate-900">{w.symbol}</p>
+                            <p className="text-[12px] text-slate-400 truncate">{w.name}</p>
+                          </div>
+                        </button>
+                        <div className="text-right shrink-0">
+                          <p className="text-[12px] font-bold text-slate-900 whitespace-nowrap">{price != null ? fmtPx(price) : '—'}</p>
+                          <p className={`text-[10.5px] font-semibold whitespace-nowrap ${chg == null ? 'text-slate-400' : chg >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}
+                          </p>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[14px] font-bold text-slate-900">{s.symbol}</p>
-                          <p className="text-[12px] text-slate-400 truncate">{s.name}</p>
-                        </div>
-                        <span className="text-[11px] font-bold px-2 py-[3px] rounded-full shrink-0 whitespace-nowrap" style={{ background: badgeBg, color: badgeClr }}>{s.exchange}</span>
-                      </button>
+                        <button
+                          onClick={() => removeWatchlistItem.mutate(w.yf_symbol)}
+                          aria-label="Remove from watchlist"
+                          className="rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 active:opacity-60 p-2 -m-2"
+                          style={{ background: '#fee2e2', color: '#b91c1c' }}
+                        >✕</button>
+                      </div>
                     )
                   })}
                 </div>
-              </>
-            )}
-
-            {/* Recent searches */}
-            {recentSearches.length > 0 && !exploreInput && (
-              <>
-                <p className="text-[9.5px] font-bold uppercase tracking-[1.1px] text-slate-500 pt-2.5 pb-1.5 px-0.5">Recent</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {recentSearches.map(sym => (
-                    <button
-                      key={sym}
-                      onClick={() => navigateToResearch(sym)}
-                      className="text-[11px] font-semibold rounded-full px-3 py-1.5 active:opacity-70"
-                      style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #dbeafe' }}
-                    >
-                      {sym}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

@@ -30,6 +30,7 @@ from backend.routers.dividends   import router as dividends_router
 from backend.routers.add_txn           import router as add_txn_router
 from backend.routers.portfolio_history import router as portfolio_history_router
 from backend.routers.alerts            import router as alerts_router
+from backend.routers.watchlist         import router as watchlist_router
 from backend.price_refresh             import price_refresh_loop
 
 _ORIGINS = [
@@ -66,6 +67,7 @@ app.include_router(dividends_router)
 app.include_router(add_txn_router)
 app.include_router(portfolio_history_router)
 app.include_router(alerts_router)
+app.include_router(watchlist_router)
 
 @app.api_route("/health", methods=["GET", "HEAD"])
 def health():

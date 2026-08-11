@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useQuickStats } from '../hooks/useQuickStats'
+import { useIsWatchlisted, useAddToWatchlist, useRemoveFromWatchlist } from '../hooks/useWatchlist'
 import { ReportTab } from '../components/ReportTab'
 import { AnalysisTab } from '../components/AnalysisTab'
 import { PriceChart } from '../components/PriceChart'
@@ -40,6 +41,25 @@ export default function ResearchPage() {
     ? `₹${v.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
     : `$${v.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
 
+  const isWatchlisted   = useIsWatchlisted(yf_symbol)
+  const addWatchlist    = useAddToWatchlist()
+  const removeWatchlist = useRemoveFromWatchlist()
+  const toggleWatchlist = () => {
+    if (isWatchlisted) {
+      removeWatchlist.mutate(yf_symbol)
+    } else {
+      const cleanSymbol = yf_symbol.replace(/\.(NS|BO)$/i, '')
+      const exchange = yf_symbol.endsWith('.BO') ? 'BSE' : yf_symbol.endsWith('.NS') ? 'NSE' : 'US'
+      addWatchlist.mutate({
+        yf_symbol,
+        symbol: cleanSymbol,
+        name: qs?.company_name ?? locName ?? yf_symbol,
+        exchange,
+        currency: isIndian ? 'INR' : 'USD',
+      })
+    }
+  }
+
   return (
     <div className="h-[100dvh] flex flex-col bg-white max-w-xl mx-auto">
 
@@ -59,10 +79,19 @@ export default function ResearchPage() {
           className="rounded-xl border bg-slate-50 px-4 py-3 mb-3 shadow-sm"
           style={{ borderColor: '#e0e7ff', borderLeftWidth: 4, borderLeftColor: '#6366f1' }}
         >
-          {/* Name row + sector */}
+          {/* Name row + star + sector */}
           <div className="flex items-start justify-between mb-1.5">
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 flex items-center gap-1.5">
               <p className="text-[13px] font-bold text-slate-800 leading-tight truncate">{locName ?? qs?.company_name ?? yf_symbol}</p>
+              <button
+                onClick={toggleWatchlist}
+                aria-label={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
+                className="shrink-0 p-1.5 -m-1.5 active:opacity-60"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill={isWatchlisted ? '#f59e0b' : 'none'} stroke={isWatchlisted ? '#f59e0b' : '#94a3b8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+              </button>
             </div>
             {qs && (qs.sector ?? qs.industry) && (
               <p className="text-[10px] text-slate-500 truncate max-w-[110px] ml-3 shrink-0 text-right">{qs.sector ?? qs.industry}</p>

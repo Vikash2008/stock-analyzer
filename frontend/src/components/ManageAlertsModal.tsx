@@ -218,7 +218,6 @@ export function ManageAlertsModal({ open, onClose, yfSymbol, symbol, name, portf
                 <span className="text-[12px] font-bold text-[#0b3b3a] shrink-0">Price Level</span>
                 <div className="flex items-center gap-1.5">
                   <DirToggle direction={priceDirection} onToggle={() => setPriceDirection((d) => (d === 'below' ? 'above' : 'below'))} />
-                  <span className="text-[11px] text-slate-400 shrink-0">{cur}</span>
                   <input
                     type="number"
                     inputMode="decimal"
@@ -227,6 +226,7 @@ export function ManageAlertsModal({ open, onClose, yfSymbol, symbol, name, portf
                     placeholder="e.g. 1850"
                     className="w-[76px] px-2 py-1.5 text-[12px] border border-emerald-200 rounded-lg bg-white text-right"
                   />
+                  <span className="text-[11px] text-slate-400 shrink-0">{cur}</span>
                 </div>
               </div>
             )}
