@@ -1,5 +1,11 @@
 # Design Decisions Log — Archive
 
+### 2026-07-08
+
+Activity tab filter popover: added a two-button footer (grey "Clear" + teal-gradient "Apply", matching the Refresh/Update pill style used elsewhere on the page) instead of a single standalone Clear button. Custom From/To date inputs stacked into labeled full-width rows instead of a cramped side-by-side pair (popover widened 220px→260px) — the old layout squeezed each date input to ~90px. Filter strip container: range-preset pills get left padding instead of sitting flush against the edge, and `justify-between` pushes the Filters button to the row's right end instead of trailing immediately after the pills.
+
+
+
 ### 2026-07-07
 
 Analysis tab gains a 4th sub-tab, **Activity** (alongside Allocation/Benchmarking/Returns) — recent BUY/SELL transaction log for whatever scope is active (broker/segment/bucket/label), newest-first. Quick range presets (7d/1m/3m/6m/1y/All) sit in the tab strip; a "Filters" popover holds a stock dropdown, BUY/SELL toggle, and custom from/to date inputs — same popover pattern as Benchmarking's date-range control. Rows are a lighter-weight card than `TxRow` (no per-transaction gain computation, since that needs holding-level state TxRow already tracks for a single symbol) — just badge, date, name, portfolio (shown only when scope spans more than one), qty@price, value in the display currency.

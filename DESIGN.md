@@ -378,6 +378,10 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Keep only the 3 most recent sessions here (size guard, same pattern as ROADMAP_ARCHIVE.md). Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-07-07
 
+### 2026-08-11
+
+Deep Research cards: bumped font sizes across all 8 cards and the AI Assistant chat (body 12px→13px, table cells 10-11px→12px, headers scaled up). Fixed an accordion bug where starting/streaming one card force-collapsed every other open card — each card's expand state is now independent. Card loading panel and chat typing indicator both replaced with looping status-message text (previously a fixed message list that froze, or a plain 3-dot spinner). Trend-shaped tables (revenue-segment mix, 3-year financial trends) now render a small Recharts line chart above the table.
+
 ### 2026-08-10
 
 No new UI/layout decisions — the Notes tab's on-screen design is unchanged, only its storage moved from localStorage to the CSV (see Notes section above and ARCHITECTURE.md's set-notes endpoint).
@@ -385,8 +389,4 @@ No new UI/layout decisions — the Notes tab's on-screen design is unchanged, on
 ### 2026-07-14
 
 Removed the "Benchmarking analysis" Refresh row from the Holdings-page Settings popover — benchmarking data already refreshes on its own, the manual button was redundant. Dividends tab: moved the "Updated HH:MM" timestamp off its own standalone line and into the same row as the "Dividend Income" pill label (right-aligned), matching the inline pattern already used elsewhere. Transactions-page top summary bar: shares/avg price now round to at most 1 decimal place (whole numbers show with no decimal).
-
-### 2026-07-08
-
-Activity tab filter popover: added a two-button footer (grey "Clear" + teal-gradient "Apply", matching the Refresh/Update pill style used elsewhere on the page) instead of a single standalone Clear button. Custom From/To date inputs stacked into labeled full-width rows instead of a cramped side-by-side pair (popover widened 220px→260px) — the old layout squeezed each date input to ~90px. Filter strip container: range-preset pills get left padding instead of sitting flush against the edge, and `justify-between` pushes the Filters button to the row's right end instead of trailing immediately after the pills.
 

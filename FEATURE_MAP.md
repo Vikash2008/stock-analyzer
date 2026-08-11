@@ -7,7 +7,7 @@
 
 | Feature / Area | Frontend file(s) | Backend file(s) |
 |---|---|---|
-| **Deep Research cards** | `frontend/src/components/ReportTab.tsx`, `frontend/src/utils/geminiGenerationStore.ts` (module-level generation state, survives unmount/navigation) | `backend/routers/gemini.py` (`/api/gemini/stream` — auto-fallback 2.5 Flash→2.5 Lite, manual-only 3.1) |
+| **Deep Research cards** | `frontend/src/components/ReportTab.tsx` (each of the 8 cards expands independently now, not an accordion; trend tables auto-render a small Recharts chart via `parseTrendTable()`), `frontend/src/utils/reportLinks.ts` (2026-08-11: `SECTOR_METRICS_CATALOG` — shared 21-category sector classification + metrics reference the 8 prompts self-classify into, replacing the old India/US content split; `PROGRESS_MESSAGES` — per-card looping loading-panel text), `frontend/src/utils/geminiGenerationStore.ts` (module-level generation state, survives unmount/navigation) | `backend/routers/gemini.py` (`/api/gemini/stream` — auto-fallback 2.5 Flash→2.5 Lite, manual-only 3.1) |
 | **AI Assistant chat** | `frontend/src/components/DeepResearchChat.tsx` | `backend/routers/gemini.py` |
 | **Quick Stats grid** | `frontend/src/components/ReportTab.tsx` | `backend/routers/quickstats.py` |
 | **Explore / Research page** | `frontend/src/pages/ResearchPage.tsx` | `backend/routers/quickstats.py`, `backend/routers/search.py` |

@@ -4,6 +4,7 @@
 
 | Item | Completed |
 |------|-----------|
+| Better Deep Research prompts — all 8 cards restructured around a Fixed Core + self-classified sector-flexible layer (21-category catalog derived from the actual portfolio) replacing the old India/US content split; added missing headers/tables/verdicts, Analyst Consensus section, company-derived valuation growth assumptions, sector-appropriate scorecard/peer/metric columns | 2026-08-11 |
 | Benchmarking loader indeterminate pulse + Charts/Benchmarking sync timestamps â€” Charts â†» moved to tab row with IST timestamp; Benchmarking â†» gets IST timestamp in violet-50 strip; loader shows animate-pulse bar when queries land simultaneously (was stuck at 0%) | 2026-05-31 |
 | Benchmarking XIRR mobile/localhost mismatch fixed â€” `useBenchmarkXirr` terminal value now uses `symbolPriceMap` (freshly synced) instead of `filteredHoldings.disp_current` (stale bundle); eliminates 72.9% vs 24.5% gap when bundle is stale but history is freshly fetched | 2026-05-31 |
 | Dark branded loader + 75s progress bar on cold start/empty cache â€” LoadingSkeleton full-screen slate-900, emerald gradient title, 75s timer bar, "Taking a bit more timeâ€¦" at 75s | 2026-05-31 |

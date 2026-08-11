@@ -12,7 +12,6 @@
 |---|------|-------|--------|
 | 3 | Yearly activity performance analysis | Analysis/visualisation of performance broken down by year — e.g. annual returns, P&L, invested vs realised per year | pending |
 | 4 | Research Links | Indian: Screener / Trendlyne / NSE pills; US: Finviz / Macrotrends / EDGAR pills | pending |
-| 5 | Better Deep Research prompts | Audit and improve all 8 section prompts (Indian + US variants) for depth, specificity, and output quality | pending |
 | 6 | Per-transaction delete with stable row ID | Current delete (Delete Holding modal) matches transactions by exact field-equality (no stable ID in CSV schema) — fine for normal use, but two truly identical txns can't be told apart | pending |
 
 ---
