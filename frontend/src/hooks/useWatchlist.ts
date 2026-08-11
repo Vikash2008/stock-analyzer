@@ -31,7 +31,13 @@ export function useAddToWatchlist() {
       exchange?: string
       currency?: 'INR' | 'USD'
     }) => addToWatchlist(item),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['watchlist'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['watchlist'] })
+      // A freshly-starred symbol isn't in the last quotes payload yet — refetch
+      // immediately instead of waiting for the next REFRESH_MS tick, otherwise
+      // the row shows no price for up to 2 minutes.
+      qc.invalidateQueries({ queryKey: ['watchlist-quotes'] })
+    },
   })
 }
 
@@ -39,7 +45,10 @@ export function useRemoveFromWatchlist() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (yf_symbol: string) => removeFromWatchlist(yf_symbol),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['watchlist'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['watchlist'] })
+      qc.invalidateQueries({ queryKey: ['watchlist-quotes'] })
+    },
   })
 }
 

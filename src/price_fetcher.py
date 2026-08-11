@@ -114,6 +114,32 @@ def get_current_prices(symbols: List[str]) -> Dict[str, Optional[float]]:
     return prices
 
 
+def _fetch_quote_names(symbols: List[str]) -> Dict[str, dict]:
+    """Batch-fetch display name + quoteType via the same lightweight quote endpoint
+    _fetch_quote_batch uses for prices. Far more reliable than per-symbol .info for
+    Indian mutual fund tickers (0P-prefixed) — .info/fast_info routinely comes back
+    empty for these, while this endpoint returns a proper longName. No sector/industry
+    here though (not part of this endpoint's schema) — get_tickers_info still falls
+    back to .info for that."""
+    t = yf.Ticker(symbols[0])
+    d = t._data
+    d._get_cookie_and_crumb(timeout=_QUOTE_TIMEOUT)
+
+    out: Dict[str, dict] = {}
+    for i in range(0, len(symbols), _QUOTE_CHUNK):
+        chunk = symbols[i:i + _QUOTE_CHUNK]
+        resp = d.get(_QUOTE_URL, params={"symbols": ",".join(chunk)}, timeout=_QUOTE_TIMEOUT)
+        results = resp.json().get("quoteResponse", {}).get("result", [])
+        for r in results:
+            sym = r.get("symbol")
+            if sym in symbols:
+                out[sym] = {
+                    "name":       r.get("longName") or r.get("shortName") or None,
+                    "quote_type": r.get("quoteType") or None,
+                }
+    return out
+
+
 def _infer_quote_type_from_symbol(sym: str) -> str:
     """Fallback when yfinance's quoteType is unavailable (throttled/failed request).
     Yahoo's own ticker convention assigns mutual fund instruments a 0P-prefixed fund
@@ -131,15 +157,39 @@ def get_tickers_info(symbols: List[str]) -> Dict[str, dict]:
     result: Dict[str, dict] = {}
     missing = []
     for sym in symbols:
-        # Static cache predates the quote_type field — treat an entry missing it as stale
-        # so Stocks-vs-Mutual-Funds bucket detection gets a real value instead of silently
-        # defaulting every cached symbol to "EQUITY".
-        if sym in _static_names and "quote_type" in _static_names[sym]:
-            result[sym] = _static_names[sym]
+        cached = _static_names.get(sym)
+        # Retry if quote_type or name is still missing. A symbol whose name never
+        # resolved (most commonly Indian mutual funds — 0P-prefixed codes .info/
+        # fast_info routinely fails on) used to get cached as name=None permanently,
+        # since data/names.json has no expiry — every holding card for that symbol
+        # then silently fell back to showing the raw symbol forever, even though a
+        # later attempt (or the quote-endpoint fallback below) would have resolved it.
+        if cached and cached.get("quote_type") and cached.get("name"):
+            result[sym] = cached
         else:
             missing.append(sym)
 
+    if not missing:
+        return result
+
+    # Batched + far more reliable than per-symbol .info for names (esp. mutual funds) —
+    # try this first so the slower per-symbol loop below only needs to fill in sector/
+    # industry (not part of this endpoint's schema) and can skip re-deriving name/quote_type
+    # when this already succeeded. _HARD_TIMEOUT (10s) is tuned for a single price-fetch
+    # chunk elsewhere in this module — a large portfolio's full symbol universe (open +
+    # closed positions across every broker) routinely spans several hundred symbols, i.e.
+    # multiple sequential _QUOTE_CHUNK batches inside _fetch_quote_names, so it needs a
+    # timeout that scales with chunk count instead of that single-chunk default (which was
+    # silently swallowing the whole batch on timeout and dumping everything onto the much
+    # slower, much less reliable per-symbol .info loop below).
+    chunks = (len(missing) + _QUOTE_CHUNK - 1) // _QUOTE_CHUNK
+    try:
+        quote_names = _with_hard_timeout(_fetch_quote_names, missing, timeout=max(_HARD_TIMEOUT, chunks * 10))
+    except Exception:
+        quote_names = {}
+
     for sym in missing:
+        quoted = quote_names.get(sym) or {}
         name, info = None, {}
         for attempt in range(2):
             try:
@@ -157,12 +207,14 @@ def get_tickers_info(symbols: List[str]) -> Dict[str, dict]:
         result[sym] = {
             "sector":     info.get("sector")   or "Unknown",
             "industry":   info.get("industry") or "Unknown",
-            "name":       info.get("longName") or info.get("shortName") or name or None,
-            "quote_type": info.get("quoteType") or _infer_quote_type_from_symbol(sym),
+            "name":       info.get("longName") or info.get("shortName") or name or quoted.get("name") or None,
+            "quote_type": info.get("quoteType") or quoted.get("quote_type") or _infer_quote_type_from_symbol(sym),
         }
         # Cache in-process so a repeated request for the same never-seen-before symbol (e.g.
         # several users' portfolios sharing a symbol not yet in the static file) doesn't
-        # re-pay the yf.Ticker() cost every time within this process's lifetime.
+        # re-pay the yf.Ticker() cost every time within this process's lifetime. Only a
+        # symbol that still has no name after both attempts stays a "missing" candidate on
+        # the next call (see the freshness check above) instead of being frozen as-is.
         _static_names[sym] = result[sym]
     return result
 

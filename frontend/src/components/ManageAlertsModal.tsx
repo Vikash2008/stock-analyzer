@@ -12,9 +12,9 @@ interface Props {
   currentPrice?: number | null
 }
 
-const CUR = (yf: string) => (yf.endsWith('.NS') || yf.endsWith('.BO') ? '₹' : '$')
+export const CUR = (yf: string) => (yf.endsWith('.NS') || yf.endsWith('.BO') ? '₹' : '$')
 
-function ruleSummary(rule: AlertRule, cur: string): string {
+export function ruleSummary(rule: AlertRule, cur: string): string {
   if (rule.type === 'pct_move') {
     const verb = rule.direction === 'above' ? 'rises' : 'falls'
     return `Alert when price ${verb} ${rule.threshold_value}% from ${cur}${rule.reference_value.toFixed(2)}`

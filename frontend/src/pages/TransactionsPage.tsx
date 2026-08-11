@@ -121,6 +121,14 @@ export default function TransactionsPage({ currency }: Props) {
   const [chartZoomed,    setChartZoomed]    = useState(false)
   const [alertsModalOpen, setAlertsModalOpen] = useState(false)
 
+  // Deep-link from the alerts bell's "Show all set alerts" list (NotificationsPanel)
+  // opens straight into this holding's alert modal so the user can reconfigure it.
+  useEffect(() => {
+    if ((location.state as { openAlerts?: boolean } | null)?.openAlerts) {
+      setAlertsModalOpen(true)
+    }
+  }, [location.state])
+
   const decoded = {
     portfolio: decodeURIComponent(portfolio),
     symbol:    decodeURIComponent(symbol),

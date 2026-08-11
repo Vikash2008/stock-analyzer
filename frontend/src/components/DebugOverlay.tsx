@@ -1,5 +1,7 @@
-// Temporary diagnostic panel for the mobile CSV-revert investigation.
-// Remove once root cause is confirmed and fixed.
+// Diagnostic panel for the mobile CSV-revert investigation, kept as a safety
+// net per user request. Opened via the "Debug Log" row in PortfoliosPage's
+// Settings popover (dispatches the 'debug-overlay:open' window event below)
+// rather than its own floating trigger button.
 import { useEffect, useState } from 'react'
 import { getDebugLog, clearDebugLog } from '../utils/debugLog'
 
@@ -12,22 +14,18 @@ export default function DebugOverlay() {
   const [entries, setEntries] = useState(getDebugLog())
 
   useEffect(() => {
+    const handler = () => { setEntries(getDebugLog()); setOpen(true) }
+    window.addEventListener('debug-overlay:open', handler)
+    return () => window.removeEventListener('debug-overlay:open', handler)
+  }, [])
+
+  useEffect(() => {
     if (!open) return
     const id = setInterval(() => setEntries(getDebugLog()), 1000)
     return () => clearInterval(id)
   }, [open])
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => { setEntries(getDebugLog()); setOpen(true) }}
-        aria-label="Open debug log"
-        className="fixed bottom-2 left-2 z-[9999] w-11 h-11 rounded-full bg-slate-800 text-white text-[16px] flex items-center justify-center opacity-60 active:opacity-100"
-      >
-        🐛
-      </button>
-    )
-  }
+  if (!open) return null
 
   const csvLen = (localStorage.getItem('portfolio:csv') ?? '').length
   const csvMeta = localStorage.getItem('portfolio:csv:meta')

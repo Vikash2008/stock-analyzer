@@ -27,7 +27,7 @@ def search_symbol(q: str = Query(..., min_length=1)):
         data = json.loads(urllib.request.urlopen(req, timeout=8).read())
         results = []
         for item in data.get("quotes", []):
-            if item.get("quoteType") not in ("EQUITY", "ETF"):
+            if item.get("quoteType") not in ("EQUITY", "ETF", "INDEX"):
                 continue
             symbol   = item.get("symbol", "")
             name     = item.get("shortname") or item.get("longname") or symbol
