@@ -1,10 +1,10 @@
 import React from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { QuickStats } from '../api/types'
-import { SECTIONS, buildGeminiPrompt } from '../utils/reportLinks'
+import { SECTIONS, buildGeminiPrompt, PROGRESS_MESSAGES } from '../utils/reportLinks'
 import { DeepResearchChat } from './DeepResearchChat'
 import { idbGet, idbSet, idbDelete } from '../utils/idbStore'
 import {
@@ -87,6 +87,91 @@ function recColor(rec: string | null): string {
   if (r === 'neutral') return '#64748b'
   return '#b45309'
 }
+
+// Minimal shape of the hast node react-markdown passes to custom component overrides —
+// only the fields parseTrendTable actually reads.
+interface HastNode {
+  type?: string
+  value?: string
+  tagName?: string
+  children?: HastNode[]
+}
+
+function extractCellText(node: HastNode | undefined): string {
+  if (!node) return ''
+  if (node.type === 'text') return node.value ?? ''
+  if (node.children) return node.children.map(extractCellText).join('')
+  return ''
+}
+
+const TREND_PERIOD_RE = /^(FY\s?\d{2,4}|Q[1-4]\s?(FY)?\s?\d{0,4}|20\d{2}|[A-Za-z]{3,9}['\s]?\d{2,4})$/i
+const TREND_NUM_RE = /^[-+]?[₹$]?[\d,]+\.?\d*%?×?$/
+
+interface ParsedTrend {
+  periods: string[]
+  series: { label: string; values: number[] }[]
+}
+
+/** Detects a Year/Quarter/Period-labelled trend table in Gemini's markdown output (e.g. a
+ * 3-year revenue trend or a revenue-segment mix table) and extracts it to plot — used to
+ * render a small chart above the table instead of leaving trend data as text-only.
+ * Handles both table orientations Gemini produces: "long" (one row per period, a numeric
+ * column to plot) and "wide" (one column per period, one row per metric/segment — the
+ * shape Gemini defaults to for revenue-mix and multi-year trend tables in practice). Only
+ * charts the wide orientation when every data cell is numeric — a table mixing numbers
+ * with qualitative labels (e.g. "Strong"/"Wide"/"High") isn't a single chartable series.
+ * Best-effort pattern match, not guaranteed structured data; returns null (falls back to a
+ * plain table) whenever the shape doesn't clearly look like a trend. */
+function parseTrendTable(node: HastNode): ParsedTrend | null {
+  try {
+    // thead/tbody children include whitespace text nodes between <tr> elements — filter
+    // to actual rows only, otherwise rowNodes[0] can end up being a stray "\n" text node
+    // instead of the real header row.
+    const rowNodes = (node.children ?? []).flatMap(child =>
+      child.tagName === 'thead' || child.tagName === 'tbody' ? (child.children ?? []).filter(c => c.tagName === 'tr')
+      : child.tagName === 'tr' ? [child] : []
+    )
+    if (rowNodes.length < 3) return null
+    const cellsOf = (row: HastNode) => (row.children ?? []).filter(c => c.tagName === 'td' || c.tagName === 'th').map(extractCellText)
+    const headerCells = cellsOf(rowNodes[0])
+    const bodyRows = rowNodes.slice(1).map(cellsOf).filter(r => r.length === headerCells.length)
+    if (bodyRows.length < 2 || headerCells.length < 2) return null
+
+    const toNum = (s: string) => parseFloat(s.replace(/[₹$,%×]/g, ''))
+
+    // Wide orientation: header row (excl. first col) is all periods, every body cell numeric.
+    const headerPeriods = headerCells.slice(1)
+    if (headerPeriods.length >= 2 && headerPeriods.every(h => TREND_PERIOD_RE.test(h.trim()))) {
+      const allNumeric = bodyRows.every(r => r.slice(1).every(v => TREND_NUM_RE.test(v.trim())))
+      if (allNumeric && bodyRows.length <= 6) {
+        return {
+          periods: headerPeriods.map(p => p.trim()),
+          series: bodyRows.map(r => ({ label: r[0].trim(), values: r.slice(1).map(toNum) })),
+        }
+      }
+    }
+
+    // Long orientation: first column of body rows is period-labelled, pick one numeric column.
+    if (bodyRows.every(r => TREND_PERIOD_RE.test(r[0].trim()))) {
+      let numericColIdx = -1
+      for (let c = 1; c < headerCells.length; c++) {
+        if (bodyRows.every(r => TREND_NUM_RE.test(r[c].trim()))) { numericColIdx = c; break }
+      }
+      if (numericColIdx !== -1) {
+        return {
+          periods: bodyRows.map(r => r[0].trim()),
+          series: [{ label: headerCells[numericColIdx], values: bodyRows.map(r => toNum(r[numericColIdx])) }],
+        }
+      }
+    }
+
+    return null
+  } catch {
+    return null
+  }
+}
+
+const TREND_LINE_COLORS = ['#0d9488', '#7c3aed', '#2563eb', '#ea580c', '#be1c1c', '#0369a1']
 
 export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, use31, useKey, chatOpenerRef }: Props) {
   const isIndian = yf_symbol.endsWith('.NS') || yf_symbol.endsWith('.BO')
@@ -206,12 +291,7 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
       const isUnavailableNow = showUnavailable[sectionId] ?? false
       setShowUnavailable(prev => ({ ...prev, [sectionId]: !isUnavailableNow }))
       if (!isUnavailableNow) {
-        setExpandedSections(() => {
-          const next: Record<string, boolean> = {}
-          for (const s of SECTIONS) next[s.id] = false
-          next[sectionId] = true
-          return next
-        })
+        setExpandedSections(prev => ({ ...prev, [sectionId]: true }))
       }
       return
     }
@@ -232,12 +312,10 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
     }
     setElapsed(prev => ({ ...prev, [sectionId]: 0 }))
     setProgressNotes(prev => { const next = { ...prev }; delete next[sectionId]; return next })
-    setExpandedSections(() => {
-      const next: Record<string, boolean> = {}
-      for (const s of SECTIONS) next[s.id] = false
-      next[sectionId] = true
-      return next
-    })
+    // Independent per-card expand state — starting/streaming one card must never
+    // collapse another card the user has open and is reading (was previously a
+    // single-open accordion across all 8 cards, causing a jarring collapse mid-read).
+    setExpandedSections(prev => ({ ...prev, [sectionId]: true }))
     const effectiveLite = force31 ? false : (forceLite !== undefined ? forceLite : useLite)
     const effectiveForce31 = force31 ? true : (forceLite !== undefined ? false : use31)
     const prompt = buildGeminiPrompt(displayName, sectionId, isIndian, yf_symbol, API_URL)
@@ -499,12 +577,7 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
           if (isUnavailable && isOpen) {
             setShowUnavailable(prev => ({ ...prev, [section.id]: false }))
           }
-          setExpandedSections(() => {
-            const next: Record<string, boolean> = {}
-            for (const s of SECTIONS) next[s.id] = false
-            if (!isOpen) next[section.id] = true
-            return next
-          })
+          setExpandedSections(prev => ({ ...prev, [section.id]: !isOpen }))
         }
 
         return (
@@ -635,16 +708,12 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                 </div>
                 <div className="text-[10px] text-slate-400">
                   {progressNotes[section.id] ?? (() => {
+                    // Loops through a card-specific message list instead of freezing on a
+                    // final message — keeps the panel feeling alive for however long the
+                    // request actually takes.
+                    const msgs = PROGRESS_MESSAGES[section.id] ?? [`Researching ${section.label.toLowerCase()}…`]
                     const t = elapsed[section.id] ?? 0
-                    if (t < 4)  return `Researching ${section.label.toLowerCase()}…`
-                    if (t < 8)  return 'Sending prompt to Gemini 2.5 Flash…'
-                    if (t < 13) return 'Searching live web sources & news…'
-                    if (t < 19) return 'Reading financial articles & filings…'
-                    if (t < 26) return 'Scanning analyst reports & data…'
-                    if (t < 34) return 'Analyzing with extended thinking…'
-                    if (t < 43) return 'Cross-referencing multiple sources…'
-                    if (t < 52) return 'Composing structured answer…'
-                    return 'Retrying without extended thinking…'
+                    return msgs[Math.floor(t / 7) % msgs.length]
                   })()}
                 </div>
               </div>
@@ -661,7 +730,7 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                   </div>
                 ) : (
                 <>
-                <div className="gemini-md text-[12px] text-slate-700 leading-relaxed relative">
+                <div className="gemini-md text-[13px] text-slate-700 leading-relaxed relative">
                   {(state as SectionResult).streaming && (
                     <span className="inline-block w-0.5 h-3.5 bg-slate-400 animate-pulse align-middle absolute bottom-0 right-0" />
                   )}
@@ -683,26 +752,53 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                       <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
                         h1: ({children}) => {
                           const src = sr.sources[hIdx.n++]
-                          return <h1 className="text-[15px] font-bold text-slate-800 mt-3 mb-1 flex items-center">{children}{srcIcon(src)}</h1>
+                          return <h1 className="text-[16px] font-bold text-slate-800 mt-3 mb-1 flex items-center">{children}{srcIcon(src)}</h1>
                         },
                         h2: ({children}) => {
                           const src = sr.sources[hIdx.n++]
-                          return <h2 className="text-[13px] font-bold text-slate-800 mt-2.5 mb-1 flex items-center">{children}{srcIcon(src)}</h2>
+                          return <h2 className="text-[14px] font-bold text-slate-800 mt-2.5 mb-1 flex items-center">{children}{srcIcon(src)}</h2>
                         },
                         h3: ({children}) => {
                           const src = sr.sources[hIdx.n++]
-                          return <h3 className="text-[12px] font-semibold text-slate-600 mt-2 mb-0.5 flex items-center">{children}{srcIcon(src)}</h3>
+                          return <h3 className="text-[13px] font-semibold text-slate-600 mt-2 mb-0.5 flex items-center">{children}{srcIcon(src)}</h3>
                         },
                         p:  ({children}) => <p className="mb-1.5">{children}</p>,
                         ul: ({children}) => <ul className="list-disc list-outside pl-5 mb-1.5 space-y-0.5">{children}</ul>,
                         ol: ({children}) => <ol className="list-decimal list-outside pl-5 mb-1.5 space-y-0.5">{children}</ol>,
-                        li: ({children}) => <li className="text-[11px] leading-snug pl-0.5">{children}</li>,
+                        li: ({children}) => <li className="text-[13px] leading-snug pl-0.5">{children}</li>,
                         strong: ({children}) => <strong className="font-semibold text-slate-800">{children}</strong>,
-                        table: ({children}) => (
-                          <div className="overflow-x-auto my-2">
-                            <table className="border-collapse text-[10px]">{children}</table>
-                          </div>
-                        ),
+                        table: ({node, children}) => {
+                          const trend = node ? parseTrendTable(node as HastNode) : null
+                          const chartData = trend?.periods.map((p, i) => {
+                            const row: Record<string, string | number> = { period: p }
+                            trend.series.forEach(s => { row[s.label] = s.values[i] })
+                            return row
+                          })
+                          return (
+                            <>
+                              {trend && chartData && (
+                                <div className="my-2 bg-white/50 rounded-lg pt-2 pb-1 px-1">
+                                  <ResponsiveContainer width="100%" height={trend.series.length > 1 ? 130 : 90}>
+                                    <LineChart data={chartData} margin={{ top: 2, right: 8, left: -24, bottom: 0 }}>
+                                      <XAxis dataKey="period" tick={{ fontSize: 8, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                                      <YAxis tick={{ fontSize: 8, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                                      <Tooltip contentStyle={{ fontSize: 10, padding: '4px 8px', borderRadius: 6, border: '1px solid #e2e8f0' }} />
+                                      {trend.series.length > 1 && <Legend wrapperStyle={{ fontSize: 9 }} />}
+                                      {trend.series.map((s, i) => (
+                                        <Line key={s.label} type="monotone" dataKey={s.label}
+                                              stroke={TREND_LINE_COLORS[i % TREND_LINE_COLORS.length]}
+                                              dot={{ r: 2 }} strokeWidth={1.5} />
+                                      ))}
+                                    </LineChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              )}
+                              <div className="overflow-x-auto my-2">
+                                <table className="border-collapse text-[12px]">{children}</table>
+                              </div>
+                            </>
+                          )
+                        },
                         thead: ({children}) => <thead className="bg-white/60">{children}</thead>,
                         tbody: ({children}) => <tbody className="divide-y divide-slate-100">{children}</tbody>,
                         th: ({children}) => <th className="px-2 py-1.5 text-left font-semibold text-slate-600 whitespace-nowrap border border-slate-200">{children}</th>,

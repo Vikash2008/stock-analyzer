@@ -40,6 +40,16 @@ interface Props {
 
 const CHAT_TTL = 7 * 24 * 3600 * 1000
 
+// Looping status text shown while waiting for the first token — same pattern as the
+// Deep Research cards' loading panel, replacing the generic 3-dot bounce.
+const CHAT_PROGRESS_MESSAGES = [
+  'Sending to Gemini…',
+  'Reading card context…',
+  'Searching for an answer…',
+  'Cross-referencing sources…',
+  'Composing response…',
+]
+
 function fmtModelName(model: string | undefined): string {
   if (model === 'gemini-2.5-flash') return '2.5 Flash'
   if (model === 'gemini-2.5-flash-lite') return '2.5 Lite'
@@ -52,6 +62,7 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
   const [selectedContext, setSelectedContext] = React.useState(initialContextId)
   const [contextPickerOpen, setContextPickerOpen] = React.useState(false)
   const [chatLoading, setChatLoading] = React.useState(false)
+  const [chatElapsed, setChatElapsed] = React.useState(0)
   const [expandedSources, setExpandedSources] = React.useState<Record<string, boolean>>({})
   const threadRef = React.useRef<HTMLDivElement>(null)
   const inputRef = React.useRef<HTMLTextAreaElement>(null)
@@ -85,6 +96,13 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
       threadRef.current.scrollTop = threadRef.current.scrollHeight
     }
   }, [messages, chatLoading])
+
+  React.useEffect(() => {
+    if (!chatLoading) { setChatElapsed(0); return }
+    const start = Date.now()
+    const id = setInterval(() => setChatElapsed(Math.floor((Date.now() - start) / 1000)), 1000)
+    return () => clearInterval(id)
+  }, [chatLoading])
 
   const availableSections = sections.filter(s => s.text !== null)
 
@@ -203,34 +221,35 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
                       <span>{msg.contextLabel}</span>
                     </span>
                     <div className="bg-violet-600 text-white rounded-2xl rounded-tr-sm px-3 py-2 max-w-[85%]">
-                      <p className="text-[12px] leading-snug">{msg.question}</p>
+                      <p className="text-[13px] leading-snug">{msg.question}</p>
                     </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-start gap-1">
                     <div className="bg-slate-50 border border-slate-100 rounded-2xl rounded-tl-sm px-3 py-2.5 max-w-[95%]">
                       {msg.error ? (
-                        <p className="text-[11px] text-red-500">{msg.error}</p>
+                        <p className="text-[12px] text-red-500">{msg.error}</p>
                       ) : msg.streaming && !msg.text ? (
-                        <div className="flex items-center gap-1.5 py-0.5">
-                          <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                          <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                          <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                        <div className="flex items-center gap-2 py-0.5">
+                          <span className="inline-block w-1.5 h-1.5 bg-violet-400 rounded-full animate-pulse shrink-0" />
+                          <span className="text-[12px] text-slate-400">
+                            {CHAT_PROGRESS_MESSAGES[Math.floor(chatElapsed / 4) % CHAT_PROGRESS_MESSAGES.length]}
+                          </span>
                         </div>
                       ) : (
-                        <div className="text-[11px] text-slate-700 leading-relaxed gemini-md">
+                        <div className="text-[13px] text-slate-700 leading-relaxed gemini-md">
                           <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
-                            h1: ({children}) => <h1 className="text-[13px] font-bold text-slate-800 mt-2 mb-1">{children}</h1>,
-                            h2: ({children}) => <h2 className="text-[12px] font-bold text-slate-800 mt-2 mb-1">{children}</h2>,
-                            h3: ({children}) => <h3 className="text-[11px] font-semibold text-slate-600 mt-1.5 mb-0.5">{children}</h3>,
+                            h1: ({children}) => <h1 className="text-[14px] font-bold text-slate-800 mt-2 mb-1">{children}</h1>,
+                            h2: ({children}) => <h2 className="text-[13px] font-bold text-slate-800 mt-2 mb-1">{children}</h2>,
+                            h3: ({children}) => <h3 className="text-[12px] font-semibold text-slate-600 mt-1.5 mb-0.5">{children}</h3>,
                             p:  ({children}) => <p className="mb-1.5">{children}</p>,
                             ul: ({children}) => <ul className="list-disc list-outside pl-4 mb-1.5 space-y-0.5">{children}</ul>,
                             ol: ({children}) => <ol className="list-decimal list-outside pl-4 mb-1.5 space-y-0.5">{children}</ol>,
-                            li: ({children}) => <li className="text-[11px] leading-snug">{children}</li>,
+                            li: ({children}) => <li className="text-[13px] leading-snug">{children}</li>,
                             strong: ({children}) => <strong className="font-semibold text-slate-800">{children}</strong>,
                             table: ({children}) => (
                               <div className="overflow-x-auto my-1.5">
-                                <table className="border-collapse text-[10px]">{children}</table>
+                                <table className="border-collapse text-[12px]">{children}</table>
                               </div>
                             ),
                             thead: ({children}) => <thead className="bg-white/80">{children}</thead>,
@@ -354,7 +373,7 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
                   placeholder="Ask a follow-up question… (Enter to send)"
                   rows={1}
                   disabled={chatLoading}
-                  className="flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2 text-[12px] text-slate-700 placeholder-slate-300 focus:outline-none focus:border-violet-300 bg-slate-50 disabled:opacity-50"
+                  className="flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2 text-[13px] text-slate-700 placeholder-slate-300 focus:outline-none focus:border-violet-300 bg-slate-50 disabled:opacity-50"
                   style={{ maxHeight: 80 }}
                 />
                 <button
