@@ -1,5 +1,11 @@
 # Design Decisions Log — Archive
 
+### 2026-07-14
+
+Removed the "Benchmarking analysis" Refresh row from the Holdings-page Settings popover — benchmarking data already refreshes on its own, the manual button was redundant. Dividends tab: moved the "Updated HH:MM" timestamp off its own standalone line and into the same row as the "Dividend Income" pill label (right-aligned), matching the inline pattern already used elsewhere. Transactions-page top summary bar: shares/avg price now round to at most 1 decimal place (whole numbers show with no decimal).
+
+
+
 ### 2026-07-08
 
 Activity tab filter popover: added a two-button footer (grey "Clear" + teal-gradient "Apply", matching the Refresh/Update pill style used elsewhere on the page) instead of a single standalone Clear button. Custom From/To date inputs stacked into labeled full-width rows instead of a cramped side-by-side pair (popover widened 220px→260px) — the old layout squeezed each date input to ~90px. Filter strip container: range-preset pills get left padding instead of sitting flush against the edge, and `justify-between` pushes the Filters button to the row's right end instead of trailing immediately after the pills.

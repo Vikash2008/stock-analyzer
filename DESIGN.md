@@ -378,6 +378,10 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 > Keep only the 3 most recent sessions here (size guard, same pattern as ROADMAP_ARCHIVE.md). Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-07-07
 
+### 2026-08-13
+
+Login/access-control UI, designed as extensions of the existing Settings popover rather than a new page: "Account" row (sign-in/out, same `bg-slate-50 border-slate-200` card style as Debug Log) with a compact "⬆ Back up to Drive / ⬇ Restore from Drive" pair beneath once signed in. "Admin — Users" section (same card style) only renders if the current user is actually an admin — email input + Add, then a scrollable list of compact rows (email, status pill, Revoke/Restore, ✕) with a `max-h-[180px]` cap. Two new full-screen states in `App.tsx`: `SignInGate` (blocking, no cached data) and `ReauthBanner` (non-blocking amber top banner, shown when stale cached data is on screen but the background refresh needs sign-in — avoids silently letting numbers go stale with no explanation). `JoinPage.tsx` (`/join`) is a standalone dark landing page matching the app's existing hero gradient/icon treatment, outside the normal nav — download button + inline Google Sign-In.
+
 ### 2026-08-11
 
 Deep Research cards: bumped font sizes across all 8 cards and the AI Assistant chat (body 12px→13px, table cells 10-11px→12px, headers scaled up). Fixed an accordion bug where starting/streaming one card force-collapsed every other open card — each card's expand state is now independent. Card loading panel and chat typing indicator both replaced with looping status-message text (previously a fixed message list that froze, or a plain 3-dot spinner). Trend-shaped tables (revenue-segment mix, 3-year financial trends) now render a small Recharts line chart above the table.
@@ -393,8 +397,4 @@ Debug Log (🐛 diagnostic panel) moved out of its own floating bottom-left butt
 ### 2026-08-10
 
 No new UI/layout decisions — the Notes tab's on-screen design is unchanged, only its storage moved from localStorage to the CSV (see Notes section above and ARCHITECTURE.md's set-notes endpoint).
-
-### 2026-07-14
-
-Removed the "Benchmarking analysis" Refresh row from the Holdings-page Settings popover — benchmarking data already refreshes on its own, the manual button was redundant. Dividends tab: moved the "Updated HH:MM" timestamp off its own standalone line and into the same row as the "Dividend Income" pill label (right-aligned), matching the inline pattern already used elsewhere. Transactions-page top summary bar: shares/avg price now round to at most 1 decimal place (whole numbers show with no decimal).
 
