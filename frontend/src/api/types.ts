@@ -83,6 +83,8 @@ export interface QuickStats {
   week_52_high:         number | null
   week_52_low:          number | null
   current_price:        number | null
+  previous_close:       number | null
+  today_pct:            number | null
   beta:                 number | null
   dividend_yield:       number | null
   target_mean_price:    number | null

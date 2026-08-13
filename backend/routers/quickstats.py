@@ -577,6 +577,7 @@ def _fetch(yf_symbol: str) -> dict:
         "week_52_high":         _clean(info.get("fiftyTwoWeekHigh")),
         "week_52_low":          _clean(info.get("fiftyTwoWeekLow")),
         "current_price":        current,
+        "previous_close":       _clean(info.get("previousClose") or info.get("regularMarketPreviousClose")),
         "beta":                 _clean(info.get("beta")),
         "dividend_yield":       _clean(info.get("dividendYield")),
         "target_mean_price":    target,
@@ -640,6 +641,11 @@ def _fetch(yf_symbol: str) -> dict:
         grw = result.get("earnings_growth")
         if pe and grw and grw > 0:
             result["peg_ratio"] = round(pe / (grw * 100), 2)
+
+    # Today's % change — computed last so it reflects current_price after any
+    # Indian-stock Screener overlay above, not the pre-overlay yfinance value.
+    cp, pc = result.get("current_price"), result.get("previous_close")
+    result["today_pct"] = round((cp - pc) / pc * 100, 2) if cp and pc else None
 
     return result
 

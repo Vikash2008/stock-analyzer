@@ -460,7 +460,10 @@ export default function TransactionsPage({ currency }: Props) {
   }
 
   return (
-    <div className="max-w-xl mx-auto flex flex-col h-[100dvh]">
+    <div
+      className="max-w-xl mx-auto flex flex-col"
+      style={{ height: 'calc(100dvh - var(--reauth-banner-h, 0px))', marginTop: 'var(--reauth-banner-h, 0px)' }}
+    >
       {chartsUpToDate && (
         <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[9999] bg-emerald-600 text-white font-bold text-[12px] px-4 py-2 rounded-full shadow-lg whitespace-nowrap">
           Chart already up to date
@@ -498,24 +501,24 @@ export default function TransactionsPage({ currency }: Props) {
             {settingsOpen && (
               <>
                 <div className="fixed inset-0 z-[998]" onClick={() => setSettingsOpen(false)} />
-                <div className="absolute right-0 top-full mt-1.5 z-[999] w-[300px] max-w-[calc(100vw-24px)] rounded-2xl overflow-hidden shadow-xl">
-                  <div className="flex items-center justify-between px-2.5 py-1.5" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
-                    <p className="text-[11px] font-semibold text-white tracking-tight">Settings</p>
-                    <button onClick={() => setSettingsOpen(false)} className="text-teal-200 active:text-white text-base leading-none">×</button>
+                <div className="absolute right-0 top-full mt-1.5 z-[999] w-[320px] max-w-[calc(100vw-24px)] rounded-2xl overflow-hidden shadow-xl">
+                  <div className="flex items-center justify-between px-4 py-[11px]" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+                    <p className="text-[13.5px] font-extrabold text-white tracking-[-0.2px]">Settings</p>
+                    <button onClick={() => setSettingsOpen(false)} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[13px] leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>✕</button>
                   </div>
-                  <div className="bg-white px-1.5 py-1 flex flex-col gap-1">
-                    <div className="bg-teal-50/60 border border-teal-100 rounded-lg px-2 py-1 flex items-center justify-between gap-2">
-                      <span className="text-[10.5px] font-semibold text-[#0b3b3a]">Add Transaction</span>
+                  <div className="flex flex-col gap-1.5" style={{ background: '#f8fafc', padding: '10px 14px' }}>
+                    <div className="bg-teal-50/60 border border-teal-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2">
+                      <span className="text-[12px] font-bold text-[#0b3b3a]">Add Transaction</span>
                       <button
                         onClick={() => { setSettingsOpen(false); setAddTxnOpen(true) }}
-                        className="w-[60px] text-center text-white text-[10px] font-semibold rounded-full px-2 py-0.5 active:opacity-80"
+                        className="w-[70px] text-center text-white text-[10px] font-semibold rounded-full px-3 py-1 active:opacity-80"
                         style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
                       >
                         Add Txn
                       </button>
                     </div>
-                    <div className="bg-teal-50/60 border border-teal-100 rounded-lg px-2 py-1 flex items-center justify-between gap-2">
-                      <span className="text-[10.5px] font-semibold text-[#0b3b3a]">Charts</span>
+                    <div className="bg-teal-50/60 border border-teal-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2">
+                      <span className="text-[12px] font-bold text-[#0b3b3a]">Charts</span>
                       <div className="flex flex-col items-center gap-0.5 shrink-0">
                         <button
                           onClick={() => {
@@ -529,7 +532,7 @@ export default function TransactionsPage({ currency }: Props) {
                             refetchPortSeries()
                             qc.invalidateQueries({ queryKey: ['history', yf] })
                           }}
-                          className="w-[60px] text-center text-white text-[10px] font-semibold rounded-full px-2 py-0.5 active:opacity-80"
+                          className="w-[70px] text-center text-white text-[10px] font-semibold rounded-full px-3 py-1 active:opacity-80"
                           style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
                         >
                           {syncing ? 'Syncing…' : 'Refresh'}
@@ -539,8 +542,8 @@ export default function TransactionsPage({ currency }: Props) {
                         )}
                       </div>
                     </div>
-                    <div className="bg-teal-50/60 border border-teal-100 rounded-lg px-2 py-1 flex items-center justify-between gap-2">
-                      <span className="text-[10.5px] font-semibold text-[#0b3b3a] shrink-0">AI Model</span>
+                    <div className="bg-teal-50/60 border border-teal-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2">
+                      <span className="text-[12px] font-bold text-[#0b3b3a] shrink-0">AI Model</span>
                       <div className="flex bg-white rounded-full p-0.5 gap-0.5 border border-teal-100">
                         {([
                           { label: '2.5 Flash', lite: false, is31: false },
@@ -558,8 +561,8 @@ export default function TransactionsPage({ currency }: Props) {
                         })}
                       </div>
                     </div>
-                    <div className="bg-teal-50/60 border border-teal-100 rounded-lg px-2 py-1 flex items-center justify-between gap-2">
-                      <span className="text-[10.5px] font-semibold text-[#0b3b3a] shrink-0">API Key</span>
+                    <div className="bg-teal-50/60 border border-teal-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2">
+                      <span className="text-[12px] font-bold text-[#0b3b3a] shrink-0">API Key</span>
                       <div className="flex bg-white rounded-full p-0.5 gap-0.5 border border-teal-100">
                         {([0, 1, 2] as const).map(i => (
                           <button

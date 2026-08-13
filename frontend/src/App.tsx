@@ -53,8 +53,28 @@ function LoadingScreen({ message = 'Loading your portfolio…' }: { message?: st
 function ReauthBanner() {
   const [open, setOpen] = useState(false)
   const [error, setError] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+
+  // Publish the banner's real (collapsed or expanded) height as a CSS variable so
+  // the fixed-height pages below (ResearchPage/TransactionsPage/HoldingsPage, which
+  // all size their root to exactly 100dvh) can reserve space for it instead of
+  // having it silently overlap their top nav row. PortfoliosPage isn't height-locked
+  // like those — it just flows naturally — so it doesn't need this.
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const update = () => document.documentElement.style.setProperty('--reauth-banner-h', `${el.offsetHeight}px`)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => {
+      ro.disconnect()
+      document.documentElement.style.removeProperty('--reauth-banner-h')
+    }
+  }, [open])
+
   return (
-    <div className="fixed top-0 left-0 right-0 z-[9998] bg-amber-50 border-b border-amber-200">
+    <div ref={ref} className="fixed top-0 left-0 right-0 z-[9998] bg-amber-50 border-b border-amber-200">
       <div className="flex items-center justify-center gap-3 px-4 py-2 text-center">
         <span className="text-[12px] text-amber-800">
           Sign in to analyse your portfolio

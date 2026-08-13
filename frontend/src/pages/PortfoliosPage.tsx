@@ -1597,7 +1597,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
             <div className="absolute top-[-30px] right-[-20px] w-[120px] h-[120px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(45,212,191,0.25), transparent 70%)' }} />
             <div className="relative">
               <p className="text-[15px] font-extrabold text-white tracking-[-0.2px]">Explore</p>
-              <p className="text-[10.5px] mt-0.5" style={{ color: '#99e6dc' }}>Search any stock or fund to research</p>
+              <p className="text-[10.5px] mt-0.5" style={{ color: '#99e6dc' }}>Search any holding to research</p>
             </div>
             <button onClick={() => setSheetOpen(false)} className="relative w-[26px] h-[26px] rounded-full flex items-center justify-center text-white text-[13px] leading-none shrink-0" style={{ background: 'rgba(255,255,255,0.12)' }}>✕</button>
           </div>
@@ -1675,7 +1675,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                 </p>
                 {watchlistItems.length === 0 ? (
                   <p className="text-[12px] text-slate-400 text-center py-8 px-4">
-                    Nothing starred yet — tap ☆ on any stock's Research page to add it here.
+                    No holding in watchlist yet
                   </p>
                 ) : (
                   <div className="flex flex-col gap-1.5">

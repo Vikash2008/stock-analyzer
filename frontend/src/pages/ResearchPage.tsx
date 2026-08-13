@@ -3,9 +3,11 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useQuickStats } from '../hooks/useQuickStats'
 import { useIsWatchlisted, useAddToWatchlist, useRemoveFromWatchlist } from '../hooks/useWatchlist'
+import { usePortfolio } from '../hooks/usePortfolio'
 import { ReportTab } from '../components/ReportTab'
 import { AnalysisTab } from '../components/AnalysisTab'
 import { PriceChart } from '../components/PriceChart'
+import { AddTransactionModal } from '../components/AddTransactionModal'
 
 type ActiveTab    = 'report' | 'charts' | 'notes'
 type ReportSubTab = 'quickstats' | 'deep' | 'links'
@@ -25,11 +27,14 @@ export default function ResearchPage() {
   const [reportUseLite,  setReportUseLite]  = useState(false)
   const [reportUse31,    setReportUse31]    = useState(false)
   const [reportUseKey,   setReportUseKey]   = useState<0 | 1 | 2>(() => { const v = localStorage.getItem('gemini:key_index'); return (v === '1' ? 1 : v === '2' ? 2 : 0) })
-  const [reportGearOpen, setReportGearOpen] = useState(false)
   const [reportSyncing,  setReportSyncing]  = useState(false)
   const [chartSyncing,   setChartSyncing]   = useState(false)
   const [deepFullScreen, setDeepFullScreen] = useState(false)
+  const [settingsOpen,   setSettingsOpen]   = useState(false)
+  const [addTxnOpen,     setAddTxnOpen]     = useState(false)
   const chatOpenerRef = useRef<{ open: (contextId?: string) => void } | null>(null)
+
+  const { data: portfolioData } = usePortfolio()
 
   // Full-screen reading only makes sense while actually looking at Deep Research —
   // drop it automatically if the user navigates away so they don't get stranded with
@@ -49,6 +54,9 @@ export default function ResearchPage() {
     ? `₹${v.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
     : `$${v.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
 
+  const cleanSymbol = yf_symbol.replace(/\.(NS|BO)$/i, '')
+  const exchange    = yf_symbol.endsWith('.BO') ? 'BSE' : yf_symbol.endsWith('.NS') ? 'NSE' : 'US'
+
   const isWatchlisted   = useIsWatchlisted(yf_symbol)
   const addWatchlist    = useAddToWatchlist()
   const removeWatchlist = useRemoveFromWatchlist()
@@ -56,8 +64,6 @@ export default function ResearchPage() {
     if (isWatchlisted) {
       removeWatchlist.mutate(yf_symbol)
     } else {
-      const cleanSymbol = yf_symbol.replace(/\.(NS|BO)$/i, '')
-      const exchange = yf_symbol.endsWith('.BO') ? 'BSE' : yf_symbol.endsWith('.NS') ? 'NSE' : 'US'
       addWatchlist.mutate({
         yf_symbol,
         symbol: cleanSymbol,
@@ -69,42 +75,136 @@ export default function ResearchPage() {
   }
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-white max-w-xl mx-auto">
+    <div
+      className="flex flex-col bg-white max-w-xl mx-auto"
+      style={{ height: 'calc(100dvh - var(--reauth-banner-h, 0px))', marginTop: 'var(--reauth-banner-h, 0px)' }}
+    >
 
       {/* ── Sticky header ─────────────────────────────────── */}
       <div className="shrink-0 px-4 pt-4 bg-white">
 
         {!deepFullScreen && (
         <>
-        {/* Back */}
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-1 text-[11px] text-[#2563eb] mb-3 active:text-blue-800"
-        >
-          ← Home
-        </button>
-
-        {/* Overview card */}
+        {/* Nav row — Back, Watchlist star, Settings — fused with the Overview card below into one block */}
         <div
-          className="rounded-xl border bg-slate-50 px-4 py-3 mb-3 shadow-sm"
-          style={{ borderColor: '#e0e7ff', borderLeftWidth: 4, borderLeftColor: '#6366f1' }}
+          className="flex items-center justify-between px-1 min-h-[38px] border-4 rounded-t-[14px]"
+          style={{ borderColor: '#6366f1', background: '#eef2ff' }}
         >
-          {/* Name row + star + sector */}
-          <div className="flex items-start justify-between mb-1.5">
-            <div className="min-w-0 flex-1 flex items-center gap-1.5">
-              <p className="text-[13px] font-bold text-slate-800 leading-tight truncate">{locName ?? qs?.company_name ?? yf_symbol}</p>
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-1 text-[11px] text-[#2563eb] active:text-blue-800 px-2"
+          >
+            ← Home
+          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={toggleWatchlist}
+              aria-label={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
+              className="w-[30px] h-[30px] flex items-center justify-center rounded-full active:bg-violet-50"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill={isWatchlisted ? '#f59e0b' : 'none'} stroke={isWatchlisted ? '#f59e0b' : '#94a3b8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            </button>
+            <div className="relative">
               <button
-                onClick={toggleWatchlist}
-                aria-label={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
-                className="shrink-0 p-1.5 -m-1.5 active:opacity-60"
+                onClick={() => setSettingsOpen(o => !o)}
+                aria-label="Settings"
+                className={`w-[30px] h-[30px] flex items-center justify-center rounded-full transition-colors text-[#4c1d95] ${settingsOpen ? 'bg-violet-50' : 'active:bg-violet-50'}`}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill={isWatchlisted ? '#f59e0b' : 'none'} stroke={isWatchlisted ? '#f59e0b' : '#94a3b8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                  <path fillRule="evenodd" d="M11.078 2.25c-.917 0-1.699.663-1.85 1.567L9.05 4.889c-.02.12-.115.26-.297.348a7.493 7.493 0 0 0-.986.57c-.166.115-.334.126-.45.083L6.3 5.508a1.875 1.875 0 0 0-2.282.819l-.922 1.597a1.875 1.875 0 0 0 .432 2.385l.84.692c.095.078.17.229.154.43a7.598 7.598 0 0 0 0 1.139c.015.2-.059.352-.153.43l-.841.692a1.875 1.875 0 0 0-.432 2.385l.922 1.597a1.875 1.875 0 0 0 2.282.818l1.019-.382c.115-.043.283-.031.45.082.312.214.641.405.985.57.182.088.277.228.297.35l.178 1.071c.151.904.933 1.567 1.85 1.567h1.844c.916 0 1.699-.663 1.85-1.567l.178-1.072c.02-.12.114-.26.297-.349.344-.165.673-.356.985-.57.167-.114.335-.125.45-.082l1.02.382a1.875 1.875 0 0 0 2.28-.819l.923-1.597a1.875 1.875 0 0 0-.432-2.385l-.84-.692c-.095-.078-.17-.229-.154-.43a7.614 7.614 0 0 0 0-1.139c-.016-.2.059-.352.153-.43l.84-.692c.708-.582.891-1.59.433-2.385l-.922-1.597a1.875 1.875 0 0 0-2.282-.818l-1.02.382c-.114.043-.282.031-.449-.083a7.49 7.49 0 0 0-.985-.57c-.183-.087-.277-.227-.297-.348l-.179-1.072a1.875 1.875 0 0 0-1.85-1.567h-1.843ZM12 15.75a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Z" clipRule="evenodd" />
                 </svg>
               </button>
+              {settingsOpen && (
+                <>
+                  <div className="fixed inset-0 z-[998]" onClick={() => setSettingsOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1.5 z-[999] w-[320px] max-w-[calc(100vw-24px)] rounded-2xl overflow-hidden shadow-xl">
+                    <div className="flex items-center justify-between px-4 py-[11px]" style={{ background: 'linear-gradient(135deg, #4c1d95 0%, #7c3aed 100%)' }}>
+                      <p className="text-[13.5px] font-extrabold text-white tracking-[-0.2px]">Settings</p>
+                      <button onClick={() => setSettingsOpen(false)} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[13px] leading-none" style={{ background: 'rgba(255,255,255,0.15)' }}>✕</button>
+                    </div>
+                    <div className="flex flex-col gap-1.5" style={{ background: '#f8fafc', padding: '10px 14px' }}>
+                      <div className="bg-violet-50/60 border border-violet-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2">
+                        <span className="text-[12px] font-bold text-[#4c1d95]">Add Transaction</span>
+                        <button
+                          onClick={() => { setSettingsOpen(false); setAddTxnOpen(true) }}
+                          className="w-[70px] text-center text-white text-[10px] font-semibold rounded-full px-3 py-1 active:opacity-80"
+                          style={{ background: 'linear-gradient(135deg, #4c1d95 0%, #7c3aed 100%)' }}
+                        >
+                          Add Txn
+                        </button>
+                      </div>
+                      <div className="bg-violet-50/60 border border-violet-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2">
+                        <span className="text-[12px] font-bold text-[#4c1d95]">Charts</span>
+                        <button
+                          onClick={() => {
+                            if (chartSyncing) return
+                            setChartSyncing(true)
+                            qc.invalidateQueries({ queryKey: ['history', yf_symbol] })
+                            setTimeout(() => setChartSyncing(false), 1500)
+                          }}
+                          className="w-[70px] text-center text-white text-[10px] font-semibold rounded-full px-3 py-1 active:opacity-80"
+                          style={{ background: 'linear-gradient(135deg, #4c1d95 0%, #7c3aed 100%)' }}
+                        >
+                          {chartSyncing ? 'Syncing…' : 'Refresh'}
+                        </button>
+                      </div>
+                      <div className="bg-violet-50/60 border border-violet-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2">
+                        <span className="text-[12px] font-bold text-[#4c1d95] shrink-0">AI Model</span>
+                        <div className="flex bg-white rounded-full p-0.5 gap-0.5 border border-violet-100">
+                          {([
+                            { label: '2.5 Flash', lite: false, is31: false },
+                            { label: '2.5 Lite',  lite: true,  is31: false },
+                            { label: '3.1 Lite',  lite: false, is31: true  },
+                          ] as const).map(opt => {
+                            const active = opt.is31 ? reportUse31 : (!reportUse31 && reportUseLite === opt.lite)
+                            return (
+                              <button key={opt.label}
+                                onClick={() => { setReportUse31(opt.is31); setReportUseLite(opt.lite) }}
+                                className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium transition-colors whitespace-nowrap ${active ? 'text-white shadow-sm' : 'text-slate-400'}`}
+                                style={active ? { background: 'linear-gradient(135deg, #4c1d95 0%, #7c3aed 100%)' } : undefined}
+                              >{opt.label}</button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                      <div className="bg-violet-50/60 border border-violet-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2">
+                        <span className="text-[12px] font-bold text-[#4c1d95] shrink-0">API Key</span>
+                        <div className="flex bg-white rounded-full p-0.5 gap-0.5 border border-violet-100">
+                          {([0, 1, 2] as const).map(i => (
+                            <button
+                              key={i}
+                              onClick={() => { setReportUseKey(i); localStorage.setItem('gemini:key_index', String(i)) }}
+                              className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium transition-colors whitespace-nowrap ${reportUseKey === i ? 'text-white shadow-sm' : 'text-slate-400 active:bg-violet-50'}`}
+                              style={reportUseKey === i ? { background: 'linear-gradient(135deg, #4c1d95 0%, #7c3aed 100%)' } : undefined}
+                            >Key {i + 1}</button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
-            {qs && (qs.sector ?? qs.industry) && (
-              <p className="text-[10px] text-slate-500 truncate max-w-[110px] ml-3 shrink-0 text-right">{qs.sector ?? qs.industry}</p>
+          </div>
+        </div>
+
+        {/* Overview card — sits flush under the Nav row above, sharing its border/width so the two read as one component */}
+        <div
+          className="rounded-b-[14px] border-4 border-t-0 bg-slate-50 px-4 py-3 mb-3 shadow-sm"
+          style={{ borderColor: '#6366f1' }}
+        >
+          {/* Name row + today's % change */}
+          <div className="flex items-start justify-between mb-1.5">
+            <p className="min-w-0 flex-1 text-[13px] font-bold text-slate-800 leading-tight truncate">{locName ?? qs?.company_name ?? yf_symbol}</p>
+            {qs && qs.today_pct != null && (
+              <p
+                className="text-[11px] font-semibold ml-3 shrink-0 text-right whitespace-nowrap"
+                style={{ color: qs.today_pct >= 0 ? '#0a7a42' : '#be1c1c' }}
+              >
+                Day change: {qs.today_pct >= 0 ? '+' : ''}{qs.today_pct.toFixed(1)}%
+              </p>
             )}
           </div>
 
@@ -224,54 +324,6 @@ export default function ResearchPage() {
                   </svg>
                   <span>AI Assistant</span>
                 </button>
-                <div className="relative">
-                  <button
-                    onClick={() => setReportGearOpen(o => !o)}
-                    className="p-1 text-violet-400 active:text-violet-600"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="3"/>
-                      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
-                    </svg>
-                  </button>
-                  {reportGearOpen && (
-                    <>
-                      <div className="fixed inset-0 z-[9]" onClick={() => setReportGearOpen(false)} />
-                      <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-10 px-3 py-2.5 flex flex-col gap-2.5 whitespace-nowrap">
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="text-[11px] text-slate-500">Model</span>
-                          <div className="flex bg-slate-100 rounded-full p-0.5 gap-0.5">
-                            {([
-                              { label: '2.5 Flash', lite: false, is31: false },
-                              { label: '2.5 Lite',  lite: true,  is31: false },
-                              { label: '3.1 Lite',  lite: false, is31: true  },
-                            ] as const).map(opt => {
-                              const active = opt.is31 ? reportUse31 : (!reportUse31 && reportUseLite === opt.lite)
-                              return (
-                                <button key={opt.label}
-                                  onClick={() => { setReportUse31(opt.is31); setReportUseLite(opt.lite) }}
-                                  className={`text-[12px] px-2.5 py-1 rounded-full font-medium transition-colors ${active ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-400'}`}
-                                >{opt.label}</button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <span className="text-[11px] text-slate-500">API Key</span>
-                          <div className="flex bg-slate-100 rounded-full p-0.5">
-                            {([0, 1, 2] as const).map(i => (
-                              <button
-                                key={i}
-                                onClick={() => { setReportUseKey(i); localStorage.setItem('gemini:key_index', String(i)) }}
-                                className={`flex-1 text-[10px] px-3 py-1 rounded-full font-medium transition-all duration-150 ${reportUseKey === i ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 active:bg-white/60'}`}
-                              >Key {i + 1}</button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
               </div>
             ) : (
               <button
@@ -393,6 +445,20 @@ export default function ResearchPage() {
           <AnalysisTab portfolio="research" symbol={yf_symbol} />
         )}
       </div>
+
+      {portfolioData && (
+        <AddTransactionModal
+          open={addTxnOpen}
+          onClose={() => setAddTxnOpen(false)}
+          data={portfolioData}
+          preFilledSymbol={yf_symbol}
+          preFilledSymbolName={qs?.company_name ?? locName ?? undefined}
+          preFilledExchange={exchange}
+          preFilledCurrency={isIndian ? 'INR' : 'USD'}
+          preFilledPrice={cur ?? undefined}
+          lockSymbol
+        />
+      )}
     </div>
   )
 }

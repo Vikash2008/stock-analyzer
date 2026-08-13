@@ -1320,7 +1320,10 @@ export default function HoldingsPage({ currency }: Props) {
   }
 
   return (
-    <div className="max-w-xl mx-auto flex flex-col h-[100dvh]">
+    <div
+      className="max-w-xl mx-auto flex flex-col"
+      style={{ height: 'calc(100dvh - var(--reauth-banner-h, 0px))', marginTop: 'var(--reauth-banner-h, 0px)' }}
+    >
       {chartsUpToDate && (
         <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[9999] bg-emerald-600 text-white font-bold text-[12px] px-4 py-2 rounded-full shadow-lg whitespace-nowrap">
           Charts already up to date
