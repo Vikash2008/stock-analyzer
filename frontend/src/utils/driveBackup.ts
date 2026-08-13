@@ -49,15 +49,28 @@ function getDriveAccessToken(): Promise<string> {
   })
 }
 
-async function findBackupFileId(token: string, filename: string = BACKUP_FILENAME): Promise<string | null> {
+async function findBackupFile(token: string, filename: string): Promise<{ id: string; modifiedTime: string } | null> {
   const q = encodeURIComponent(`name='${filename}' and trashed=false`)
   const res = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id)`,
+    `https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,modifiedTime)`,
     { headers: { Authorization: `Bearer ${token}` } },
   )
   if (!res.ok) throw new Error(`Drive lookup failed (${res.status})`)
-  const data = await res.json() as { files: { id: string }[] }
-  return data.files[0]?.id ?? null
+  const data = await res.json() as { files: { id: string; modifiedTime: string }[] }
+  return data.files[0] ?? null
+}
+
+async function findBackupFileId(token: string, filename: string = BACKUP_FILENAME): Promise<string | null> {
+  const file = await findBackupFile(token, filename)
+  return file?.id ?? null
+}
+
+// Looks up the current Drive backup's last-modified time without downloading
+// its content — used to show "what would I be restoring?" before committing.
+export async function getDriveBackupInfo(): Promise<{ modifiedTime: string } | null> {
+  const token = await getDriveAccessToken()
+  const file = (await findBackupFile(token, BACKUP_FILENAME)) ?? (await findBackupFile(token, LEGACY_BACKUP_FILENAME))
+  return file ? { modifiedTime: file.modifiedTime } : null
 }
 
 export async function backupToDrive(csvContent: string): Promise<void> {

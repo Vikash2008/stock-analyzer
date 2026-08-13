@@ -24,7 +24,7 @@ import { logDebug } from '../utils/debugLog'
 import { idbDelete, idbKeys } from '../utils/idbStore'
 import { isSignedIn, getUserEmail, getAuthToken, clearSession } from '../utils/auth'
 import GoogleSignInButton from '../components/GoogleSignInButton'
-import { backupToDrive, restoreFromDrive } from '../utils/driveBackup'
+import { backupToDrive, restoreFromDrive, getDriveBackupInfo } from '../utils/driveBackup'
 import {
   useAdminUsers,
   useAddAdminUser,
@@ -366,6 +366,9 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const [lastBackupAt, setLastBackupAt]     = useState<number | null>(
     () => { const v = localStorage.getItem('portfolio:drive:lastBackup'); return v ? Number(v) : null }
   )
+  const [restoreCheck, setRestoreCheck]     = useState<{ modifiedTime: string } | null>(null)
+  const [restoreMsg, setRestoreMsg]         = useState('')
+  const [restoreBusy, setRestoreBusy]       = useState(false)
   const { users: adminUsers, isAdmin } = useAdminUsers()
   const addAdminUser    = useAddAdminUser()
   const revokeAdminUser = useRevokeAdminUser()
@@ -583,17 +586,40 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     }
   }, [])
 
-  const handleDriveRestore = useCallback(async () => {
-    setDriveStatus('Checking Drive…')
-    try {
-      const text = await restoreFromDrive()
-      if (!text) { setDriveStatus('No Drive backup found yet'); return }
-      setDriveStatus('Restoring…')
-      handleImport(new File([text], 'drive-backup.csv', { type: 'text/csv' }))
-    } catch (e) {
-      setDriveStatus(e instanceof Error ? e.message : 'Restore failed')
+  // Two-step: first click checks Drive and shows what's there (without touching
+  // local data); second click actually restores it. Avoids silently overwriting
+  // a device's real portfolio with a stale/wrong backup on a single tap.
+  const handleRestoreClick = useCallback(async () => {
+    if (restoreCheck) {
+      setRestoreBusy(true)
+      setRestoreMsg('Restoring…')
+      try {
+        const text = await restoreFromDrive()
+        if (!text) { setRestoreMsg('No Drive backup found yet'); setRestoreCheck(null); return }
+        handleImport(new File([text], 'drive-backup.csv', { type: 'text/csv' }))
+        setRestoreMsg('')
+      } catch (e) {
+        setRestoreMsg(e instanceof Error ? e.message : 'Restore failed')
+      } finally {
+        setRestoreBusy(false)
+        setRestoreCheck(null)
+      }
+      return
     }
-  }, [handleImport])
+
+    setRestoreBusy(true)
+    setRestoreMsg('Checking Drive…')
+    try {
+      const info = await getDriveBackupInfo()
+      if (!info) { setRestoreMsg('No Drive backup found yet'); return }
+      setRestoreCheck(info)
+      setRestoreMsg('')
+    } catch (e) {
+      setRestoreMsg(e instanceof Error ? e.message : 'Check failed')
+    } finally {
+      setRestoreBusy(false)
+    }
+  }, [restoreCheck, handleImport])
 
   // Explore New Holdings
   const API_URL = (import.meta.env.VITE_API_URL ?? '') as string
@@ -1129,8 +1155,6 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                           <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Backup to Drive</p>
                           <p className="text-[10px] text-slate-400 leading-tight mt-0.5">
                             {driveStatus || (lastBackupAt ? `Last backup: ${fmtImportDate(lastBackupAt)}` : 'Not backed up yet')}
-                            {' · '}
-                            <button onClick={handleDriveRestore} className="underline font-semibold text-[#0b3b3a]">Restore</button>
                           </p>
                         </div>
                         <button
@@ -1143,6 +1167,33 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                             <path d="M7 17a4.5 4.5 0 01-.4-8.98A5.5 5.5 0 0117.5 9.5 3.5 3.5 0 0117 16.5"/>
                             <polyline points="8 13 12 9 16 13"/>
                             <line x1="12" y1="9" x2="12" y2="18"/>
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Restore from Drive — two-step: check, then confirm */}
+                    {authEmail && (
+                      <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
+                        <div className="min-w-0">
+                          <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Restore from Drive</p>
+                          <p className="text-[10px] text-slate-400 leading-tight mt-0.5">
+                            {restoreMsg || (restoreCheck
+                              ? `Backup from ${fmtImportDate(new Date(restoreCheck.modifiedTime).getTime())} — tap to restore`
+                              : 'Tap to check for a backup')}
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleRestoreClick}
+                          disabled={restoreBusy}
+                          title={restoreCheck ? 'Restore this backup' : 'Check Drive for a backup'}
+                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] disabled:opacity-40 text-white"
+                          style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M7 17a4.5 4.5 0 01-.4-8.98A5.5 5.5 0 0117.5 9.5 3.5 3.5 0 0117 16.5"/>
+                            <polyline points="8 11 12 15 16 11"/>
+                            <line x1="12" y1="15" x2="12" y2="6"/>
                           </svg>
                         </button>
                       </div>
