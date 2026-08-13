@@ -372,6 +372,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const restoreAdminUser = useRestoreAdminUser()
   const deleteAdminUser  = useDeleteAdminUser()
   const [newUserEmail, setNewUserEmail] = useState('')
+  const [manageUsersOpen, setManageUsersOpen] = useState(false)
 
   const handleImport = useCallback((file: File) => {
     if (!isSignedIn()) {
@@ -1315,73 +1316,36 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                       </>
                     )}
 
-                    {/* Admin — only rendered once the /admin/users fetch actually succeeds */}
+                    {/* ── Admin panel (only rendered once the /admin/users fetch actually succeeds) ── */}
                     {isAdmin && (
-                      <div className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-[7px] flex flex-col gap-1.5">
-                        <p className="text-[12px] font-bold text-slate-700 leading-tight">Admin — Users</p>
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            value={newUserEmail}
-                            onChange={(e) => setNewUserEmail(e.target.value)}
-                            placeholder="email@gmail.com"
-                            className="flex-1 min-w-0 text-[11px] px-2 py-1 rounded-md border border-slate-200"
-                          />
+                      <>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest px-0.5 pt-1" style={{ color: '#0b3b3a' }}>Admin panel</p>
+
+                        {/* Manage Users */}
+                        <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
+                          <div className="min-w-0">
+                            <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Manage Users</p>
+                            <p className="text-[10px] text-slate-400 leading-tight mt-0.5">{adminUsers.length} user{adminUsers.length === 1 ? '' : 's'}</p>
+                          </div>
                           <button
-                            onClick={() => {
-                              const email = newUserEmail.trim().toLowerCase()
-                              if (email) { addAdminUser.mutate(email); setNewUserEmail('') }
-                            }}
-                            className="shrink-0 text-[11px] font-semibold text-white rounded-full px-2.5 py-1"
-                            style={{ background: '#0d9488' }}
+                            onClick={() => { setSettingsOpen(false); setManageUsersOpen(true) }}
+                            title="Manage Users"
+                            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] text-white"
+                            style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
                           >
-                            Add
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                              <circle cx="9" cy="7" r="4"/>
+                              <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+                              <path d="M16 3.13a4 4 0 010 7.75"/>
+                            </svg>
                           </button>
                         </div>
-                        <div className="flex flex-col gap-1 max-h-[180px] overflow-y-auto">
-                          {adminUsers.length === 0 && (
-                            <p className="text-[10px] text-slate-400 px-0.5">No users yet</p>
-                          )}
-                          {adminUsers.map((u) => (
-                            <div
-                              key={u.email}
-                              className="flex items-center gap-1.5 text-[11px] bg-white border border-slate-100 rounded-md px-2 py-1"
-                            >
-                              <span className="truncate flex-1 min-w-0 text-slate-700">{u.email}</span>
-                              <span
-                                className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
-                                style={
-                                  u.revoked
-                                    ? { background: '#fef2f2', color: '#ef4444' }
-                                    : u.google_sub
-                                      ? { background: '#ecfdf5', color: '#10b981' }
-                                      : { background: '#fffbeb', color: '#d97706' }
-                                }
-                              >
-                                {u.revoked ? 'Revoked' : u.google_sub ? 'Active' : 'Pending'}
-                              </span>
-                              <button
-                                onClick={() =>
-                                  u.revoked ? restoreAdminUser.mutate(u.email) : revokeAdminUser.mutate(u.email)
-                                }
-                                className="shrink-0 text-[10px] font-semibold text-slate-500 underline whitespace-nowrap"
-                              >
-                                {u.revoked ? 'Restore' : 'Revoke'}
-                              </button>
-                              <button
-                                onClick={() => { if (window.confirm(`Remove ${u.email}?`)) deleteAdminUser.mutate(u.email) }}
-                                title="Remove"
-                                className="shrink-0 text-[13px] leading-none text-slate-400"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ))}
-                        </div>
 
-                        {/* Debug Log — moved here, admin-only */}
-                        <div className="pt-1.5 mt-0.5 border-t border-slate-200 flex items-center justify-between gap-2.5">
+                        {/* Debug Log */}
+                        <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
                           <div className="min-w-0">
-                            <p className="text-[11px] font-semibold text-slate-700 leading-tight">Debug Log</p>
+                            <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Debug Log</p>
                             <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Diagnostic panel for CSV/storage issues</p>
                           </div>
                           <button
@@ -1393,7 +1357,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                             🐛
                           </button>
                         </div>
-                      </div>
+                      </>
                     )}
 
                     {/* Footer */}
@@ -1689,6 +1653,79 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                   onError={setSignInError}
                 />
                 {signInError && <p className="text-[11px] text-red-500">{signInError}</p>}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Manage Users — centered modal */}
+      {manageUsersOpen && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-[1200]" onClick={() => setManageUsersOpen(false)} />
+          <div className="fixed inset-x-3 z-[1201] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-emerald-100" style={{ top: '8dvh', maxHeight: '84dvh', maxWidth: 320, margin: '0 auto' }}>
+            <div className="px-3.5 py-2 flex items-center justify-between shrink-0" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+              <span className="text-[14px] font-extrabold text-white tracking-[-0.2px]">Manage Users</span>
+              <button onClick={() => setManageUsersOpen(false)} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[13px] leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto flex flex-col gap-2 px-3 py-2.5" style={{ background: '#f8fafc' }}>
+              <div className="flex items-center gap-1.5">
+                <input
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                  placeholder="email@gmail.com"
+                  className="flex-1 min-w-0 text-[12px] px-2.5 py-1.5 rounded-md border border-slate-200"
+                />
+                <button
+                  onClick={() => {
+                    const email = newUserEmail.trim().toLowerCase()
+                    if (email) { addAdminUser.mutate(email); setNewUserEmail('') }
+                  }}
+                  className="shrink-0 text-[12px] font-semibold text-white rounded-full px-3 py-1.5"
+                  style={{ background: '#0d9488' }}
+                >
+                  Add
+                </button>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {adminUsers.length === 0 && (
+                  <p className="text-[11px] text-slate-400 px-0.5">No users yet</p>
+                )}
+                {adminUsers.map((u) => (
+                  <div
+                    key={u.email}
+                    className="flex items-center gap-1.5 text-[11px] bg-white border border-slate-100 rounded-md px-2 py-1.5"
+                  >
+                    <span className="truncate flex-1 min-w-0 text-slate-700">{u.email}</span>
+                    <span
+                      className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                      style={
+                        u.revoked
+                          ? { background: '#fef2f2', color: '#ef4444' }
+                          : u.google_sub
+                            ? { background: '#ecfdf5', color: '#10b981' }
+                            : { background: '#fffbeb', color: '#d97706' }
+                      }
+                    >
+                      {u.revoked ? 'Revoked' : u.google_sub ? 'Active' : 'Pending'}
+                    </span>
+                    <button
+                      onClick={() =>
+                        u.revoked ? restoreAdminUser.mutate(u.email) : revokeAdminUser.mutate(u.email)
+                      }
+                      className="shrink-0 text-[10px] font-semibold text-slate-500 underline whitespace-nowrap"
+                    >
+                      {u.revoked ? 'Restore' : 'Revoke'}
+                    </button>
+                    <button
+                      onClick={() => { if (window.confirm(`Remove ${u.email}?`)) deleteAdminUser.mutate(u.email) }}
+                      title="Remove"
+                      className="shrink-0 text-[13px] leading-none text-slate-400"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

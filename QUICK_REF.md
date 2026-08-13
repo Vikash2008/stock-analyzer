@@ -6,7 +6,7 @@
 
 | Service | URL |
 |---|---|
-| Frontend (Vercel) | https://stock-analyzer-blush.vercel.app |
+| Frontend (Vercel) | https://nexusconfig.vercel.app (was https://stock-analyzer-blush.vercel.app, retired 2026-08-13) |
 | Backend (Oracle VM) | https://stock-analyser-allinone.duckdns.org (Render suspended, was https://stock-analyzer-2nqw.onrender.com) |
 | GitHub | https://github.com/Vikash2008/stock-analyzer (master branch) |
 

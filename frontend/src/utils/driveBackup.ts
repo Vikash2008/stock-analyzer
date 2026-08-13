@@ -12,7 +12,10 @@
 // Drive's own built-in revision history serve as the rollback mechanism if a
 // bad backup ever overwrites a good one (visible/restorable from Drive itself).
 
-const BACKUP_FILENAME = 'stock-analyzer-portfolio-backup.csv'
+const BACKUP_FILENAME = 'nexus-portfolio-backup.csv'
+// Old name from before the Nexus rebrand — restoreFromDrive() falls back to this
+// so backups made before the rename are still found instead of appearing lost.
+const LEGACY_BACKUP_FILENAME = 'stock-analyzer-portfolio-backup.csv'
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file'
 
 let _cachedToken: string | undefined
@@ -46,8 +49,8 @@ function getDriveAccessToken(): Promise<string> {
   })
 }
 
-async function findBackupFileId(token: string): Promise<string | null> {
-  const q = encodeURIComponent(`name='${BACKUP_FILENAME}' and trashed=false`)
+async function findBackupFileId(token: string, filename: string = BACKUP_FILENAME): Promise<string | null> {
+  const q = encodeURIComponent(`name='${filename}' and trashed=false`)
   const res = await fetch(
     `https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id)`,
     { headers: { Authorization: `Bearer ${token}` } },
@@ -87,7 +90,7 @@ export async function backupToDrive(csvContent: string): Promise<void> {
 // Returns the backed-up CSV text, or null if no backup exists yet.
 export async function restoreFromDrive(): Promise<string | null> {
   const token = await getDriveAccessToken()
-  const fileId = await findBackupFileId(token)
+  const fileId = (await findBackupFileId(token)) ?? (await findBackupFileId(token, LEGACY_BACKUP_FILENAME))
   if (!fileId) return null
 
   const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {

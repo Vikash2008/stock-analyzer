@@ -69,7 +69,7 @@ User provides: **Type** (UI fix / Backend fix / New feature / Debug) · **Proble
 
 Multi-portfolio stock analyzer — Indian/US stocks. Full details in `QUICK_REF.md`.
 
-Frontend: React 18 + Vite + TS + Tailwind · https://stock-analyzer-blush.vercel.app  
+Frontend: React 18 + Vite + TS + Tailwind · https://nexusconfig.vercel.app  
 Backend: FastAPI + uvicorn on Oracle Cloud Always Free VM (144.24.115.41) · https://stock-analyser-allinone.duckdns.org  
 GitHub: https://github.com/Vikash2008/stock-analyzer (`master` → Vercel auto-deploy + GitHub Actions SSH-deploy to Oracle VM on backend/src changes)  
 No cold start: Oracle VM runs the backend continuously (systemd, always-on). Render (previous host, now suspended) had 60–90s cold starts on its free tier.

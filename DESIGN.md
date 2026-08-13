@@ -9,7 +9,7 @@
 
 | Env | URL |
 |-----|-----|
-| Production | https://stock-analyzer-blush.vercel.app |
+| Production | https://nexusconfig.vercel.app |
 | Backend API | https://stock-analyzer-2nqw.onrender.com |
 
 ---

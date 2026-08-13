@@ -38,7 +38,6 @@ from backend.price_refresh             import price_refresh_loop
 _ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5173",
-    "https://stock-analyzer-blush.vercel.app",
     "https://nexusconfig.vercel.app",
 ]
 _prod = os.environ.get("ALLOWED_ORIGIN", "").strip()
