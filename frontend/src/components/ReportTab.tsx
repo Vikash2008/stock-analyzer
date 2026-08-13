@@ -577,7 +577,13 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
           if (isUnavailable && isOpen) {
             setShowUnavailable(prev => ({ ...prev, [section.id]: false }))
           }
-          setExpandedSections(prev => ({ ...prev, [section.id]: !isOpen }))
+          // Opening a card collapses every other one (accordion) — closing just closes this one.
+          setExpandedSections(prev => isOpen ? { ...prev, [section.id]: false } : { [section.id]: true })
+        }
+
+        const collapseCard = () => {
+          if (isUnavailable) setShowUnavailable(prev => ({ ...prev, [section.id]: false }))
+          setExpandedSections(prev => ({ ...prev, [section.id]: false }))
         }
 
         return (
@@ -703,9 +709,9 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
               </div>
             )}
 
-            {/* Expanded content */}
+            {/* Expanded content — double-click/tap anywhere in it to collapse the card */}
             {isExpanded && (
-              <div className={`px-3 pb-3 border-t ${section.color.border} pt-2.5`}>
+              <div className={`px-3 pb-3 border-t ${section.color.border} pt-2.5`} onDoubleClick={collapseCard}>
                 {isUnavailable ? (
                   <div className="flex flex-col items-center gap-2 py-6 text-center">
                     <span className="text-2xl">⚠️</span>

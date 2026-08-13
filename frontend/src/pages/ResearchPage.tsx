@@ -81,7 +81,7 @@ export default function ResearchPage() {
     >
 
       {/* ── Sticky header ─────────────────────────────────── */}
-      <div className="shrink-0 px-4 pt-4 bg-white">
+      <div className="shrink-0 px-1 bg-white">
 
         {!deepFullScreen && (
         <>
@@ -364,7 +364,7 @@ export default function ResearchPage() {
       </div>
 
       {/* ── Scrollable content ────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="flex-1 overflow-y-auto px-1 pb-4">
         {activeTab === 'report' && reportSubTab !== 'links' && (
           <ReportTab
             yf_symbol={yf_symbol}

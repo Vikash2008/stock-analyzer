@@ -96,6 +96,13 @@ export function startGeneration(
   entry.progressNote = undefined
   emit(k, 'loading')
   let accText = ''
+  // Emitting (React re-render + markdown re-parse) and writing to IndexedDB on every single
+  // SSE token chunk — which can arrive dozens of times/sec — was frequent enough main-thread
+  // work to interrupt in-progress touch/scroll gestures elsewhere on the page (e.g. horizontal
+  // table scroll). Throttle both to a capped rate; accumulating accText itself stays untouched
+  // on every chunk since that's cheap, only the emit+persist side is throttled.
+  let lastEmitAt = 0
+  const EMIT_THROTTLE_MS = 120
 
   ;(async () => {
     try {
@@ -110,9 +117,13 @@ export function startGeneration(
         }
         if (chunk.text) {
           accText += chunk.text
-          const partial: SectionResult = { text: accText, sources: [], grounded: false, requestedLite: forceLite, streaming: true }
-          emit(k, partial)
-          idbSet(`gemini:${yfSymbol}:${sectionId}`, JSON.stringify({ ...partial, savedAt: Date.now() }))
+          const now = Date.now()
+          if (now - lastEmitAt >= EMIT_THROTTLE_MS) {
+            lastEmitAt = now
+            const partial: SectionResult = { text: accText, sources: [], grounded: false, requestedLite: forceLite, streaming: true }
+            emit(k, partial)
+            idbSet(`gemini:${yfSymbol}:${sectionId}`, JSON.stringify({ ...partial, savedAt: Date.now() }))
+          }
         }
         if (chunk.done) {
           const final: SectionResult = {

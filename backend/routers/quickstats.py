@@ -671,7 +671,10 @@ async def get_quickstats(
             disk = Cache()
             if not force_refresh:
                 entry = disk.get(f"qs:{key}")
-                if entry and (time.time() - entry.get("ts", 0)) < _DISK_TTL:
+                # "today_pct" was added 2026-08-13 — entries cached before that deploy predate
+                # the field entirely rather than having it as None, so treat their absence as
+                # a schema mismatch (cache miss) instead of serving 30-day-stale shaped data.
+                if entry and "today_pct" in entry.get("data", {}) and (time.time() - entry.get("ts", 0)) < _DISK_TTL:
                     result = entry["data"]
                     _mem[key] = (result, now)
                     return JSONResponse(content=result)
