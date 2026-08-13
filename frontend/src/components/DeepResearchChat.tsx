@@ -356,7 +356,6 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
                           onClick={() => { setSelectedContext(s.id); setContextPickerOpen(false) }}
                           className={`w-full flex items-center gap-1.5 text-left text-[11px] px-3 py-1.5 whitespace-nowrap ${selectedContext === s.id ? 'bg-violet-50 text-violet-700 font-semibold' : 'text-slate-600 active:bg-slate-50'}`}
                         >
-                          <span>{s.emoji}</span>
                           <span>{s.label}</span>
                         </button>
                       ))}

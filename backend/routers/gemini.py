@@ -583,17 +583,30 @@ async def gemini_chat_stream(req: ChatRequest):
     _sse_headers = {"X-Accel-Buffering": "no", "Cache-Control": "no-cache"}
     if req.force_lite:
         _prompt = (
-            f"You are a financial research assistant.\n\nBackground research on {req.symbol}:\n"
-            f"--- CONTEXT ---\n{req.context_text[:4000]}\n--- END CONTEXT ---\n\n"
-            f"User question: {req.question}\n\nAnswer concisely using context + knowledge. Markdown, lead with numbers. No preamble."
+            f"You are a financial research assistant. The user is looking at research on {req.symbol} they were "
+            f"already shown (the CONTEXT below) and is now asking a follow-up question about it.\n\n"
+            f"--- CONTEXT (already shown to the user) ---\n{req.context_text[:4000]}\n--- END CONTEXT ---\n\n"
+            f"User question: {req.question}\n\n"
+            f"If the question is about what's already in the context, ground your answer in it first. If it needs "
+            f"something the context wouldn't contain — news, management commentary, anything outside its scope — "
+            f"search freely and answer from that instead. Answer only what was asked, nothing tangential. Concise, "
+            f"markdown, lead with the number/answer, no preamble."
         )
     else:
         _prompt = (
-            f"You are a financial research assistant with access to Google Search.\n\nBackground on {req.symbol} (reference only):\n"
-            f"--- CONTEXT ---\n{req.context_text}\n--- END CONTEXT ---\n\n"
+            f"You are a financial research assistant with access to Google Search. The user is looking at research "
+            f"on {req.symbol} they were already shown (the CONTEXT below) and is now asking a follow-up question "
+            f"about it.\n\n"
+            f"--- CONTEXT (already shown to the user) ---\n{req.context_text}\n--- END CONTEXT ---\n\n"
             f"User question: {req.question}\n\nInstructions:\n"
-            f"- Use Google Search for live data beyond the context.\n"
-            f"- Lead with specific numbers and figures. Markdown. No preamble."
+            f"- If the question is about what's already in the context (a figure in it, how it was derived, a gap in "
+            f"it, a more current version of it), ground your answer in the context first.\n"
+            f"- If the question needs something the context was never going to contain — latest news, management "
+            f"commentary, analyst opinions, anything outside the context's scope — search for it freely and answer "
+            f"from what you find. Don't force-fit the context onto a question it can't answer.\n"
+            f"- Either way, answer exactly what was asked — do not restate unrelated parts of the context or add "
+            f"sections the user didn't ask about.\n"
+            f"- Be crisp: lead with the direct answer and specific numbers. Markdown. No preamble."
         )
 
     async def event_gen():

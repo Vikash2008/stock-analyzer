@@ -668,7 +668,7 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                           title={isUnavailable ? 'Back to 2.5 Lite result' : (fallback ? 'View 2.5 Flash (unavailable)' : `Switch to ${fmtModelName(alt?.model)} · ${fmtSavedAt(alt?.savedAt)}`)}
                         >⇄</button>
                       )}
-                      <span className="text-[10px] text-right leading-tight">
+                      <span className="text-[9px] text-right leading-tight">
                         {isUnavailable ? (
                           <><span className="text-amber-500">⚠ · </span><span className="text-slate-400">2.5 Flash · unavailable</span></>
                         ) : (
