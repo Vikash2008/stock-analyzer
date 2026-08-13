@@ -343,6 +343,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
 
   // Settings panel
   const [settingsOpen, setSettingsOpen]     = useState(false)
+  const [configOpen, setConfigOpen]         = useState(false)
   const [includeDivs, setIncludeDivs]           = useState(getIncludeDividends)
   const [includeFxGainsState, setIncludeFxGainsStateLocal] = useState(getIncludeFxGains)
   const { data: alertSettings } = useAlertSettings()
@@ -1123,9 +1124,74 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                       </button>
                     </div>
 
-                    {/* ── Configuration ── */}
-                    <p className="text-[10px] font-semibold uppercase tracking-widest px-0.5 pt-1" style={{ color: '#0b3b3a' }}>Configuration</p>
+                    {/* ── Account ── */}
+                    <p className="text-[10px] font-semibold uppercase tracking-widest px-0.5 pt-1" style={{ color: '#0b3b3a' }}>Account</p>
 
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-[7px] flex flex-col gap-2">
+                      <div className="flex items-center justify-between gap-2.5">
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-slate-400 leading-tight truncate">
+                            {authEmail ? `Signed in as ${authEmail}` : 'Sign in to upload a real portfolio, alerts & watchlist'}
+                          </p>
+                        </div>
+                        {authEmail ? (
+                          <button
+                            onClick={() => { clearSession(); setAuthEmail(undefined) }}
+                            className="shrink-0 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 rounded-full px-2.5 py-1"
+                          >
+                            Sign out
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setAccountPanelOpen(v => !v)}
+                            className="shrink-0 text-[11px] font-semibold text-white rounded-full px-2.5 py-1"
+                            style={{ background: '#0d9488' }}
+                          >
+                            Sign in
+                          </button>
+                        )}
+                      </div>
+                      {!authEmail && accountPanelOpen && (
+                        <div className="pt-1">
+                          <GoogleSignInButton
+                            onSuccess={(email) => { setAuthEmail(email); setAccountPanelOpen(false); setSignInError('') }}
+                            onError={setSignInError}
+                          />
+                          {signInError && <p className="text-[11px] text-red-500 mt-1">{signInError}</p>}
+                        </div>
+                      )}
+                      {authEmail && (
+                        <div className="pt-1 border-t border-slate-200 flex items-center gap-2">
+                          <button
+                            onClick={handleDriveBackup}
+                            className="flex-1 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 rounded-full px-2.5 py-1.5"
+                          >
+                            ⬆ Back up to Drive
+                          </button>
+                          <button
+                            onClick={handleDriveRestore}
+                            className="flex-1 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 rounded-full px-2.5 py-1.5"
+                          >
+                            ⬇ Restore from Drive
+                          </button>
+                        </div>
+                      )}
+                      {authEmail && driveStatus && (
+                        <p className="text-[10px] text-slate-400 leading-tight">{driveStatus}</p>
+                      )}
+                    </div>
+
+                    {/* ── Configuration (collapsible, default collapsed) ── */}
+                    <button
+                      onClick={() => setConfigOpen(v => !v)}
+                      className="flex items-center justify-between gap-2 px-0.5 py-2 w-full"
+                    >
+                      <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: '#0b3b3a' }}>Configuration</p>
+                      <span className={`text-[9px] text-[#0b3b3a] transition-transform duration-150 ${configOpen ? 'rotate-180' : ''}`}>▼</span>
+                    </button>
+
+                    {configOpen && (
+                      <>
                     {/* Dividends toggle */}
                     <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
                       <div>
@@ -1235,62 +1301,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                         </svg>
                       </button>
                     </div>
-
-                    {/* Account */}
-                    <div className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-[7px] flex flex-col gap-2">
-                      <div className="flex items-center justify-between gap-2.5">
-                        <div className="min-w-0">
-                          <p className="text-[12px] font-bold text-slate-700 leading-tight">Account</p>
-                          <p className="text-[10px] text-slate-400 leading-tight mt-0.5 truncate">
-                            {authEmail ? `Signed in as ${authEmail}` : 'Sign in to upload a real portfolio, alerts & watchlist'}
-                          </p>
-                        </div>
-                        {authEmail ? (
-                          <button
-                            onClick={() => { clearSession(); setAuthEmail(undefined) }}
-                            className="shrink-0 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 rounded-full px-2.5 py-1"
-                          >
-                            Sign out
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => setAccountPanelOpen(v => !v)}
-                            className="shrink-0 text-[11px] font-semibold text-white rounded-full px-2.5 py-1"
-                            style={{ background: '#0d9488' }}
-                          >
-                            Sign in
-                          </button>
-                        )}
-                      </div>
-                      {!authEmail && accountPanelOpen && (
-                        <div className="pt-1">
-                          <GoogleSignInButton
-                            onSuccess={(email) => { setAuthEmail(email); setAccountPanelOpen(false); setSignInError('') }}
-                            onError={setSignInError}
-                          />
-                          {signInError && <p className="text-[11px] text-red-500 mt-1">{signInError}</p>}
-                        </div>
-                      )}
-                      {authEmail && (
-                        <div className="pt-1 border-t border-slate-200 flex items-center gap-2">
-                          <button
-                            onClick={handleDriveBackup}
-                            className="flex-1 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 rounded-full px-2.5 py-1.5"
-                          >
-                            ⬆ Back up to Drive
-                          </button>
-                          <button
-                            onClick={handleDriveRestore}
-                            className="flex-1 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 rounded-full px-2.5 py-1.5"
-                          >
-                            ⬇ Restore from Drive
-                          </button>
-                        </div>
-                      )}
-                      {authEmail && driveStatus && (
-                        <p className="text-[10px] text-slate-400 leading-tight">{driveStatus}</p>
-                      )}
-                    </div>
+                      </>
+                    )}
 
                     {/* Admin — only rendered once the /admin/users fetch actually succeeds */}
                     {isAdmin && (
@@ -1354,24 +1366,24 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                             </div>
                           ))}
                         </div>
+
+                        {/* Debug Log — moved here, admin-only */}
+                        <div className="pt-1.5 mt-0.5 border-t border-slate-200 flex items-center justify-between gap-2.5">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-semibold text-slate-700 leading-tight">Debug Log</p>
+                            <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Diagnostic panel for CSV/storage issues</p>
+                          </div>
+                          <button
+                            onClick={() => { setSettingsOpen(false); window.dispatchEvent(new Event('debug-overlay:open')) }}
+                            title="Open Debug Log"
+                            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] text-[13px]"
+                            style={{ background: '#475569' }}
+                          >
+                            🐛
+                          </button>
+                        </div>
                       </div>
                     )}
-
-                    {/* Debug Log */}
-                    <div className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
-                      <div className="min-w-0">
-                        <p className="text-[12px] font-bold text-slate-700 leading-tight">Debug Log</p>
-                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Diagnostic panel for CSV/storage issues</p>
-                      </div>
-                      <button
-                        onClick={() => { setSettingsOpen(false); window.dispatchEvent(new Event('debug-overlay:open')) }}
-                        title="Open Debug Log"
-                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] text-[13px]"
-                        style={{ background: '#475569' }}
-                      >
-                        🐛
-                      </button>
-                    </div>
 
                     {/* Footer */}
                     <div className="mt-0.5 pt-2 border-t border-[#eef1f5] flex items-center justify-between px-0.5 pb-1">
