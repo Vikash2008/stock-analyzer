@@ -363,6 +363,9 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const [accountPanelOpen, setAccountPanelOpen] = useState(false)
   const [signInError, setSignInError] = useState('')
   const [driveStatus, setDriveStatus]       = useState('')
+  const [lastBackupAt, setLastBackupAt]     = useState<number | null>(
+    () => { const v = localStorage.getItem('portfolio:drive:lastBackup'); return v ? Number(v) : null }
+  )
   const { users: adminUsers, isAdmin } = useAdminUsers()
   const addAdminUser    = useAddAdminUser()
   const revokeAdminUser = useRevokeAdminUser()
@@ -570,6 +573,9 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     setDriveStatus('Backing up to Drive…')
     try {
       await backupToDrive(csv)
+      const now = Date.now()
+      localStorage.setItem('portfolio:drive:lastBackup', String(now))
+      setLastBackupAt(now)
       setDriveStatus('Backed up ✓')
     } catch (e) {
       setDriveStatus(e instanceof Error ? e.message : 'Backup failed')
@@ -1041,48 +1047,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                     {/* ── Data ── */}
                     <p className="text-[10px] font-semibold uppercase tracking-widest px-0.5 pt-1" style={{ color: '#0b3b3a' }}>Data</p>
 
-                    {/* Import CSV */}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".csv,text/csv,text/comma-separated-values,application/vnd.ms-excel,text/plain"
-                      className="hidden"
-                      onChange={e => { const f = e.target.files?.[0]; if (f) handleImport(f); e.target.value = '' }}
-                    />
-                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex flex-col gap-0">
-                      <div className="flex items-center justify-between gap-2.5">
-                        <div className="min-w-0">
-                          <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Import CSV</p>
-                          <p className="text-[10px] text-slate-400 leading-tight mt-0.5">
-                            {importProgress !== null
-                              ? (importDone ? '✓ Updated' : importStatus)
-                              : 'Replace portfolio data'}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={importProgress !== null}
-                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] disabled:opacity-40 text-white"
-                          style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                            <polyline points="17 8 12 3 7 8"/>
-                            <line x1="12" y1="3" x2="12" y2="15"/>
-                          </svg>
-                        </button>
-                      </div>
-                      {importProgress !== null && (
-                        <div className="mt-1.5 h-[3px] rounded-full overflow-hidden" style={{ background: '#ccfbf1' }}>
-                          <div className="h-full rounded-full transition-all duration-200" style={{ width: `${importProgress}%`, background: '#0d9488' }} />
-                        </div>
-                      )}
-                      {importProgress === null && lastImportError !== null && (
-                        <p className="text-[10px] text-red-500 mt-1">⚠ Last import failed at {fmtImportDate(lastImportError)}</p>
-                      )}
-                    </div>
-
-                    {/* Backup */}
+                    {/* My Portfolio */}
                     <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
                       <div className="min-w-0">
                         <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">My Portfolio</p>
@@ -1127,32 +1092,41 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                     {/* ── Account ── */}
                     <p className="text-[10px] font-semibold uppercase tracking-widest px-0.5 pt-1" style={{ color: '#0b3b3a' }}>Account</p>
 
-                    <div className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-[7px] flex flex-col gap-2">
+                    {/* Sign in with Google */}
+                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex flex-col gap-0">
                       <div className="flex items-center justify-between gap-2.5">
                         <div className="min-w-0">
-                          <p className="text-[10px] text-slate-400 leading-tight truncate">
-                            {authEmail ? `Signed in as ${authEmail}` : 'Sign in to upload a real portfolio, alerts & watchlist'}
+                          <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Sign in with Google</p>
+                          <p className="text-[10px] text-slate-400 leading-tight mt-0.5 truncate">
+                            {authEmail ? `Signed in as ${authEmail}` : 'Sync your real portfolio, alerts & watchlist'}
                           </p>
                         </div>
-                        {authEmail ? (
-                          <button
-                            onClick={() => { clearSession(); setAuthEmail(undefined) }}
-                            className="shrink-0 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 rounded-full px-2.5 py-1"
-                          >
-                            Sign out
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => setAccountPanelOpen(v => !v)}
-                            className="shrink-0 text-[11px] font-semibold text-white rounded-full px-2.5 py-1"
-                            style={{ background: '#0d9488' }}
-                          >
-                            Sign in
-                          </button>
-                        )}
+                        <button
+                          onClick={() => {
+                            if (authEmail) { clearSession(); setAuthEmail(undefined) }
+                            else setAccountPanelOpen(v => !v)
+                          }}
+                          title={authEmail ? 'Sign out' : 'Sign in with Google'}
+                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] text-white"
+                          style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+                        >
+                          {authEmail ? (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+                              <polyline points="16 17 21 12 16 7"/>
+                              <line x1="21" y1="12" x2="9" y2="12"/>
+                            </svg>
+                          ) : (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/>
+                              <polyline points="10 17 15 12 10 7"/>
+                              <line x1="15" y1="12" x2="3" y2="12"/>
+                            </svg>
+                          )}
+                        </button>
                       </div>
                       {!authEmail && accountPanelOpen && (
-                        <div className="pt-1">
+                        <div className="mt-1.5 pt-1.5 border-t border-emerald-100/70">
                           <GoogleSignInButton
                             onSuccess={(email) => { setAuthEmail(email); setAccountPanelOpen(false); setSignInError('') }}
                             onError={setSignInError}
@@ -1160,26 +1134,74 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                           {signInError && <p className="text-[11px] text-red-500 mt-1">{signInError}</p>}
                         </div>
                       )}
-                      {authEmail && (
-                        <div className="pt-1 border-t border-slate-200 flex items-center gap-2">
-                          <button
-                            onClick={handleDriveBackup}
-                            className="flex-1 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 rounded-full px-2.5 py-1.5"
-                          >
-                            ⬆ Back up to Drive
-                          </button>
-                          <button
-                            onClick={handleDriveRestore}
-                            className="flex-1 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 rounded-full px-2.5 py-1.5"
-                          >
-                            ⬇ Restore from Drive
-                          </button>
+                    </div>
+
+                    {/* Import CSV */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv,text/csv,text/comma-separated-values,application/vnd.ms-excel,text/plain"
+                      className="hidden"
+                      onChange={e => { const f = e.target.files?.[0]; if (f) handleImport(f); e.target.value = '' }}
+                    />
+                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex flex-col gap-0">
+                      <div className="flex items-center justify-between gap-2.5">
+                        <div className="min-w-0">
+                          <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Import CSV</p>
+                          <p className="text-[10px] text-slate-400 leading-tight mt-0.5">
+                            {importProgress !== null
+                              ? (importDone ? '✓ Updated' : importStatus)
+                              : 'Replace portfolio data'}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={importProgress !== null}
+                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] disabled:opacity-40 text-white"
+                          style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                          </svg>
+                        </button>
+                      </div>
+                      {importProgress !== null && (
+                        <div className="mt-1.5 h-[3px] rounded-full overflow-hidden" style={{ background: '#ccfbf1' }}>
+                          <div className="h-full rounded-full transition-all duration-200" style={{ width: `${importProgress}%`, background: '#0d9488' }} />
                         </div>
                       )}
-                      {authEmail && driveStatus && (
-                        <p className="text-[10px] text-slate-400 leading-tight">{driveStatus}</p>
+                      {importProgress === null && lastImportError !== null && (
+                        <p className="text-[10px] text-red-500 mt-1">⚠ Last import failed at {fmtImportDate(lastImportError)}</p>
                       )}
                     </div>
+
+                    {/* Backup to Drive */}
+                    {authEmail && (
+                      <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
+                        <div className="min-w-0">
+                          <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Backup to Drive</p>
+                          <p className="text-[10px] text-slate-400 leading-tight mt-0.5">
+                            {driveStatus || (lastBackupAt ? `Last backup: ${fmtImportDate(lastBackupAt)}` : 'Not backed up yet')}
+                            {' · '}
+                            <button onClick={handleDriveRestore} className="underline font-semibold text-[#0b3b3a]">Restore</button>
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleDriveBackup}
+                          title="Back up to Drive"
+                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] text-white"
+                          style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M7 17a4.5 4.5 0 01-.4-8.98A5.5 5.5 0 0117.5 9.5 3.5 3.5 0 0117 16.5"/>
+                            <polyline points="8 13 12 9 16 13"/>
+                            <line x1="12" y1="9" x2="12" y2="18"/>
+                          </svg>
+                        </button>
+                      </div>
+                    )}
 
                     {/* ── Configuration (collapsible, default collapsed) ── */}
                     <button

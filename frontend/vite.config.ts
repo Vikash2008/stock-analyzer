@@ -21,8 +21,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
       },
       manifest: {
-        name: 'Stock Analyzer',
-        short_name: 'Stocks',
+        name: 'Nexus',
+        short_name: 'Nexus',
         start_url: '/',
         display: 'standalone',
         background_color: '#0f172a',

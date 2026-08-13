@@ -18,7 +18,7 @@ export default function JoinPage() {
       <img src="/icon.svg" alt="" className="w-16 h-16" />
       <div>
         <h1 className="text-[22px] font-bold bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
-          Stock Analyzer
+          Nexus
         </h1>
         <p className="text-slate-400 text-[13px] mt-2 max-w-xs">
           Track your portfolios, prices, and alerts across every broker in one place.

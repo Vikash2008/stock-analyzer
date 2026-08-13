@@ -39,6 +39,7 @@ _ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5173",
     "https://stock-analyzer-blush.vercel.app",
+    "https://nexusconfig.vercel.app",
 ]
 _prod = os.environ.get("ALLOWED_ORIGIN", "").strip()
 if _prod and _prod not in _ORIGINS:

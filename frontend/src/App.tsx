@@ -35,7 +35,7 @@ function LoadingScreen({ message = 'Loading your portfolio…' }: { message?: st
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4">
       <div className="text-[22px] font-bold bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
-        Portfolio Manager
+        Nexus
       </div>
       <div className="flex items-center gap-2 text-slate-400 text-[13px]">
         <span className="inline-block animate-spin text-emerald-400 text-[18px]">↻</span>
@@ -50,7 +50,7 @@ function SignInGate() {
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4 px-6">
       <div className="text-[22px] font-bold bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
-        Portfolio Manager
+        Nexus
       </div>
       <p className="text-slate-400 text-[13px] text-center max-w-xs">
         Your session expired or this device isn't signed in — sign in with Google to see your portfolio again.
@@ -98,7 +98,7 @@ function FetchingScreen() {
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4">
       <div className="text-[22px] font-bold bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
-        Portfolio Manager
+        Nexus
       </div>
       <div className="flex items-center gap-2 text-slate-400 text-[13px]">
         <span className="inline-block animate-spin text-emerald-400 text-[18px]">↻</span>
