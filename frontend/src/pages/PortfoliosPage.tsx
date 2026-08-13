@@ -1105,9 +1105,9 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                     {/* Sign in with Google */}
                     <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
                       <div className="min-w-0">
-                        <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Sign in with Google</p>
+                        <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">{authEmail ? 'Signed in' : 'Sign in with Google'}</p>
                         <p className="text-[10px] text-slate-400 leading-tight mt-0.5 truncate">
-                          {authEmail ? `Signed in as ${authEmail}` : 'Sync your real portfolio, alerts & watchlist'}
+                          {authEmail ? authEmail : 'Sync your real portfolio, alerts & watchlist'}
                         </p>
                       </div>
                       <button

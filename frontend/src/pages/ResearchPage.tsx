@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useQuickStats } from '../hooks/useQuickStats'
@@ -28,7 +28,15 @@ export default function ResearchPage() {
   const [reportGearOpen, setReportGearOpen] = useState(false)
   const [reportSyncing,  setReportSyncing]  = useState(false)
   const [chartSyncing,   setChartSyncing]   = useState(false)
+  const [deepFullScreen, setDeepFullScreen] = useState(false)
   const chatOpenerRef = useRef<{ open: (contextId?: string) => void } | null>(null)
+
+  // Full-screen reading only makes sense while actually looking at Deep Research —
+  // drop it automatically if the user navigates away so they don't get stranded with
+  // no header on an unrelated tab.
+  useEffect(() => {
+    if (!(activeTab === 'report' && reportSubTab === 'deep')) setDeepFullScreen(false)
+  }, [activeTab, reportSubTab])
 
   const { data: qs, isPending: qsPending, isFetching: qsFetching } =
     useQuickStats(yf_symbol, true)
@@ -66,6 +74,8 @@ export default function ResearchPage() {
       {/* ── Sticky header ─────────────────────────────────── */}
       <div className="shrink-0 px-4 pt-4 bg-white">
 
+        {!deepFullScreen && (
+        <>
         {/* Back */}
         <button
           onClick={() => navigate('/')}
@@ -155,6 +165,8 @@ export default function ResearchPage() {
             </button>
           ))}
         </div>
+        </>
+        )}
 
         {/* Research strip */}
         {activeTab === 'report' && (
@@ -188,6 +200,21 @@ export default function ResearchPage() {
 
             {reportSubTab === 'links' ? null : reportSubTab === 'deep' ? (
               <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setDeepFullScreen(v => !v)}
+                  title={deepFullScreen ? 'Exit full screen' : 'Full screen'}
+                  className="p-1 text-violet-400 active:text-violet-600 shrink-0"
+                >
+                  {deepFullScreen ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 3v4a1 1 0 01-1 1H4M15 3v4a1 1 0 001 1h4M9 21v-4a1 1 0 00-1-1H4M15 21v-4a1 1 0 011-1h4"/>
+                    </svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M8 3H4v4M16 3h4v4M8 21H4v-4M16 21h4v-4"/>
+                    </svg>
+                  )}
+                </button>
                 <button
                   onClick={() => chatOpenerRef.current?.open()}
                   className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium border bg-violet-600 text-white border-violet-700 active:bg-violet-700 shrink-0"

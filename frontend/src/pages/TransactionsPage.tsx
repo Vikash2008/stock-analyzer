@@ -120,6 +120,14 @@ export default function TransactionsPage({ currency }: Props) {
   const [settingsOpen,   setSettingsOpen]   = useState(false)
   const [chartZoomed,    setChartZoomed]    = useState(false)
   const [alertsModalOpen, setAlertsModalOpen] = useState(false)
+  const [deepFullScreen, setDeepFullScreen] = useState(false)
+
+  // Full-screen reading only makes sense while actually looking at Deep Research —
+  // drop it automatically if the user navigates away so they don't get stranded with
+  // no header on an unrelated tab.
+  useEffect(() => {
+    if (!(activeTab === 'report' && reportSubTab === 'deep')) setDeepFullScreen(false)
+  }, [activeTab, reportSubTab])
 
   // Deep-link from the alerts bell's "Show all set alerts" list (NotificationsPanel)
   // opens straight into this holding's alert modal so the user can reconfigure it.
@@ -459,6 +467,8 @@ export default function TransactionsPage({ currency }: Props) {
         </div>
       )}
       <div className="shrink-0 px-1 bg-white relative z-20">
+      {!deepFullScreen && (
+      <>
       {/* Nav bar */}
       <div className="flex items-center justify-between px-4 py-2 min-h-[46px] border-4 rounded-t-[14px]" style={{ borderColor: '#0b3b3a', background: '#e6f7f5' }}>
         <button onClick={() => navigate(-1)} className="shrink-0 flex items-center gap-1.5 text-[#0b3b3a] active:opacity-70">
@@ -601,6 +611,8 @@ export default function TransactionsPage({ currency }: Props) {
           </button>
         ))}
       </div>
+      </>
+      )}
 
       {/* Transactions strip */}
       {activeTab === 'transactions' && (
@@ -634,16 +646,33 @@ export default function TransactionsPage({ currency }: Props) {
           </div>
           {/* Right controls */}
           {reportSubTab === 'links' ? null : reportSubTab === 'deep' ? (
-            <button
-              onClick={() => chatOpenerRef.current?.open()}
-              className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full text-white shrink-0 shadow-sm ring-1 ring-white/40 active:scale-95 transition-transform"
-              style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2c-.5 4-4 7.5-10 10 6 2.5 9.5 6 10 10 .5-4 4-7.5 10-10-6-2.5-9.5-6-10-10z"/>
-              </svg>
-              <span>AI Assistant</span>
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => setDeepFullScreen(v => !v)}
+                title={deepFullScreen ? 'Exit full screen' : 'Full screen'}
+                className="p-1 text-teal-500 active:text-teal-700 shrink-0"
+              >
+                {deepFullScreen ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 3v4a1 1 0 01-1 1H4M15 3v4a1 1 0 001 1h4M9 21v-4a1 1 0 00-1-1H4M15 21v-4a1 1 0 011-1h4"/>
+                  </svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M8 3H4v4M16 3h4v4M8 21H4v-4M16 21h4v-4"/>
+                  </svg>
+                )}
+              </button>
+              <button
+                onClick={() => chatOpenerRef.current?.open()}
+                className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full text-white shrink-0 shadow-sm ring-1 ring-white/40 active:scale-95 transition-transform"
+                style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2c-.5 4-4 7.5-10 10 6 2.5 9.5 6 10 10 .5-4 4-7.5 10-10-6-2.5-9.5-6-10-10z"/>
+                </svg>
+                <span>AI Assistant</span>
+              </button>
+            </div>
           ) : (
             <button
               className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 border active:opacity-60 border-teal-700"
