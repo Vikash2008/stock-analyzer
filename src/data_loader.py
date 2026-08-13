@@ -37,7 +37,15 @@ def load_transactions(source: Union[str, Path, object]) -> pd.DataFrame:
     if missing:
         raise ValueError(f"Missing required columns: {', '.join(sorted(missing))}")
 
-    df["date"] = pd.to_datetime(df["date"], dayfirst=True, errors="raise")
+    # Try strict ISO8601 first (unambiguous YYYY-MM-DD, e.g. our own demo/backup CSVs).
+    # Under pandas 3.x, dayfirst=True can misparse or outright crash on ISO-formatted
+    # strings (format-inference locks onto the wrong pattern, or swaps day/month even
+    # though ISO order isn't actually ambiguous) — only fall back to dayfirst for a
+    # real broker export using DD/MM/YYYY, which genuinely needs it.
+    try:
+        df["date"] = pd.to_datetime(df["date"], format="ISO8601", errors="raise")
+    except (ValueError, TypeError):
+        df["date"] = pd.to_datetime(df["date"], dayfirst=True, errors="raise")
     df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce")
     df["price"] = pd.to_numeric(df["price"], errors="coerce")
     df["charges"] = pd.to_numeric(
