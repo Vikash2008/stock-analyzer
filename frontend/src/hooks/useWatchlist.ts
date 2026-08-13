@@ -5,12 +5,14 @@ import {
   fetchWatchlistQuotes,
   removeFromWatchlist,
 } from '../api/watchlist'
+import { isSignedIn } from '../utils/auth'
 import { REFRESH_MS } from './useHistory'
 
 export function useWatchlistItems() {
   const query = useQuery({
     queryKey: ['watchlist'],
     queryFn: fetchWatchlist,
+    enabled: isSignedIn(),
     staleTime: REFRESH_MS,
   })
   return { ...query, items: query.data?.items ?? [] }

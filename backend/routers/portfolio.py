@@ -17,10 +17,11 @@ import hashlib
 import time
 from pathlib import Path
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 
 from src.engine import build
+from backend.auth_deps import get_current_user
 from backend.serializers import serialize_bundle
 
 router = APIRouter()
@@ -56,6 +57,7 @@ async def post_portfolio(
     request: Request,
     currency: str = Query("INR", pattern="^(INR|USD)$"),
     force_refresh: bool = Query(False),
+    _email: str = Depends(get_current_user),
 ):
     body = await request.body()
     if len(body) > _MAX_CSV_BYTES:

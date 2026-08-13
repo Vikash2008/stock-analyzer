@@ -14,12 +14,14 @@ import {
   type DeliveryMode,
 } from '../api/alerts'
 import { enablePushNotifications, disablePushNotifications } from '../utils/pushSubscribe'
+import { isSignedIn } from '../utils/auth'
 import { REFRESH_MS } from './useHistory'
 
 export function useAlertRules(symbol?: string) {
   const query = useQuery({
     queryKey: ['alert-rules'],
     queryFn: fetchAlertRules,
+    enabled: isSignedIn(),
     staleTime: REFRESH_MS,
     refetchInterval: REFRESH_MS,
     refetchIntervalInBackground: false,
@@ -32,6 +34,7 @@ export function useAlertNotifications() {
   const query = useQuery({
     queryKey: ['alert-notifications'],
     queryFn: fetchAlertNotifications,
+    enabled: isSignedIn(),
     staleTime: REFRESH_MS,
     refetchInterval: REFRESH_MS,
     refetchIntervalInBackground: false,
@@ -44,6 +47,7 @@ export function useAlertSettings() {
   return useQuery({
     queryKey: ['alert-settings'],
     queryFn: fetchAlertSettings,
+    enabled: isSignedIn(),
     staleTime: Infinity,
   })
 }

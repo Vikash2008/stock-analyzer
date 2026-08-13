@@ -2,18 +2,20 @@
 Watchlist API — star/unstar any stock (not necessarily held), list it, and
 fetch live quotes for the starred symbols.
 
-Every endpoint takes a `client_id` query param — same convention as
-backend/routers/alerts.py, reusing the identical per-browser identity
-(frontend/src/utils/clientId.ts). This router is pure CRUD over
+Every endpoint resolves the caller via get_current_user (backend/auth_deps.py)
+from their session JWT — same convention as backend/routers/alerts.py (see
+that file's docstring for why this replaced the old client-supplied
+`client_id` query param on 2026-08-13). This router is pure CRUD over
 backend/watchlist_store.py plus one on-demand quote lookup.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from backend import watchlist_store as store
+from backend.auth_deps import get_current_user
 
 router = APIRouter()
 
@@ -27,25 +29,25 @@ class AddWatchlistItemRequest(BaseModel):
 
 
 @router.get("/api/watchlist")
-def list_items(client_id: str = Query(...)):
+def list_items(client_id: str = Depends(get_current_user)):
     return {"items": store.get_items(client_id)}
 
 
 @router.post("/api/watchlist")
-def add_item(body: AddWatchlistItemRequest, client_id: str = Query(...)):
+def add_item(body: AddWatchlistItemRequest, client_id: str = Depends(get_current_user)):
     item = store.add_item(client_id, body.model_dump())
     return {"item": item}
 
 
 @router.delete("/api/watchlist/{yf_symbol}")
-def remove_item(yf_symbol: str, client_id: str = Query(...)):
+def remove_item(yf_symbol: str, client_id: str = Depends(get_current_user)):
     if not store.remove_item(client_id, yf_symbol):
         raise HTTPException(404, "watchlist item not found")
     return {"ok": True}
 
 
 @router.get("/api/watchlist/quotes")
-def watchlist_quotes(client_id: str = Query(...)):
+def watchlist_quotes(client_id: str = Depends(get_current_user)):
     from src.price_fetcher import get_prices_and_prev_close
 
     symbols = [i["yf_symbol"] for i in store.get_items(client_id)]

@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { fetchPortfolio } from '../api/portfolio'
 import type { PortfolioData } from '../api/types'
 import { logDebug } from '../utils/debugLog'
+import { AuthRequiredError } from '../utils/auth'
 
 function getCsvContent(): string | undefined {
   return localStorage.getItem('portfolio:csv') ?? undefined
@@ -79,7 +80,9 @@ export function usePortfolio(_currency: 'INR' | 'USD' = 'INR') {
     refetchIntervalInBackground: false,           // don't rely on suspended timers; visibilitychange handles it
     refetchOnWindowFocus:        false,           // handled manually above with elapsed-time check
     refetchOnMount:              true,            // refetch only if data is older than staleTime — avoids spinning on every in-app navigation back to this page
-    retry: 3,
+    // Not signed in won't resolve itself by retrying — let AppRoutes show a sign-in
+    // gate instead of burning 3 retries against a 401 that needs user action.
+    retry: (failureCount, error) => !(error instanceof AuthRequiredError) && failureCount < 3,
     retryDelay: 20_000,
   })
 }

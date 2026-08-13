@@ -1,4 +1,4 @@
-import { getClientId } from '../utils/clientId'
+import { getAuthToken, AuthRequiredError } from '../utils/auth'
 
 const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
 
@@ -19,12 +19,17 @@ export interface WatchlistQuote {
 }
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const sep = path.includes('?') ? '&' : '?'
-  const url = `${BASE}${path}${sep}client_id=${encodeURIComponent(getClientId())}`
-  const res = await fetch(url, {
+  const token = getAuthToken()
+  if (!token) throw new AuthRequiredError()
+  const res = await fetch(`${BASE}${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      ...(init?.headers ?? {}),
+    },
   })
+  if (res.status === 401) throw new AuthRequiredError()
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(`API ${res.status}: ${text}`)

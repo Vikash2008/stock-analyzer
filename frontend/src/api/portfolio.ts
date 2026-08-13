@@ -1,4 +1,5 @@
 import type { PortfolioData } from './types'
+import { getAuthToken, AuthRequiredError } from '../utils/auth'
 
 // Vite proxy rewrites /api → http://localhost:8000 in dev.
 // In production set VITE_API_URL to the deployed FastAPI host.
@@ -12,12 +13,21 @@ export async function fetchPortfolio(
   const params = new URLSearchParams({ currency })
   if (forceRefresh) params.set('force_refresh', 'true')
 
-  const res = await fetch(
-    `${BASE}/portfolio?${params}`,
-    csvContent
-      ? { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: csvContent }
-      : undefined,
-  )
+  // Demo (GET) stays open to everyone; a real CSV upload/refresh (POST) requires
+  // being signed in — 2026-08-13, see backend/routers/portfolio.py.
+  let init: RequestInit | undefined
+  if (csvContent) {
+    const token = getAuthToken()
+    if (!token) throw new AuthRequiredError()
+    init = {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain', Authorization: `Bearer ${token}` },
+      body: csvContent,
+    }
+  }
+
+  const res = await fetch(`${BASE}/portfolio?${params}`, init)
+  if (res.status === 401) throw new AuthRequiredError()
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(`API ${res.status}: ${text}`)

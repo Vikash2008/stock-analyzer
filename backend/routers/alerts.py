@@ -3,12 +3,15 @@ Price alerts API — rules (create/edit/delete/rearm), notifications
 (list/read/dismiss), the delivery-mode setting, and Web Push subscription
 management.
 
-Every endpoint takes a `client_id` query param — this app has no login
-system, so the frontend generates a stable random ID once per browser
-(frontend/src/utils/clientId.ts) and sends it on every call. All state is
-partitioned by that ID in backend/alerts_store.py, so different people
-sharing this deployment never see each other's rules/notifications, and a
-push notification only ever reaches the device whose rule fired.
+Every endpoint resolves the caller via get_current_user (backend/auth_deps.py)
+from their session JWT — as of 2026-08-13 this replaced the old
+client-supplied `client_id` query param (blind trust was fine for a
+throwaway anonymous UUID, not fine now that real accounts exist). All state
+is still partitioned per identity in backend/alerts_store.py — its
+`client_id` parameter name is unchanged, it's just fed a verified email now
+instead of a self-reported UUID — so different people sharing this
+deployment never see each other's rules/notifications, and a push
+notification only ever reaches the device whose rule fired.
 
 Evaluation itself happens in backend/alerts_engine.py, called from
 price_refresh.py's background loop — this router is pure CRUD over
@@ -19,10 +22,11 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from backend import alerts_store as store
+from backend.auth_deps import get_current_user
 
 router = APIRouter()
 
@@ -50,12 +54,12 @@ class UpdateRuleRequest(BaseModel):
 
 
 @router.get("/api/alerts/rules")
-def list_rules(client_id: str = Query(...)):
+def list_rules(client_id: str = Depends(get_current_user)):
     return {"rules": store.get_rules(client_id)}
 
 
 @router.post("/api/alerts/rules")
-def create_rule(body: CreateRuleRequest, client_id: str = Query(...)):
+def create_rule(body: CreateRuleRequest, client_id: str = Depends(get_current_user)):
     if body.type not in ("pct_move", "abs_price"):
         raise HTTPException(400, "type must be 'pct_move' or 'abs_price'")
     if body.direction not in ("above", "below"):
@@ -65,7 +69,7 @@ def create_rule(body: CreateRuleRequest, client_id: str = Query(...)):
 
 
 @router.patch("/api/alerts/rules/{rule_id}")
-def edit_rule(rule_id: str, body: UpdateRuleRequest, client_id: str = Query(...)):
+def edit_rule(rule_id: str, body: UpdateRuleRequest, client_id: str = Depends(get_current_user)):
     patch = body.model_dump(exclude_unset=True, exclude={"rearm"})
     if body.rearm:
         rule = store.rearm_rule(client_id, rule_id, patch.get("reference_value"))
@@ -79,7 +83,7 @@ def edit_rule(rule_id: str, body: UpdateRuleRequest, client_id: str = Query(...)
 
 
 @router.delete("/api/alerts/rules/{rule_id}")
-def remove_rule(rule_id: str, client_id: str = Query(...)):
+def remove_rule(rule_id: str, client_id: str = Depends(get_current_user)):
     if not store.delete_rule(client_id, rule_id):
         raise HTTPException(404, "rule not found")
     return {"ok": True}
@@ -88,12 +92,12 @@ def remove_rule(rule_id: str, client_id: str = Query(...)):
 # ── Notifications ─────────────────────────────────────────────────────────
 
 @router.get("/api/alerts/notifications")
-def list_notifications(client_id: str = Query(...)):
+def list_notifications(client_id: str = Depends(get_current_user)):
     return {"notifications": store.get_notifications(client_id)}
 
 
 @router.post("/api/alerts/notifications/{notification_id}/read")
-def read_notification(notification_id: str, client_id: str = Query(...)):
+def read_notification(notification_id: str, client_id: str = Depends(get_current_user)):
     notification = store.mark_notification_read(client_id, notification_id)
     if notification is None:
         raise HTTPException(404, "notification not found")
@@ -101,7 +105,7 @@ def read_notification(notification_id: str, client_id: str = Query(...)):
 
 
 @router.post("/api/alerts/notifications/{notification_id}/dismiss")
-def dismiss_notification(notification_id: str, client_id: str = Query(...)):
+def dismiss_notification(notification_id: str, client_id: str = Depends(get_current_user)):
     if not store.dismiss_notification(client_id, notification_id):
         raise HTTPException(404, "notification not found")
     return {"ok": True}
@@ -114,12 +118,12 @@ class SettingsRequest(BaseModel):
 
 
 @router.get("/api/alerts/settings")
-def get_settings(client_id: str = Query(...)):
+def get_settings(client_id: str = Depends(get_current_user)):
     return store.get_settings(client_id)
 
 
 @router.post("/api/alerts/settings")
-def update_settings(body: SettingsRequest, client_id: str = Query(...)):
+def update_settings(body: SettingsRequest, client_id: str = Depends(get_current_user)):
     if body.delivery_mode not in ("in_app", "in_app_push"):
         raise HTTPException(400, "delivery_mode must be 'in_app' or 'in_app_push'")
     return store.update_settings(client_id, body.model_dump())
@@ -150,12 +154,12 @@ def vapid_public_key():
 
 
 @router.post("/api/alerts/subscribe")
-def subscribe(body: SubscribeRequest, client_id: str = Query(...)):
+def subscribe(body: SubscribeRequest, client_id: str = Depends(get_current_user)):
     sub = store.add_subscription(client_id, body.model_dump())
     return {"subscription": sub}
 
 
 @router.post("/api/alerts/unsubscribe")
-def unsubscribe(body: UnsubscribeRequest, client_id: str = Query(...)):
+def unsubscribe(body: UnsubscribeRequest, client_id: str = Depends(get_current_user)):
     store.remove_subscription(client_id, body.endpoint)
     return {"ok": True}

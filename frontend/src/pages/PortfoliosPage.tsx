@@ -22,6 +22,16 @@ import type { Currency } from '../App'
 import type { Holding, PortfolioData } from '../api/types'
 import { logDebug } from '../utils/debugLog'
 import { idbDelete, idbKeys } from '../utils/idbStore'
+import { isSignedIn, getUserEmail, getAuthToken, clearSession } from '../utils/auth'
+import GoogleSignInButton from '../components/GoogleSignInButton'
+import { backupToDrive, restoreFromDrive } from '../utils/driveBackup'
+import {
+  useAdminUsers,
+  useAddAdminUser,
+  useRevokeAdminUser,
+  useRestoreAdminUser,
+  useDeleteAdminUser,
+} from '../hooks/useAdmin'
 
 interface Props {
   currency: Currency
@@ -348,8 +358,26 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const [sheetOpen, setSheetOpen]           = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const API_URL_SETTINGS = (import.meta.env.VITE_API_URL ?? '') as string
+  const [authEmail, setAuthEmail]           = useState<string | undefined>(getUserEmail)
+  const [accountPanelOpen, setAccountPanelOpen] = useState(false)
+  const [signInError, setSignInError] = useState('')
+  const [driveStatus, setDriveStatus]       = useState('')
+  const { users: adminUsers, isAdmin } = useAdminUsers()
+  const addAdminUser    = useAddAdminUser()
+  const revokeAdminUser = useRevokeAdminUser()
+  const restoreAdminUser = useRestoreAdminUser()
+  const deleteAdminUser  = useDeleteAdminUser()
+  const [newUserEmail, setNewUserEmail] = useState('')
 
   const handleImport = useCallback((file: File) => {
+    if (!isSignedIn()) {
+      setAccountPanelOpen(true)
+      setImportFailReason('Sign in required to upload a real portfolio')
+      setImportFailBanner(true)
+      clearTimeout(importFailBannerTimer.current)
+      importFailBannerTimer.current = setTimeout(() => setImportFailBanner(false), 2500)
+      return
+    }
     setImportProgress(0)
     setImportDone(false)
     setImportStatus('Reading rows…')
@@ -436,7 +464,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           const params = new URLSearchParams({ currency: 'INR', force_refresh: 'true' })
           const res = await fetch(`${API_URL_SETTINGS}/api/portfolio?${params}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'text/plain' },
+            headers: { 'Content-Type': 'text/plain', Authorization: `Bearer ${getAuthToken() ?? ''}` },
             body: text,
             signal: controller.signal,
           })
@@ -534,6 +562,30 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       window.open(`${API_URL_SETTINGS}/api/demo-csv`, '_blank')
     }
   }, [csvMeta, API_URL_SETTINGS])
+
+  const handleDriveBackup = useCallback(async () => {
+    const csv = localStorage.getItem('portfolio:csv')
+    if (!csv) { setDriveStatus('Upload a portfolio first'); return }
+    setDriveStatus('Backing up to Drive…')
+    try {
+      await backupToDrive(csv)
+      setDriveStatus('Backed up ✓')
+    } catch (e) {
+      setDriveStatus(e instanceof Error ? e.message : 'Backup failed')
+    }
+  }, [])
+
+  const handleDriveRestore = useCallback(async () => {
+    setDriveStatus('Checking Drive…')
+    try {
+      const text = await restoreFromDrive()
+      if (!text) { setDriveStatus('No Drive backup found yet'); return }
+      setDriveStatus('Restoring…')
+      handleImport(new File([text], 'drive-backup.csv', { type: 'text/csv' }))
+    } catch (e) {
+      setDriveStatus(e instanceof Error ? e.message : 'Restore failed')
+    }
+  }, [handleImport])
 
   // Explore New Holdings
   const API_URL = (import.meta.env.VITE_API_URL ?? '') as string
@@ -1183,6 +1235,127 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                         </svg>
                       </button>
                     </div>
+
+                    {/* Account */}
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-[7px] flex flex-col gap-2">
+                      <div className="flex items-center justify-between gap-2.5">
+                        <div className="min-w-0">
+                          <p className="text-[12px] font-bold text-slate-700 leading-tight">Account</p>
+                          <p className="text-[10px] text-slate-400 leading-tight mt-0.5 truncate">
+                            {authEmail ? `Signed in as ${authEmail}` : 'Sign in to upload a real portfolio, alerts & watchlist'}
+                          </p>
+                        </div>
+                        {authEmail ? (
+                          <button
+                            onClick={() => { clearSession(); setAuthEmail(undefined) }}
+                            className="shrink-0 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 rounded-full px-2.5 py-1"
+                          >
+                            Sign out
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setAccountPanelOpen(v => !v)}
+                            className="shrink-0 text-[11px] font-semibold text-white rounded-full px-2.5 py-1"
+                            style={{ background: '#0d9488' }}
+                          >
+                            Sign in
+                          </button>
+                        )}
+                      </div>
+                      {!authEmail && accountPanelOpen && (
+                        <div className="pt-1">
+                          <GoogleSignInButton
+                            onSuccess={(email) => { setAuthEmail(email); setAccountPanelOpen(false); setSignInError('') }}
+                            onError={setSignInError}
+                          />
+                          {signInError && <p className="text-[11px] text-red-500 mt-1">{signInError}</p>}
+                        </div>
+                      )}
+                      {authEmail && (
+                        <div className="pt-1 border-t border-slate-200 flex items-center gap-2">
+                          <button
+                            onClick={handleDriveBackup}
+                            className="flex-1 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 rounded-full px-2.5 py-1.5"
+                          >
+                            ⬆ Back up to Drive
+                          </button>
+                          <button
+                            onClick={handleDriveRestore}
+                            className="flex-1 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 rounded-full px-2.5 py-1.5"
+                          >
+                            ⬇ Restore from Drive
+                          </button>
+                        </div>
+                      )}
+                      {authEmail && driveStatus && (
+                        <p className="text-[10px] text-slate-400 leading-tight">{driveStatus}</p>
+                      )}
+                    </div>
+
+                    {/* Admin — only rendered once the /admin/users fetch actually succeeds */}
+                    {isAdmin && (
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-[7px] flex flex-col gap-1.5">
+                        <p className="text-[12px] font-bold text-slate-700 leading-tight">Admin — Users</p>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            value={newUserEmail}
+                            onChange={(e) => setNewUserEmail(e.target.value)}
+                            placeholder="email@gmail.com"
+                            className="flex-1 min-w-0 text-[11px] px-2 py-1 rounded-md border border-slate-200"
+                          />
+                          <button
+                            onClick={() => {
+                              const email = newUserEmail.trim().toLowerCase()
+                              if (email) { addAdminUser.mutate(email); setNewUserEmail('') }
+                            }}
+                            className="shrink-0 text-[11px] font-semibold text-white rounded-full px-2.5 py-1"
+                            style={{ background: '#0d9488' }}
+                          >
+                            Add
+                          </button>
+                        </div>
+                        <div className="flex flex-col gap-1 max-h-[180px] overflow-y-auto">
+                          {adminUsers.length === 0 && (
+                            <p className="text-[10px] text-slate-400 px-0.5">No users yet</p>
+                          )}
+                          {adminUsers.map((u) => (
+                            <div
+                              key={u.email}
+                              className="flex items-center gap-1.5 text-[11px] bg-white border border-slate-100 rounded-md px-2 py-1"
+                            >
+                              <span className="truncate flex-1 min-w-0 text-slate-700">{u.email}</span>
+                              <span
+                                className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                                style={
+                                  u.revoked
+                                    ? { background: '#fef2f2', color: '#ef4444' }
+                                    : u.google_sub
+                                      ? { background: '#ecfdf5', color: '#10b981' }
+                                      : { background: '#fffbeb', color: '#d97706' }
+                                }
+                              >
+                                {u.revoked ? 'Revoked' : u.google_sub ? 'Active' : 'Pending'}
+                              </span>
+                              <button
+                                onClick={() =>
+                                  u.revoked ? restoreAdminUser.mutate(u.email) : revokeAdminUser.mutate(u.email)
+                                }
+                                className="shrink-0 text-[10px] font-semibold text-slate-500 underline whitespace-nowrap"
+                              >
+                                {u.revoked ? 'Restore' : 'Revoke'}
+                              </button>
+                              <button
+                                onClick={() => { if (window.confirm(`Remove ${u.email}?`)) deleteAdminUser.mutate(u.email) }}
+                                title="Remove"
+                                className="shrink-0 text-[13px] leading-none text-slate-400"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Debug Log */}
                     <div className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
