@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, useIsRestoring } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
-import { usePortfolio } from './hooks/usePortfolio'
+import { usePortfolio, hasOwnCsv } from './hooks/usePortfolio'
 import { useRefreshAllBenchmarks, getLastBenchmarkAutoRefreshDay, setLastBenchmarkAutoRefreshDay } from './hooks/useBenchmarkXirr'
 import PortfoliosPage   from './pages/PortfoliosPage'
 import HoldingsPage     from './pages/HoldingsPage'
@@ -13,7 +13,7 @@ import JoinPage         from './pages/JoinPage'
 import DebugOverlay     from './components/DebugOverlay'
 import GoogleSignInButton from './components/GoogleSignInButton'
 import { logDebug } from './utils/debugLog'
-import { AuthRequiredError } from './utils/auth'
+import { isSignedIn } from './utils/auth'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,27 +45,11 @@ function LoadingScreen({ message = 'Loading your portfolio…' }: { message?: st
   )
 }
 
-function SignInGate() {
-  const [error, setError] = useState('')
-  return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4 px-6">
-      <div className="text-[22px] font-bold bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
-        Nexus
-      </div>
-      <p className="text-slate-400 text-[13px] text-center max-w-xs">
-        Your session expired or this device isn't signed in — sign in with Google to see your portfolio again.
-      </p>
-      <GoogleSignInButton onSuccess={() => window.location.reload()} onError={setError} />
-      {error && <p className="text-[12px] text-red-400">{error}</p>}
-    </div>
-  )
-}
-
-// Non-blocking version of SignInGate — shown when we already have real
-// portfolio data cached (so the app renders normally with last-known
-// numbers) but the background refresh is failing because this device isn't
-// signed in. Without this, that failure was silent: numbers would just
-// quietly stop updating with no indication why.
+// Non-blocking banner — shown whenever this device isn't signed in, whether
+// that's a fresh visitor browsing the demo, an explicit sign-out, or a
+// stale/revoked token usePortfolio.ts already dropped. The app must always
+// render the demo portfolio underneath; this only ever invites sign-in, it
+// never blocks.
 function ReauthBanner() {
   const [open, setOpen] = useState(false)
   const [error, setError] = useState('')
@@ -73,7 +57,7 @@ function ReauthBanner() {
     <div className="fixed top-0 left-0 right-0 z-[9998] bg-amber-50 border-b border-amber-200">
       <div className="flex items-center justify-center gap-3 px-4 py-2 text-center">
         <span className="text-[12px] text-amber-800">
-          Sign in to continue using the app
+          Sign in to analyse your portfolio
         </span>
         {!open && (
           <button
@@ -134,10 +118,10 @@ function AppRoutes({ currency, onCurrencyChange }: { currency: Currency; onCurre
   useEffect(() => {
     if (isRestoring || loggedRestore.current) return
     loggedRestore.current = true
-    const hasCsv      = !!localStorage.getItem('portfolio:csv')
+    const hasCsv      = hasOwnCsv()
     const hasRealData = !!data?.csv_hash
-    const willBlock    = !data || (hasCsv && !hasRealData)
-    logDebug(`gate: hasData=${!!data} csv_hash=${data?.csv_hash ?? 'none'} hasCsv=${hasCsv} hasRealData=${hasRealData} -> ${willBlock ? 'BLOCKING (FetchingScreen)' : 'instant render'}`)
+    const willBlock    = !data || (hasCsv && !hasRealData && isSignedIn())
+    logDebug(`gate: hasData=${!!data} csv_hash=${data?.csv_hash ?? 'none'} hasCsv=${hasCsv} hasRealData=${hasRealData} signedIn=${isSignedIn()} -> ${willBlock ? 'BLOCKING (FetchingScreen)' : 'instant render'}`)
   }, [isRestoring, data])
 
   // /join is a public landing page for the invite link — it doesn't need portfolio
@@ -155,20 +139,19 @@ function AppRoutes({ currency, onCurrencyChange }: { currency: Currency; onCurre
 
   if (isRestoring) return <LoadingScreen />
 
-  // csv_hash is only ever set on a real-CSV response, never demo (fetchPortfolioGuarded
-  // in usePortfolio.ts throws rather than resolve with demo data when a CSV was sent).
-  // If a CSV is saved locally but we don't yet have real data cached, keep blocking so
-  // demo never flashes. Otherwise render immediately with whatever we have — even if
-  // stale by hours/a day — and let the header's existing ↻ spinner show the background sync.
-  const hasCsv     = !!localStorage.getItem('portfolio:csv')
+  // csv_hash is only ever set on a real-CSV response, never demo. If a CSV is saved
+  // locally AND this device is signed in, keep blocking until real data lands so demo
+  // never flashes. If we're not signed in, usePortfolio.ts's fetchPortfolioGuarded
+  // already fell back to demo internally — there's nothing real left to wait for, so
+  // don't block. Otherwise render immediately with whatever we have — even if stale by
+  // hours/a day — and let the header's existing ↻ spinner show the background sync.
+  const hasCsv     = hasOwnCsv()
   const hasRealData = !!data?.csv_hash
-  if (hasCsv && !hasRealData && error instanceof AuthRequiredError) return <SignInGate />
-  if (!data || (hasCsv && !hasRealData)) return <FetchingScreen />
+  const awaitingRealData = hasCsv && !hasRealData && isSignedIn()
+  if (!data || awaitingRealData) return <FetchingScreen />
 
-  // We have real data on screen (from cache), but the latest background refresh
-  // failed because this device isn't signed in — show the softer banner instead
-  // of silently letting numbers go stale with no explanation.
-  const needsReauth = hasRealData && error instanceof AuthRequiredError
+  // Not signed in — invite sign-in via a non-blocking banner. Never a full-screen gate.
+  const needsReauth = !isSignedIn()
 
   return (
     <BrowserRouter>

@@ -203,6 +203,11 @@ interface CsvMeta { name: string; size: number; importedAt: number }
 
 function getCsvMeta(): CsvMeta | null {
   if (!localStorage.getItem('portfolio:csv')) return null
+  // Same ownership check as usePortfolio.ts's getCsvContent() — a CSV imported by a
+  // different Google account signed in earlier on this device must not leak even its
+  // filename/size into the currently signed-in account's Settings panel.
+  const owner = localStorage.getItem('portfolio:csv:owner')
+  if (owner && owner !== getUserEmail()) return null
   try { return JSON.parse(localStorage.getItem('portfolio:csv:meta') || 'null') } catch { return null }
 }
 function fmtBytes(b: number) { return b < 1024 * 1024 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB` }
@@ -362,6 +367,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   const [authEmail, setAuthEmail]           = useState<string | undefined>(getUserEmail)
   const [accountPanelOpen, setAccountPanelOpen] = useState(false)
   const [signInError, setSignInError] = useState('')
+  const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false)
   const [driveStatus, setDriveStatus]       = useState('')
   const [lastBackupAt, setLastBackupAt]     = useState<number | null>(
     () => { const v = localStorage.getItem('portfolio:drive:lastBackup'); return v ? Number(v) : null }
@@ -434,6 +440,13 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         } catch {
           csvWriteOk = false
         }
+      }
+
+      if (csvWriteOk) {
+        // Tag this CSV with the account that imported it — usePortfolio.ts refuses to
+        // send it under a different account's token if another Google account signs
+        // in on this same device later.
+        try { localStorage.setItem('portfolio:csv:owner', getUserEmail() ?? '') } catch {}
       }
 
       if (!csvWriteOk) {
@@ -585,6 +598,21 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       setDriveStatus(e instanceof Error ? e.message : 'Backup failed')
     }
   }, [])
+
+  // Sign-out clears the session AND the locally-cached real portfolio — the device
+  // goes fully back to demo mode. Re-importing the CSV or restoring from Drive after
+  // signing back in brings the real data back.
+  const handleSignOutConfirm = useCallback(() => {
+    clearSession()
+    setAuthEmail(undefined)
+    localStorage.removeItem('portfolio:csv')
+    localStorage.removeItem('portfolio:csv:meta')
+    localStorage.removeItem('portfolio:csv:hash')
+    localStorage.removeItem('portfolio:csv:owner')
+    setCsvMeta(null)
+    qc.removeQueries({ queryKey: ['portfolio'] })
+    setSignOutConfirmOpen(false)
+  }, [qc])
 
   // Two-step: first click checks Drive and shows what's there (without touching
   // local data); second click actually restores it. Avoids silently overwriting
@@ -1084,7 +1112,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                       </div>
                       <button
                         onClick={() => {
-                          if (authEmail) { clearSession(); setAuthEmail(undefined) }
+                          if (authEmail) { setSignOutConfirmOpen(true) }
                           else { setSignInError(''); setSettingsOpen(false); setAccountPanelOpen(true) }
                         }}
                         title={authEmail ? 'Sign out' : 'Sign in with Google'}
@@ -1704,6 +1732,41 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                   onError={setSignInError}
                 />
                 {signInError && <p className="text-[11px] text-red-500">{signInError}</p>}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Sign out — confirm modal */}
+      {signOutConfirmOpen && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-[1200]" onClick={() => setSignOutConfirmOpen(false)} />
+          <div className="fixed inset-0 z-[1201] flex items-center justify-center px-6 pointer-events-none">
+            <div className="pointer-events-auto w-full max-w-[300px] bg-white rounded-2xl shadow-2xl overflow-hidden border border-emerald-100">
+              <div className="px-4 py-3 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+                <span className="text-[14px] font-extrabold text-white tracking-[-0.2px]">Sign out</span>
+                <button onClick={() => setSignOutConfirmOpen(false)} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[13px] leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>✕</button>
+              </div>
+              <div className="px-4 py-5 flex flex-col items-center gap-4" style={{ background: '#f8fafc' }}>
+                <p className="text-[12px] text-slate-500 text-center leading-relaxed">
+                  Sign out and return to the demo portfolio? Your real portfolio data on this device will be cleared — sign back in to bring it back.
+                </p>
+                <div className="flex items-center gap-2 w-full">
+                  <button
+                    onClick={() => setSignOutConfirmOpen(false)}
+                    className="flex-1 text-[12px] font-semibold text-[#0b3b3a] bg-white border border-emerald-100 rounded-full px-3 py-2"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSignOutConfirm}
+                    className="flex-1 text-[12px] font-semibold text-white rounded-full px-3 py-2"
+                    style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+                  >
+                    Sign out
+                  </button>
+                </div>
               </div>
             </div>
           </div>
