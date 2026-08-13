@@ -395,7 +395,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     setImportProgress(0)
     setImportDone(false)
     setImportStatus('Reading rows…')
-    const oldCsv = localStorage.getItem('portfolio:csv') ?? ''
+    const oldCsv  = localStorage.getItem('portfolio:csv') ?? ''
+    const oldMeta = localStorage.getItem('portfolio:csv:meta')
     const reader = new FileReader()
     reader.onload = async (e) => {
       const rawText = e.target?.result as string
@@ -538,6 +539,24 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           setLastImportError(null)
         } else {
           logDebug(`IMPORT FAILED: backend responded ${res.status}`)
+          // The backend explicitly rejected this CSV's content (bad format, etc.) — retrying
+          // with the same content will only ever fail the same way again. Revert localStorage
+          // to the last-known-good CSV so the background refetch loop doesn't keep re-sending
+          // the rejected file and surfacing its raw error as a "Failed to load portfolio" crash
+          // screen. (A network/timeout failure below is different — the CSV itself was never
+          // evaluated, so it's left in place to retry.)
+          if (oldCsv.trim()) {
+            try {
+              localStorage.setItem('portfolio:csv', oldCsv)
+              if (oldMeta) localStorage.setItem('portfolio:csv:meta', oldMeta)
+            } catch {}
+            try { setCsvMeta(oldMeta ? JSON.parse(oldMeta) : null) } catch { setCsvMeta(null) }
+          } else {
+            localStorage.removeItem('portfolio:csv')
+            localStorage.removeItem('portfolio:csv:meta')
+            localStorage.removeItem('portfolio:csv:owner')
+            setCsvMeta(null)
+          }
           const ts = Date.now()
           try { localStorage.setItem('portfolio:import:lastError', String(ts)) } catch {}
           setLastImportError(ts)

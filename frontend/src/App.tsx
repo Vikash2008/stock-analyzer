@@ -51,16 +51,21 @@ function LoadingScreen({ message = 'Loading your portfolio…' }: { message?: st
 // render the demo portfolio underneath; this only ever invites sign-in, it
 // never blocks.
 function ReauthBanner() {
-  const [open, setOpen] = useState(false)
+  const [bannerVisible, setBannerVisible] = useState(true)
+  const [modalOpen, setModalOpen] = useState(false)
   const [error, setError] = useState('')
   const ref = useRef<HTMLDivElement>(null)
 
-  // Publish the banner's real (collapsed or expanded) height as a CSS variable so
-  // the fixed-height pages below (ResearchPage/TransactionsPage/HoldingsPage, which
-  // all size their root to exactly 100dvh) can reserve space for it instead of
-  // having it silently overlap their top nav row. PortfoliosPage isn't height-locked
-  // like those — it just flows naturally — so it doesn't need this.
+  // Publish the banner's height as a CSS variable so the fixed-height pages below
+  // (ResearchPage/TransactionsPage/HoldingsPage, which all size their root to exactly
+  // 100dvh) can reserve space for it instead of having it silently overlap their top
+  // nav row. PortfoliosPage isn't height-locked like those — it just flows naturally —
+  // so it doesn't need this.
   useEffect(() => {
+    if (!bannerVisible) {
+      document.documentElement.style.removeProperty('--reauth-banner-h')
+      return
+    }
     const el = ref.current
     if (!el) return
     const update = () => document.documentElement.style.setProperty('--reauth-banner-h', `${el.offsetHeight}px`)
@@ -71,30 +76,64 @@ function ReauthBanner() {
       ro.disconnect()
       document.documentElement.style.removeProperty('--reauth-banner-h')
     }
-  }, [open])
+  }, [bannerVisible])
+
+  // Auto-dismiss the banner after 5s if untouched.
+  useEffect(() => {
+    if (!bannerVisible) return
+    const t = setTimeout(() => setBannerVisible(false), 5000)
+    return () => clearTimeout(t)
+  }, [bannerVisible])
+
+  const openSignIn = () => { setBannerVisible(false); setModalOpen(true) }
 
   return (
-    <div ref={ref} className="fixed top-0 left-0 right-0 z-[9998] bg-amber-50 border-b border-amber-200">
-      <div className="flex items-center justify-center gap-3 px-4 py-2 text-center">
-        <span className="text-[12px] text-amber-800">
-          Sign in to analyse your portfolio
-        </span>
-        {!open && (
-          <button
-            onClick={() => setOpen(true)}
-            className="shrink-0 text-[12px] font-semibold text-amber-800 bg-amber-100 px-3 py-1 rounded-full border border-amber-300 active:bg-amber-200"
-          >
-            Sign in
-          </button>
-        )}
-      </div>
-      {open && (
-        <div className="px-4 pb-3 flex flex-col items-center gap-2">
-          <GoogleSignInButton onSuccess={() => window.location.reload()} onError={setError} />
-          {error && <p className="text-[11px] text-red-600">{error}</p>}
+    <>
+      {bannerVisible && (
+        <div ref={ref} className="fixed top-0 left-0 right-0 z-[9998]" style={{ background: '#e6f7f5', borderBottom: '1px solid #99f6e4' }}>
+          <div className="flex items-center justify-between gap-3 px-4 py-2">
+            <span className="text-[12px] font-semibold" style={{ color: '#0b3b3a' }}>
+              Sign in to analyse your portfolio
+            </span>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={openSignIn}
+                className="text-[12px] font-semibold text-white px-3 py-1 rounded-full active:opacity-80"
+                style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+              >
+                Sign in
+              </button>
+              <button
+                onClick={() => setBannerVisible(false)}
+                aria-label="Dismiss"
+                className="w-5 h-5 flex items-center justify-center rounded-full text-[13px] leading-none active:opacity-60"
+                style={{ color: '#0b3b3a' }}
+              >
+                ×
+              </button>
+            </div>
+          </div>
         </div>
       )}
-    </div>
+
+      {modalOpen && (
+        <>
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9997]" onClick={() => setModalOpen(false)} />
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center px-6 pointer-events-none">
+            <div className="pointer-events-auto w-full max-w-[300px] bg-white rounded-2xl shadow-2xl overflow-hidden border border-teal-100">
+              <div className="px-4 py-3 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+                <span className="text-[14px] font-extrabold text-white tracking-[-0.2px]">Sign in</span>
+                <button onClick={() => setModalOpen(false)} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[13px] leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>✕</button>
+              </div>
+              <div className="px-4 py-6 flex flex-col items-center gap-2" style={{ background: '#f8fafc' }}>
+                <GoogleSignInButton onSuccess={() => window.location.reload()} onError={setError} />
+                {error && <p className="text-[11px] text-red-500">{error}</p>}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </>
   )
 }
 
