@@ -602,25 +602,9 @@ export function ReportTab({ yf_symbol, name, qs, loading, reportTab, useLite, us
                 </div>
               </button>
 
-              {/* Right: gemini icon + action button + attribution */}
+              {/* Right: action button + attribution */}
               <div className="shrink-0 flex flex-col items-end gap-0.5">
                 <div className="flex items-center gap-1.5">
-                  {/* Gemini icon — opens AI Assistant chat for this card */}
-                  <button
-                    onClick={() => { setChatInitialContext(section.id); setShowChat(true) }}
-                    className="p-0.5 shrink-0 active:opacity-70"
-                    title="AI Assistant"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24">
-                      <defs>
-                        <linearGradient id={`gg-${section.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%" stopColor="#4285f4"/>
-                          <stop offset="100%" stopColor="#9334e9"/>
-                        </linearGradient>
-                      </defs>
-                      <path fill={`url(#gg-${section.id})`} d="M12 2c-.5 4-4 7.5-10 10 6 2.5 9.5 6 10 10 .5-4 4-7.5 10-10-6-2.5-9.5-6-10-10z"/>
-                    </svg>
-                  </button>
                   {state === 'loading' ? (
                     <span className={`text-[10px] font-medium px-2.5 py-1 rounded-md border opacity-60 ${section.color.btnOutline}`}>
                       …
