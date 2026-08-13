@@ -379,7 +379,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       setImportFailReason('Sign in required to upload a real portfolio')
       setImportFailBanner(true)
       clearTimeout(importFailBannerTimer.current)
-      importFailBannerTimer.current = setTimeout(() => setImportFailBanner(false), 2500)
+      importFailBannerTimer.current = setTimeout(() => setImportFailBanner(false), 5000)
       return
     }
     setImportProgress(0)
@@ -440,7 +440,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         setImportFailReason('Storage full — free up space')
         setImportFailBanner(true)
         clearTimeout(importFailBannerTimer.current)
-        importFailBannerTimer.current = setTimeout(() => setImportFailBanner(false), 2000)
+        importFailBannerTimer.current = setTimeout(() => setImportFailBanner(false), 5000)
         setImportProgress(null)
         setImportStatus('')
         return
@@ -527,7 +527,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           setImportFailReason(res.status === 400 ? 'Invalid CSV format' : `Server error (${res.status})`)
           setImportFailBanner(true)
           clearTimeout(importFailBannerTimer.current)
-          importFailBannerTimer.current = setTimeout(() => setImportFailBanner(false), 2000)
+          importFailBannerTimer.current = setTimeout(() => setImportFailBanner(false), 5000)
         }
       } catch (e) {
         // timed out or network error on both attempts — CSV in localStorage, next load will retry
@@ -538,7 +538,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         setImportFailReason(!attempt.ok && attempt.aborted ? 'Request timed out' : 'Network error')
         setImportFailBanner(true)
         clearTimeout(importFailBannerTimer.current)
-        importFailBannerTimer.current = setTimeout(() => setImportFailBanner(false), 2000)
+        importFailBannerTimer.current = setTimeout(() => setImportFailBanner(false), 5000)
       }
       finally {
         clearTimers()
@@ -994,7 +994,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       )}
 
       {importFailBanner && (
-        <div className="fixed top-2 left-1/2 -translate-x-1/2 z-[1000] bg-red-100 border border-red-300 text-red-700 text-[12px] font-medium px-4 py-2 rounded-full shadow-md">
+        <div className="fixed top-2 left-1/2 -translate-x-1/2 z-[1000] w-[92vw] max-w-sm bg-red-100 border border-red-300 text-red-700 text-[12px] font-medium px-4 py-2.5 rounded-xl shadow-md text-center leading-snug">
           ⚠ Import failed — {importFailReason || 'try again'}
         </div>
       )}
@@ -1044,96 +1044,40 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                   {/* Body */}
                   <div className="overflow-y-auto flex flex-col gap-1.5 px-3.5 py-2.5" style={{ background: '#f8fafc' }}>
 
-                    {/* ── Data ── */}
-                    <p className="text-[10px] font-semibold uppercase tracking-widest px-0.5 pt-1" style={{ color: '#0b3b3a' }}>Data</p>
-
-                    {/* My Portfolio */}
-                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
-                      <div className="min-w-0">
-                        <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">My Portfolio</p>
-                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5 truncate">
-                          {csvMeta ? `${csvMeta.name} · ${fmtBytes(csvMeta.size)}` : 'Demo Data · Sample portfolio'}
-                        </p>
-                      </div>
-                      <button
-                        onClick={handleDownload}
-                        title="Download a backup CSV — includes your Bucket/Label tags and notes; re-import this (not your raw broker export) to restore them"
-                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] text-white"
-                        style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                          <polyline points="7 10 12 15 17 10"/>
-                          <line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
-                      </button>
-                    </div>
-
-                    {/* Demo file */}
-                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
-                      <div className="min-w-0">
-                        <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Demo file</p>
-                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Sample portfolio · ~1 Cr · 32 stocks</p>
-                      </div>
-                      <button
-                        onClick={() => window.open(`${API_URL_SETTINGS}/api/demo-csv?t=${Date.now()}`, '_blank')}
-                        title="Download demo CSV"
-                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] text-white"
-                        style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                          <polyline points="7 10 12 15 17 10"/>
-                          <line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
-                      </button>
-                    </div>
-
                     {/* ── Account ── */}
                     <p className="text-[10px] font-semibold uppercase tracking-widest px-0.5 pt-1" style={{ color: '#0b3b3a' }}>Account</p>
 
                     {/* Sign in with Google */}
-                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex flex-col gap-0">
-                      <div className="flex items-center justify-between gap-2.5">
-                        <div className="min-w-0">
-                          <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Sign in with Google</p>
-                          <p className="text-[10px] text-slate-400 leading-tight mt-0.5 truncate">
-                            {authEmail ? `Signed in as ${authEmail}` : 'Sync your real portfolio, alerts & watchlist'}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => {
-                            if (authEmail) { clearSession(); setAuthEmail(undefined) }
-                            else setAccountPanelOpen(v => !v)
-                          }}
-                          title={authEmail ? 'Sign out' : 'Sign in with Google'}
-                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] text-white"
-                          style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
-                        >
-                          {authEmail ? (
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
-                              <polyline points="16 17 21 12 16 7"/>
-                              <line x1="21" y1="12" x2="9" y2="12"/>
-                            </svg>
-                          ) : (
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/>
-                              <polyline points="10 17 15 12 10 7"/>
-                              <line x1="15" y1="12" x2="3" y2="12"/>
-                            </svg>
-                          )}
-                        </button>
+                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Sign in with Google</p>
+                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5 truncate">
+                          {authEmail ? `Signed in as ${authEmail}` : 'Sync your real portfolio, alerts & watchlist'}
+                        </p>
                       </div>
-                      {!authEmail && accountPanelOpen && (
-                        <div className="mt-1.5 pt-1.5 border-t border-emerald-100/70">
-                          <GoogleSignInButton
-                            onSuccess={(email) => { setAuthEmail(email); setAccountPanelOpen(false); setSignInError('') }}
-                            onError={setSignInError}
-                          />
-                          {signInError && <p className="text-[11px] text-red-500 mt-1">{signInError}</p>}
-                        </div>
-                      )}
+                      <button
+                        onClick={() => {
+                          if (authEmail) { clearSession(); setAuthEmail(undefined) }
+                          else { setSignInError(''); setSettingsOpen(false); setAccountPanelOpen(true) }
+                        }}
+                        title={authEmail ? 'Sign out' : 'Sign in with Google'}
+                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] text-white"
+                        style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+                      >
+                        {authEmail ? (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+                            <polyline points="16 17 21 12 16 7"/>
+                            <line x1="21" y1="12" x2="9" y2="12"/>
+                          </svg>
+                        ) : (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/>
+                            <polyline points="10 17 15 12 10 7"/>
+                            <line x1="15" y1="12" x2="3" y2="12"/>
+                          </svg>
+                        )}
+                      </button>
                     </div>
 
                     {/* Import CSV */}
@@ -1202,6 +1146,51 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                         </button>
                       </div>
                     )}
+
+                    {/* ── Data ── */}
+                    <p className="text-[10px] font-semibold uppercase tracking-widest px-0.5 pt-1" style={{ color: '#0b3b3a' }}>Data</p>
+
+                    {/* My Portfolio */}
+                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">My Portfolio</p>
+                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5 truncate">
+                          {csvMeta ? `${csvMeta.name} · ${fmtBytes(csvMeta.size)}` : 'Demo Data · Sample portfolio'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleDownload}
+                        title="Download a backup CSV — includes your Bucket/Label tags and notes; re-import this (not your raw broker export) to restore them"
+                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] text-white"
+                        style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                          <polyline points="7 10 12 15 17 10"/>
+                          <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                      </button>
+                    </div>
+
+                    {/* Demo file */}
+                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Demo file</p>
+                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Sample portfolio · ~1 Cr · 32 stocks</p>
+                      </div>
+                      <button
+                        onClick={() => window.open(`${API_URL_SETTINGS}/api/demo-csv?t=${Date.now()}`, '_blank')}
+                        title="Download demo CSV"
+                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] text-white"
+                        style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                          <polyline points="7 10 12 15 17 10"/>
+                          <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                      </button>
+                    </div>
 
                     {/* ── Configuration (collapsible, default collapsed) ── */}
                     <button
@@ -1408,7 +1397,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                     )}
 
                     {/* Footer */}
-                    <div className="mt-0.5 pt-2 border-t border-[#eef1f5] flex items-center justify-between px-0.5 pb-1">
+                    <div className="mt-0.5 bg-slate-100 rounded-lg flex items-center justify-between px-2.5 py-[7px]">
                       <span className="text-[10px] text-slate-400">Updated on</span>
                       <span className="text-[10px] text-slate-400 text-right">
                         v{__APP_VERSION__} · {new Date(__BUILD_TIME__).toLocaleString('en-GB', {
@@ -1682,6 +1671,28 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           data={data}
           onChanged={() => setBucketsVersion(v => v + 1)}
         />
+      )}
+
+      {/* Sign in with Google — centered modal */}
+      {!authEmail && accountPanelOpen && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-[1200]" onClick={() => setAccountPanelOpen(false)} />
+          <div className="fixed inset-0 z-[1201] flex items-center justify-center px-6 pointer-events-none">
+            <div className="pointer-events-auto w-full max-w-[300px] bg-white rounded-2xl shadow-2xl overflow-hidden border border-emerald-100">
+              <div className="px-4 py-3 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+                <span className="text-[14px] font-extrabold text-white tracking-[-0.2px]">Sign in</span>
+                <button onClick={() => setAccountPanelOpen(false)} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[13px] leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>✕</button>
+              </div>
+              <div className="px-4 py-6 flex flex-col items-center gap-2" style={{ background: '#f8fafc' }}>
+                <GoogleSignInButton
+                  onSuccess={(email) => { setAuthEmail(email); setAccountPanelOpen(false); setSignInError('') }}
+                  onError={setSignInError}
+                />
+                {signInError && <p className="text-[11px] text-red-500">{signInError}</p>}
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
     </div>
