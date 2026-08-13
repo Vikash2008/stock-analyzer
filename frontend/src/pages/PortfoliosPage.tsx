@@ -1750,7 +1750,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
               </div>
               <div className="px-4 py-5 flex flex-col items-center gap-4" style={{ background: '#f8fafc' }}>
                 <p className="text-[12px] text-slate-500 text-center leading-relaxed">
-                  Sign out and return to the demo portfolio? Your real portfolio data on this device will be cleared — sign back in to bring it back.
+                  Do you want to sign out?
                 </p>
                 <div className="flex items-center gap-2 w-full">
                   <button
