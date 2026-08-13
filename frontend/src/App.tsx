@@ -71,16 +71,18 @@ function ReauthBanner() {
   const [error, setError] = useState('')
   return (
     <div className="fixed top-0 left-0 right-0 z-[9998] bg-amber-50 border-b border-amber-200">
-      <div className="flex items-center justify-between gap-3 px-4 py-2">
+      <div className="flex items-center justify-center gap-3 px-4 py-2 text-center">
         <span className="text-[12px] text-amber-800">
           Showing your last saved portfolio — sign in to keep it syncing.
         </span>
-        <button
-          onClick={() => setOpen((v) => !v)}
-          className="shrink-0 text-[12px] font-semibold text-amber-800 bg-amber-100 px-3 py-1 rounded-full border border-amber-300 active:bg-amber-200"
-        >
-          Sign in
-        </button>
+        {!open && (
+          <button
+            onClick={() => setOpen(true)}
+            className="shrink-0 text-[12px] font-semibold text-amber-800 bg-amber-100 px-3 py-1 rounded-full border border-amber-300 active:bg-amber-200"
+          >
+            Sign in
+          </button>
+        )}
       </div>
       {open && (
         <div className="px-4 pb-3 flex flex-col items-center gap-2">
