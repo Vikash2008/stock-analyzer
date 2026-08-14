@@ -26,8 +26,8 @@ export default function JoinPage() {
       </div>
 
       <a
-        href="/stock-analyzer.apk"
-        download
+        href="https://github.com/Vikash2008/stock-analyzer/releases/download/v1.0.0/app-release-signed.apk"
+        download="Nexus.apk"
         className="w-full max-w-[280px] text-[13px] font-semibold text-white rounded-full px-4 py-4"
         style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
       >

@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.nexusconfig.app",
+    "sha256_cert_fingerprints": ["D5:B1:32:EC:D0:42:15:FD:4A:F4:51:29:CE:72:66:7A:A5:E1:0D:EF:97:BE:6C:9A:E5:41:C3:3D:49:D5:89:3F"]
+  }
+}]
