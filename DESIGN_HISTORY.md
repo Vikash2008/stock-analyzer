@@ -1,5 +1,10 @@
 # Design Decisions Log — Archive
 
+### 2026-08-10
+
+No new UI/layout decisions — the Notes tab's on-screen design is unchanged, only its storage moved from localStorage to the CSV (see Notes section above and ARCHITECTURE.md's set-notes endpoint).
+
+
 ### 2026-07-14
 
 Removed the "Benchmarking analysis" Refresh row from the Holdings-page Settings popover — benchmarking data already refreshes on its own, the manual button was redundant. Dividends tab: moved the "Updated HH:MM" timestamp off its own standalone line and into the same row as the "Dividend Income" pill label (right-aligned), matching the inline pattern already used elsewhere. Transactions-page top summary bar: shares/avg price now round to at most 1 decimal place (whole numbers show with no decimal).
