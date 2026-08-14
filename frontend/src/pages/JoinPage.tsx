@@ -20,9 +20,9 @@ export default function JoinPage() {
       </svg>
 
       {/* Ambient glow behind the mark */}
-      <div className="absolute left-1/2 top-[45%] -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-teal-500/20 blur-[90px] pointer-events-none" />
+      <div className="absolute left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-teal-500/20 blur-[90px] pointer-events-none" />
 
-      <div className="absolute left-1/2 top-[45%] -translate-x-1/2 -translate-y-1/2 w-full flex flex-col items-center">
+      <div className="absolute left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2 w-full flex flex-col items-center">
         <div className="flex flex-col items-center join-fade">
           <p className="text-[12px] font-mono tracking-[0.25em] text-teal-400/80 uppercase mb-4">
             Portfolio Intelligence
@@ -36,7 +36,7 @@ export default function JoinPage() {
           <h1 className="text-[30px] font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent mt-4">
             Nexus
           </h1>
-          <p className="text-slate-400 text-[13px] mt-2 max-w-[260px] leading-relaxed">
+          <p className="text-slate-400 text-[13px] mt-2 max-w-[310px] leading-relaxed">
             AI-powered deep research meets portfolio intelligence — every broker, every holding, unified.
           </p>
         </div>
