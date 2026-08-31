@@ -14,6 +14,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: false,
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.ts',
