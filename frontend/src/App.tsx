@@ -254,7 +254,6 @@ export default function App() {
     localStorage.setItem('currency', c)
     setCurrency(c)
   }
-  const [updateReady, setUpdateReady] = useState(false)
 
   useEffect(() => {
     // Ask the browser to exempt this origin from automatic storage eviction
@@ -271,29 +270,6 @@ export default function App() {
       navigator.storage.persist().then(granted => {
         logDebug(granted ? 'storage.persist GRANTED' : 'storage.persist NOT granted')
       })
-    }
-
-    if (!('serviceWorker' in navigator)) return
-
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      logDebug(`controllerchange: csvLen=${(localStorage.getItem('portfolio:csv') ?? '').length}`)
-      setUpdateReady(true)
-    })
-
-    const triggerCheck = () => {
-      navigator.serviceWorker.getRegistration().then(reg => { if (reg) reg.update() })
-    }
-
-    // Check on visibility restore
-    const onVisibility = () => { if (document.visibilityState === 'visible') triggerCheck() }
-    document.addEventListener('visibilitychange', onVisibility)
-
-    // Check every 15 seconds so banner appears almost immediately after deploy
-    const interval = setInterval(triggerCheck, 15_000)
-
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility)
-      clearInterval(interval)
     }
   }, [])
 
@@ -318,29 +294,6 @@ export default function App() {
     >
       <AppRoutes currency={currency} onCurrencyChange={handleCurrencyChange} />
       <DebugOverlay />
-      {updateReady && (
-        <div className="fixed top-0 left-0 right-0 z-[9999] flex items-center justify-between px-4 py-2 bg-emerald-50 border-b border-emerald-200">
-          <span className="text-[12px] text-emerald-700">New version available</span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                logDebug(`update tapped: csvLen=${(localStorage.getItem('portfolio:csv') ?? '').length}, reloading`)
-                window.location.reload()
-              }}
-              className="text-[12px] font-semibold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300 active:bg-emerald-200"
-            >
-              Update
-            </button>
-            <button
-              onClick={() => setUpdateReady(false)}
-              aria-label="Dismiss"
-              className="text-emerald-700 text-[16px] leading-none px-1.5 py-1 active:bg-emerald-100 rounded-full"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
     </PersistQueryClientProvider>
   )
 }
