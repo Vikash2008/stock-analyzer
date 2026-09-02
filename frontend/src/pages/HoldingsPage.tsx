@@ -1300,6 +1300,122 @@ export default function HoldingsPage({ currency }: Props) {
     [metricSeries],
   )
 
+  // ── Charts tab: per-holding breakdown for whichever pill + range is active ──
+  // Same daily-value-series construction as sectorValueSeries above, just grouped by symbol
+  // instead of sector, then reduced to a single period-start/period-end delta per holding.
+  const holdingBreakdownRows = useMemo((): { symbol: string; label: string; amount: number }[] => {
+    if (!data || !metricSeries?.dates.length || !symbolPriceMap.size || !filteredHoldings.length) return []
+    const rangeStart = metricSeries.dates[0].toISOString().slice(0, 10)
+    const rangeEnd   = metricSeries.dates[metricSeries.dates.length - 1].toISOString().slice(0, 10)
+    const usdInr = data.usd_inr
+
+    const dateSet = new Set<string>()
+    for (const [, m] of symbolPriceMap) for (const dt of m.keys()) dateSet.add(dt)
+    const allDates = [...dateSet].sort()
+
+    const qtyDelta   = new Map<string, Map<string, number>>()
+    const firstDateM = new Map<string, string>()
+    for (const tx of filtTxns) {
+      if (tx.type === 'DIVIDEND') continue
+      const delta   = tx.type === 'BUY' ? tx.quantity : -tx.quantity
+      const key     = `${tx.portfolio}:${tx.yf_symbol}`
+      const dateStr = tx.date.slice(0, 10)
+      if (!qtyDelta.has(key)) qtyDelta.set(key, new Map())
+      qtyDelta.get(key)!.set(dateStr, (qtyDelta.get(key)!.get(dateStr) ?? 0) + delta)
+      if (!firstDateM.has(key) || dateStr < firstDateM.get(key)!) firstDateM.set(key, dateStr)
+    }
+
+    // Combined value (in INR-equivalent) of a symbol's holdings, on or before `target`.
+    function valueAtOrBefore(holdings: Holding[], target: string): number {
+      let total = 0
+      for (const h of holdings) {
+        const pm = symbolPriceMap.get(h.yf_symbol)
+        if (!pm?.size) continue
+        const key    = `${h.portfolio}:${h.yf_symbol}`
+        const deltas = qtyDelta.get(key) ?? new Map<string, number>()
+        const first  = firstDateM.get(key) ?? allDates[0]
+        const fx     = USD_PORTS.has(h.portfolio) ? usdInr : 1
+        let qty = 0, lastPx: number | null = null
+        for (const d of allDates) {
+          if (d > target) break
+          if (d < first) continue
+          const dlt = deltas.get(d)
+          if (dlt !== undefined) qty = Math.max(0, qty + dlt)
+          const px = pm.get(d)
+          if (px !== undefined) lastPx = px
+        }
+        if (lastPx !== null && qty > 0) total += lastPx * qty * fx
+      }
+      return total
+    }
+
+    const bySymbol = new Map<string, Holding[]>()
+    for (const h of filteredHoldings) {
+      if (!bySymbol.has(h.symbol)) bySymbol.set(h.symbol, [])
+      bySymbol.get(h.symbol)!.push(h)
+    }
+
+    const rows: { symbol: string; label: string; amount: number }[] = []
+    for (const [symbol, holdings] of bySymbol) {
+      const valueStart = valueAtOrBefore(holdings, rangeStart)
+      const valueEnd   = valueAtOrBefore(holdings, rangeEnd)
+      const portSet    = new Set(holdings.map(h => h.portfolio))
+
+      let netCashFlow = 0
+      for (const tx of filtTxns) {
+        if (tx.symbol !== symbol || tx.type === 'DIVIDEND') continue
+        const d = tx.date.slice(0, 10)
+        if (d < rangeStart || d > rangeEnd) continue
+        const fx  = USD_PORTS.has(tx.portfolio) ? usdInr : 1
+        const amt = tx.quantity * tx.price * fx
+        const chg = (tx.charges ?? 0) * fx
+        if (tx.type === 'BUY')  netCashFlow += amt + chg
+        if (tx.type === 'SELL') netCashFlow -= amt - chg
+      }
+
+      let realizedInRange = 0
+      for (const r of data.realized) {
+        if (r.symbol !== symbol || !portSet.has(r.portfolio)) continue
+        const d = r.sell_date.slice(0, 10)
+        if (d < rangeStart || d > rangeEnd) continue
+        realizedInRange += r.realized_pnl * (r.currency === 'USD' ? usdInr : 1)
+      }
+
+      const unrealizedChange = valueEnd - valueStart - netCashFlow
+
+      let amount: number
+      if (chartMetric === 'Portfolio Value') amount = valueEnd - valueStart
+      else if (chartMetric === 'Invested') amount = netCashFlow
+      else if (chartMetric === 'Unrealized Gains') amount = unrealizedChange
+      else if (chartMetric === 'Realized Gains') amount = realizedInRange
+      else if (chartMetric === 'Total Gains') amount = unrealizedChange + realizedInRange
+      else if (chartMetric === 'Return %') amount = valueStart > 0 ? (unrealizedChange / valueStart) * 100 : 0
+      else { // XIRR Trend — same opening-balance-injection convention as useBenchmarkXirr's period XIRR
+        const cfs: { date: Date; amount: number }[] = []
+        if (valueStart > 0) cfs.push({ date: new Date(rangeStart), amount: -valueStart })
+        for (const tx of filtTxns) {
+          if (tx.symbol !== symbol || tx.type === 'DIVIDEND') continue
+          const d = tx.date.slice(0, 10)
+          if (d < rangeStart || d > rangeEnd) continue
+          const fx  = USD_PORTS.has(tx.portfolio) ? usdInr : 1
+          const amt = tx.quantity * tx.price * fx
+          const chg = (tx.charges ?? 0) * fx
+          if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
+          if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount: amt - chg })
+        }
+        if (valueEnd > 0) cfs.push({ date: new Date(rangeEnd), amount: valueEnd })
+        const r = computeXIRR(cfs)
+        amount = r !== null && isFinite(r) ? r * 100 : 0
+      }
+
+      if (Math.abs(amount) < 0.005) continue
+      const h0 = holdings[0]
+      rows.push({ symbol, label: h0.company || h0.name || symbol, amount })
+    }
+
+    return rows.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
+  }, [data, metricSeries, symbolPriceMap, filteredHoldings, filtTxns, chartMetric])
+
   // Switch away from FX tab if toggle turned off
   useEffect(() => {
     if (!includeFxGains && activeTab === 'fx') setActiveTab('holdings')
@@ -1879,6 +1995,30 @@ export default function HoldingsPage({ currency }: Props) {
                   </button>
                 ))}
               </div>
+
+              {/* Per-holding breakdown for the active pill + range */}
+              {holdingBreakdownRows.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-slate-100">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">
+                    By holding · {chartRange}
+                  </p>
+                  <div className="space-y-1">
+                    {holdingBreakdownRows.map(row => (
+                      <div key={row.symbol} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50">
+                        <span className="text-[11px] font-semibold text-slate-700 truncate min-w-0">{row.label}</span>
+                        <span
+                          className="text-[11px] font-bold whitespace-nowrap shrink-0"
+                          style={{ color: row.amount >= 0 ? '#0a7a42' : '#be1c1c' }}
+                        >
+                          {isPct
+                            ? `${row.amount >= 0 ? '+' : ''}${row.amount.toFixed(2)}%`
+                            : `${row.amount >= 0 ? '+' : '−'}${fmtCompact(Math.abs(chartDisplayCurrency === 'USD' ? row.amount / data.usd_inr : row.amount), chartDisplayCurrency)}`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -2701,7 +2841,11 @@ export default function HoldingsPage({ currency }: Props) {
                     const cardFx  = t.currency === 'USD' && currency === 'INR' ? usdInr : 1
                     const value   = t.quantity * t.price * cardFx
                     return (
-                      <div key={`${t.portfolio}-${t.symbol}-${t.date}-${i}`} className="flex items-center gap-2 border border-slate-100 rounded-lg px-2.5 py-2 mb-1.5 bg-white shadow-sm">
+                      <div
+                        key={`${t.portfolio}-${t.symbol}-${t.date}-${i}`}
+                        onClick={() => navigate(`/transactions/${encodeURIComponent(t.portfolio)}/${encodeURIComponent(t.symbol)}`, { state: { from: 'Activity' } })}
+                        className="flex items-center gap-2 border border-slate-100 rounded-lg px-2.5 py-2 mb-1.5 bg-white shadow-sm cursor-pointer active:opacity-70"
+                      >
                         <span className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-1 rounded shrink-0 ${t.type === 'BUY' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                           {t.type}
                         </span>

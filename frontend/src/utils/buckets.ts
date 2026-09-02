@@ -201,6 +201,15 @@ export function setLabelCurrency(bucket: string, label: string, currency: Curren
   try { localStorage.setItem(LABEL_CURRENCY_KEY, JSON.stringify(map)) } catch {}
 }
 
+// Whole-map read/write — used only by driveBackup.ts to include this device-local preference
+// in the Drive settings backup/restore (see utils/driveBackup.ts).
+export function getAllLabelCurrencies(): Record<string, Currency> {
+  return readLabelCurrencyMap()
+}
+export function setAllLabelCurrencies(map: Record<string, Currency>) {
+  try { localStorage.setItem(LABEL_CURRENCY_KEY, JSON.stringify(map)) } catch {}
+}
+
 // ── Per-Label benchmark index override (Sector bucket, Manage Buckets modal) ────────────
 // Same shape as the currency map above — raw override storage only, no default-index fallback
 // logic here (that lives in sectors.ts, which knows the built-in SECTOR_BENCHMARK defaults and
@@ -222,6 +231,14 @@ export function getLabelBenchmarkOverride(bucket: string, label: string): string
 export function setLabelBenchmark(bucket: string, label: string, index: string) {
   const map = readLabelBenchmarkMap()
   map[bucketLabelKey(bucket, label)] = index
+  try { localStorage.setItem(LABEL_BENCHMARK_KEY, JSON.stringify(map)) } catch {}
+}
+
+// Whole-map read/write — used only by driveBackup.ts (see utils/driveBackup.ts).
+export function getAllLabelBenchmarks(): Record<string, string> {
+  return readLabelBenchmarkMap()
+}
+export function setAllLabelBenchmarks(map: Record<string, string>) {
   try { localStorage.setItem(LABEL_BENCHMARK_KEY, JSON.stringify(map)) } catch {}
 }
 

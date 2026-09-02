@@ -7,8 +7,12 @@ import { usePortfolio, useForceRefresh } from '../hooks/usePortfolio'
 import { usePrefetchHoldingCharts } from '../hooks/useHistory'
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
 import { fmt, fmtCompact } from '../utils/fmt'
-import { SKIP_PORTS, USD_PORTS, getPortfolioCurrency } from '../utils/segments'
-import { getLabel, resolveLabel, filterByLabel, getAllLabelsInBucket, getBuckets, reconcileBucketsFromTags, getLabelCurrency } from '../utils/buckets'
+import { SKIP_PORTS, USD_PORTS, getPortfolioCurrency, getAllPortfolioCurrencies, setAllPortfolioCurrencies } from '../utils/segments'
+import {
+  getLabel, resolveLabel, filterByLabel, getAllLabelsInBucket, getBuckets, saveBuckets, reconcileBucketsFromTags, getLabelCurrency,
+  getAllLabelCurrencies, setAllLabelCurrencies, getAllLabelBenchmarks, setAllLabelBenchmarks,
+  type BucketDef,
+} from '../utils/buckets'
 import { resolveDisplayCurrency, fxMultiplier } from '../utils/currency'
 import { ManageBucketsModal } from '../components/ManageBucketsModal'
 import { ManageCategoryModal } from '../components/ManageCategoryModal'
@@ -25,7 +29,7 @@ import { logDebug } from '../utils/debugLog'
 import { idbDelete, idbKeys } from '../utils/idbStore'
 import { isSignedIn, getUserEmail, getAuthToken, clearSession } from '../utils/auth'
 import GoogleSignInButton from '../components/GoogleSignInButton'
-import { backupToDrive, restoreFromDrive, getDriveBackupInfo } from '../utils/driveBackup'
+import { backupToDrive, restoreFromDrive, getDriveBackupInfo, backupSettingsToDrive, restoreSettingsFromDrive } from '../utils/driveBackup'
 import {
   useAdminUsers,
   useAddAdminUser,
@@ -351,6 +355,9 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   // Settings panel
   const [settingsOpen, setSettingsOpen]     = useState(false)
   const [configOpen, setConfigOpen]         = useState(false)
+  const [accountOpen, setAccountOpen]       = useState(false)
+  const [dataOpen, setDataOpen]             = useState(false)
+  const [adminOpen, setAdminOpen]           = useState(false)
   const [includeDivs, setIncludeDivs]           = useState(getIncludeDividends)
   const [includeFxGainsState, setIncludeFxGainsStateLocal] = useState(getIncludeFxGains)
   const { data: alertSettings } = useAlertSettings()
@@ -611,6 +618,16 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     setDriveStatus('Backing up to Drive…')
     try {
       await backupToDrive(csv)
+      // Device-local prefs (currency toggles, custom benchmark indices, the category
+      // catalog) aren't part of the CSV — back them up as a second Drive file so they
+      // survive a sign-out / new device too, same as notes and category assignments do.
+      await backupSettingsToDrive({
+        version: 1,
+        portfolioCurrency: getAllPortfolioCurrencies(),
+        labelCurrency: getAllLabelCurrencies(),
+        labelBenchmark: getAllLabelBenchmarks(),
+        buckets: getBuckets(),
+      })
       const now = Date.now()
       localStorage.setItem('portfolio:drive:lastBackup', String(now))
       setLastBackupAt(now)
@@ -646,6 +663,17 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         const text = await restoreFromDrive()
         if (!text) { setRestoreMsg('No Drive backup found yet'); setRestoreCheck(null); return }
         handleImport(new File([text], 'drive-backup.csv', { type: 'text/csv' }))
+        // Best-effort — an older backup made before settings backup existed simply has none.
+        try {
+          const settings = await restoreSettingsFromDrive()
+          if (settings) {
+            setAllPortfolioCurrencies(settings.portfolioCurrency as Record<string, Currency>)
+            setAllLabelCurrencies(settings.labelCurrency as Record<string, Currency>)
+            setAllLabelBenchmarks(settings.labelBenchmark)
+            saveBuckets(settings.buckets as BucketDef[])
+            setBucketsVersion(v => v + 1)
+          }
+        } catch { /* CSV restore already succeeded — don't fail the whole restore over this */ }
         setRestoreMsg('')
       } catch (e) {
         setRestoreMsg(e instanceof Error ? e.message : 'Restore failed')
@@ -1119,9 +1147,17 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                   {/* Body */}
                   <div className="overflow-y-auto flex flex-col gap-1.5 px-3.5 py-2.5" style={{ background: '#f8fafc' }}>
 
-                    {/* ── Account ── */}
-                    <p className="text-[10px] font-semibold uppercase tracking-widest px-0.5 pt-1" style={{ color: '#0b3b3a' }}>Account</p>
+                    {/* ── Account (collapsible, default collapsed) ── */}
+                    <button
+                      onClick={() => setAccountOpen(v => !v)}
+                      className="flex items-center justify-between gap-2 px-0.5 py-2 w-full"
+                    >
+                      <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: '#0b3b3a' }}>Account</p>
+                      <span className={`text-[9px] text-[#0b3b3a] transition-transform duration-150 ${accountOpen ? 'rotate-180' : ''}`}>▼</span>
+                    </button>
 
+                    {accountOpen && (
+                      <>
                     {/* Sign in with Google */}
                     <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
                       <div className="min-w-0">
@@ -1246,10 +1282,20 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                         </button>
                       </div>
                     )}
+                      </>
+                    )}
 
-                    {/* ── Data ── */}
-                    <p className="text-[10px] font-semibold uppercase tracking-widest px-0.5 pt-1" style={{ color: '#0b3b3a' }}>Data</p>
+                    {/* ── Data (collapsible, default collapsed) ── */}
+                    <button
+                      onClick={() => setDataOpen(v => !v)}
+                      className="flex items-center justify-between gap-2 px-0.5 py-2 w-full"
+                    >
+                      <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: '#0b3b3a' }}>Data</p>
+                      <span className={`text-[9px] text-[#0b3b3a] transition-transform duration-150 ${dataOpen ? 'rotate-180' : ''}`}>▼</span>
+                    </button>
 
+                    {dataOpen && (
+                      <>
                     {/* My Portfolio */}
                     <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
                       <div className="min-w-0">
@@ -1291,6 +1337,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                         </svg>
                       </button>
                     </div>
+                      </>
+                    )}
 
                     {/* ── Configuration (collapsible, default collapsed) ── */}
                     <button
@@ -1436,8 +1484,16 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                     {/* ── Admin panel (only rendered once the /admin/users fetch actually succeeds) ── */}
                     {isAdmin && (
                       <>
-                        <p className="text-[10px] font-semibold uppercase tracking-widest px-0.5 pt-1" style={{ color: '#0b3b3a' }}>Admin panel</p>
+                        <button
+                          onClick={() => setAdminOpen(v => !v)}
+                          className="flex items-center justify-between gap-2 px-0.5 py-2 w-full"
+                        >
+                          <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: '#0b3b3a' }}>Admin panel</p>
+                          <span className={`text-[9px] text-[#0b3b3a] transition-transform duration-150 ${adminOpen ? 'rotate-180' : ''}`}>▼</span>
+                        </button>
 
+                        {adminOpen && (
+                          <>
                         {/* Manage Users */}
                         <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
                           <div className="min-w-0">
@@ -1474,6 +1530,8 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                             🐛
                           </button>
                         </div>
+                          </>
+                        )}
                       </>
                     )}
 

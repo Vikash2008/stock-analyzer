@@ -34,3 +34,12 @@ export function setPortfolioCurrency(name: string, currency: Currency) {
   map[name] = currency
   try { localStorage.setItem(PORTFOLIO_CURRENCY_KEY, JSON.stringify(map)) } catch {}
 }
+
+// Whole-map read/write — used only by driveBackup.ts to include this device-local preference
+// in the Drive settings backup/restore (see utils/driveBackup.ts).
+export function getAllPortfolioCurrencies(): Record<string, Currency> {
+  return readPortfolioCurrencyMap()
+}
+export function setAllPortfolioCurrencies(map: Record<string, Currency>) {
+  try { localStorage.setItem(PORTFOLIO_CURRENCY_KEY, JSON.stringify(map)) } catch {}
+}

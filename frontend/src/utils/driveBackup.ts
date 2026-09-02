@@ -16,6 +16,9 @@ const BACKUP_FILENAME = 'nexus-portfolio-backup.csv'
 // Old name from before the Nexus rebrand — restoreFromDrive() falls back to this
 // so backups made before the rename are still found instead of appearing lost.
 const LEGACY_BACKUP_FILENAME = 'stock-analyzer-portfolio-backup.csv'
+// Separate file for device-local preferences that aren't part of the CSV itself (currency
+// toggles, custom benchmark indices, the category catalog) — see SettingsBackup below.
+const SETTINGS_FILENAME = 'nexus-settings-backup.json'
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file'
 
 let _cachedToken: string | undefined
@@ -73,24 +76,23 @@ export async function getDriveBackupInfo(): Promise<{ modifiedTime: string } | n
   return file ? { modifiedTime: file.modifiedTime } : null
 }
 
-export async function backupToDrive(csvContent: string): Promise<void> {
-  const token = await getDriveAccessToken()
-  const existingId = await findBackupFileId(token)
+async function uploadToDrive(token: string, filename: string, mimeType: string, content: string): Promise<void> {
+  const existingId = await findBackupFileId(token, filename)
 
   if (existingId) {
     const res = await fetch(
       `https://www.googleapis.com/upload/drive/v3/files/${existingId}?uploadType=media`,
-      { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'text/csv' }, body: csvContent },
+      { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': mimeType }, body: content },
     )
     if (!res.ok) throw new Error(`Drive backup failed (${res.status})`)
     return
   }
 
   const boundary = 'stockanalyzerbackup'
-  const metadata = JSON.stringify({ name: BACKUP_FILENAME, mimeType: 'text/csv' })
+  const metadata = JSON.stringify({ name: filename, mimeType })
   const body =
     `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n` +
-    `--${boundary}\r\nContent-Type: text/csv\r\n\r\n${csvContent}\r\n` +
+    `--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n${content}\r\n` +
     `--${boundary}--`
   const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
     method: 'POST',
@@ -100,15 +102,52 @@ export async function backupToDrive(csvContent: string): Promise<void> {
   if (!res.ok) throw new Error(`Drive backup failed (${res.status})`)
 }
 
-// Returns the backed-up CSV text, or null if no backup exists yet.
-export async function restoreFromDrive(): Promise<string | null> {
-  const token = await getDriveAccessToken()
-  const fileId = (await findBackupFileId(token)) ?? (await findBackupFileId(token, LEGACY_BACKUP_FILENAME))
-  if (!fileId) return null
-
+async function downloadFromDrive(token: string, fileId: string): Promise<string> {
   const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`Drive restore failed (${res.status})`)
   return res.text()
+}
+
+export async function backupToDrive(csvContent: string): Promise<void> {
+  const token = await getDriveAccessToken()
+  await uploadToDrive(token, BACKUP_FILENAME, 'text/csv', csvContent)
+}
+
+// Returns the backed-up CSV text, or null if no backup exists yet.
+export async function restoreFromDrive(): Promise<string | null> {
+  const token = await getDriveAccessToken()
+  const fileId = (await findBackupFileId(token)) ?? (await findBackupFileId(token, LEGACY_BACKUP_FILENAME))
+  if (!fileId) return null
+  return downloadFromDrive(token, fileId)
+}
+
+// Device-local preferences that live outside the CSV: per-portfolio/per-label currency
+// toggles, custom benchmark-index overrides, and the category (Sector bucket) catalog —
+// see utils/segments.ts + utils/buckets.ts for where each of these actually lives.
+export interface SettingsBackup {
+  version:          1
+  portfolioCurrency: Record<string, string>
+  labelCurrency:     Record<string, string>
+  labelBenchmark:    Record<string, string>
+  buckets:           unknown   // BucketDef[] — kept untyped here to avoid a utils/buckets.ts import cycle risk
+}
+
+export async function backupSettingsToDrive(settings: SettingsBackup): Promise<void> {
+  const token = await getDriveAccessToken()
+  await uploadToDrive(token, SETTINGS_FILENAME, 'application/json', JSON.stringify(settings))
+}
+
+// Returns the backed-up settings object, or null if no settings backup exists yet.
+export async function restoreSettingsFromDrive(): Promise<SettingsBackup | null> {
+  const token = await getDriveAccessToken()
+  const fileId = await findBackupFileId(token, SETTINGS_FILENAME)
+  if (!fileId) return null
+  const text = await downloadFromDrive(token, fileId)
+  try {
+    return JSON.parse(text) as SettingsBackup
+  } catch {
+    return null
+  }
 }
