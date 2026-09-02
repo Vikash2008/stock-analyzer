@@ -11,6 +11,7 @@ import { SKIP_PORTS, USD_PORTS, getPortfolioCurrency } from '../utils/segments'
 import { getLabel, resolveLabel, filterByLabel, getAllLabelsInBucket, getBuckets, reconcileBucketsFromTags, getLabelCurrency } from '../utils/buckets'
 import { resolveDisplayCurrency, fxMultiplier } from '../utils/currency'
 import { ManageBucketsModal } from '../components/ManageBucketsModal'
+import { ManageCategoryModal } from '../components/ManageCategoryModal'
 import { NotificationBell } from '../components/NotificationBell'
 import { useAlertSettings, useSetDeliveryMode } from '../hooks/useAlerts'
 import { useWatchlistItems, useWatchlistQuotes, useRemoveFromWatchlist } from '../hooks/useWatchlist'
@@ -332,6 +333,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     return saved === 'type' || !saved || saved === 'Asset Class' ? 'broker' : saved   // 'type' = pre-Buckets value; Asset Class has its own tiles, not a breakdown mode
   })
   const [bucketsModalOpen, setBucketsModalOpen] = useState(false)
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false)
   const [bucketsVersion,   setBucketsVersion]   = useState(0)   // bumped to refresh after catalog edits
   const toggleModes = useMemo(
     () => ['broker', ...getBuckets().filter(b => b.showToggle && b.name !== 'Asset Class').map(b => b.name)],
@@ -1410,6 +1412,24 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                         </svg>
                       </button>
                     </div>
+
+                    {/* Manage Category */}
+                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2.5">
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-bold text-[#0b3b3a] leading-tight">Manage Category</p>
+                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Index &amp; holding categories</p>
+                      </div>
+                      <button
+                        onClick={() => { setSettingsOpen(false); setCategoryModalOpen(true) }}
+                        title="Manage Category"
+                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[9px] text-white"
+                        style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                          <path d="M3 3h7v7H3z" /><path d="M14 3h7v7h-7z" /><path d="M14 14h7v7h-7z" /><path d="M3 14h7v7H3z" />
+                        </svg>
+                      </button>
+                    </div>
                       </>
                     )}
 
@@ -1729,6 +1749,15 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         <ManageBucketsModal
           open={bucketsModalOpen}
           onClose={() => setBucketsModalOpen(false)}
+          data={data}
+          onChanged={() => setBucketsVersion(v => v + 1)}
+        />
+      )}
+
+      {data && (
+        <ManageCategoryModal
+          open={categoryModalOpen}
+          onClose={() => setCategoryModalOpen(false)}
           data={data}
           onChanged={() => setBucketsVersion(v => v + 1)}
         />
