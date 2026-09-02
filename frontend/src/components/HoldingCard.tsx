@@ -29,8 +29,8 @@ export function HoldingCard({
   const divAmt    = dividends ?? 0
   const fxAmt     = fxGain ?? 0
   const totalGain = (current - invested) + realGain + divAmt + fxAmt
-  const totalCost = invested + realCost
-  const totalPct  = totalCost !== 0 ? (totalGain / totalCost) * 100 : 0
+  const pctBase   = invested !== 0 ? invested : realCost
+  const totalPct  = pctBase !== 0 ? (totalGain / pctBase) * 100 : 0
 
   const tgColor  = (todayGain ?? 0) >= 0 ? '#059669' : '#e11d48'
   const totColor = totalGain >= 0 ? '#059669' : '#e11d48'

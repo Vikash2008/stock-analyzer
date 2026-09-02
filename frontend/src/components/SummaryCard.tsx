@@ -30,8 +30,8 @@ export function SummaryCard({
   const divAmt    = dividends ?? 0
   const fxAmt     = fxGain ?? 0
   const totalGain = (current - invested) + realGain + divAmt + fxAmt
-  const totalCost = invested + realCost
-  const totalPct  = totalCost !== 0 ? (totalGain / totalCost) * 100 : 0
+  const pctBase   = invested !== 0 ? invested : realCost
+  const totalPct  = pctBase !== 0 ? (totalGain / pctBase) * 100 : 0
   const gain      = totalGain >= 0
 
   const realColor = realGain >= 0 ? '#5eead4' : '#fca5a5'

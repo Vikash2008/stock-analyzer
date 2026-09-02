@@ -434,10 +434,10 @@ def _compute(
         realized_arr[i]  = cum_r
         real_cost_arr[i] = cum_c
 
-    total_arr  = [u + r for u, r in zip(unrealized, realized_arr)]
+    total_arr = [u + r for u, r in zip(unrealized, realized_arr)]
     return_pct = [
-        total_arr[i] / (invested[i] + real_cost_arr[i]) * 100
-        if (invested[i] + real_cost_arr[i]) > 0 else 0.0
+        total_arr[i] / invested[i] * 100 if invested[i] > 0
+        else (total_arr[i] / real_cost_arr[i] * 100 if real_cost_arr[i] > 0 else 0.0)
         for i in range(len(dates_s))
     ]
 

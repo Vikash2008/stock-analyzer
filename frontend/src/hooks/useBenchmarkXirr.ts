@@ -1,7 +1,7 @@
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { computeXIRR } from '../utils/xirr'
-import { getSectorForHolding, SECTOR_BENCHMARK, type SectorKey } from '../utils/sectors'
+import { getSectorForHolding, getSectorBenchmark, SECTOR_BENCHMARK, type SectorKey } from '../utils/sectors'
 import { USD_PORTS } from '../utils/segments'
 import { mergeHistory } from './useHistory'
 import { idbGet, idbSet } from '../utils/idbStore'
@@ -134,6 +134,9 @@ export function useBenchmarkXirr(
   // portfolio holding it, an apples-to-oranges mismatch that's invisible when every symbol
   // happens to live in only one portfolio but wildly wrong (and wrong-signed) when not.
   isCumulative: boolean = true,
+  // Sector-tag lookup for closedYfSymbols, which arrive as bare yf_symbol strings with no
+  // Holding/Transaction row attached — mirrors how symbolPriceMap above is passed in.
+  tagsByYfSymbol: Map<string, string> | null = null,
 ): BenchmarkOutput {
   const holdingKey = (portfolio: string, yfSymbol: string) => isCumulative ? yfSymbol : `${portfolio}:${yfSymbol}`
 
@@ -141,15 +144,15 @@ export function useBenchmarkXirr(
   const { yfToSector, uniqueBenchSyms } = useMemo(() => {
     const m = new Map<string, SectorKey>()
     const benchSet = new Set<string>()
-    const add = (yf: string) => {
-      const s = getSectorForHolding(yf)
+    const add = (yf: string, tags?: string | null) => {
+      const s = getSectorForHolding(yf, tags)
       m.set(yf, s)
-      benchSet.add(SECTOR_BENCHMARK[s])
+      benchSet.add(getSectorBenchmark(s))
     }
-    for (const h of filteredHoldings) add(h.yf_symbol)
-    for (const yf of closedYfSymbols) add(yf)
+    for (const h of filteredHoldings) add(h.yf_symbol, h.tags)
+    for (const yf of closedYfSymbols) add(yf, tagsByYfSymbol?.get(yf))
     return { yfToSector: m, uniqueBenchSyms: [...benchSet] }
-  }, [filteredHoldings, closedYfSymbols])
+  }, [filteredHoldings, closedYfSymbols, tagsByYfSymbol])
 
   // Fetch all benchmark histories in parallel — fixed BENCH_START anchor (not a per-view
   // earliest-transaction date) so the cache key is shared across every portfolio/segment view
@@ -300,7 +303,7 @@ export function useBenchmarkXirr(
 
       const key    = `${tx.portfolio}:${tx.symbol}`
       const sector = yfToSector.get(tx.yf_symbol)!
-      const bSym   = SECTOR_BENCHMARK[sector]
+      const bSym   = getSectorBenchmark(sector)
       const hist   = histMap.get(bSym)
       const isUsd  = USD_PORTS.has(tx.portfolio)
 
@@ -376,7 +379,7 @@ export function useBenchmarkXirr(
 
     // sectorInv + sectorYfSs metadata always from current open holdings
     for (const h of filteredHoldings) {
-      const s = getSectorForHolding(h.yf_symbol)
+      const s = getSectorForHolding(h.yf_symbol, h.tags)
       sectorInv.set(s, (sectorInv.get(s) ?? 0) + h.disp_invested)
       if (!sectorYfSs.has(s)) sectorYfSs.set(s, new Set())
       sectorYfSs.get(s)!.add(h.yf_symbol)
@@ -453,7 +456,7 @@ export function useBenchmarkXirr(
       const bX = xirr(sectorBench.get(s)!)
       sectors.push({
         sector:       s,
-        benchSymbol:  SECTOR_BENCHMARK[s],
+        benchSymbol:  getSectorBenchmark(s),
         actualXirr:   aX,
         benchXirr:    bX,
         alpha:        aX !== null && bX !== null ? aX - bX : null,

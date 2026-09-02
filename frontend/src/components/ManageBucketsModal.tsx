@@ -5,9 +5,11 @@ import { useSetTags } from '../hooks/useSetTags'
 import {
   getBuckets, createBucket, addLabel, setBucketToggle, getAllLabelsInBucket,
   deleteBucket, deleteLabel, getLabel, setLabelOrder, getLabelCurrency, setLabelCurrency,
+  setLabelBenchmark, SECTOR_BUCKET,
   type BucketDef,
 } from '../utils/buckets'
 import { SKIP_PORTS, getPortfolioCurrency, setPortfolioCurrency } from '../utils/segments'
+import { getSectorForHolding, getSectorBenchmark } from '../utils/sectors'
 
 // Compact INR/USD pill — used for both the non-deletable Portfolios section and per-Label rows.
 function CurrencyPill({ value, onChange }: { value: Currency; onChange: (c: Currency) => void }) {
@@ -24,6 +26,29 @@ function CurrencyPill({ value, onChange }: { value: Currency; onChange: (c: Curr
         </button>
       ))}
     </div>
+  )
+}
+
+// Editable benchmark-index field — used next to each Label row in the Sector bucket only.
+// Free text (not a fixed dropdown) since a custom Sector's ideal benchmark isn't knowable in
+// advance; pre-filled with the recommended default (getSectorBenchmark) and committed on blur.
+function BenchmarkInput({ sector }: { sector: string }) {
+  const [value, setValue] = useState(() => getSectorBenchmark(sector))
+  useEffect(() => { setValue(getSectorBenchmark(sector)) }, [sector])
+  function commit() {
+    const v = value.trim()
+    if (v) setLabelBenchmark(SECTOR_BUCKET, sector, v)
+  }
+  return (
+    <input
+      value={value}
+      onChange={e => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => { if (e.key === 'Enter') { commit(); (e.target as HTMLInputElement).blur() } }}
+      placeholder="Benchmark index"
+      title="Benchmark index used for this Sector's XIRR comparison"
+      className="w-[92px] shrink-0 px-1.5 py-1 text-[10px] border border-emerald-100 rounded-md bg-white focus:outline-none focus:border-teal-400"
+    />
   )
 }
 
@@ -60,6 +85,31 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
     }
     return [...set].sort()
   }, [data])
+
+  // One row per unique symbol (not per portfolio:symbol) — a holding's Sector doesn't vary by
+  // broker, so reassigning it applies across every portfolio it's currently held in.
+  const uniqueHoldings = useMemo(() => {
+    const map = new Map<string, { symbol: string; yf_symbol: string; label: string; portfolios: string[]; sector: string }>()
+    for (const h of data.holdings) {
+      if (SKIP_PORTS.has(h.portfolio)) continue
+      const existing = map.get(h.symbol)
+      if (existing) { existing.portfolios.push(h.portfolio); continue }
+      map.set(h.symbol, {
+        symbol: h.symbol,
+        yf_symbol: h.yf_symbol,
+        label: h.company || h.name || h.symbol,
+        portfolios: [h.portfolio],
+        sector: getSectorForHolding(h.yf_symbol, h.tags),
+      })
+    }
+    return [...map.values()].sort((a, b) => a.label.localeCompare(b.label))
+  }, [data])
+
+  function handleSectorChange(h: { symbol: string; portfolios: string[] }, sector: string) {
+    mutate(h.portfolios.map(portfolio => ({ portfolio, symbol: h.symbol, bucket: SECTOR_BUCKET, label: sector })), {
+      onSuccess: refreshBuckets,
+    })
+  }
 
   function refreshBuckets() {
     setBuckets(getBuckets())
@@ -252,7 +302,7 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
                     <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
                   </button>
                 </div>
-                {b.name !== 'Asset Class' && (
+                {b.name !== 'Asset Class' && b.name !== SECTOR_BUCKET && (
                   <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                     <button
                       role="switch"
@@ -296,10 +346,14 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
                         <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor"><circle cx="2" cy="2" r="1.3" /><circle cx="8" cy="2" r="1.3" /><circle cx="2" cy="7" r="1.3" /><circle cx="8" cy="7" r="1.3" /><circle cx="2" cy="12" r="1.3" /><circle cx="8" cy="12" r="1.3" /></svg>
                       </button>
                       <span className="flex-1 text-[13px] font-medium text-slate-700 truncate min-w-0">{l}</span>
-                      <CurrencyPill
-                        value={getLabelCurrency(b.name, l)}
-                        onChange={c => { setLabelCurrency(b.name, l, c); refreshBuckets() }}
-                      />
+                      {b.name === SECTOR_BUCKET ? (
+                        <BenchmarkInput sector={l} />
+                      ) : (
+                        <CurrencyPill
+                          value={getLabelCurrency(b.name, l)}
+                          onChange={c => { setLabelCurrency(b.name, l, c); refreshBuckets() }}
+                        />
+                      )}
                       <button
                         onClick={() => handleDeleteLabel(b.name, l)}
                         disabled={isPending}
@@ -340,6 +394,43 @@ export function ManageBucketsModal({ open, onClose, data, onChanged }: Props) {
                         value={getPortfolioCurrency(name)}
                         onChange={c => { setPortfolioCurrency(name, c); refreshBuckets() }}
                       />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            )
+          })()}
+
+          {/* Holdings — Sector — direct per-holding reassignment, one row per unique symbol.
+              Kept last, mirrors the Portfolios section's layout/collapse pattern above. */}
+          {(() => {
+            const holdingsOpen = expanded.has('__holdings_sector__')
+            const sectorLabels = getAllLabelsInBucket(data, SECTOR_BUCKET)
+            return (
+            <div className="bg-white rounded-lg border border-emerald-100 shadow-sm overflow-hidden">
+              <div
+                className="flex items-center gap-1 px-2 py-1.5 cursor-pointer"
+                style={{ background: 'rgba(13,148,136,0.06)' }}
+                onClick={() => toggleExpanded('__holdings_sector__')}
+              >
+                <span className="text-slate-400 text-[10px] shrink-0 w-3">{holdingsOpen ? '▾' : '▸'}</span>
+                <span className="text-[13px] font-bold text-[#0b3b3a] flex-1">Holdings — Sector</span>
+              </div>
+              {holdingsOpen && (
+                <div className="px-2 py-1.5 space-y-1 max-h-64 overflow-y-auto">
+                  {uniqueHoldings.map(h => (
+                    <div key={h.symbol} className="flex items-center gap-1.5 bg-emerald-50/60 border border-emerald-100 rounded-lg pl-2 pr-1.5 py-1">
+                      <span className="flex-1 min-w-0 text-[13px] font-medium text-slate-700 truncate">{h.label}</span>
+                      <select
+                        value={h.sector}
+                        disabled={isPending}
+                        onChange={e => handleSectorChange(h, e.target.value)}
+                        className="shrink-0 max-w-[110px] px-1.5 py-1 text-[11px] border border-emerald-100 rounded-md bg-white focus:outline-none focus:border-teal-400 disabled:opacity-50"
+                      >
+                        {!sectorLabels.includes(h.sector) && <option value={h.sector}>{h.sector}</option>}
+                        {sectorLabels.map(l => <option key={l} value={l}>{l}</option>)}
+                      </select>
                     </div>
                   ))}
                 </div>

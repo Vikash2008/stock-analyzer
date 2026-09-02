@@ -11,8 +11,16 @@ import type { Holding, Transaction, PortfolioData } from '../api/types'
 import type { Currency } from '../App'
 
 const ASSET_CLASS = 'Asset Class'
+// Mirror sectors.ts's default SectorKey list — duplicated here (rather than imported) to avoid
+// a circular dependency, since sectors.ts imports resolveLabel/getLabelBenchmarkOverride from
+// this file. Only used to seed the initial catalog; sectors.ts stays the runtime source of truth.
+export const SECTOR_BUCKET = 'Sector'
+const DEFAULT_SECTOR_LABELS = [
+  'Banking', 'Finance', 'Healthcare', 'IT', 'Growth', 'Tech', 'Smallcap', 'Equity', 'Consumer', 'Global', 'Other',
+]
 const CATALOG_KEY = 'buckets:catalog'
 const LABEL_CURRENCY_KEY = 'buckets:label-currency'
+const LABEL_BENCHMARK_KEY = 'buckets:label-benchmark'
 
 export interface BucketDef {
   name:        string
@@ -61,14 +69,25 @@ export function filterByLabel(holdings: Holding[], bucket: string, label: string
 // ── Bucket/Label catalog (localStorage) ─────────────────────────────────────────────────
 
 function defaultCatalog(): BucketDef[] {
-  return [{ name: ASSET_CLASS, labels: ['Stocks', 'Mutual Funds'], showToggle: true }]
+  return [
+    { name: ASSET_CLASS,  labels: ['Stocks', 'Mutual Funds'], showToggle: true },
+    { name: SECTOR_BUCKET, labels: [...DEFAULT_SECTOR_LABELS], showToggle: false },
+  ]
 }
 
 export function getBuckets(): BucketDef[] {
   try {
     const raw = localStorage.getItem(CATALOG_KEY)
     if (!raw) { saveBuckets(defaultCatalog()); return defaultCatalog() }
-    return JSON.parse(raw)
+    const parsed: BucketDef[] = JSON.parse(raw)
+    // Backfill the Sector bucket for installs whose catalog predates it — unlike a custom
+    // Bucket, Sector isn't recoverable from CSV tags alone before anything's been assigned.
+    if (!parsed.some(b => b.name === SECTOR_BUCKET)) {
+      const withSector = [...parsed, { name: SECTOR_BUCKET, labels: [...DEFAULT_SECTOR_LABELS], showToggle: false }]
+      saveBuckets(withSector)
+      return withSector
+    }
+    return parsed
   } catch {
     return defaultCatalog()
   }
@@ -168,18 +187,42 @@ function readLabelCurrencyMap(): Record<string, Currency> {
 
 // ';' is safe as a separator — Bucket/Label names may never contain ';' or '=' (see
 // handleNewBucket/handleAddLabel validation in ManageBucketsModal.tsx).
-function labelCurrencyKey(bucket: string, label: string): string {
+function bucketLabelKey(bucket: string, label: string): string {
   return bucket + ';' + label
 }
 
 export function getLabelCurrency(bucket: string, label: string): Currency {
-  return readLabelCurrencyMap()[labelCurrencyKey(bucket, label)] ?? 'INR'
+  return readLabelCurrencyMap()[bucketLabelKey(bucket, label)] ?? 'INR'
 }
 
 export function setLabelCurrency(bucket: string, label: string, currency: Currency) {
   const map = readLabelCurrencyMap()
-  map[labelCurrencyKey(bucket, label)] = currency
+  map[bucketLabelKey(bucket, label)] = currency
   try { localStorage.setItem(LABEL_CURRENCY_KEY, JSON.stringify(map)) } catch {}
+}
+
+// ── Per-Label benchmark index override (Sector bucket, Manage Buckets modal) ────────────
+// Same shape as the currency map above — raw override storage only, no default-index fallback
+// logic here (that lives in sectors.ts, which knows the built-in SECTOR_BENCHMARK defaults and
+// is the only importer of this pair, keeping this file free of a circular dependency on it).
+
+function readLabelBenchmarkMap(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(LABEL_BENCHMARK_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+export function getLabelBenchmarkOverride(bucket: string, label: string): string | null {
+  return readLabelBenchmarkMap()[bucketLabelKey(bucket, label)] ?? null
+}
+
+export function setLabelBenchmark(bucket: string, label: string, index: string) {
+  const map = readLabelBenchmarkMap()
+  map[bucketLabelKey(bucket, label)] = index
+  try { localStorage.setItem(LABEL_BENCHMARK_KEY, JSON.stringify(map)) } catch {}
 }
 
 /** The catalog's known Labels for a Bucket, in their saved order, followed by any label

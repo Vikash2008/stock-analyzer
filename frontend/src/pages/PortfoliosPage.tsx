@@ -163,8 +163,8 @@ function isPos(v: number) { return v >= 0 }
 
 function BreakCard({ card, currency, xirr, onClick, compact = false, accentColor, cardBg, pillBlue = false, scale = 1, divGain = 0, fxGain = 0 }: { card: CardStats; currency: Currency; xirr: number | null; onClick: () => void; compact?: boolean; accentColor?: string; cardBg?: string; pillBlue?: boolean; scale?: number; divGain?: number; fxGain?: number }) {
   const totalGain = (card.current - card.invested) + card.realGain + divGain + fxGain
-  const totalCost = card.invested + card.realCost
-  const pct = totalCost !== 0 ? (totalGain / totalCost) * 100 : 0
+  const pctBase = card.invested !== 0 ? card.invested : card.realCost
+  const pct = pctBase !== 0 ? (totalGain / pctBase) * 100 : 0
   const pos = isPos(totalGain)
   const todayPrior = card.current - (card.todayGain ?? 0)
   const todayPct = card.todayGain !== null && todayPrior !== 0 ? (card.todayGain / todayPrior) * 100 : null
@@ -756,13 +756,12 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
       ? active.filter(h => USD_PORTS.has(h.portfolio)).reduce((s, h) => s + (h.disp_fx_gain ?? 0), 0)
       : 0
     const totalGain = (cur - inv) + rg + totalDivs + totalFxGain
-    const totalCost = inv + rc
     const prior = cur - todayGain
     return {
       cur, inv, totalGain,
       realGain: rg, realCost: rc,
       dividends: totalDivs, fxGain: totalFxGain,
-      returnPct:  totalCost !== 0 ? totalGain / totalCost * 100 : 0,
+      returnPct:  (inv !== 0 ? totalGain / inv : (rc !== 0 ? totalGain / rc : 0)) * 100,
       todayGain,
       todayPct:   todayGain !== 0 && prior !== 0 ? (todayGain / prior) * 100 : null,
     }

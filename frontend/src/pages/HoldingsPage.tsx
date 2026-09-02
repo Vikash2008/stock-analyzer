@@ -31,7 +31,7 @@ import { SKIP_PORTS, USD_PORTS, getPortfolioCurrency } from '../utils/segments'
 import { getLabel, resolveLabel, filterByLabel, getLabelCurrency } from '../utils/buckets'
 import { resolveDisplayCurrency, fxMultiplier } from '../utils/currency'
 import { fmt, fmtGainLine, fmtCompact, fmtSyncTime, fmtDate } from '../utils/fmt'
-import { getSectorForHolding, SECTOR_COLOR, BENCHMARK_LABEL, type SectorKey, getMarketCapForHolding, MARKET_CAP_COLOR, type MarketCapKey } from '../utils/sectors'
+import { getSectorForHolding, getSectorColor, BENCHMARK_LABEL, type SectorKey, getMarketCapForHolding, MARKET_CAP_COLOR, type MarketCapKey } from '../utils/sectors'
 import { useBenchmarkXirr, useRefreshAllBenchmarks } from '../hooks/useBenchmarkXirr'
 import { computeXIRR } from '../utils/xirr'
 import type { Holding } from '../api/types'
@@ -112,8 +112,8 @@ function getSortValue(r: CardRow, field: SortField, xirrMap: Map<string, number 
     case 'totalGain': return (r.current - r.invested) + r.realGain
     case 'totalPct': {
       const tg = (r.current - r.invested) + r.realGain
-      const tc = r.invested + r.realCost
-      return tc !== 0 ? tg / tc * 100 : 0
+      const base = r.invested !== 0 ? r.invested : r.realCost
+      return base !== 0 ? tg / base * 100 : 0
     }
     case 'xirr': return xirrMap.get(r.key) ?? -Infinity
   }
@@ -384,6 +384,28 @@ export default function HoldingsPage({ currency }: Props) {
     return map
   }, [data])
 
+  // Sector-tag lookup for aggregate rows (CardRow) that don't carry `.tags` directly — same
+  // "first matching row, open holdings win" precedent as quoteTypeBySymbol above. Symbol-keyed
+  // (not portfolio:symbol) since a Sector override is meant to apply to a symbol everywhere it's
+  // held, not per-broker.
+  const tagsBySymbol = useMemo(() => {
+    const map = new Map<string, string>()
+    if (!data) return map
+    for (const tx of data.transactions) if (!map.has(tx.symbol)) map.set(tx.symbol, tx.tags)
+    for (const h of data.holdings) map.set(h.symbol, h.tags)
+    return map
+  }, [data])
+
+  // Same lookup, keyed by yf_symbol instead — needed by useBenchmarkXirr's closedYfSymbols,
+  // which only has the yf-format symbol in scope (no CardRow/navSym to key off of).
+  const tagsByYfSymbol = useMemo(() => {
+    const map = new Map<string, string>()
+    if (!data) return map
+    for (const tx of data.transactions) if (!map.has(tx.yf_symbol)) map.set(tx.yf_symbol, tx.tags)
+    for (const h of data.holdings) map.set(h.yf_symbol, h.tags)
+    return map
+  }, [data])
+
   const filteredHoldings = useMemo(() => {
     if (!data) return []
     let h = data.holdings.filter(r => !SKIP_PORTS.has(r.portfolio))
@@ -395,7 +417,7 @@ export default function HoldingsPage({ currency }: Props) {
   const sectorData = useMemo(() => {
     const map = new Map<SectorKey, { value: number; count: number; todayGain: number }>()
     for (const h of filteredHoldings) {
-      const sector = getSectorForHolding(h.yf_symbol)
+      const sector = getSectorForHolding(h.yf_symbol, h.tags)
       const e = map.get(sector) ?? { value: 0, count: 0, todayGain: 0 }
       map.set(sector, { value: e.value + h.disp_current, count: e.count + 1, todayGain: e.todayGain + (h.disp_today_gain ?? 0) })
     }
@@ -553,7 +575,7 @@ export default function HoldingsPage({ currency }: Props) {
     const sectorCfs = new Map<SectorKey, { date: Date; amount: number }[]>()
     const sectorTerminal = new Map<SectorKey, number>()
     for (const row of allocGroupedRows) {
-      const sector = getSectorForHolding(symToYf.get(row.navSym) ?? row.navSym)
+      const sector = getSectorForHolding(symToYf.get(row.navSym) ?? row.navSym, tagsBySymbol.get(row.navSym))
       const cfs = sectorCfs.get(sector) ?? []
       for (const tx of data.transactions.filter(t => t.symbol === row.navSym && row.portfolios.includes(t.portfolio))) {
         if (tx.type === 'DIVIDEND') continue
@@ -854,6 +876,7 @@ export default function HoldingsPage({ currency }: Props) {
     benchPeriodEnd,
     symbolPriceMap,
     isCumulative,
+    tagsByYfSymbol,
   )
 
   useEffect(() => {
@@ -974,14 +997,14 @@ export default function HoldingsPage({ currency }: Props) {
 
   const symbolSectorMap = useMemo(() => {
     const map = new Map<string, SectorKey>()
-    for (const h of filteredHoldings) map.set(h.symbol, getSectorForHolding(h.yf_symbol))
+    for (const h of filteredHoldings) map.set(h.symbol, getSectorForHolding(h.yf_symbol, h.tags))
     if (data) {
       const symToYf = new Map<string, string>()
       for (const tx of data.transactions) symToYf.set(tx.symbol, tx.yf_symbol)
       for (const r of closedRows) {
         if (!map.has(r.navSym)) {
           const yf = symToYf.get(r.navSym) ?? r.navSym
-          map.set(r.navSym, getSectorForHolding(yf))
+          map.set(r.navSym, getSectorForHolding(yf, tagsBySymbol.get(r.navSym)))
         }
       }
     }
@@ -1084,7 +1107,7 @@ export default function HoldingsPage({ currency }: Props) {
     const groups = new Map<SectorKey | 'all', Holding[]>()
     groups.set('all', filteredHoldings)
     for (const h of filteredHoldings) {
-      const s = getSectorForHolding(h.yf_symbol)
+      const s = getSectorForHolding(h.yf_symbol, h.tags)
       if (!groups.has(s)) groups.set(s, [])
       groups.get(s)!.push(h)
     }
@@ -1119,7 +1142,7 @@ export default function HoldingsPage({ currency }: Props) {
   }, [symbolPriceMap, filteredHoldings, filtTxns, data, currency])
 
   const returnsSectors = useMemo((): SectorKey[] =>
-    ([...new Set(filteredHoldings.map(h => getSectorForHolding(h.yf_symbol)))].sort() as SectorKey[]),
+    ([...new Set(filteredHoldings.map(h => getSectorForHolding(h.yf_symbol, h.tags)))].sort() as SectorKey[]),
   [filteredHoldings])
 
   const returnsAvailableYears = useMemo((): number[] => {
@@ -1157,7 +1180,7 @@ export default function HoldingsPage({ currency }: Props) {
     const usdInrSnap     = data.usd_inr
     const sectorTxns     = isAll
       ? filtTxns
-      : filtTxns.filter(tx => getSectorForHolding(tx.yf_symbol) === returnsSector)
+      : filtTxns.filter(tx => getSectorForHolding(tx.yf_symbol, tx.tags) === returnsSector)
 
     // Returns cumulative total-gains (isAll) or open-position value (sector) at or before cutoff
     function lastValueAtOrBefore(cutoff: string): number {
@@ -1168,7 +1191,7 @@ export default function HoldingsPage({ currency }: Props) {
     function lastInvAtOrBefore(cutoff: string): number {
       let v = 0; if (portPts) for (const pt of portPts) { if (pt.dateStr > cutoff) break; v = pt.invested } return v
     }
-    // Cumulative return % at or before cutoff — already uses (invested + realCost) denominator
+    // Cumulative return % at or before cutoff — invested-only denominator (backend return_pct)
     function lastReturnPctAtOrBefore(cutoff: string): number {
       let v = 0; if (portPts) for (const pt of portPts) { if (pt.dateStr > cutoff) break; v = pt.returnPct } return v
     }
@@ -1887,7 +1910,7 @@ export default function HoldingsPage({ currency }: Props) {
                     {sectorSectionOpen && sectorData.map(s => {
                       const isOpen = expandedAllocSectors.has(s.name)
                       const sectorAllocRows = allocGroupedRows
-                        .filter(r => getSectorForHolding(symToYf.get(r.navSym) ?? r.navSym) === s.name)
+                        .filter(r => getSectorForHolding(symToYf.get(r.navSym) ?? r.navSym, tagsBySymbol.get(r.navSym)) === s.name)
                         .sort((a, b) => b.current - a.current)
 
                       const sXirr = allocSectorXirrMap.get(s.name) ?? null
@@ -1927,7 +1950,7 @@ export default function HoldingsPage({ currency }: Props) {
                               <span className="text-[10px] text-slate-300 w-[8px]">{isOpen ? '▲' : '▼'}</span>
                             </div>
                             <div className="h-1.5 rounded-full overflow-hidden bg-slate-100">
-                              <div className="h-full rounded-full" style={{ width: `${s.pct}%`, backgroundColor: SECTOR_COLOR[s.name] }} />
+                              <div className="h-full rounded-full" style={{ width: `${s.pct}%`, backgroundColor: getSectorColor(s.name) }} />
                             </div>
                           </button>
                           {isOpen && sectorAllocRows.length > 0 && (
@@ -2142,8 +2165,9 @@ export default function HoldingsPage({ currency }: Props) {
               ) : periodData.length === 0 ? (
                 <p className="text-center text-[11px] text-slate-400 py-6">No data for this selection.</p>
               ) : (() => {
-                const liveReturnPct = (displayStats.inv + displayStats.realCost) > 0
-                  ? (displayStats.cur - displayStats.inv + displayStats.realGain) / (displayStats.inv + displayStats.realCost) * 100
+                const livePctBase = displayStats.inv > 0 ? displayStats.inv : displayStats.realCost
+                const liveReturnPct = livePctBase > 0
+                  ? (displayStats.cur - displayStats.inv + displayStats.realGain) / livePctBase * 100
                   : null
                 const histData = periodData.map(row => {
                   const raw   = row.gains
@@ -2198,7 +2222,7 @@ export default function HoldingsPage({ currency }: Props) {
                                     onClick={() => setReturnsSector(s)}
                                     className={`flex items-center gap-1.5 text-left px-2 py-1 rounded-lg text-[10px] ${returnsSector === s ? 'bg-teal-50 text-teal-700 font-semibold' : 'text-slate-500'}`}
                                   >
-                                    {s !== 'all' && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: SECTOR_COLOR[s] }} />}
+                                    {s !== 'all' && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: getSectorColor(s) }} />}
                                     {s === 'all' ? 'All Sectors' : s}
                                   </button>
                                 ))}
@@ -2480,7 +2504,7 @@ export default function HoldingsPage({ currency }: Props) {
                       {benchSectorSectionOpen && [...benchSectors.filter(s => s.holdingCount > 0 && s.sector !== 'Other')].sort((a, b) => b.currentValue - a.currentValue).map(s => {
                         const isOpen = expandedSectors.has(s.sector)
                         const sectorRows = rows.filter(r =>
-                          getSectorForHolding(symToYf.get(r.navSym) ?? r.navSym) === s.sector
+                          getSectorForHolding(symToYf.get(r.navSym) ?? r.navSym, tagsBySymbol.get(r.navSym)) === s.sector
                         ).sort((a, b) => b.current - a.current)
                         const xirrColor  = s.actualXirr !== null ? s.actualXirr >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'
                         const alphaColor = s.alpha !== null ? s.alpha >= 0 ? 'text-green-600' : 'text-red-400' : 'text-slate-400'
@@ -2689,7 +2713,7 @@ export default function HoldingsPage({ currency }: Props) {
                         </div>
                         <div className="text-right shrink-0">
                           <p className="text-[11px] font-bold text-slate-900 whitespace-nowrap">{fmtCompact(value, cardCur)}</p>
-                          <p className="text-[9px] text-slate-400 whitespace-nowrap">{t.quantity % 1 === 0 ? t.quantity : t.quantity.toFixed(2)}sh @ {t.price.toFixed(2)}</p>
+                          <p className="text-[9px] text-slate-400 whitespace-nowrap">{t.quantity % 1 === 0 ? t.quantity : t.quantity.toFixed(2)}sh @ {t.currency === 'USD' ? '$' : '₹'}{t.price.toFixed(2)}</p>
                         </div>
                       </div>
                     )

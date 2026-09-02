@@ -1,6 +1,15 @@
-export type SectorKey =
-  | 'Banking' | 'Finance' | 'Healthcare' | 'IT'
-  | 'Growth'  | 'Tech'    | 'Smallcap'   | 'Equity' | 'Consumer' | 'Global' | 'Other'
+import { resolveLabel, getLabelBenchmarkOverride, SECTOR_BUCKET } from './buckets'
+
+// Widened from a fixed union to a plain string — a holding's Sector can now be overridden via
+// the "Sector" Bucket (see utils/buckets.ts), which lets users add custom categories beyond the
+// original 11 below. Those 11 stay as the seeded defaults and keep their known color/benchmark;
+// any other string falls back to a rotating color and a user-editable benchmark override.
+export type SectorKey = string
+
+export const DEFAULT_SECTORS = [
+  'Banking', 'Finance', 'Healthcare', 'IT',
+  'Growth', 'Tech', 'Smallcap', 'Equity', 'Consumer', 'Global', 'Other',
+] as const
 
 export const SECTOR_COLOR: Record<SectorKey, string> = {
   Banking:    '#3b82f6',
@@ -286,8 +295,36 @@ export const BENCHMARK_LABEL: Record<string, string> = {
   '^GSPC':                 'S&P 500',
 }
 
-export function getSectorForHolding(yf_symbol: string): SectorKey {
+/** A holding's Sector — an explicit "Sector" Bucket tag (user override) wins; otherwise falls
+ * back to the built-in per-symbol classification. `tags` is optional so existing call sites that
+ * don't have it in scope keep today's behavior unchanged. */
+export function getSectorForHolding(yf_symbol: string, tags?: string | null): SectorKey {
+  if (tags) {
+    const override = resolveLabel(tags, SECTOR_BUCKET)
+    if (override !== 'Unassigned') return override
+  }
   return SYMBOL_SECTOR[yf_symbol] ?? 'Other'
+}
+
+// Rotating fallback palette for a custom sector with no entry in SECTOR_COLOR — picked by a
+// stable hash of the sector name so the same custom sector always gets the same color.
+const FALLBACK_SECTOR_PALETTE = ['#0d9488', '#2563eb', '#0891b2', '#059669', '#0284c7', '#7c3aed', '#d946ef', '#f59e0b']
+
+function hashString(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0
+  return Math.abs(h)
+}
+
+export function getSectorColor(sector: string): string {
+  return SECTOR_COLOR[sector] ?? FALLBACK_SECTOR_PALETTE[hashString(sector) % FALLBACK_SECTOR_PALETTE.length]
+}
+
+/** A sector's benchmark index — a user override (set in Manage Buckets, next to the Sector
+ * Label) wins; otherwise the built-in recommendation; otherwise Nifty 50 (same default the
+ * built-in 'Other' sector already uses) for a brand-new custom sector with no recommendation. */
+export function getSectorBenchmark(sector: string): string {
+  return getLabelBenchmarkOverride(SECTOR_BUCKET, sector) ?? SECTOR_BENCHMARK[sector] ?? '^NSEI'
 }
 
 // ── Market Cap ─────────────────────────────────────────────────────────────────
