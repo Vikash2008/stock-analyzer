@@ -350,6 +350,10 @@ export default function TransactionsPage({ currency }: Props) {
     undefined,
     !!data && !!decoded.symbol,
     decoded.symbol,
+    undefined,
+    undefined,
+    getIncludeDividends(),
+    getIncludeFxGains(),
   )
   const chartFreshness = getChartFreshness(portSeries)
 

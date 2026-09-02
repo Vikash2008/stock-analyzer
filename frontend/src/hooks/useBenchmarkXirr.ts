@@ -137,6 +137,16 @@ export function useBenchmarkXirr(
   // Sector-tag lookup for closedYfSymbols, which arrive as bare yf_symbol strings with no
   // Holding/Transaction row attached — mirrors how symbolPriceMap above is passed in.
   tagsByYfSymbol: Map<string, string> | null = null,
+  // Dividends/FX toggles — actual-leg only. Dividends are real cash the investor received, so
+  // they're added as extra inflows to sectorActual/overallActual; the benchmark leg never gets
+  // simulated index dividends (no such data is tracked, and the comparison's whole point is
+  // "same cash, different vehicle" — not "same cash, plus a made-up second income stream").
+  // FX-on revalues a BUY's actual outflow at its real historical buy_fx_rate instead of
+  // today's rate — and since the benchmark leg's simulated investment already reuses that same
+  // `amount` (see the BUY branch below), both legs stay "the same rupee amount invested."
+  includeDivs: boolean = false,
+  includeFxGains: boolean = false,
+  divEventsBySymbol: Map<string, { ex_date: string; amount: number }[]> | null = null,
 ): BenchmarkOutput {
   const holdingKey = (portfolio: string, yfSymbol: string) => isCumulative ? yfSymbol : `${portfolio}:${yfSymbol}`
 
@@ -311,8 +321,13 @@ export function useBenchmarkXirr(
       const hk = holdingKey(tx.portfolio, tx.yf_symbol)
       if (!holdingBench.has(hk)) holdingBench.set(hk, [])
 
+      // FX-on: a BUY is valued at the rate actually paid (guarded — a 1.0 INR-default must
+      // never be treated as real), same convention used everywhere else in the app. SELL
+      // still uses today's rate (no historical sell-side rate is tracked).
       const fx         = isUsd
-        ? (currency === 'INR' ? usdInr : 1)
+        ? (currency === 'INR'
+            ? (includeFxGains && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10 ? tx.buy_fx_rate : usdInr)
+            : 1)
         : (currency === 'USD' ? 1 / usdInr : 1)
       const rawBenchP  = hist ? priceOnOrBefore(hist.dates, hist.prices, txDay) : null
       const benchIsUsd = USD_BENCH_SYMS.has(bSym)
@@ -367,6 +382,25 @@ export function useBenchmarkXirr(
     // If T1 is after all transactions, inject opening with the final simulation state
     if (!openingInjected && periodStart) {
       injectOpening()
+    }
+
+    // ── Dividends (actual leg only) ─────────────────────────────────────────
+    if (includeDivs && divEventsBySymbol) {
+      const symToYf = new Map(transactions.map(t => [t.symbol, t.yf_symbol]))
+      for (const [sym, events] of divEventsBySymbol) {
+        const yfSym = symToYf.get(sym)
+        if (!yfSym) continue
+        const sector = yfToSector.get(yfSym)
+        if (!sector) continue
+        for (const ev of events) {
+          const exDate = ev.ex_date.slice(0, 10)
+          if (periodStart && exDate < periodStart) continue
+          if (periodEnd && exDate > periodEnd) continue
+          const cf: CF = { date: new Date(ev.ex_date), amount: ev.amount }
+          sectorActual.get(sector)!.push(cf)
+          if (sector !== 'Other') overallActual.push(cf)
+        }
+      }
     }
 
     // ── Terminal values ──────────────────────────────────────────────────────
@@ -486,6 +520,7 @@ export function useBenchmarkXirr(
     enabled, isLoading, filteredHoldings, transactions,
     yfToSector, uniqueBenchSyms, histResults, usdInr, currency,
     periodStart, periodEnd, symbolPriceMap,
+    includeDivs, includeFxGains, divEventsBySymbol,
   ])
 
   return {

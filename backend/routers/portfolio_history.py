@@ -168,6 +168,8 @@ def _compute(
     csv_content: Optional[str] = None,
     bucket: Optional[str] = None,
     label: Optional[str] = None,
+    include_divs: bool = False,
+    include_fx: bool = False,
 ) -> dict:
     empty = {
         "dates": [], "values": [], "invested": [], "unrealized": [],
@@ -296,6 +298,11 @@ def _compute(
     n = len(all_dates)
     val_arr = [0.0] * n
     inv_arr = [0.0] * n
+    # fx_arr = total_invested_usd(t) × (usd_inr_now − avg_buy_fx_rate) — same "current rate,
+    # constant weighted-average purchase rate, only qty varies historically" simplification
+    # engine.py's disp_fx_gain already uses for its today-only snapshot (src/engine.py's
+    # _fx_gain()); extending it to a series needs no new historical FX-rate data.
+    fx_arr  = [0.0] * n
 
     # ── Per-holding value contribution ────────────────────────────────────────
     # Walk every portfolio:symbol key that ever had a BUY/SELL — not just currently-open
@@ -318,6 +325,10 @@ def _compute(
         if h is not None:
             avg_cost = _safe_float(h.get("avg_cost"))
             const_px = _safe_float(h.get("current_price")) if not has_col else None
+            # Guard mirrors PortfoliosPage's own XIRR calc — a 1.0 INR-default buy_fx_rate
+            # must never be treated as a real historical rate.
+            avg_buy_fx = _safe_float(h.get("avg_buy_fx_rate"))
+            avg_buy_fx = avg_buy_fx if avg_buy_fx > 10 else None
         else:
             # Closed position — no live holdings row. avg_cost comes from its own BUY
             # history instead (same method the frontend's Txn-page chart already used for
@@ -328,6 +339,7 @@ def _compute(
             tq, tc = buy_totals.get(key, (0.0, 0.0))
             avg_cost = tc / tq if tq > 0 else 0.0
             const_px = 0.0 if not has_col else None
+            avg_buy_fx = None  # not tracked for closed positions — fx_gain stays 0 for these
 
         deltas = qty_deltas.get(key, [])
         first  = first_tx_date.get(key, "")
@@ -364,11 +376,14 @@ def _compute(
 
             val_arr[i] += last_px * qty * fx
             inv_arr[i] += avg_cost * qty * fx
+            if include_fx and is_usd and avg_buy_fx is not None:
+                fx_arr[i] += avg_cost * qty * (usd_inr - avg_buy_fx)
 
     # ── Today pin ─────────────────────────────────────────────────────────────
     today_str = pd.Timestamp.now().strftime("%Y-%m-%d")
     today_val = float(df_holdings["disp_current"].sum())  if "disp_current"  in df_holdings.columns else 0.0
     today_inv = float(df_holdings["disp_invested"].sum()) if "disp_invested" in df_holdings.columns else 0.0
+    today_fx  = float(df_holdings["disp_fx_gain"].sum())  if include_fx and "disp_fx_gain" in df_holdings.columns else 0.0
 
     # Capture what the historical qty-walk itself arrived at for today, BEFORE it gets
     # overwritten by the live total below — comparing the two catches exactly the class of
@@ -381,10 +396,12 @@ def _compute(
     if pinned_today:
         val_arr[-1] = today_val
         inv_arr[-1] = today_inv
+        fx_arr[-1]  = today_fx
     else:
         all_dates.append(today_str)
         val_arr.append(today_val)
         inv_arr.append(today_inv)
+        fx_arr.append(today_fx)
 
     def _mismatch(computed: Optional[float], live: float) -> bool:
         if computed is None or live <= 0:
@@ -408,6 +425,7 @@ def _compute(
     dates_s    = all_dates[start_idx:]
     values     = val_arr[start_idx:]
     invested   = inv_arr[start_idx:]
+    fx_gains   = fx_arr[start_idx:]
     unrealized = [v - inv for v, inv in zip(values, invested)]
 
     # ── Realized series (cumulative) ──────────────────────────────────────────
@@ -434,7 +452,54 @@ def _compute(
         realized_arr[i]  = cum_r
         real_cost_arr[i] = cum_c
 
-    total_arr = [u + r for u, r in zip(unrealized, realized_arr)]
+    # ── Dividend series (cumulative, only when include_divs) ──────────────────
+    # Only fetched/added when requested — Total/Unrealized/Realized never included dividend
+    # cash separately from capital gains, so this must stay purely additive and opt-in.
+    div_arr = [0.0] * len(dates_s)
+    if include_divs:
+        def _qty_at(key: str, target: str) -> float:
+            q = 0.0
+            for ed, dv in qty_deltas.get(key, []):
+                if ed > target:
+                    break
+                q = max(0.0, q + dv)
+            return q
+
+        div_evts: list[tuple[str, float]] = []
+        try:
+            from backend.routers.dividends import _fetch_symbol_divs
+            div_cache: dict[str, "pd.Series"] = {}
+            for key in set(holdings_by_key) | set(qty_deltas):
+                port, yf_sym = key.split(":", 1)
+                if yf_sym not in div_cache:
+                    try:
+                        div_cache[yf_sym] = _fetch_symbol_divs(yf_sym)
+                    except Exception:
+                        div_cache[yf_sym] = None
+                series = div_cache[yf_sym]
+                if series is None or series.empty:
+                    continue
+                is_usd = port in _USD_PORTS
+                fx = (usd_inr if is_usd else 1.0) if currency == "INR" else (1.0 if is_usd else 1.0 / usd_inr)
+                for d, per_share in series.items():
+                    ex_date = pd.Timestamp(d).strftime("%Y-%m-%d")
+                    qty_h = _qty_at(key, ex_date)
+                    if qty_h > 0:
+                        div_evts.append((ex_date, qty_h * float(per_share) * fx))
+        except Exception as ex:
+            print(f"[portfolio_history] dividend series skipped: {ex}")
+            div_evts = []
+
+        div_evts.sort(key=lambda x: x[0])
+        cum_d = 0.0
+        di = 0
+        for i, d in enumerate(dates_s):
+            while di < len(div_evts) and div_evts[di][0] <= d:
+                cum_d += div_evts[di][1]
+                di += 1
+            div_arr[i] = cum_d
+
+    total_arr = [u + r + dv + fg for u, r, dv, fg in zip(unrealized, realized_arr, div_arr, fx_gains)]
     return_pct = [
         total_arr[i] / invested[i] * 100 if invested[i] > 0
         else (total_arr[i] / real_cost_arr[i] * 100 if real_cost_arr[i] > 0 else 0.0)
@@ -469,10 +534,20 @@ def _compute(
                         break
                     ti += 1
                     tx_type = str(tx.get("type", ""))
+                    if tx_type == "DIVIDEND" and not include_divs:
+                        continue
                     if tx_type not in ("BUY", "SELL", "DIVIDEND"):
                         continue
                     is_usd = str(tx.get("portfolio", "")) in _USD_PORTS
-                    fx     = (usd_inr if is_usd else 1.0) if currency == "INR" else (1.0 if is_usd else 1.0 / usd_inr)
+                    # FX-on: value a BUY's outflow at the rate actually paid (guarded — a 1.0
+                    # INR-default must never be treated as real), same convention
+                    # PortfoliosPage's own XIRR already uses. SELL/DIVIDEND still use the
+                    # current rate (no historical sell-side rate is tracked).
+                    buy_fx = _safe_float(tx.get("buy_fx_rate")) if (include_fx and tx_type == "BUY") else 0.0
+                    if include_fx and is_usd and tx_type == "BUY" and buy_fx > 10:
+                        fx = buy_fx
+                    else:
+                        fx = (usd_inr if is_usd else 1.0) if currency == "INR" else (1.0 if is_usd else 1.0 / usd_inr)
                     amt    = _safe_float(tx.get("quantity")) * _safe_float(tx.get("price")) * fx
                     c_amt  = _safe_float(tx.get("charges")) * fx
                     ts     = pd.Timestamp(tx_d)
@@ -533,19 +608,23 @@ def _portfolio_history_response(
     csv_content: Optional[str],
     bucket: Optional[str] = None,
     label: Optional[str] = None,
+    include_divs: bool = False,
+    include_fx: bool = False,
 ) -> dict:
     # Every cache key is prefixed with a hash of the caller's own CSV content ("demo" when
     # there is none) — two different real users filtering to a same-named portfolio (e.g.
-    # both have a "Zerodha") must never read/write the same entry.
+    # both have a "Zerodha") must never read/write the same entry. include_divs/include_fx are
+    # part of the key too — same scope with the toggle on vs off must not share a cache entry.
     csv_hash = hashlib.md5(csv_content.encode()).hexdigest() if csv_content else "demo"
-    cache_key = f"{csv_hash}:{currency}:{portfolio or ''}:{segment or ''}:{symbol or ''}:{bucket or ''}:{label or ''}"
+    cache_key = (f"{csv_hash}:{currency}:{portfolio or ''}:{segment or ''}:{symbol or ''}:"
+                 f"{bucket or ''}:{label or ''}:{int(include_divs)}:{int(include_fx)}")
     prev_entry = _cache.get(cache_key)
     if prev_entry:
         result, ts = prev_entry
         if time.time() - ts < _CACHE_TTL:
             return result
 
-    fresh = _compute(currency, portfolio, segment, symbol, csv_content, bucket, label)
+    fresh = _compute(currency, portfolio, segment, symbol, csv_content, bucket, label, include_divs, include_fx)
     result = _guard_result(cache_key, prev_entry[0] if prev_entry else None, fresh)
     _cache[cache_key] = (result, time.time())
     _evict_oldest_cache_entries()
@@ -560,9 +639,12 @@ def get_portfolio_history(
     symbol:    Optional[str] = Query(None, description="Clean symbol (not yf_symbol) — scopes to one holding, e.g. the Txn-page chart"),
     bucket:    Optional[str] = Query(None, description="Bucket name (e.g. 'Asset Class') — scopes to one Bucket/Label pair, requires label too"),
     label:     Optional[str] = Query(None, description="Label within bucket (e.g. 'Stocks')"),
+    include_divs: bool = Query(False, description="Fold dividend cash into total/returnPct/xirrTrend"),
+    include_fx:   bool = Query(False, description="Fold USD/INR FX gain into total/returnPct/xirrTrend"),
 ) -> dict:
     """No-CSV path — always computes from the server's demo file, same as before."""
-    return _portfolio_history_response(currency, portfolio, segment, symbol, csv_content=None, bucket=bucket, label=label)
+    return _portfolio_history_response(currency, portfolio, segment, symbol, csv_content=None, bucket=bucket, label=label,
+                                        include_divs=include_divs, include_fx=include_fx)
 
 
 @router.post("/api/portfolio-history")
@@ -574,10 +656,13 @@ async def post_portfolio_history(
     symbol:    Optional[str] = Query(None, description="Clean symbol (not yf_symbol) — scopes to one holding, e.g. the Txn-page chart"),
     bucket:    Optional[str] = Query(None, description="Bucket name (e.g. 'Asset Class') — scopes to one Bucket/Label pair, requires label too"),
     label:     Optional[str] = Query(None, description="Label within bucket (e.g. 'Stocks')"),
+    include_divs: bool = Query(False, description="Fold dividend cash into total/returnPct/xirrTrend"),
+    include_fx:   bool = Query(False, description="Fold USD/INR FX gain into total/returnPct/xirrTrend"),
 ) -> dict:
     """Real-portfolio path — body is the caller's raw CSV text, same convention as
     backend/routers/portfolio.py's POST. Without this, the chart was always computed from the
     server's default file regardless of who was asking (the pre-existing pending bug)."""
     body = await request.body()
     csv_content = body.decode("utf-8", errors="replace") if body else None
-    return _portfolio_history_response(currency, portfolio, segment, symbol, csv_content, bucket=bucket, label=label)
+    return _portfolio_history_response(currency, portfolio, segment, symbol, csv_content, bucket=bucket, label=label,
+                                        include_divs=include_divs, include_fx=include_fx)

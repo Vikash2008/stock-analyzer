@@ -568,6 +568,14 @@ export default function HoldingsPage({ currency }: Props) {
     [filteredHoldings, realizedMap, portfolio],
   )
 
+  // Same includeDivs/includeFxGains-gated cash-flow construction as xirrMap above — previously
+  // the three Allocation-tab XIRR maps (sector/market-cap/holding) never respected either
+  // toggle at all, so this tab's numbers never matched SummaryCard/HoldingCard/Charts tab once
+  // a toggle was flipped.
+  const allocDivEventsMap = (includeDivs && divComputed)
+    ? new Map(divComputed.by_symbol.map(s => [s.symbol, s.events]))
+    : new Map<string, { ex_date: string; amount: number }[]>()
+
   const allocSectorXirrMap = useMemo(() => {
     if (!data) return new Map<SectorKey, number | null>()
     const symToYf = new Map(filteredHoldings.map(h => [h.symbol, h.yf_symbol]))
@@ -580,11 +588,16 @@ export default function HoldingsPage({ currency }: Props) {
       for (const tx of data.transactions.filter(t => t.symbol === row.navSym && row.portfolios.includes(t.portfolio))) {
         if (tx.type === 'DIVIDEND') continue
         const isUsd = USD_PORTS.has(tx.portfolio)
-        const fx = isUsd ? data.usd_inr : 1
+        const fx = isUsd
+          ? (includeFxGains && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10 ? tx.buy_fx_rate : data.usd_inr)
+          : 1
         const amt = tx.quantity * tx.price * fx
         const chg = (tx.charges ?? 0) * fx
         if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
         if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
+      }
+      for (const ev of allocDivEventsMap.get(row.navSym) ?? []) {
+        cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
       }
       sectorCfs.set(sector, cfs)
       if (row.current > 0) sectorTerminal.set(sector, (sectorTerminal.get(sector) ?? 0) + row.current)
@@ -597,7 +610,7 @@ export default function HoldingsPage({ currency }: Props) {
       map.set(sector, r !== null ? r * 100 : null)
     }
     return map
-  }, [allocGroupedRows, filteredHoldings, data, currency])
+  }, [allocGroupedRows, filteredHoldings, data, currency, includeDivs, includeFxGains, allocDivEventsMap])
 
   const allocMktCapXirrMap = useMemo(() => {
     if (!data) return new Map<MarketCapKey, number | null>()
@@ -611,11 +624,16 @@ export default function HoldingsPage({ currency }: Props) {
       for (const tx of data.transactions.filter(t => t.symbol === row.navSym && row.portfolios.includes(t.portfolio))) {
         if (tx.type === 'DIVIDEND') continue
         const isUsd = USD_PORTS.has(tx.portfolio)
-        const fx = isUsd ? data.usd_inr : 1
+        const fx = isUsd
+          ? (includeFxGains && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10 ? tx.buy_fx_rate : data.usd_inr)
+          : 1
         const amt = tx.quantity * tx.price * fx
         const chg = (tx.charges ?? 0) * fx
         if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
         if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
+      }
+      for (const ev of allocDivEventsMap.get(row.navSym) ?? []) {
+        cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
       }
       bucketCfs.set(bucket, cfs)
       if (row.current > 0) bucketTerminal.set(bucket, (bucketTerminal.get(bucket) ?? 0) + row.current)
@@ -628,7 +646,7 @@ export default function HoldingsPage({ currency }: Props) {
       map.set(bucket, r !== null ? r * 100 : null)
     }
     return map
-  }, [allocGroupedRows, filteredHoldings, data, currency])
+  }, [allocGroupedRows, filteredHoldings, data, currency, includeDivs, includeFxGains, allocDivEventsMap])
 
   const concentrationData = useMemo(() => {
     if (!allocGroupedRows.length) return []
@@ -660,18 +678,23 @@ export default function HoldingsPage({ currency }: Props) {
       for (const tx of txns) {
         if (tx.type === 'DIVIDEND') continue
         const isUsd = USD_PORTS.has(tx.portfolio)
-        const fx = isUsd ? data.usd_inr : 1
+        const fx = isUsd
+          ? (includeFxGains && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10 ? tx.buy_fx_rate : data.usd_inr)
+          : 1
         const amt = tx.quantity * tx.price * fx
         const chg = (tx.charges ?? 0) * fx
         if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
         if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount:   amt - chg })
+      }
+      for (const ev of allocDivEventsMap.get(row.navSym) ?? []) {
+        cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
       }
       if (row.current > 0) cfs.push({ date: today, amount: row.current })
       const r = computeXIRR(cfs)
       map.set(row.key, r !== null ? r * 100 : null)
     }
     return map
-  }, [allocGroupedRows, data, currency])
+  }, [allocGroupedRows, data, currency, includeDivs, includeFxGains, allocDivEventsMap])
 
   const closedRows = useMemo((): CardRow[] => {
     if (!data) return []
@@ -838,6 +861,7 @@ export default function HoldingsPage({ currency }: Props) {
   } = useBackendPortfolioHistory(
     resolveDisplayCurrency(pageNativeCurrency, currency),
     portfolio, segment, !!data, undefined, bucket, label,
+    includeDivs, includeFxGains,
   )
   const chartFreshness = getChartFreshness(portSeries)
 
@@ -877,6 +901,9 @@ export default function HoldingsPage({ currency }: Props) {
     symbolPriceMap,
     isCumulative,
     tagsByYfSymbol,
+    includeDivs,
+    includeFxGains,
+    allocDivEventsMap,
   )
 
   useEffect(() => {
@@ -1086,7 +1113,7 @@ export default function HoldingsPage({ currency }: Props) {
 
 
   // ── Returns tab: per-sector daily value series ──────────────────────────────
-  const sectorValueSeries = useMemo((): Map<SectorKey | 'all', Array<{ dateStr: string; value: number }>> => {
+  const sectorValueSeries = useMemo((): Map<SectorKey | 'all', Array<{ dateStr: string; value: number; fxGain: number }>> => {
     if (!symbolPriceMap.size || !filteredHoldings.length || !data) return new Map()
     const usdInr  = data.usd_inr
     const dateSet = new Set<string>()
@@ -1111,9 +1138,10 @@ export default function HoldingsPage({ currency }: Props) {
       if (!groups.has(s)) groups.set(s, [])
       groups.get(s)!.push(h)
     }
-    const result = new Map<SectorKey | 'all', Array<{ dateStr: string; value: number }>>()
+    const result = new Map<SectorKey | 'all', Array<{ dateStr: string; value: number; fxGain: number }>>()
     for (const [gk, gh] of groups) {
       const valArr = new Array<number>(allDates.length).fill(0)
+      const fxArr  = new Array<number>(allDates.length).fill(0)
       for (const h of gh) {
         const pm     = symbolPriceMap.get(h.yf_symbol)
         if (!pm?.size) continue
@@ -1122,6 +1150,7 @@ export default function HoldingsPage({ currency }: Props) {
         const first  = firstDateM.get(key) ?? allDates[0]
         const isUsd  = USD_PORTS.has(h.portfolio)
         const fx     = isUsd ? usdInr : 1
+        const validFxRate = includeFxGains && isUsd && h.avg_buy_fx_rate && h.avg_buy_fx_rate > 10
         let qty = 0, lastPx: number | null = null
         for (let i = 0; i < allDates.length; i++) {
           const d = allDates[i]
@@ -1132,14 +1161,17 @@ export default function HoldingsPage({ currency }: Props) {
           if (px !== undefined) lastPx = px
           if (lastPx === null || qty <= 0) continue
           valArr[i] += lastPx * qty * fx
+          // Same current-rate/constant-avg-buy-fx-rate simplification used everywhere else
+          // in this app (engine.py's disp_fx_gain, the backend's fx_arr, holdingBreakdownRows).
+          if (validFxRate) fxArr[i] += h.avg_cost * qty * (usdInr - h.avg_buy_fx_rate!)
         }
       }
       const si = valArr.findIndex(v => v > 0)
       if (si < 0) continue
-      result.set(gk, allDates.slice(si).map((d, i) => ({ dateStr: d, value: valArr[si + i] })))
+      result.set(gk, allDates.slice(si).map((d, i) => ({ dateStr: d, value: valArr[si + i], fxGain: fxArr[si + i] })))
     }
     return result
-  }, [symbolPriceMap, filteredHoldings, filtTxns, data, currency])
+  }, [symbolPriceMap, filteredHoldings, filtTxns, data, currency, includeFxGains])
 
   const returnsSectors = useMemo((): SectorKey[] =>
     ([...new Set(filteredHoldings.map(h => getSectorForHolding(h.yf_symbol, h.tags)))].sort() as SectorKey[]),
@@ -1187,6 +1219,27 @@ export default function HoldingsPage({ currency }: Props) {
       if (portPts) { let v = 0; for (const pt of portPts) { if (pt.dateStr > cutoff) break; v = pt.total } return v }
       let v = 0; for (const pt of series) { if (pt.dateStr > cutoff) break; v = pt.value } return v
     }
+    // Sector-only: cumulative FX gain (see sectorValueSeries) at or before cutoff — already 0
+    // throughout when includeFxGains is off. The 'all' case gets FX for free via portPts.total,
+    // which the backend already folds fx_arr into when include_fx is on.
+    function lastFxGainAtOrBefore(cutoff: string): number {
+      let v = 0; for (const pt of series) { if (pt.dateStr > cutoff) break; v = pt.fxGain } return v
+    }
+    // Sector-only: dividends received by this sector's symbols, in (afterDate, upToDate] —
+    // the 'all' case gets dividends for free via portPts.total (backend's div_arr).
+    const sectorSymbols = new Set(sectorTxns.map(tx => tx.symbol))
+    function sectorDivInRange(afterDate: string, upToDate: string): number {
+      if (!includeDivs) return 0
+      let total = 0
+      for (const [sym, events] of allocDivEventsMap) {
+        if (!sectorSymbols.has(sym)) continue
+        for (const ev of events) {
+          const d = ev.ex_date.slice(0, 10)
+          if (d > afterDate && d <= upToDate) total += ev.amount
+        }
+      }
+      return total
+    }
     // Invested capital at or before cutoff — denominator for returnPct in 'all' mode
     function lastInvAtOrBefore(cutoff: string): number {
       let v = 0; if (portPts) for (const pt of portPts) { if (pt.dateStr > cutoff) break; v = pt.invested } return v
@@ -1218,11 +1271,21 @@ export default function HoldingsPage({ currency }: Props) {
       for (const tx of sectorTxns) {
         if (tx.date.slice(0, 10) > upTo || tx.type === 'DIVIDEND') continue
         const isUsd = USD_PORTS.has(tx.portfolio)
-        const fx    = isUsd ? usdInrSnap : 1
+        const fx    = isUsd
+          ? (includeFxGains && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10 ? tx.buy_fx_rate : usdInrSnap)
+          : 1
         const amt   = tx.quantity * tx.price * fx
         const chg   = (tx.charges ?? 0) * fx
         if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
         if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount: amt - chg })
+      }
+      if (includeDivs) {
+        for (const [sym, events] of allocDivEventsMap) {
+          if (!sectorSymbols.has(sym)) continue
+          for (const ev of events) {
+            if (ev.ex_date.slice(0, 10) <= upTo) cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
+          }
+        }
       }
       if (terminal > 0) cfs.push({ date: new Date(upTo), amount: terminal })
       const r = computeXIRR(cfs)
@@ -1237,7 +1300,8 @@ export default function HoldingsPage({ currency }: Props) {
         const startPortV = lastOpenValAtOrBefore(prevEnd) || lastInvAtOrBefore(prevEnd)
         return { label, returnPct: startPortV > 0 ? gains / startPortV * 100 : 0, gains, cumulGains: endV, cumulReturnPct: lastReturnPctAtOrBefore(endDate), xirr: buildXirr(endDate, lastOpenValAtOrBefore(endDate)), isYtd: isYtdMtd }
       }
-      const gains = endV - startV - netInvested(prevEnd, endDate)
+      const fxDelta = lastFxGainAtOrBefore(endDate) - lastFxGainAtOrBefore(prevEnd)
+      const gains = endV - startV - netInvested(prevEnd, endDate) + sectorDivInRange(prevEnd, endDate) + fxDelta
       return { label, returnPct: startV > 0 ? gains / startV * 100 : 0, gains, cumulGains: endV, cumulReturnPct: null, xirr: buildXirr(endDate, endV), isYtd: isYtdMtd }
     }
 
@@ -1274,7 +1338,7 @@ export default function HoldingsPage({ currency }: Props) {
       }
       return results
     }
-  }, [sectorValueSeries, returnsSector, returnsMode, returnsYears, returnsAvailableYears, filtTxns, data, currency, portSeries])
+  }, [sectorValueSeries, returnsSector, returnsMode, returnsYears, returnsAvailableYears, filtTxns, data, currency, portSeries, includeDivs, includeFxGains, allocDivEventsMap])
 
   useEffect(() => {
     if (!returnsAvailableYears.length) return
@@ -1309,6 +1373,13 @@ export default function HoldingsPage({ currency }: Props) {
     const rangeEnd   = metricSeries.dates[metricSeries.dates.length - 1].toISOString().slice(0, 10)
     const usdInr = data.usd_inr
 
+    // Same includeDivs-gated pattern as xirrMap above — dividends only enter the XIRR Trend
+    // cash-flow list when the toggle is on, so with it off this row matches SummaryCard/
+    // HoldingCard's XIRR (which also excludes dividends by default).
+    const divEventsBySymbol = (includeDivs && divComputed)
+      ? new Map(divComputed.by_symbol.map(s => [s.symbol, s.events]))
+      : new Map<string, { ex_date: string; amount: number }[]>()
+
     const dateSet = new Set<string>()
     for (const [, m] of symbolPriceMap) for (const dt of m.keys()) dateSet.add(dt)
     const allDates = [...dateSet].sort()
@@ -1330,15 +1401,16 @@ export default function HoldingsPage({ currency }: Props) {
     // (qty is what varies by date) — same simplification backend/routers/portfolio_history.py's
     // _compute() uses for its inv_arr, so this stays methodologically identical to the numbers
     // shown on the Transactions page / aggregate chart for the same holding.
-    function valueAndInvestedAtOrBefore(holdings: Holding[], target: string): { value: number; invested: number } {
-      let value = 0, invested = 0
+    function valueAndInvestedAtOrBefore(holdings: Holding[], target: string): { value: number; invested: number; fxGain: number } {
+      let value = 0, invested = 0, fxGain = 0
       for (const h of holdings) {
         const pm = symbolPriceMap.get(h.yf_symbol)
         if (!pm?.size) continue
         const key    = `${h.portfolio}:${h.yf_symbol}`
         const deltas = qtyDelta.get(key) ?? new Map<string, number>()
         const first  = firstDateM.get(key) ?? allDates[0]
-        const fx     = USD_PORTS.has(h.portfolio) ? usdInr : 1
+        const isUsd  = USD_PORTS.has(h.portfolio)
+        const fx     = isUsd ? usdInr : 1
         let qty = 0, lastPx: number | null = null
         for (const d of allDates) {
           if (d > target) break
@@ -1351,9 +1423,14 @@ export default function HoldingsPage({ currency }: Props) {
         if (lastPx !== null && qty > 0) {
           value += lastPx * qty * fx
           invested += h.avg_cost * qty * fx
+          // Same formula as engine.py's disp_fx_gain and the backend's fx_arr — current rate
+          // held constant, weighted-average purchase rate held constant, only qty varies.
+          if (includeFxGains && isUsd && h.avg_buy_fx_rate && h.avg_buy_fx_rate > 10) {
+            fxGain += h.avg_cost * qty * (usdInr - h.avg_buy_fx_rate)
+          }
         }
       }
-      return { value, invested }
+      return { value, invested, fxGain }
     }
 
     const bySymbol = new Map<string, Holding[]>()
@@ -1362,10 +1439,37 @@ export default function HoldingsPage({ currency }: Props) {
       bySymbol.get(h.symbol)!.push(h)
     }
 
+    // Cumulative return % (since inception) as of `target`, same formula as the backend's
+    // return_pct: (unrealized + realized-to-date) / invested, falling back to realized cost
+    // basis once invested hits 0 (fully-closed position). Diffing this at range start/end
+    // (below) mirrors how the Total Gains row is a delta of a cumulative series, so this row
+    // lines up with what a single-holding Return % chart for the same range would show.
+    function cumulativeReturnPctAtOrBefore(holdings: Holding[], portSet: Set<string>, symbol: string, target: string): number {
+      const { value, invested, fxGain } = valueAndInvestedAtOrBefore(holdings, target)
+      let cumRealized = 0, cumRealizedCost = 0
+      let cumDiv = 0
+      for (const r of data!.realized) {
+        if (r.symbol !== symbol || !portSet.has(r.portfolio)) continue
+        if (r.sell_date.slice(0, 10) > target) continue
+        const fx = r.currency === 'USD' ? usdInr : 1
+        cumRealized += r.realized_pnl * fx
+        if (r.type === 'SELL') cumRealizedCost += r.quantity * r.buy_price * fx
+      }
+      if (includeDivs && divComputed) {
+        for (const ev of divEventsBySymbol.get(symbol) ?? []) {
+          if (ev.ex_date.slice(0, 10) <= target) cumDiv += ev.amount
+        }
+      }
+      const total = (value - invested) + cumRealized + cumDiv + fxGain
+      if (invested > 0) return total / invested * 100
+      if (cumRealizedCost > 0) return total / cumRealizedCost * 100
+      return 0
+    }
+
     const rows: { symbol: string; label: string; amount: number }[] = []
     for (const [symbol, holdings] of bySymbol) {
-      const { value: valueStart, invested: investedStart } = valueAndInvestedAtOrBefore(holdings, rangeStart)
-      const { value: valueEnd,   invested: investedEnd   } = valueAndInvestedAtOrBefore(holdings, rangeEnd)
+      const { value: valueStart, invested: investedStart, fxGain: fxGainStart } = valueAndInvestedAtOrBefore(holdings, rangeStart)
+      const { value: valueEnd,   invested: investedEnd,   fxGain: fxGainEnd   } = valueAndInvestedAtOrBefore(holdings, rangeEnd)
       const portSet = new Set(holdings.map(h => h.portfolio))
 
       let realizedInRange = 0
@@ -1376,29 +1480,53 @@ export default function HoldingsPage({ currency }: Props) {
         realizedInRange += r.realized_pnl * (r.currency === 'USD' ? usdInr : 1)
       }
 
+      let divInRange = 0
+      if (includeDivs && divComputed) {
+        for (const ev of divEventsBySymbol.get(symbol) ?? []) {
+          const d = ev.ex_date.slice(0, 10)
+          if (d >= rangeStart && d <= rangeEnd) divInRange += ev.amount
+        }
+      }
+
       // Unrealized-only: change in (value − cost basis) of currently-open qty — excludes any
       // profit booked via selling, unlike a cash-flow-adjusted delta which bakes it back in.
       const unrealizedGain = (valueEnd - investedEnd) - (valueStart - investedStart)
+      const fxGainInRange  = fxGainEnd - fxGainStart
 
       let amount: number
       if (chartMetric === 'Portfolio Value') amount = valueEnd - valueStart
       else if (chartMetric === 'Invested') amount = investedEnd - investedStart
       else if (chartMetric === 'Unrealized Gains') amount = unrealizedGain
       else if (chartMetric === 'Realized Gains') amount = realizedInRange
-      else if (chartMetric === 'Total Gains') amount = unrealizedGain + realizedInRange
-      else if (chartMetric === 'Return %') amount = investedStart > 0 ? ((unrealizedGain + realizedInRange) / investedStart) * 100 : 0
-      else { // XIRR Trend — same opening-balance-injection convention as useBenchmarkXirr's period XIRR
+      else if (chartMetric === 'Total Gains') amount = unrealizedGain + realizedInRange + divInRange + fxGainInRange
+      else if (chartMetric === 'Return %') {
+        amount = cumulativeReturnPctAtOrBefore(holdings, portSet, symbol, rangeEnd)
+               - cumulativeReturnPctAtOrBefore(holdings, portSet, symbol, rangeStart)
+      }
+      else { // XIRR Trend — cumulative since inception (every cash flow since this holding's
+        // first-ever transaction, terminal value at range end), matching the backend's
+        // xirrTrend shape but WITHOUT its unconditional dividend inclusion — dividends only
+        // enter here when the includeDivs toggle is on, to match Total/Unrealized/Realized/
+        // SummaryCard/HoldingCard, none of which ever include dividends.
         const cfs: { date: Date; amount: number }[] = []
-        if (valueStart > 0) cfs.push({ date: new Date(rangeStart), amount: -valueStart })
         for (const tx of filtTxns) {
-          if (tx.symbol !== symbol || tx.type === 'DIVIDEND' || !portSet.has(tx.portfolio)) continue
+          if (tx.symbol !== symbol || !portSet.has(tx.portfolio) || tx.type === 'DIVIDEND') continue
           const d = tx.date.slice(0, 10)
-          if (d < rangeStart || d > rangeEnd) continue
-          const fx  = USD_PORTS.has(tx.portfolio) ? usdInr : 1
+          if (d > rangeEnd) continue
+          const isUsdTx = USD_PORTS.has(tx.portfolio)
+          // FX-on: value a BUY at the rate actually paid, same convention as SummaryCard's
+          // XIRR (xirrMap above) and the backend's xirrTrend — SELL still uses today's rate.
+          const fx = (includeFxGains && isUsdTx && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10)
+            ? tx.buy_fx_rate
+            : (isUsdTx ? usdInr : 1)
           const amt = tx.quantity * tx.price * fx
           const chg = (tx.charges ?? 0) * fx
           if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
           if (tx.type === 'SELL') cfs.push({ date: new Date(tx.date), amount: amt - chg })
+        }
+        for (const ev of divEventsBySymbol.get(symbol) ?? []) {
+          if (ev.ex_date.slice(0, 10) > rangeEnd) continue
+          cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
         }
         if (valueEnd > 0) cfs.push({ date: new Date(rangeEnd), amount: valueEnd })
         const r = computeXIRR(cfs)
@@ -1410,8 +1538,8 @@ export default function HoldingsPage({ currency }: Props) {
       rows.push({ symbol, label: h0.company || h0.name || symbol, amount })
     }
 
-    return rows.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
-  }, [data, metricSeries, symbolPriceMap, filteredHoldings, filtTxns, chartMetric])
+    return rows.sort((a, b) => b.amount - a.amount)
+  }, [data, metricSeries, symbolPriceMap, filteredHoldings, filtTxns, chartMetric, includeDivs, divComputed, includeFxGains])
 
   // Switch away from FX tab if toggle turned off
   useEffect(() => {
