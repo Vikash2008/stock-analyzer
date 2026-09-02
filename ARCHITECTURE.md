@@ -352,6 +352,13 @@ as many Buckets as the user creates.
   confirms if holdings are affected, clears their `tags` entry via `set-tags` (sourced from
   `data.transactions`, not `data.holdings`, since a closed-out symbol's tag still needs clearing even
   with no current holding), then removes it from the catalog.
+- **Sector Bucket (2026-09-02)**: a second auto-seeded Bucket (`SECTOR_BUCKET` const), same mechanism
+  as `Asset Class` but managed in its own `ManageCategoryModal.tsx` (not `ManageBucketsModal.tsx`,
+  which explicitly filters it out of its generic list). Adds a per-Label benchmark-index override
+  (`buckets:label-benchmark` localStorage map, separate from `buckets:label-currency`) with type-ahead
+  via `/api/search`. `getSectorForHolding()`/`getSectorBenchmark()` in `sectors.ts` check this Bucket's
+  tag/override before falling back to the hardcoded `SYMBOL_SECTOR`/`SECTOR_BENCHMARK` maps. See
+  `reference_sector_category_override` memory for full detail.
 
 ---
 
@@ -415,6 +422,7 @@ Backend migrated off Render 2026-07-02 (repeated OOM crashes on the 512MB free t
 - **Segment aggregate chart value-drop, guard gap (2026-07-14)**: Indian-stock/US-stock segment chart views (most symbols per request, closest to `price_store.py`'s 400-symbol cap) showed a ~75% value drop after clicking the manual "Update Charts"/Refresh button, and it stuck around after a full reload — not seen on single-broker-portfolio views. Root cause: both `portfolio_history.py`'s `_guard_result()` and the frontend's `guardShrink()` (`useBackendPortfolioHistory.ts`) only ever compared fresh-vs-previous **date count**, never the latest **value** — so a same-length recompute with a far lower total (plausible when a concurrent refresh burst evicts/misses price_store entries this segment's symbols need mid-computation) sailed through untouched and became the new cached truth on both the backend's 30-min result cache and the frontend's IndexedDB copy. Fixed: both guards now also reject a fresh result whose latest value is <50% of the previous good value (only when prior data had ≥30 healthy points), falling back to the last good cached series and flagging `guardRejected` (already surfaced by the existing chart-freshness warning banner).
 - **Deep Research accordion, different root cause than the 2026-07-08 fix above (2026-08-11)**: `ReportTab.tsx`'s `handleGenerate()` and `toggleExpanded()` themselves reset every section's `expandedSections` to `false` before opening one — a deliberate single-open-accordion design, not a subscription side-effect this time. So starting or streaming any card still force-collapsed whatever other card the user had open and was reading. Fixed by making each card's expand state fully independent (`setExpandedSections(prev => ({...prev, [id]: true}))`), removing the accordion behavior entirely.
 - **Trend-chart table parser returning null for every table (2026-08-11, caught in the same session that introduced it)**: the new `parseTrendTable()` helper (renders a small Recharts line chart above a Year/Quarter-labelled markdown table) flattened `<thead>`'s children to find the header row, but `<thead>` also contains whitespace text nodes between `<tr>` elements in react-markdown's parsed hast tree — `rowNodes[0]` kept resolving to a stray `"\n"` text node instead of the real header `<tr>`, so `headerCells` was always empty and the function always returned null. Fixed by filtering thead/tbody children to `tagName === 'tr'` only.
+- **Total Return % dilution, every card/sort/chart (2026-09-02)**: `SummaryCard`/`HoldingCard`/`BreakCard`/sort/`portfolio_history.py`'s `return_pct` series all divided by `(invested + realizedCostBasis)` instead of `invested` alone — adding a sold position's old cost basis to the denominator understated the % whenever a scope had meaningful realized activity. Fixed to divide by `invested` alone, falling back to `realizedCostBasis` only when `invested` is exactly 0 (fully-closed scope). See `reference_total_return_pct_dilution_fix` memory.
 
 ## Pending
 
