@@ -1363,7 +1363,7 @@ export default function HoldingsPage({ currency }: Props) {
 
       let netCashFlow = 0
       for (const tx of filtTxns) {
-        if (tx.symbol !== symbol || tx.type === 'DIVIDEND') continue
+        if (tx.symbol !== symbol || tx.type === 'DIVIDEND' || !portSet.has(tx.portfolio)) continue
         const d = tx.date.slice(0, 10)
         if (d < rangeStart || d > rangeEnd) continue
         const fx  = USD_PORTS.has(tx.portfolio) ? usdInr : 1
@@ -1394,7 +1394,7 @@ export default function HoldingsPage({ currency }: Props) {
         const cfs: { date: Date; amount: number }[] = []
         if (valueStart > 0) cfs.push({ date: new Date(rangeStart), amount: -valueStart })
         for (const tx of filtTxns) {
-          if (tx.symbol !== symbol || tx.type === 'DIVIDEND') continue
+          if (tx.symbol !== symbol || tx.type === 'DIVIDEND' || !portSet.has(tx.portfolio)) continue
           const d = tx.date.slice(0, 10)
           if (d < rangeStart || d > rangeEnd) continue
           const fx  = USD_PORTS.has(tx.portfolio) ? usdInr : 1
