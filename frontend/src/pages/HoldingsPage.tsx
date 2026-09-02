@@ -1325,9 +1325,13 @@ export default function HoldingsPage({ currency }: Props) {
       if (!firstDateM.has(key) || dateStr < firstDateM.get(key)!) firstDateM.set(key, dateStr)
     }
 
-    // Combined value (in INR-equivalent) of a symbol's holdings, on or before `target`.
-    function valueAtOrBefore(holdings: Holding[], target: string): number {
-      let total = 0
+    // Combined value AND cost-basis ("invested") of a symbol's holdings, on or before `target`.
+    // Invested uses each holding's current avg_cost held constant across all historical dates
+    // (qty is what varies by date) — same simplification backend/routers/portfolio_history.py's
+    // _compute() uses for its inv_arr, so this stays methodologically identical to the numbers
+    // shown on the Transactions page / aggregate chart for the same holding.
+    function valueAndInvestedAtOrBefore(holdings: Holding[], target: string): { value: number; invested: number } {
+      let value = 0, invested = 0
       for (const h of holdings) {
         const pm = symbolPriceMap.get(h.yf_symbol)
         if (!pm?.size) continue
@@ -1344,9 +1348,12 @@ export default function HoldingsPage({ currency }: Props) {
           const px = pm.get(d)
           if (px !== undefined) lastPx = px
         }
-        if (lastPx !== null && qty > 0) total += lastPx * qty * fx
+        if (lastPx !== null && qty > 0) {
+          value += lastPx * qty * fx
+          invested += h.avg_cost * qty * fx
+        }
       }
-      return total
+      return { value, invested }
     }
 
     const bySymbol = new Map<string, Holding[]>()
@@ -1357,21 +1364,9 @@ export default function HoldingsPage({ currency }: Props) {
 
     const rows: { symbol: string; label: string; amount: number }[] = []
     for (const [symbol, holdings] of bySymbol) {
-      const valueStart = valueAtOrBefore(holdings, rangeStart)
-      const valueEnd   = valueAtOrBefore(holdings, rangeEnd)
-      const portSet    = new Set(holdings.map(h => h.portfolio))
-
-      let netCashFlow = 0
-      for (const tx of filtTxns) {
-        if (tx.symbol !== symbol || tx.type === 'DIVIDEND' || !portSet.has(tx.portfolio)) continue
-        const d = tx.date.slice(0, 10)
-        if (d < rangeStart || d > rangeEnd) continue
-        const fx  = USD_PORTS.has(tx.portfolio) ? usdInr : 1
-        const amt = tx.quantity * tx.price * fx
-        const chg = (tx.charges ?? 0) * fx
-        if (tx.type === 'BUY')  netCashFlow += amt + chg
-        if (tx.type === 'SELL') netCashFlow -= amt - chg
-      }
+      const { value: valueStart, invested: investedStart } = valueAndInvestedAtOrBefore(holdings, rangeStart)
+      const { value: valueEnd,   invested: investedEnd   } = valueAndInvestedAtOrBefore(holdings, rangeEnd)
+      const portSet = new Set(holdings.map(h => h.portfolio))
 
       let realizedInRange = 0
       for (const r of data.realized) {
@@ -1381,15 +1376,17 @@ export default function HoldingsPage({ currency }: Props) {
         realizedInRange += r.realized_pnl * (r.currency === 'USD' ? usdInr : 1)
       }
 
-      const unrealizedChange = valueEnd - valueStart - netCashFlow
+      // Unrealized-only: change in (value − cost basis) of currently-open qty — excludes any
+      // profit booked via selling, unlike a cash-flow-adjusted delta which bakes it back in.
+      const unrealizedGain = (valueEnd - investedEnd) - (valueStart - investedStart)
 
       let amount: number
       if (chartMetric === 'Portfolio Value') amount = valueEnd - valueStart
-      else if (chartMetric === 'Invested') amount = netCashFlow
-      else if (chartMetric === 'Unrealized Gains') amount = unrealizedChange
+      else if (chartMetric === 'Invested') amount = investedEnd - investedStart
+      else if (chartMetric === 'Unrealized Gains') amount = unrealizedGain
       else if (chartMetric === 'Realized Gains') amount = realizedInRange
-      else if (chartMetric === 'Total Gains') amount = unrealizedChange + realizedInRange
-      else if (chartMetric === 'Return %') amount = valueStart > 0 ? (unrealizedChange / valueStart) * 100 : 0
+      else if (chartMetric === 'Total Gains') amount = unrealizedGain + realizedInRange
+      else if (chartMetric === 'Return %') amount = investedStart > 0 ? ((unrealizedGain + realizedInRange) / investedStart) * 100 : 0
       else { // XIRR Trend — same opening-balance-injection convention as useBenchmarkXirr's period XIRR
         const cfs: { date: Date; amount: number }[] = []
         if (valueStart > 0) cfs.push({ date: new Date(rangeStart), amount: -valueStart })

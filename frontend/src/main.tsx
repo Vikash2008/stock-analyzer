@@ -13,6 +13,14 @@ const updateSW = registerSW({
   onNeedRefresh() {
     updateSW(true)
   },
+  // registerSW only checks for a new build once, at load — without polling, a device that
+  // stays open never notices a new deploy until some unrelated event (browser's own SW
+  // revalidation, closing/reopening) happens to re-fetch the SW script. Poll explicitly so
+  // an open tab picks up a new build on its own.
+  onRegisteredSW(_url, registration) {
+    if (!registration) return
+    setInterval(() => registration.update(), 60_000)
+  },
 })
 
 idbReady.then(() => {
