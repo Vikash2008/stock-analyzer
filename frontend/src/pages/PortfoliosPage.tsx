@@ -834,7 +834,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           for (const ev of s.events) cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
         }
       }
-      const totalCurrent = filterByLabel(active, 'Asset Class', label).reduce((s, h) => s + h.disp_current, 0)
+      const totalCurrent = filterByLabel(active, 'Asset Class', label).reduce((s, h) => s + (USD_PORTS.has(h.portfolio) ? h.current_value * data.usd_inr : h.current_value), 0)
       if (totalCurrent > 0) cfs.push({ date: today, amount: totalCurrent })
       const r = computeXIRR(cfs)
       out.set(label, r !== null ? r * 100 : null)
@@ -860,7 +860,10 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     if (includeDivs && divData) {
       for (const ev of divData.timeline) cfs.push({ date: new Date(ev.date), amount: ev.amount })
     }
-    const totalCurrent = active.reduce((s, h) => s + h.disp_current, 0)
+    // Terminal value must stay in the same currency-invariant native/INR-combined basis as the
+    // cash flows above (never the display-currency `disp_current`) — XIRR is a rate and must not
+    // shift when the ₹/$ display toggle is flipped. See heroXirr's currency-inflation bug fix.
+    const totalCurrent = active.reduce((s, h) => s + (USD_PORTS.has(h.portfolio) ? h.current_value * data.usd_inr : h.current_value), 0)
     if (totalCurrent > 0) cfs.push({ date: today, amount: totalCurrent })
     const r = computeXIRR(cfs)
     return r !== null ? r * 100 : null
@@ -958,7 +961,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
             for (const ev of divCfsByPort.get(card.key) ?? []) cfs.push(ev)
           }
           const totalCurrent = active.filter(h => h.portfolio === card.key)
-            .reduce((s, h) => s + h.disp_current, 0)
+            .reduce((s, h) => s + (USD_PORTS.has(h.portfolio) ? h.current_value * data.usd_inr : h.current_value), 0)
           if (totalCurrent > 0) cfs.push({ date: today, amount: totalCurrent })
           const r = computeXIRR(cfs)
           map.set(card.key, r !== null ? r * 100 : null)
@@ -982,10 +985,13 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         for (const tx of data.transactions) {
           if (tx.type === 'DIVIDEND') continue
           if (getLabel(tx, mode) !== card.key) continue
+          // Same currency-invariant INR-combined basis as every other XIRR calc on this page —
+          // was previously toggled by the `currency` display state, which both mismatched the
+          // dividend leg below (always INR-basis) and, on the terminal value, double-converted
+          // an already display-converted `disp_current` — together the source of the "divs +
+          // USD toggle inflates XIRR" bug.
           const isUsd = USD_PORTS.has(tx.portfolio)
-          const fx = isUsd
-            ? (currency === 'INR' ? txFxRate(tx, includeFxGainsState, data.usd_inr) : 1)
-            : (currency === 'USD' ? 1 / data.usd_inr : 1)
+          const fx = isUsd ? txFxRate(tx, includeFxGainsState, data.usd_inr) : 1
           const amt = tx.quantity * tx.price * fx
           const chg = (tx.charges ?? 0) * fx
           if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
@@ -996,7 +1002,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         }
         // Terminal value: open positions only
         const hs = active.filter(h => getLabel(h, mode) === card.key)
-        const totalCurrent = hs.reduce((s, h) => s + (currency === 'USD' ? h.disp_current / data.usd_inr : h.disp_current), 0)
+        const totalCurrent = hs.reduce((s, h) => s + (USD_PORTS.has(h.portfolio) ? h.current_value * data.usd_inr : h.current_value), 0)
         if (totalCurrent > 0) cfs.push({ date: today, amount: totalCurrent })
         const r = computeXIRR(cfs)
         map.set(card.key, r !== null ? r * 100 : null)

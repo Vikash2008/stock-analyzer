@@ -129,6 +129,10 @@ interface CardRow {
   ticker:     string
   subLabel:   string
   current:    number
+  // Currency-invariant (native/INR-combined) current value, for XIRR terminal cash flows only —
+  // `current` above is display-currency-converted and mismatches the INR-combined basis those
+  // cash flows are built in, which was inflating XIRR whenever divs/FX were on and currency=USD.
+  nativeCurrent: number
   invested:   number
   realGain:   number
   realCost:   number
@@ -141,10 +145,15 @@ interface CardRow {
   portfolios: string[]
 }
 
+function nativeCurrent(h: Holding, usdInr: number): number {
+  return USD_PORTS.has(h.portfolio) ? h.current_value * usdInr : h.current_value
+}
+
 function buildRows(
   holdings: Holding[],
   realizedMap: ReturnType<typeof aggRealized>,
   mode: 'cumulative' | 'standalone',
+  usdInr: number,
   singlePortfolio?: string,
 ): CardRow[] {
   if (mode === 'standalone') {
@@ -156,6 +165,7 @@ function buildRows(
           ticker:     h.symbol,
           subLabel:   h.company || h.name || '',
           current:    h.disp_current,
+          nativeCurrent: nativeCurrent(h, usdInr),
           invested:   h.disp_invested,
           realGain: rg, realCost: rc,
           todayGain:  h.disp_today_gain,
@@ -180,6 +190,7 @@ function buildRows(
         ticker:     h.symbol,
         subLabel:   h.company || h.name || '',
         current:    h.disp_current,
+        nativeCurrent: nativeCurrent(h, usdInr),
         invested:   h.disp_invested,
         realGain: rg, realCost: rc,
         todayGain:  h.disp_today_gain,
@@ -192,6 +203,7 @@ function buildRows(
       })
     } else {
       existing.current   += h.disp_current
+      existing.nativeCurrent += nativeCurrent(h, usdInr)
       existing.invested  += h.disp_invested
       existing.realGain  += rg
       existing.realCost  += rc
@@ -486,8 +498,8 @@ export default function HoldingsPage({ currency }: Props) {
   }, [filteredHoldings, realizedMap, segment, bucket, label, data, quoteTypeBySymbol, includeFxGains])
 
   const rows = useMemo(
-    () => buildRows(filteredHoldings, realizedMap, viewMode, portfolio),
-    [filteredHoldings, realizedMap, viewMode, portfolio],
+    () => buildRows(filteredHoldings, realizedMap, viewMode, data?.usd_inr ?? 1, portfolio),
+    [filteredHoldings, realizedMap, viewMode, data?.usd_inr, portfolio],
   )
 
   // FX gain per symbol — only populated when toggle is ON; sums across portfolios for cumulative views
@@ -569,8 +581,8 @@ export default function HoldingsPage({ currency }: Props) {
 
   // Allocation tab always uses one-per-symbol grouping regardless of viewMode
   const allocGroupedRows = useMemo(
-    () => buildRows(filteredHoldings, realizedMap, 'cumulative', portfolio),
-    [filteredHoldings, realizedMap, portfolio],
+    () => buildRows(filteredHoldings, realizedMap, 'cumulative', data?.usd_inr ?? 1, portfolio),
+    [filteredHoldings, realizedMap, data?.usd_inr, portfolio],
   )
 
   // Same includeDivs/includeFxGains-gated cash-flow construction as xirrMap above — previously
@@ -603,7 +615,7 @@ export default function HoldingsPage({ currency }: Props) {
         cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
       }
       sectorCfs.set(sector, cfs)
-      if (row.current > 0) sectorTerminal.set(sector, (sectorTerminal.get(sector) ?? 0) + row.current)
+      if (row.nativeCurrent > 0) sectorTerminal.set(sector, (sectorTerminal.get(sector) ?? 0) + row.nativeCurrent)
     }
     const map = new Map<SectorKey, number | null>()
     for (const [sector, cfs] of sectorCfs) {
@@ -637,7 +649,7 @@ export default function HoldingsPage({ currency }: Props) {
         cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
       }
       bucketCfs.set(bucket, cfs)
-      if (row.current > 0) bucketTerminal.set(bucket, (bucketTerminal.get(bucket) ?? 0) + row.current)
+      if (row.nativeCurrent > 0) bucketTerminal.set(bucket, (bucketTerminal.get(bucket) ?? 0) + row.nativeCurrent)
     }
     const map = new Map<MarketCapKey, number | null>()
     for (const [bucket, cfs] of bucketCfs) {
@@ -688,7 +700,7 @@ export default function HoldingsPage({ currency }: Props) {
       for (const ev of allocDivEventsMap.get(row.navSym) ?? []) {
         cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
       }
-      if (row.current > 0) cfs.push({ date: today, amount: row.current })
+      if (row.nativeCurrent > 0) cfs.push({ date: today, amount: row.nativeCurrent })
       const r = computeXIRR(cfs)
       map.set(row.key, r !== null ? r * 100 : null)
     }
@@ -723,7 +735,7 @@ export default function HoldingsPage({ currency }: Props) {
         key: `closed:${sym}`,
         ticker: sym,
         subLabel: nameMap.get(sym) ?? '',
-        current: 0, invested: 0,
+        current: 0, nativeCurrent: 0, invested: 0,
         realGain: rg, realCost: rc,
         todayGain: null, todayPct: null, ltp: null,
         currency: nativeCurrency,
@@ -979,7 +991,7 @@ export default function HoldingsPage({ currency }: Props) {
       for (const ev of divEventsMap.get(row.navSym) ?? []) {
         cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
       }
-      if (row.current > 0) cfs.push({ date: today, amount: row.current })
+      if (row.nativeCurrent > 0) cfs.push({ date: today, amount: row.nativeCurrent })
 
       const r = computeXIRR(cfs)
       map.set(row.key, r !== null ? r * 100 : null)
@@ -1110,7 +1122,7 @@ export default function HoldingsPage({ currency }: Props) {
       for (const ev of divEventsMap.get(row.navSym) ?? []) {
         cfs.push({ date: new Date(ev.ex_date), amount: ev.amount })
       }
-      if (row.current > 0) cfs.push({ date: today, amount: row.current })
+      if (row.nativeCurrent > 0) cfs.push({ date: today, amount: row.nativeCurrent })
     }
     const r = computeXIRR(cfs)
     return r !== null ? r * 100 : null

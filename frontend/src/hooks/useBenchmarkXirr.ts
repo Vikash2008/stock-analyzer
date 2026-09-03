@@ -414,7 +414,12 @@ export function useBenchmarkXirr(
           const exDate = ev.ex_date.slice(0, 10)
           if (periodStart && exDate < periodStart) continue
           if (periodEnd && exDate > periodEnd) continue
-          const cf: CF = { date: new Date(ev.ex_date), amount: ev.amount }
+          // ev.amount is always INR-basis (see utils/dividends.ts) — this hook's BUY/SELL/
+          // terminal legs all convert to the display `currency` instead, so this leg must too or
+          // it silently stays ~90x too large whenever currency=USD (real-per-date rate, matching
+          // the Value-conversion rule used for benchP/terminal above).
+          const amount = currency === 'USD' ? ev.amount / fxRateAt(exDate) : ev.amount
+          const cf: CF = { date: new Date(ev.ex_date), amount }
           sectorActual.get(sector)!.push(cf)
           if (sector !== 'Other') overallActual.push(cf)
         }

@@ -247,7 +247,9 @@ export default function TransactionsPage({ currency }: Props) {
   const holdingXirr = useMemo(() => {
     if (!symTxns.length || !data) return null
     const today = new Date()
-    const aggCurrent = holdingList.reduce((s, h) => s + h.disp_current, 0)
+    // Currency-invariant basis, matching the cash flows below — never `disp_current`, which is
+    // display-toggle-converted and would mismatch the fixed INR-combined cash-flow basis.
+    const aggCurrent = holdingList.reduce((s, h) => s + (USD_PORTS.has(h.portfolio) ? h.current_value * data.usd_inr : h.current_value), 0)
     const includeFxGains = getIncludeFxGains()
     const cfs: { date: Date; amount: number }[] = []
     for (const tx of symTxns) {
