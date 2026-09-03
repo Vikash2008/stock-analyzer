@@ -13,7 +13,7 @@ import {
   getAllLabelCurrencies, setAllLabelCurrencies, getAllLabelBenchmarks, setAllLabelBenchmarks,
   type BucketDef,
 } from '../utils/buckets'
-import { resolveDisplayCurrency, fxMultiplier } from '../utils/currency'
+import { resolveDisplayCurrency, fxMultiplier, txFxRate } from '../utils/currency'
 import { ManageBucketsModal } from '../components/ManageBucketsModal'
 import { ManageCategoryModal } from '../components/ManageCategoryModal'
 import { NotificationBell } from '../components/NotificationBell'
@@ -762,7 +762,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
   useEffect(() => () => { clearTimeout(bannerTimer.current); clearTimeout(errorTimer.current); clearTimeout(importFailBannerTimer.current) }, [])
 
 
-  const rmap = useMemo(() => data ? aggRealized(data.realized, data.usd_inr) : new Map(), [data])
+  const rmap = useMemo(() => data ? aggRealized(data.realized, data.usd_inr, includeFxGainsState) : new Map(), [data, includeFxGainsState])
   const tagLookup = useMemo(() => data ? buildTagLookup(data) : new Map(), [data])
 
   // All holdings excluding aggregate-duplicate portfolios
@@ -820,9 +820,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
         if (tx.type === 'DIVIDEND' || SKIP_PORTS.has(tx.portfolio)) continue
         if (getLabel(tx, 'Asset Class') !== label) continue
         const isUsd = USD_PORTS.has(tx.portfolio)
-        const fx = isUsd
-          ? (includeFxGainsState && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10 ? tx.buy_fx_rate : data.usd_inr)
-          : 1
+        const fx = isUsd ? txFxRate(tx, includeFxGainsState, data.usd_inr) : 1
         const amt = tx.quantity * tx.price * fx
         const chg = (tx.charges ?? 0) * fx
         if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
@@ -853,9 +851,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
     for (const tx of data.transactions) {
       if (tx.type === 'DIVIDEND' || SKIP_PORTS.has(tx.portfolio)) continue
       const isUsd = USD_PORTS.has(tx.portfolio)
-      const fx = isUsd
-        ? (includeFxGainsState && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10 ? tx.buy_fx_rate : data.usd_inr)
-        : 1
+      const fx = isUsd ? txFxRate(tx, includeFxGainsState, data.usd_inr) : 1
       const amt = tx.quantity * tx.price * fx
       const chg = (tx.charges ?? 0) * fx
       if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
@@ -952,9 +948,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           for (const tx of data.transactions) {
             if (tx.type === 'DIVIDEND' || tx.portfolio !== card.key) continue
             const isUsd = USD_PORTS.has(tx.portfolio)
-            const fx = isUsd
-              ? (includeFxGainsState && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10 ? tx.buy_fx_rate : data.usd_inr)
-              : 1
+            const fx = isUsd ? txFxRate(tx, includeFxGainsState, data.usd_inr) : 1
             const amt = tx.quantity * tx.price * fx
             const chg = (tx.charges ?? 0) * fx
             if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
@@ -990,9 +984,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
           if (getLabel(tx, mode) !== card.key) continue
           const isUsd = USD_PORTS.has(tx.portfolio)
           const fx = isUsd
-            ? (currency === 'INR'
-                ? (includeFxGainsState && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10 ? tx.buy_fx_rate : data.usd_inr)
-                : 1)
+            ? (currency === 'INR' ? txFxRate(tx, includeFxGainsState, data.usd_inr) : 1)
             : (currency === 'USD' ? 1 / data.usd_inr : 1)
           const amt = tx.quantity * tx.price * fx
           const chg = (tx.charges ?? 0) * fx

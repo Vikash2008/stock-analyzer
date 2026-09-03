@@ -22,9 +22,9 @@ import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton'
 import { AnalysisTab } from '../components/AnalysisTab'
 import { ReportTab } from '../components/ReportTab'
 import { useQuickStats } from '../hooks/useQuickStats'
-import { aggRealized } from '../utils/realized'
+import { aggRealized, realizedGainCost } from '../utils/realized'
 import { SKIP_PORTS, USD_PORTS } from '../utils/segments'
-import { resolveDisplayCurrency, fxMultiplier } from '../utils/currency'
+import { resolveDisplayCurrency, fxMultiplier, txFxRate } from '../utils/currency'
 import { computeXIRR } from '../utils/xirr'
 import { fmt, fmtGainLine, truncateName } from '../utils/fmt'
 import type { Currency } from '../App'
@@ -157,7 +157,7 @@ export default function TransactionsPage({ currency }: Props) {
   const isAggregate = useMemo(() => portfolioFilter.every(p => SKIP_PORTS.has(p)), [portfolioFilter])
 
   const realizedMap = useMemo(
-    () => (data ? aggRealized(data.realized, data.usd_inr) : new Map()),
+    () => (data ? aggRealized(data.realized, data.usd_inr, getIncludeFxGains()) : new Map()),
     [data],
   )
 
@@ -252,13 +252,9 @@ export default function TransactionsPage({ currency }: Props) {
     const cfs: { date: Date; amount: number }[] = []
     for (const tx of symTxns) {
       const isUsd = tx.currency === 'USD'
-      // Must match HoldingsPage.tsx's xirrMap: when the FX-gains toggle is on, a BUY's true
-      // historical buy_fx_rate is used instead of today's live rate — otherwise this page's
-      // XIRR diverges from the Holdings page for the same holding (e.g. a USD stock whose
-      // buy-date FX rate differs meaningfully from today's).
-      const fx = isUsd
-        ? (includeFxGains && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10 ? tx.buy_fx_rate : data.usd_inr)
-        : 1
+      // Must match HoldingsPage.tsx's xirrMap: same toggle rule everywhere — real rate per
+      // cash flow (BUY and SELL) when the FX toggle is on, one consistent rate when off.
+      const fx = isUsd ? txFxRate(tx, includeFxGains, data.usd_inr) : 1
       const amt = tx.quantity * tx.price * fx
       const chg = (tx.charges ?? 0) * fx
       if (tx.type === 'BUY')  cfs.push({ date: new Date(tx.date), amount: -(amt + chg) })
@@ -280,8 +276,9 @@ export default function TransactionsPage({ currency }: Props) {
 
     for (const r of symRealized) {
       if (r.type !== 'SELL') continue
-      const pnl  = r.realized_pnl * fx
-      const cost = r.quantity * r.buy_price * fx
+      // Toggle-aware, native-currency-aware conversion — same shared rule as everywhere else
+      // in the app (see utils/realized.ts's realizedGainCost).
+      const { gain: pnl, cost } = realizedGainCost(r, data.usd_inr, getIncludeFxGains(), currency === 'USD')
       const sk = r.sell_date.slice(0, 10)
       const se = sellMap.get(sk) ?? { gain: 0, cost: 0 }
       sellMap.set(sk, { gain: se.gain + pnl, cost: se.cost + cost })

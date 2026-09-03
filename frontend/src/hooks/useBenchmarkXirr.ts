@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import { computeXIRR } from '../utils/xirr'
 import { getSectorForHolding, getSectorBenchmark, SECTOR_BENCHMARK, type SectorKey } from '../utils/sectors'
 import { USD_PORTS } from '../utils/segments'
+import { txFxRate } from '../utils/currency'
 import { mergeHistory } from './useHistory'
 import { idbGet, idbSet } from '../utils/idbStore'
 import type { Holding, Transaction } from '../api/types'
@@ -12,6 +13,11 @@ const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
 
 // Benchmark indices quoted in USD — need conversion to INR when displaying in INR
 const USD_BENCH_SYMS = new Set(['^NDX', '^GSPC', '^DJI', '^RUT'])
+
+// Real historical USD/INR rate — matches backend/routers/portfolio_history.py's _FX_SYMBOL /
+// HoldingsPage.tsx's FX_HIST_SYMBOL. Fetched into symbolPriceMap by the caller (via
+// usePortfolioHistory's extraSymbols), so no separate fetch is needed here.
+const FX_HIST_SYMBOL = 'USDINR=X'
 
 // Fixed anchor (matches useHistory.ts's chart-fetch start) rather than a per-view earliest-
 // transaction date — keeps the cache key portfolio/segment-agnostic so switching views never
@@ -210,6 +216,16 @@ export function useBenchmarkXirr(
     })
     if (histMap.size === 0) return null
 
+    // Real per-date USD/INR rate for VALUE-snapshot conversions (opening balance, terminal
+    // values — both legs) — not the toggle-gated buy_fx_rate substitution used for BUY cash
+    // flows below, which is a separate, deliberately opt-in feature. Falls back to today's
+    // live rate for any date it doesn't cover.
+    const fxHistMap = symbolPriceMap?.get(FX_HIST_SYMBOL)
+    const fxRateAt = (dateStr: string): number => {
+      const r = fxHistMap ? priceFromMapOnOrBefore(fxHistMap, dateStr) : null
+      return r !== null ? r : usdInr
+    }
+
     type CF = { date: Date; amount: number }
 
     // Per-(portfolio:symbol) running state — tracks ALL transactions from inception
@@ -252,9 +268,10 @@ export function useBenchmarkXirr(
         if (!meta) continue
         const { sector, benchSym, isUsd, yfSymbol } = meta
         const benchIsUsd = USD_BENCH_SYMS.has(benchSym)
+        const rateT1 = fxRateAt(T1str)
         const fx = isUsd
-          ? (currency === 'INR' ? usdInr : 1)
-          : (currency === 'USD' ? 1 / usdInr : 1)
+          ? (currency === 'INR' ? rateT1 : 1)
+          : (currency === 'USD' ? 1 / rateT1 : 1)
 
         // Actual price at T1
         const symMap = symbolPriceMap?.get(yfSymbol)
@@ -269,7 +286,7 @@ export function useBenchmarkXirr(
         const hist   = histMap.get(benchSym)
         const rawBP  = hist ? priceOnOrBefore(hist.dates, hist.prices, T1str) : null
         const benchP = rawBP !== null
-          ? (benchIsUsd && currency === 'INR' ? rawBP * usdInr : rawBP)
+          ? (benchIsUsd && currency === 'INR' ? rawBP * rateT1 : rawBP)
           : null
         const units  = unitsHeld.get(key) ?? 0
         if (benchP !== null && units > 0) {
@@ -321,18 +338,19 @@ export function useBenchmarkXirr(
       const hk = holdingKey(tx.portfolio, tx.yf_symbol)
       if (!holdingBench.has(hk)) holdingBench.set(hk, [])
 
-      // FX-on: a BUY is valued at the rate actually paid (guarded — a 1.0 INR-default must
-      // never be treated as real), same convention used everywhere else in the app. SELL
-      // still uses today's rate (no historical sell-side rate is tracked).
+      // Same toggle rule as everywhere else: OFF = one consistent (today's) rate for both BUY
+      // and SELL — mathematically equivalent to computing in pure USD, a genuine currency-
+      // neutral reading. ON = the real rate that applied on this transaction's own date.
       const fx         = isUsd
-        ? (currency === 'INR'
-            ? (includeFxGains && tx.type === 'BUY' && tx.buy_fx_rate && tx.buy_fx_rate > 10 ? tx.buy_fx_rate : usdInr)
-            : 1)
+        ? (currency === 'INR' ? txFxRate(tx, includeFxGains, usdInr) : 1)
         : (currency === 'USD' ? 1 / usdInr : 1)
       const rawBenchP  = hist ? priceOnOrBefore(hist.dates, hist.prices, txDay) : null
       const benchIsUsd = USD_BENCH_SYMS.has(bSym)
+      // Benchmark price conversion always uses the real rate for this date (never toggle-
+      // gated) — it's a value-type conversion (what the index was worth), same rule Value
+      // always follows everywhere else.
       const benchP     = rawBenchP !== null
-        ? (benchIsUsd && currency === 'INR' ? rawBenchP * usdInr : rawBenchP)
+        ? (benchIsUsd && currency === 'INR' ? rawBenchP * fxRateAt(txDay) : rawBenchP)
         : null
 
       if (tx.type === 'BUY') {
@@ -433,9 +451,10 @@ export function useBenchmarkXirr(
       const meta = keyMeta.get(key)
       if (!meta) continue
       const { sector, isUsd, yfSymbol } = meta
+      const rateT2 = fxRateAt(termStr)
       const fx     = isUsd
-        ? (currency === 'INR' ? usdInr : 1)
-        : (currency === 'USD' ? 1 / usdInr : 1)
+        ? (currency === 'INR' ? rateT2 : 1)
+        : (currency === 'USD' ? 1 / rateT2 : 1)
       const symMap = symbolPriceMap?.get(yfSymbol)
       const px     = symMap ? priceFromMapOnOrBefore(symMap, termStr) : null
       if (px !== null) {
@@ -469,7 +488,7 @@ export function useBenchmarkXirr(
         ? (priceOnOrBefore(hist.dates, hist.prices, termStr) ?? hist.prices[hist.prices.length - 1])
         : hist.prices[hist.prices.length - 1]
       const benchIsUsd = USD_BENCH_SYMS.has(meta.benchSym)
-      const cur        = benchIsUsd && currency === 'INR' ? rawCur * usdInr : rawCur
+      const cur        = benchIsUsd && currency === 'INR' ? rawCur * fxRateAt(termStr) : rawCur
       const tv         = units * cur
       sectorBench.get(meta.sector)!.push({ date: termDate, amount: tv })
       if (meta.sector !== 'Other') overallBench.push({ date: termDate, amount: tv })

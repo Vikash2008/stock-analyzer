@@ -43,6 +43,10 @@ def _run_fifo(
             remaining = qty
             queue = lots.get(sym, deque())
 
+            raw_sell_fx = tx.get("sell_fx_rate") if "sell_fx_rate" in tx.index else None
+            sell_has_fx = raw_sell_fx is not None and pd.notna(raw_sell_fx) and float(raw_sell_fx) > 1.5
+            sell_fx_rate = float(raw_sell_fx) if sell_has_fx else 1.0
+
             while remaining > 0 and queue:
                 lot = queue[0]
                 sold = min(lot.quantity, remaining)
@@ -58,6 +62,14 @@ def _run_fifo(
                     "buy_price": lot.cost_per_share,
                     "sell_price": net_sell_price,
                     "realized_pnl": sold * (net_sell_price - lot.cost_per_share),
+                    # Each lot carries its own real buy-date rate; the sell shares one real
+                    # sell-date rate across every lot it consumes. Together these let a
+                    # realized row convert its buy leg and sell leg each at the rate that
+                    # actually applied — buy_price×buy_fx_rate and sell_price×sell_fx_rate —
+                    # instead of one blanket rate for both, which silently drops half the true
+                    # FX effect on the trade.
+                    "buy_fx_rate": lot.buy_fx_rate,
+                    "sell_fx_rate": sell_fx_rate,
                     "tags": tx.get("tags", ""),
                 }
                 if portfolio is not None:
@@ -174,7 +186,7 @@ def calculate_holdings(
         One row per closed lot or dividend event.
     """
     _HOLDING_COLS = ["symbol", "exchange", "yf_symbol", "currency", "quantity", "avg_cost", "total_invested", "avg_buy_fx_rate", "tags", "qty_bought_today", "avg_cost_today"]
-    _REALIZED_COLS = ["symbol", "exchange", "currency", "type", "buy_date", "sell_date", "quantity", "buy_price", "sell_price", "realized_pnl", "tags"]
+    _REALIZED_COLS = ["symbol", "exchange", "currency", "type", "buy_date", "sell_date", "quantity", "buy_price", "sell_price", "realized_pnl", "buy_fx_rate", "sell_fx_rate", "tags"]
 
     if "portfolio" in transactions.columns:
         all_holdings: List[dict] = []

@@ -35,6 +35,7 @@ router = APIRouter()
 
 _SKIP_PORTS = {"Equity", "MF_Portfolio"}
 _USD_PORTS  = {"Vested", "IndMoney US", "IndMoney Mummy"}
+_FX_SYMBOL  = "USDINR=X"
 
 _cache: dict[str, tuple[dict, float]] = {}
 # Safety cap on distinct (csv_hash:currency:portfolio:segment:symbol:bucket:label) result
@@ -243,7 +244,9 @@ def _compute(
     # redownloading full multi-year history on every recompute — shared with history.py so the
     # same symbol is never fetched/stored twice across the two chart endpoints.
     print(f"[portfolio_history] ensuring prices for {len(symbols)} symbols from {start_dt}")
-    price_store.ensure_prices(symbols, start_dt)
+    # USDINR=X fetched the same way as any equity symbol — price_store's download machinery is
+    # symbol-agnostic, so this is a real daily exchange-rate history, not a single live snapshot.
+    price_store.ensure_prices(symbols + [_FX_SYMBOL], start_dt)
 
     price_rows: dict[str, dict[str, float]] = {}
     for sym in symbols:
@@ -298,11 +301,33 @@ def _compute(
     n = len(all_dates)
     val_arr = [0.0] * n
     inv_arr = [0.0] * n
-    # fx_arr = total_invested_usd(t) × (usd_inr_now − avg_buy_fx_rate) — same "current rate,
-    # constant weighted-average purchase rate, only qty varies historically" simplification
-    # engine.py's disp_fx_gain already uses for its today-only snapshot (src/engine.py's
-    # _fx_gain()); extending it to a series needs no new historical FX-rate data.
-    fx_arr  = [0.0] * n
+
+    # ── Real per-date USD/INR rate, forward-filled onto every date in all_dates ────────────
+    # One merge pass over both sorted date lists (not a lookup per date × per key — that would
+    # be O(n_dates × n_keys × n_fx_dates), too slow for a multi-year, many-symbol portfolio).
+    fx_entry = price_store.get_entry(_FX_SYMBOL)
+    fx_rate_arr = [usd_inr] * n
+    if fx_entry and fx_entry.get("dates") and all_dates:
+        fx_dates = fx_entry["dates"]
+        fx_prices = fx_entry["prices"]
+        fi = 0
+        last_rate: Optional[float] = None
+        for i, d in enumerate(all_dates):
+            while fi < len(fx_dates) and fx_dates[fi] <= d:
+                last_rate = fx_prices[fi]
+                fi += 1
+            fx_rate_arr[i] = last_rate if last_rate is not None else usd_inr
+
+    # One-off real-rate lookup for an arbitrary date (dividend ex-dates, which don't
+    # necessarily line up with all_dates) — O(log n) via bisect since fx_entry's dates are
+    # already sorted ascending.
+    def _fx_rate_on(date_str: str) -> float:
+        if not fx_entry or not fx_entry.get("dates"):
+            return usd_inr
+        import bisect
+        ds = fx_entry["dates"]
+        idx = bisect.bisect_right(ds, date_str) - 1
+        return fx_entry["prices"][idx] if idx >= 0 else usd_inr
 
     # ── Per-holding value contribution ────────────────────────────────────────
     # Walk every portfolio:symbol key that ever had a BUY/SELL — not just currently-open
@@ -317,7 +342,6 @@ def _compute(
         port, yf_sym = key.split(":", 1)
 
         is_usd = port in _USD_PORTS
-        fx = (usd_inr if is_usd else 1.0) if currency == "INR" else (1.0 if is_usd else 1.0 / usd_inr)
 
         has_col = not df_close.empty and yf_sym in df_close.columns
         h = holdings_by_key.get(key)
@@ -374,16 +398,43 @@ def _compute(
             if last_px is None or qty <= 0:
                 continue
 
-            val_arr[i] += last_px * qty * fx
-            inv_arr[i] += avg_cost * qty * fx
-            if include_fx and is_usd and avg_buy_fx is not None:
-                fx_arr[i] += avg_cost * qty * (usd_inr - avg_buy_fx)
+            # Value ALWAYS uses the real rate on THIS date — never depends on the FX toggle,
+            # a holding's market value is what it's worth, full stop.
+            rate_t = fx_rate_arr[i]
+            val_fx = (rate_t if is_usd else 1.0) if currency == "INR" else (1.0 if is_usd else 1.0 / rate_t)
+
+            # Invested's rate is the toggle: OFF uses the same real-rate-on-this-date as Value
+            # (so Value−Invested cancels currency, leaving pure price movement); ON uses the
+            # rate actually paid at purchase (so Value−Invested also captures the currency
+            # effect on the original capital). No second currency exists to translate when the
+            # holding is already native to the display currency — inv_fx just matches val_fx.
+            if is_usd and currency == "INR":
+                inv_fx = avg_buy_fx if (include_fx and avg_buy_fx is not None) else rate_t
+            else:
+                inv_fx = val_fx
+
+            val_arr[i] += last_px * qty * val_fx
+            inv_arr[i] += avg_cost * qty * inv_fx
 
     # ── Today pin ─────────────────────────────────────────────────────────────
     today_str = pd.Timestamp.now().strftime("%Y-%m-%d")
     today_val = float(df_holdings["disp_current"].sum())  if "disp_current"  in df_holdings.columns else 0.0
-    today_inv = float(df_holdings["disp_invested"].sum()) if "disp_invested" in df_holdings.columns else 0.0
-    today_fx  = float(df_holdings["disp_fx_gain"].sum())  if include_fx and "disp_fx_gain" in df_holdings.columns else 0.0
+
+    # Same toggle logic as the per-date loop above, applied to TODAY specifically — can't just
+    # read df_holdings["disp_invested"] (engine.py's live figure), because that has no concept
+    # of the FX toggle at all and would silently ignore avg_buy_fx_rate when toggle-on, creating
+    # a discontinuity right at the chart's most recent point.
+    today_inv = 0.0
+    for _, hh in df_holdings.iterrows():
+        is_usd_h = str(hh.get("portfolio", "")) in _USD_PORTS
+        cost_h   = _safe_float(hh.get("avg_cost"))
+        qty_h    = _safe_float(hh.get("quantity"))
+        if is_usd_h and currency == "INR":
+            buy_fx_h = _safe_float(hh.get("avg_buy_fx_rate"))
+            rate = (buy_fx_h if buy_fx_h > 10 else usd_inr) if include_fx else usd_inr
+        else:
+            rate = 1.0
+        today_inv += cost_h * qty_h * rate
 
     # Capture what the historical qty-walk itself arrived at for today, BEFORE it gets
     # overwritten by the live total below — comparing the two catches exactly the class of
@@ -396,12 +447,10 @@ def _compute(
     if pinned_today:
         val_arr[-1] = today_val
         inv_arr[-1] = today_inv
-        fx_arr[-1]  = today_fx
     else:
         all_dates.append(today_str)
         val_arr.append(today_val)
         inv_arr.append(today_inv)
-        fx_arr.append(today_fx)
 
     def _mismatch(computed: Optional[float], live: float) -> bool:
         if computed is None or live <= 0:
@@ -425,18 +474,36 @@ def _compute(
     dates_s    = all_dates[start_idx:]
     values     = val_arr[start_idx:]
     invested   = inv_arr[start_idx:]
-    fx_gains   = fx_arr[start_idx:]
     unrealized = [v - inv for v, inv in zip(values, invested)]
 
     # ── Realized series (cumulative) ──────────────────────────────────────────
     real_evts: list[tuple[str, float, float]] = []
     for _, r in df_realized.iterrows():
         is_usd   = str(r.get("currency", "INR")) == "USD"
-        fx       = (usd_inr if is_usd else 1.0) if currency == "INR" else (1.0 if is_usd else 1.0 / usd_inr)
         sell_d   = str(r.get("sell_date", ""))[:10]
-        pnl      = _safe_float(r.get("realized_pnl")) * fx
         r_type   = str(r.get("type", ""))
-        cost     = _safe_float(r.get("quantity")) * _safe_float(r.get("buy_price")) * fx if r_type == "SELL" else 0.0
+        qty      = _safe_float(r.get("quantity"))
+        buy_px   = _safe_float(r.get("buy_price"))
+        sell_px  = _safe_float(r.get("sell_price"))
+        buy_fx   = _safe_float(r.get("buy_fx_rate"))
+        sell_fx  = _safe_float(r.get("sell_fx_rate"))
+
+        if currency == "INR" and is_usd and r_type == "SELL" and sell_fx > 10:
+            if include_fx and buy_fx > 10:
+                # Toggle ON: each leg at the rate that actually applied — the full,
+                # currency-inclusive rupee profit.
+                pnl  = sell_px * qty * sell_fx - buy_px * qty * buy_fx
+                cost = buy_px * qty * buy_fx
+            else:
+                # Toggle OFF: both legs at the SAME rate (the sell-date's, since that's this
+                # trade's own "now") — currency cancels out of the subtraction, leaving the
+                # pure price-based profit, fairly translated.
+                pnl  = (sell_px - buy_px) * qty * sell_fx
+                cost = buy_px * qty * sell_fx
+        else:
+            fx   = (usd_inr if is_usd else 1.0) if currency == "INR" else (1.0 if is_usd else 1.0 / usd_inr)
+            pnl  = _safe_float(r.get("realized_pnl")) * fx
+            cost = qty * buy_px * fx if r_type == "SELL" else 0.0
         real_evts.append((sell_d, pnl, cost))
     real_evts.sort(key=lambda x: x[0])
 
@@ -480,9 +547,14 @@ def _compute(
                 if series is None or series.empty:
                     continue
                 is_usd = port in _USD_PORTS
-                fx = (usd_inr if is_usd else 1.0) if currency == "INR" else (1.0 if is_usd else 1.0 / usd_inr)
                 for d, per_share in series.items():
                     ex_date = pd.Timestamp(d).strftime("%Y-%m-%d")
+                    # Same toggle logic as everywhere else: OFF = one consistent rate (today's,
+                    # the received-dividend event's own "now"); ON = the real rate that applied
+                    # on the actual ex-date — a dividend is a completed cash event just like a
+                    # BUY/SELL, so its accurate rupee value has exactly one real-rate answer.
+                    rate = _fx_rate_on(ex_date) if include_fx else usd_inr
+                    fx = (rate if is_usd else 1.0) if currency == "INR" else (1.0 if is_usd else 1.0 / rate)
                     qty_h = _qty_at(key, ex_date)
                     if qty_h > 0:
                         div_evts.append((ex_date, qty_h * float(per_share) * fx))
@@ -499,7 +571,7 @@ def _compute(
                 di += 1
             div_arr[i] = cum_d
 
-    total_arr = [u + r + dv + fg for u, r, dv, fg in zip(unrealized, realized_arr, div_arr, fx_gains)]
+    total_arr = [u + r + dv for u, r, dv in zip(unrealized, realized_arr, div_arr)]
     return_pct = [
         total_arr[i] / invested[i] * 100 if invested[i] > 0
         else (total_arr[i] / real_cost_arr[i] * 100 if real_cost_arr[i] > 0 else 0.0)
@@ -539,13 +611,25 @@ def _compute(
                     if tx_type not in ("BUY", "SELL", "DIVIDEND"):
                         continue
                     is_usd = str(tx.get("portfolio", "")) in _USD_PORTS
-                    # FX-on: value a BUY's outflow at the rate actually paid (guarded — a 1.0
-                    # INR-default must never be treated as real), same convention
-                    # PortfoliosPage's own XIRR already uses. SELL/DIVIDEND still use the
-                    # current rate (no historical sell-side rate is tracked).
-                    buy_fx = _safe_float(tx.get("buy_fx_rate")) if (include_fx and tx_type == "BUY") else 0.0
-                    if include_fx and is_usd and tx_type == "BUY" and buy_fx > 10:
-                        fx = buy_fx
+                    # Same toggle everywhere else follows: OFF = one consistent rate (today's)
+                    # for every cash flow — mathematically equivalent to computing XIRR in pure
+                    # USD, since scaling every flow by the same constant doesn't change the
+                    # solved rate, so this is a genuine currency-neutral reading, not a
+                    # meaningless one. ON = the real rate that applied on each cash flow's own
+                    # date — BUY at buy_fx_rate, SELL at sell_fx_rate, DIVIDEND at its real
+                    # ex-date rate — the true, full currency-inclusive picture.
+                    real_rate = None
+                    if include_fx and is_usd:
+                        if tx_type == "BUY":
+                            r = _safe_float(tx.get("buy_fx_rate"))
+                            real_rate = r if r > 10 else None
+                        elif tx_type == "SELL":
+                            r = _safe_float(tx.get("sell_fx_rate"))
+                            real_rate = r if r > 10 else None
+                        elif tx_type == "DIVIDEND":
+                            real_rate = _fx_rate_on(tx_d)
+                    if real_rate is not None:
+                        fx = real_rate
                     else:
                         fx = (usd_inr if is_usd else 1.0) if currency == "INR" else (1.0 if is_usd else 1.0 / usd_inr)
                     amt    = _safe_float(tx.get("quantity")) * _safe_float(tx.get("price")) * fx

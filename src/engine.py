@@ -31,31 +31,43 @@ _SKIP_PORTS = {"Equity", "MF_Portfolio"}   # aggregate duplicates — excluded f
 
 def _fill_usd_fx_rates(txns: pd.DataFrame) -> pd.DataFrame:
     """
-    For USD BUY rows where buy_fx_rate is missing or ≤ 1.5 (the CSV default),
-    fetch the actual USDINR=X closing rate on the buy date from yfinance and fill it in.
+    For USD rows where the relevant fx-rate column is missing or ≤ 1.5 (the CSV default),
+    fetch the actual USDINR=X closing rate on that row's own date from yfinance and fill it in.
+    BUY rows get `buy_fx_rate` (the rate paid); SELL rows get `sell_fx_rate` (the rate at
+    disposal) — together these let a realized-gain row convert its buy leg and sell leg each
+    at the rate that actually applied, instead of a single blanket rate for both legs (which
+    silently drops part of the true FX effect — see portfolio.py's realized-row construction).
     Runs once per CSV change (result is baked into the FIFO cache).
     """
     import yfinance as yf
 
     if "currency" not in txns.columns:
         return txns
-    # The current CSV schema doesn't carry buy_fx_rate at all (trimmed in session 148) — every
-    # fresh import is missing the column outright, not just missing individual values. Create
-    # it at the CSV-default placeholder first so the mask below still catches every USD BUY row
-    # instead of silently no-op'ing forever just because the column was never present.
+    # The current CSV schema doesn't carry either fx-rate column at all (buy_fx_rate trimmed in
+    # session 148; sell_fx_rate never existed) — every fresh import is missing them outright, not
+    # just missing individual values. Create both at the CSV-default placeholder first so the
+    # masks below still catch every row instead of silently no-op'ing forever.
+    txns = txns.copy() if ("buy_fx_rate" not in txns.columns or "sell_fx_rate" not in txns.columns) else txns
     if "buy_fx_rate" not in txns.columns:
-        txns = txns.copy()
         txns["buy_fx_rate"] = 1.0
+    if "sell_fx_rate" not in txns.columns:
+        txns["sell_fx_rate"] = 1.0
 
-    mask = (
+    buy_mask = (
         (txns["currency"] == "USD") &
         (txns["type"] == "BUY") &
         (txns["buy_fx_rate"].isna() | (txns["buy_fx_rate"] <= 1.5))
     )
-    if not mask.any():
+    sell_mask = (
+        (txns["currency"] == "USD") &
+        (txns["type"] == "SELL") &
+        (txns["sell_fx_rate"].isna() | (txns["sell_fx_rate"] <= 1.5))
+    )
+    if not buy_mask.any() and not sell_mask.any():
         return txns
 
-    dates = pd.to_datetime(txns.loc[mask, "date"])
+    combined_mask = buy_mask | sell_mask
+    dates = pd.to_datetime(txns.loc[combined_mask, "date"])
     start = (dates.min() - pd.Timedelta(days=7)).strftime("%Y-%m-%d")
     end   = (dates.max() + pd.Timedelta(days=2)).strftime("%Y-%m-%d")
 
@@ -72,12 +84,17 @@ def _fill_usd_fx_rates(txns: pd.DataFrame) -> pd.DataFrame:
         close = close.reindex(all_days).ffill().bfill()
 
         txns = txns.copy()
-        for i in txns[mask].index:
+        for i in txns[buy_mask].index:
             buy_date = pd.Timestamp(txns.at[i, "date"]).normalize().tz_localize(None)
             rate = float(close.get(buy_date, close.iloc[-1]))
             if rate > 1.5:
                 txns.at[i, "buy_fx_rate"] = rate
-        print(f"[engine] Filled historical USDINR rates for {mask.sum()} USD BUY rows")
+        for i in txns[sell_mask].index:
+            sell_date = pd.Timestamp(txns.at[i, "date"]).normalize().tz_localize(None)
+            rate = float(close.get(sell_date, close.iloc[-1]))
+            if rate > 1.5:
+                txns.at[i, "sell_fx_rate"] = rate
+        print(f"[engine] Filled historical USDINR rates for {buy_mask.sum()} USD BUY + {sell_mask.sum()} USD SELL rows")
     except Exception as e:
         print(f"[engine] Historical FX rate fetch failed: {e}")
 
