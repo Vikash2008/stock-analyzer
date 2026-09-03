@@ -119,8 +119,14 @@ def _run_fifo(
             warnings.warn(f"[fifo] {sym}: negative remaining qty {total_qty:.6f} — check for data errors")
             continue
         total_cost      = sum(l.quantity * l.cost_per_share for l in queue)
-        total_fx_weight = sum(l.quantity * l.buy_fx_rate for l in queue)
-        avg_buy_fx_rate = total_fx_weight / total_qty if total_qty > 1e-9 else 1.0
+        # Weighted by each lot's INVESTED AMOUNT (qty*cost), not by share count alone — fx_gain
+        # (engine.py) and the Charts-tab invested series (portfolio_history.py) both multiply
+        # this rate against a dollar figure (total_invested / avg_cost*qty), so a qty-only-
+        # weighted average silently drifted from the true per-lot FX gain whenever purchase
+        # price varied lot-to-lot, causing the FX tab (which sums exact per-lot gains) to
+        # disagree with the Overview hero card's disp_fx_gain (which uses this shortcut).
+        total_fx_weight = sum(l.quantity * l.cost_per_share * l.buy_fx_rate for l in queue)
+        avg_buy_fx_rate = total_fx_weight / total_cost if total_cost > 1e-9 else 1.0
         meta = meta_lookup[sym]
 
         # Lots bought today have no real "previous close" to compare against — the position

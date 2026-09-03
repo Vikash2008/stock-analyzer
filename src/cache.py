@@ -224,7 +224,7 @@ class Cache:
     # ── FIFO mtime / hash gate ────────────────────────────────────────────────
     # source is either a Path (keyed by mtime) or a str MD5 hash (uploaded CSV)
     # Bump _FIFO_VERSION whenever FIFO logic changes to force a cache miss.
-    _FIFO_VERSION = "3"  # 2026-09-03: realized rows gained buy_fx_rate/sell_fx_rate
+    _FIFO_VERSION = "4"  # 2026-09-03: avg_buy_fx_rate now cost-weighted, not qty-weighted
 
     def fifo_is_fresh(self, source: "Path | str") -> bool:
         # A plain hash string (any str other than the "demo" sentinel used by validate.py's
