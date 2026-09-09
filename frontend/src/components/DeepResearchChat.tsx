@@ -112,14 +112,14 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
     return sec ? { label: sec.label, emoji: sec.emoji } : { label: `All Cards (${availableSections.length})` }
   }
 
-  function buildContext(): { text: string; label: string; emoji?: string } | null {
+  function buildContext(): { text: string; label: string; emoji?: string } {
     if (selectedContext === 'all') {
       const parts = availableSections.map(s => `## ${s.emoji} ${s.label}\n${s.text}`)
-      if (!parts.length) return null
+      if (!parts.length) return { text: '', label: 'General question' }
       return { text: parts.join('\n\n---\n\n'), label: `All Cards (${parts.length})` }
     }
     const sec = availableSections.find(s => s.id === selectedContext)
-    if (!sec) return null
+    if (!sec) return { text: '', label: 'General question' }
     return { text: sec.text!, label: sec.label, emoji: sec.emoji }
   }
 
@@ -127,7 +127,6 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
     if (!question.trim() || chatLoading) return
     const q = question.trim()
     const ctx = buildContext()
-    if (!ctx) return
 
     setQuestion('')
     const asstId = `${Date.now()}-a`
@@ -207,7 +206,9 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
                   Ask anything about {stockName}
                 </span>
                 <span className="text-[10px] text-slate-300">
-                  Answers are grounded in the research cards above
+                  {availableSections.length > 0
+                    ? 'Answers are grounded in the research cards above'
+                    : 'Searches the web live — no card needed'}
                 </span>
               </div>
             )}
@@ -319,15 +320,11 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
 
           {/* Input */}
           <div className="shrink-0 px-4 py-3 border-t border-slate-100">
-            {availableSections.length === 0 ? (
-              <p className="text-[10px] text-slate-400 text-center py-1">
-                Generate at least one card to start asking questions
-              </p>
-            ) : (
-              <>
               {/* Context scope picker — lets a question target one card instead of always
                   grounding in every generated card; replaces the idea of a separate AI icon
-                  per card with one switchable scope inside this single chat. */}
+                  per card with one switchable scope inside this single chat. Hidden entirely
+                  when no cards exist yet — nothing to scope to, question just goes out plain. */}
+              {availableSections.length > 0 && (
               <div className="relative mb-2">
                 <button
                   onClick={() => setContextPickerOpen(o => !o)}
@@ -364,6 +361,7 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
                   </>
                 )}
               </div>
+              )}
               <div className="flex items-end gap-2">
                 <textarea
                   ref={inputRef}
@@ -387,8 +385,6 @@ export function DeepResearchChat({ isOpen, onClose, yf_symbol, stockName, initia
                   </svg>
                 </button>
               </div>
-              </>
-            )}
           </div>
         </div>
       </div>
