@@ -193,8 +193,12 @@ async def get_history(
             # Underlying thread keeps running and will populate the cache for next request —
             # this just stops the current one from hanging on a single slow/stuck symbol.
             return JSONResponse(content={"dates": [], "prices": [], "error": "timeout"})
-        _intraday_cache[cache_key] = (data, now)
-        _evict_oldest(_intraday_cache, _MAX_INTRADAY_SYMBOLS, lambda v: v[1])
+        # A yfinance hiccup can return a single stray/glitchy bar (e.g. a pre-market tick)
+        # instead of a real error — don't lock that into the cache for a full hour, let the
+        # next request retry instead.
+        if len(data.get("dates", [])) >= 2:
+            _intraday_cache[cache_key] = (data, now)
+            _evict_oldest(_intraday_cache, _MAX_INTRADAY_SYMBOLS, lambda v: v[1])
         return JSONResponse(content=data)
 
     if not start:

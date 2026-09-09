@@ -272,12 +272,18 @@ def _compute(
     # position, which has no row in df_holdings at all to read avg_cost from (the FIFO
     # engine drops a symbol from "holdings" once fully exited).
     buy_totals: dict[str, tuple[float, float]] = {}
+    # Per-key, unmerged, chronological BUY/SELL list — replayed date-by-date further down to
+    # reconstruct a running weighted-average cost basis, instead of applying today's final
+    # (all-time-blended) avg_cost to every historical date. Using the constant avg_cost on an
+    # early chart date made "Invested" include the cost of lots bought long afterward.
+    cost_txns: dict[str, list[tuple[str, bool, float, float]]] = defaultdict(list)
 
     for _, tx in buy_sell.iterrows():
         key   = f"{tx['portfolio']}:{tx['yf_symbol']}"
         d     = str(tx["date"])[:10]
         qty_  = _safe_float(tx["quantity"])
-        delta = qty_ if tx["type"] == "BUY" else -qty_
+        is_buy = tx["type"] == "BUY"
+        delta = qty_ if is_buy else -qty_
         arr  = qty_deltas[key]
         merged = False
         for i, (ed, ev) in enumerate(arr):
@@ -289,10 +295,16 @@ def _compute(
             arr.append((d, delta))
         if key not in first_tx_date or d < first_tx_date[key]:
             first_tx_date[key] = d
-        if tx["type"] == "BUY":
+        if is_buy:
             cost = qty_ * _safe_float(tx["price"]) + _safe_float(tx.get("charges", 0))
             tq, tc = buy_totals.get(key, (0.0, 0.0))
             buy_totals[key] = (tq + qty_, tc + cost)
+            cost_txns[key].append((d, True, qty_, cost))
+        else:
+            cost_txns[key].append((d, False, qty_, 0.0))
+
+    for k in cost_txns:
+        cost_txns[k].sort(key=lambda t: t[0])
 
     for k in qty_deltas:
         qty_deltas[k].sort()
@@ -367,6 +379,7 @@ def _compute(
 
         deltas = qty_deltas.get(key, [])
         first  = first_tx_date.get(key, "")
+        txns   = cost_txns.get(key, [])
 
         qty = 0.0
         di  = 0
@@ -379,6 +392,28 @@ def _compute(
                 qty = max(0.0, qty + dv)
             di = len(deltas)
 
+        # Running weighted-average cost basis, replayed from this key's own BUY/SELL
+        # history — a SELL removes cost at whatever average prevailed at the time of sale.
+        cqty  = 0.0
+        ccost = 0.0
+        ci    = 0
+
+        def _apply_cost_txn(idx: int) -> None:
+            nonlocal cqty, ccost
+            _, is_buy_, q_, cost_ = txns[idx]
+            if is_buy_:
+                cqty  += q_
+                ccost += cost_
+            else:
+                avg = ccost / cqty if cqty > 0 else 0.0
+                ccost -= avg * min(q_, cqty)
+                cqty = max(0.0, cqty - q_)
+
+        ci_boundary = all_dates[0] if (has_col and all_dates) else None
+        while ci < len(txns) and (ci_boundary is None or txns[ci][0] < ci_boundary):
+            _apply_cost_txn(ci)
+            ci += 1
+
         last_px: Optional[float] = None
 
         for i, d in enumerate(all_dates):
@@ -387,6 +422,9 @@ def _compute(
             while di < len(deltas) and deltas[di][0] <= d:
                 qty = max(0.0, qty + deltas[di][1])
                 di += 1
+            while ci < len(txns) and txns[ci][0] <= d:
+                _apply_cost_txn(ci)
+                ci += 1
 
             if has_col:
                 cell = df_close.at[d, yf_sym] if d in df_close.index else float("nan")
@@ -413,8 +451,10 @@ def _compute(
             else:
                 inv_fx = val_fx
 
+            date_avg_cost = (ccost / cqty) if cqty > 0 else avg_cost
+
             val_arr[i] += last_px * qty * val_fx
-            inv_arr[i] += avg_cost * qty * inv_fx
+            inv_arr[i] += date_avg_cost * qty * inv_fx
 
     # ── Today pin ─────────────────────────────────────────────────────────────
     today_str = pd.Timestamp.now().strftime("%Y-%m-%d")
