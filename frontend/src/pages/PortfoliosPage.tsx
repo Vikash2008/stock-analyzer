@@ -1528,22 +1528,22 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                             🐛
                           </button>
                         </div>
+
+                        {/* Updated on — admin-only, moved under Admin panel so regular users never see build/version info */}
+                        <div className="bg-slate-100 rounded-lg flex items-center justify-between px-2.5 py-[7px]">
+                          <span className="text-[10px] text-slate-400">Updated on</span>
+                          <span className="text-[10px] text-slate-400 text-right">
+                            v{__APP_VERSION__} · {new Date(__BUILD_TIME__).toLocaleString('en-GB', {
+                              day: 'numeric', month: 'short', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit', hour12: false,
+                              timeZone: 'Asia/Kolkata',
+                            })} IST
+                          </span>
+                        </div>
                           </>
                         )}
                       </>
                     )}
-
-                    {/* Footer */}
-                    <div className="mt-0.5 bg-slate-100 rounded-lg flex items-center justify-between px-2.5 py-[7px]">
-                      <span className="text-[10px] text-slate-400">Updated on</span>
-                      <span className="text-[10px] text-slate-400 text-right">
-                        v{__APP_VERSION__} · {new Date(__BUILD_TIME__).toLocaleString('en-GB', {
-                          day: 'numeric', month: 'short', year: 'numeric',
-                          hour: '2-digit', minute: '2-digit', hour12: false,
-                          timeZone: 'Asia/Kolkata',
-                        })} IST
-                      </span>
-                    </div>
 
                   </div>
                 </div>

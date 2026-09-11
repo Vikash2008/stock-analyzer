@@ -215,7 +215,19 @@ def build(
         info = get_tickers_info(symbols)
         cache.set("info", info)
     else:
-        info = cache.get("info")
+        info = cache.get("info") or {}
+        # A symbol that failed its name lookup during whatever request last populated this
+        # cache (Yahoo throttling a batch call is common, esp. for 0P-prefixed Indian MF
+        # tickers) would otherwise show its raw symbol for the full 7-day TTL — get_tickers_info()
+        # itself already retries a missing name on every call, but only if it's actually called
+        # again. Re-check just the still-unresolved symbols here instead of trusting the whole
+        # 7-day-old blob as-is.
+        symbols = list(set(holdings_raw["yf_symbol"]) | set(txns["yf_symbol"]))
+        unresolved = [s for s in symbols if not (info.get(s) or {}).get("name")]
+        if unresolved:
+            print(f"[engine] Retrying ticker info for {len(unresolved)} symbol(s) still missing a name…")
+            info.update(get_tickers_info(unresolved))
+            cache.set("info", info)
 
     # ── Enrich holdings ───────────────────────────────────────────────────────
     holdings_all = enrich_holdings(holdings_raw, prices, info, prev_closes)
