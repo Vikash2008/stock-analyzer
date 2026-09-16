@@ -1,11 +1,27 @@
 import json
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
+import requests
 import yfinance as yf
+
+
+class _TimeoutSession(requests.Session):
+    """A requests.Session that enforces a default timeout on every call. yfinance's internal
+    calls don't always pass their own `timeout=` kwarg through every code path (its cookie/crumb
+    fetch is a known case — see _HARD_TIMEOUT below), which otherwise leaves those requests free
+    to hang indefinitely on a stuck connection. Overriding `request()` here catches every outbound
+    call made through this session regardless of which yfinance internal function issued it."""
+    def request(self, *args, **kwargs):
+        kwargs.setdefault("timeout", _QUOTE_TIMEOUT)
+        return super().request(*args, **kwargs)
+
+
+_http_session = _TimeoutSession()
 
 _NAMES_FILE = Path("data/names.json")
 _static_names: Dict[str, dict] = {}
@@ -15,17 +31,56 @@ if _NAMES_FILE.exists():
     except Exception:
         pass
 
+_names_lock = threading.Lock()
+
+
+def _persist_static_names() -> None:
+    """Write the in-memory name cache back to disk so a resolved symbol's name/quote_type
+    survives a process restart — previously only held in-memory, so every redeploy/restart
+    silently forgot every name ever resolved and re-paid the slow per-symbol lookup below."""
+    try:
+        with _names_lock:
+            _NAMES_FILE.write_text(json.dumps(_static_names, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _harvest_names_from_quotes(resolved: Dict[str, Tuple[str, str]]) -> None:
+    """Fold name/quoteType harvested from a price-quote response (see _fetch_quote_batch) into
+    the shared name cache. Never overwrites an existing entry that already has a real
+    sector/industry from the slower per-symbol .info path — only fills symbols with nothing
+    cached yet, or a stale entry still missing name/quote_type."""
+    changed = False
+    for sym, (name, quote_type) in resolved.items():
+        existing = _static_names.get(sym)
+        if existing and existing.get("name") and existing.get("quote_type"):
+            continue
+        _static_names[sym] = {
+            "sector":     (existing or {}).get("sector", "Unknown"),
+            "industry":   (existing or {}).get("industry", "Unknown"),
+            "name":       name,
+            "quote_type": quote_type,
+        }
+        changed = True
+    if changed:
+        _persist_static_names()
+
 
 _QUOTE_CHUNK = 50
 _QUOTE_URL = "https://query1.finance.yahoo.com/v7/finance/quote"
-_QUOTE_TIMEOUT = 8  # seconds — passed to yfinance's own per-request timeout where it's honored
-_HARD_TIMEOUT = 10  # seconds — outer wall-clock cap; yfinance's cookie-fetch step ignores the
-                     # timeout param entirely in some code paths (always 30s), so this thread-pool
-                     # wrapper is the only way to actually bound worst-case latency.
-_executor = ThreadPoolExecutor(max_workers=8)  # extra headroom — abandoned/hung calls occupy a
-                                                # worker until their underlying network call gives
-                                                # up on its own; too few workers would queue fresh
-                                                # requests behind those stragglers
+_QUOTE_TIMEOUT = 8  # seconds — passed to yfinance's own per-request timeout where it's honored,
+                     # and now also the default floor _TimeoutSession forces on every call above
+_HARD_TIMEOUT = 10  # seconds — outer wall-clock cap; belt-and-suspenders alongside
+                     # _TimeoutSession above, in case some code path constructs its own session
+                     # or otherwise bypasses the one we pass in.
+_executor = ThreadPoolExecutor(max_workers=12)  # raised from 8 — these are lightweight quote-JSON
+                                                 # calls, not the heavier OHLCV downloads
+                                                 # history.py's own concurrency cap is tuned for
+                                                 # (see that file's comment on the 1GB VM's memory
+                                                 # budget) — extra headroom so an abandoned/hung
+                                                 # call occupying a worker doesn't queue fresh
+                                                 # requests behind it as easily; the real fix for
+                                                 # hangs themselves is _TimeoutSession above
 
 
 def _with_hard_timeout(fn, *args, timeout=_HARD_TIMEOUT):
@@ -40,8 +95,14 @@ def _with_hard_timeout(fn, *args, timeout=_HARD_TIMEOUT):
 
 
 def _fetch_quote_batch(symbols: List[str]) -> Tuple[Dict[str, Optional[float]], Dict[str, Optional[float]]]:
-    """Fetch last price + previous close via Yahoo's lightweight quote endpoint."""
-    t = yf.Ticker(symbols[0])
+    """Fetch last price + previous close via Yahoo's lightweight quote endpoint. This is the same
+    endpoint _fetch_quote_names hits separately for name/quoteType — Yahoo actually returns those
+    fields in this same response, so they're harvested here too (into _static_names, see
+    _harvest_names_from_quotes) instead of paying for a second near-identical round-trip later.
+    Runs on every 30-min price refresh across every held symbol, so this alone resolves most
+    holdings' names for free — get_tickers_info() then only needs its own fetch for whatever this
+    didn't cover (mainly closed/no-longer-held positions, which don't go through a price fetch)."""
+    t = yf.Ticker(symbols[0], session=_http_session)
     d = t._data
     # Establish cookie/crumb directly with a short timeout — avoids fast_info's extra
     # (unused) network round trip and its unbounded default timeout.
@@ -49,6 +110,7 @@ def _fetch_quote_batch(symbols: List[str]) -> Tuple[Dict[str, Optional[float]], 
 
     prices: Dict[str, Optional[float]] = {s: None for s in symbols}
     prev_closes: Dict[str, Optional[float]] = {s: None for s in symbols}
+    resolved_names: Dict[str, Tuple[str, str]] = {}
     for i in range(0, len(symbols), _QUOTE_CHUNK):
         chunk = symbols[i:i + _QUOTE_CHUNK]
         resp = d.get(_QUOTE_URL, params={"symbols": ",".join(chunk)}, timeout=_QUOTE_TIMEOUT)
@@ -58,6 +120,12 @@ def _fetch_quote_batch(symbols: List[str]) -> Tuple[Dict[str, Optional[float]], 
             if sym in prices:
                 prices[sym] = r.get("regularMarketPrice")
                 prev_closes[sym] = r.get("regularMarketPreviousClose")
+            name = r.get("longName") or r.get("shortName")
+            quote_type = r.get("quoteType")
+            if sym and name and quote_type:
+                resolved_names[sym] = name, quote_type
+    if resolved_names:
+        _harvest_names_from_quotes(resolved_names)
     return prices, prev_closes
 
 
@@ -121,7 +189,7 @@ def _fetch_quote_names(symbols: List[str]) -> Dict[str, dict]:
     empty for these, while this endpoint returns a proper longName. No sector/industry
     here though (not part of this endpoint's schema) — get_tickers_info still falls
     back to .info for that."""
-    t = yf.Ticker(symbols[0])
+    t = yf.Ticker(symbols[0], session=_http_session)
     d = t._data
     d._get_cookie_and_crumb(timeout=_QUOTE_TIMEOUT)
 
@@ -147,6 +215,15 @@ def _infer_quote_type_from_symbol(sym: str) -> str:
     naming choice the user made for their accounts."""
     base = sym.split(".")[0]
     return "MUTUALFUND" if base.startswith("0P") else "EQUITY"
+
+
+def _fetch_one_ticker_info(sym: str) -> Tuple[Optional[str], dict]:
+    """One symbol's fast_info name + full .info dict, run inside _with_hard_timeout by the caller."""
+    t = yf.Ticker(sym, session=_http_session)
+    fi = t.fast_info
+    name = getattr(fi, "display_name", None) or getattr(fi, "short_name", None)
+    info = t.info
+    return name, info
 
 
 def get_tickers_info(symbols: List[str]) -> Dict[str, dict]:
@@ -193,13 +270,11 @@ def get_tickers_info(symbols: List[str]) -> Dict[str, dict]:
         name, info = None, {}
         for attempt in range(2):
             try:
-                t = yf.Ticker(sym)
-                fi = t.fast_info
-                name = (
-                    getattr(fi, "display_name", None)
-                    or getattr(fi, "short_name", None)
-                )
-                info = t.info
+                # _http_session bounds the underlying HTTP calls; _with_hard_timeout is a second
+                # layer on top in case some internal yfinance path still opens its own connection
+                # outside that session — this loop previously had neither, so a single throttled/
+                # stuck symbol could block the whole request indefinitely.
+                name, info = _with_hard_timeout(_fetch_one_ticker_info, sym, timeout=_QUOTE_TIMEOUT + 2)
                 break
             except Exception:
                 if attempt == 0:
@@ -216,6 +291,7 @@ def get_tickers_info(symbols: List[str]) -> Dict[str, dict]:
         # symbol that still has no name after both attempts stays a "missing" candidate on
         # the next call (see the freshness check above) instead of being frozen as-is.
         _static_names[sym] = result[sym]
+    _persist_static_names()
     return result
 
 

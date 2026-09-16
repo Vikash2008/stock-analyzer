@@ -34,9 +34,12 @@ export function SummaryCard({
   const totalPct  = pctBase !== 0 ? (totalGain / pctBase) * 100 : 0
   const gain      = totalGain >= 0
 
-  const realColor = realGain >= 0 ? '#5eead4' : '#fca5a5'
-  const tgColor   = (todayGain ?? 0) >= 0 ? '#5eead4' : '#fca5a5'
-  const totColor  = gain ? '#5eead4' : '#fca5a5'
+  const realColor  = realGain >= 0 ? '#5eead4' : '#fca5a5'
+  const tgColor    = (todayGain ?? 0) >= 0 ? '#5eead4' : '#fca5a5'
+  const totColor   = gain ? '#5eead4' : '#fca5a5'
+  const xirrColor  = (xirr ?? 0) >= 0 ? '#5eead4' : '#fca5a5'
+  const xirrBg     = (xirr ?? 0) >= 0 ? 'rgba(45,212,191,0.18)' : 'rgba(252,165,165,0.18)'
+  const xirrBorder = (xirr ?? 0) >= 0 ? '1px solid rgba(94,234,212,0.3)' : '1px solid rgba(252,165,165,0.3)'
 
   return (
     <div
@@ -56,7 +59,7 @@ export function SummaryCard({
         <div className="flex items-center justify-between gap-2 mb-1">
           <span className="text-[22px] font-extrabold text-white tracking-tight">{fmt(current, currency)}</span>
           {xirr != null
-            ? <span className="text-[11px] font-bold rounded-full px-3 py-1 whitespace-nowrap shrink-0" style={{ background: 'rgba(45,212,191,0.18)', color: '#5eead4', border: '1px solid rgba(94,234,212,0.3)' }}>XIRR {fmtPct(xirr)}</span>
+            ? <span className="text-[11px] font-bold rounded-full px-3 py-1 whitespace-nowrap shrink-0" style={{ background: xirrBg, color: xirrColor, border: xirrBorder }}>XIRR {fmtPct(xirr)}</span>
             : <span className="text-[11px] font-bold rounded-full px-3 py-1 whitespace-nowrap shrink-0" style={{ background: 'rgba(45,212,191,0.18)', color: '#5eead4', border: '1px solid rgba(94,234,212,0.3)' }}>XIRR —</span>
           }
         </div>

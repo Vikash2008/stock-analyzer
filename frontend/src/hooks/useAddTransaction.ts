@@ -1,5 +1,4 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { clearDividendLocalCache } from './useDividends'
 
 const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
 
@@ -50,9 +49,9 @@ export function useAddTransaction() {
           importedAt: Date.now(),
         }))
       } catch {}
-      // Update portfolio query + clear stale dividends
+      // Update portfolio query. Dividend events are per-symbol raw data, not portfolio-scoped,
+      // so a transaction add doesn't invalidate them — just let dependent views recompute.
       qc.setQueryData(['portfolio'], data.portfolio)
-      clearDividendLocalCache()
       qc.invalidateQueries({ queryKey: ['dividends'] })
       // The aggregate chart (Invested/Value/Total lines) has its own 30-min staleTime and
       // was never told a transaction changed — without this it'd keep showing pre-edit

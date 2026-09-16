@@ -41,14 +41,26 @@ _DISK_TTL = 30 * 86400.0     # 30 days per-symbol disk — fundamentals don't ch
 _cik_map: dict[str, str] | None = None  # ticker → 10-digit CIK, fetched once per process
 
 
+_executor = concurrent.futures.ThreadPoolExecutor(max_workers=6)  # persistent, shared across every
+                                                                   # _with_timeout() call — a fresh
+                                                                   # `with ThreadPoolExecutor()` per
+                                                                   # call (the old pattern) blocks on
+                                                                   # shutdown(wait=True) when its
+                                                                   # __exit__ runs, which waits for
+                                                                   # the abandoned task to actually
+                                                                   # finish — silently defeating the
+                                                                   # timeout below whenever it fired
+
+
 def _with_timeout(fn, timeout: float = 12.0):
-    """Run a blocking callable in a thread with a deadline. Returns None on timeout."""
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-        fut = ex.submit(fn)
-        try:
-            return fut.result(timeout=timeout)
-        except concurrent.futures.TimeoutError:
-            return None
+    """Run a blocking callable in a thread with a real deadline. Returns None on timeout — the
+    abandoned thread may keep running in the background (Python has no clean way to kill a
+    thread), but the caller is freed to move on immediately instead of waiting for it."""
+    fut = _executor.submit(fn)
+    try:
+        return fut.result(timeout=timeout)
+    except concurrent.futures.TimeoutError:
+        return None
 
 
 def _clean(v):
