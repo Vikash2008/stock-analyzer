@@ -129,6 +129,52 @@ def _fetch_quote_batch(symbols: List[str]) -> Tuple[Dict[str, Optional[float]], 
     return prices, prev_closes
 
 
+_recent_fallback_failures: Dict[str, float] = {}  # yf_symbol -> unix time of last no-price result
+_FALLBACK_COOLDOWN = 20 * 60  # seconds — a symbol that failed the slow fallback below is skipped
+                               # from it for this long. Confirmed live: 9 consistently-unrecognized
+                               # symbols in one portfolio pushed a single price refresh to 88s,
+                               # because yfinance retries each failing symbol internally with no
+                               # bound of its own — this stops us from re-paying that cost for the
+                               # same known-bad symbols every ~30-min refresh cycle. Still retried
+                               # via the cheap primary path (_fetch_quote_batch) every time, so a
+                               # symbol recovers as soon as Yahoo's data does, without waiting out
+                               # the full cooldown.
+
+
+def _fetch_download_fallback(
+    symbols: List[str],
+) -> Tuple[Dict[str, Optional[float]], Dict[str, Optional[float]]]:
+    """Old 5-day OHLCV download fallback, run inside _with_hard_timeout by the caller. yfinance
+    retries each failing/delisted symbol internally before giving up — with no bound of its own,
+    a handful of consistently-delisted symbols in one portfolio (confirmed live: 88s for one
+    32-symbol request, 9 of them delisted) can stall the whole request for well over a minute."""
+    raw = yf.download(
+        symbols,
+        period="5d",
+        auto_adjust=True,
+        progress=False,
+        threads=True,
+    )
+    close = raw["Close"] if "Close" in raw else raw
+
+    if isinstance(close, pd.Series):
+        close = close.to_frame(name=symbols[0])
+    elif isinstance(close.columns, pd.MultiIndex):
+        close = close.droplevel(0, axis=1)
+
+    prices: Dict[str, Optional[float]] = {}
+    prev_closes: Dict[str, Optional[float]] = {}
+    for sym in symbols:
+        try:
+            series = close[sym].dropna() if sym in close.columns else pd.Series()
+            prices[sym]      = float(series.iloc[-1]) if len(series) >= 1 else None
+            prev_closes[sym] = float(series.iloc[-2]) if len(series) >= 2 else None
+        except Exception:
+            prices[sym] = None
+            prev_closes[sym] = None
+    return prices, prev_closes
+
+
 def get_prices_and_prev_close(
     symbols: List[str],
 ) -> Tuple[Dict[str, Optional[float]], Dict[str, Optional[float]]]:
@@ -146,34 +192,26 @@ def get_prices_and_prev_close(
     except Exception:
         pass
 
+    now = time.time()
+    to_fetch  = [s for s in symbols if now - _recent_fallback_failures.get(s, 0) >= _FALLBACK_COOLDOWN]
+    cooling   = [s for s in symbols if s not in to_fetch]
+
     try:
-        raw = yf.download(
-            symbols,
-            period="5d",
-            auto_adjust=True,
-            progress=False,
-            threads=True,
+        prices, prev_closes = (
+            _with_hard_timeout(_fetch_download_fallback, to_fetch, timeout=20) if to_fetch else ({}, {})
         )
-        close = raw["Close"] if "Close" in raw else raw
-
-        if isinstance(close, pd.Series):
-            close = close.to_frame(name=symbols[0])
-        elif isinstance(close.columns, pd.MultiIndex):
-            close = close.droplevel(0, axis=1)
-
-        prices: Dict[str, Optional[float]] = {}
-        prev_closes: Dict[str, Optional[float]] = {}
-        for sym in symbols:
-            try:
-                series = close[sym].dropna() if sym in close.columns else pd.Series()
-                prices[sym]      = float(series.iloc[-1]) if len(series) >= 1 else None
-                prev_closes[sym] = float(series.iloc[-2]) if len(series) >= 2 else None
-            except Exception:
-                prices[sym] = None
-                prev_closes[sym] = None
-        return prices, prev_closes
     except Exception:
-        return {s: None for s in symbols}, {s: None for s in symbols}
+        prices, prev_closes = {s: None for s in to_fetch}, {s: None for s in to_fetch}
+
+    for s in to_fetch:
+        if prices.get(s) is None:
+            _recent_fallback_failures[s] = now
+        else:
+            _recent_fallback_failures.pop(s, None)
+    for s in cooling:
+        prices.setdefault(s, None)
+        prev_closes.setdefault(s, None)
+    return prices, prev_closes
 
 
 def get_current_prices(symbols: List[str]) -> Dict[str, Optional[float]]:
@@ -306,13 +344,16 @@ def get_usd_inr_rate() -> float:
             return float(rate)
     except Exception:
         pass
+    def _download_one(tk: str) -> pd.Series:
+        raw = yf.download(tk, period="5d", auto_adjust=True, progress=False)
+        close = raw["Close"] if "Close" in raw else raw
+        if hasattr(close, "squeeze"):
+            close = close.squeeze()
+        return close.dropna()
+
     for ticker in ("INR=X", "USDINR=X"):
         try:
-            raw = yf.download(ticker, period="5d", auto_adjust=True, progress=False)
-            close = raw["Close"] if "Close" in raw else raw
-            if hasattr(close, "squeeze"):
-                close = close.squeeze()
-            series = close.dropna()
+            series = _with_hard_timeout(_download_one, ticker, timeout=15)
             if not series.empty:
                 rate = float(series.iloc[-1])
                 if 70 < rate < 120:

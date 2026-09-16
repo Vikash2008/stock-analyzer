@@ -41,6 +41,12 @@ _DIVS_BATCH_TIMEOUT = 30.0    # total wall-clock budget for one /api/dividends c
 
 router = APIRouter()
 
+# Persistent, shared across every /api/dividends call — previously a fresh ThreadPoolExecutor
+# was created and torn down on every single request, paying thread-creation overhead each time
+# for no benefit (the old `ex.shutdown(wait=False)` didn't even wait for it, so it wasn't doing
+# anything useful in exchange).
+_executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+
 
 def _clean_symbol(yf_sym: str) -> str:
     return yf_sym.split(".")[0]
@@ -195,9 +201,8 @@ def get_dividends(
     # doesn't finish within the batch budget falls back to last-known-good data instead of
     # silently dropping out of the response entirely.
     divs_map: dict[str, pd.Series | None] = {s: _read_cached_divs(s) for s in sym_keys}
-    ex = concurrent.futures.ThreadPoolExecutor(max_workers=10)
     futures = {
-        ex.submit(_fetch_symbol_divs, s, force_refresh, s in closed_set, hints.get(s)): s
+        _executor.submit(_fetch_symbol_divs, s, force_refresh, s in closed_set, hints.get(s)): s
         for s in sym_keys
     }
     done, _pending = concurrent.futures.wait(futures, timeout=_DIVS_BATCH_TIMEOUT)
@@ -207,7 +212,6 @@ def get_dividends(
             divs_map[futures[fut]] = fut.result()
         except Exception as e:
             print(f"[dividends] {futures[fut]}: future error — {e}", file=sys.stderr)
-    ex.shutdown(wait=False)
 
     dividends_by_symbol: dict[str, dict] = {}
     for yf_sym in sym_keys:

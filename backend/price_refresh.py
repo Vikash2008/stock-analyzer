@@ -12,11 +12,22 @@ warm cache and a request returns in ~1-2s instead of waiting on yfinance.
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from src.cache import Cache, get_known_symbols
 
 _REFRESH_SECONDS = 120.0
+
+# Dedicated single-worker pool for this loop's own asyncio.to_thread-equivalent hop off the
+# event loop. Previously used the bare `asyncio.to_thread(...)` default, which shares Python's
+# one small implicit pool (sized ~cpu_count+4) with chart fetches (history.py) and every Deep
+# Research generation (gemini.py) — this loop only ever has one call in flight at a time (it
+# awaits between iterations), so reserving it a pool of its own guarantees this always-on
+# background job never has to wait behind an unrelated feature's burst of activity, and vice
+# versa. The actual price-fetch work inside _refresh_once() already runs on price_fetcher.py's
+# own separate 12-worker pool — this one just governs getting _refresh_once() off the loop.
+_executor = ThreadPoolExecutor(max_workers=1)
 
 
 def _known_symbols() -> list[str]:
@@ -57,9 +68,10 @@ def _refresh_once() -> None:
 
 
 async def price_refresh_loop() -> None:
+    loop = asyncio.get_running_loop()
     while True:
         try:
-            await asyncio.to_thread(_refresh_once)
+            await loop.run_in_executor(_executor, _refresh_once)
         except Exception as e:
             print(f"[price_refresh] background refresh failed: {e}")
         await asyncio.sleep(_REFRESH_SECONDS)

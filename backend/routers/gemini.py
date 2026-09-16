@@ -11,6 +11,7 @@ import asyncio
 import json
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 # Load .env for local dev (no-op on Render where env vars are set directly)
@@ -28,6 +29,15 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 router = APIRouter()
+
+# Dedicated pool for every blocking client.models.generate_content(...) call in this file.
+# Previously each loop.run_in_executor(None, ...) call used Python's one small implicit
+# default pool (sized ~cpu_count+4), shared with chart fetches (history.py) and the
+# background price-refresh loop — a burst of Deep Research generations could crowd out
+# unrelated features (or vice versa) on that tiny shared pool. Sized like quickstats.py's
+# own pool — this feature is rarely hit by many concurrent generations at once, but each one
+# can chain 2-3 sequential attempts (grounded → lite fallback → 3.1), so some headroom helps.
+_executor = ThreadPoolExecutor(max_workers=6)
 
 _cache: dict[tuple, tuple[dict, float]] = {}
 _TTL = 3600.0
@@ -130,7 +140,7 @@ async def gemini_query(req: GeminiRequest):
         for _attempt in range(2):
             try:
                 plain_resp = await asyncio.wait_for(
-                    loop.run_in_executor(None, lambda: client.models.generate_content(
+                    loop.run_in_executor(_executor, lambda: client.models.generate_content(
                         model="gemini-3.1-flash-lite", contents=req.prompt,
                     )),
                     timeout=25.0,
@@ -167,8 +177,7 @@ async def gemini_query(req: GeminiRequest):
                     ),
                 )
                 grounded_resp = await asyncio.wait_for(
-                    loop.run_in_executor(
-                        None,
+                    loop.run_in_executor(_executor,
                         lambda cfg=cfg: client.models.generate_content(
                             model="gemini-2.5-flash",
                             contents=req.prompt,
@@ -226,8 +235,7 @@ async def gemini_query(req: GeminiRequest):
             tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
         )
         lite_resp = await asyncio.wait_for(
-            loop.run_in_executor(
-                None,
+            loop.run_in_executor(_executor,
                 lambda: client.models.generate_content(
                     model="gemini-2.5-flash-lite",
                     contents=req.prompt,
@@ -256,8 +264,7 @@ async def gemini_query(req: GeminiRequest):
     for _attempt in range(2):
         try:
             plain_resp = await asyncio.wait_for(
-                loop.run_in_executor(
-                    None,
+                loop.run_in_executor(_executor,
                     lambda: client.models.generate_content(
                         model="gemini-3.1-flash-lite",
                         contents=req.prompt,
@@ -322,7 +329,7 @@ async def gemini_chat(req: ChatRequest):
         for _attempt in range(2):
             try:
                 plain_resp = await asyncio.wait_for(
-                    loop.run_in_executor(None, lambda: client.models.generate_content(
+                    loop.run_in_executor(_executor, lambda: client.models.generate_content(
                         model="gemini-3.1-flash-lite", contents=prompt,
                     )),
                     timeout=25.0,
@@ -354,8 +361,7 @@ async def gemini_chat(req: ChatRequest):
                     ),
                 )
                 grounded_resp = await asyncio.wait_for(
-                    loop.run_in_executor(
-                        None,
+                    loop.run_in_executor(_executor,
                         lambda cfg=cfg: client.models.generate_content(
                             model="gemini-2.5-flash",
                             contents=prompt,
@@ -398,8 +404,7 @@ async def gemini_chat(req: ChatRequest):
             tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
         )
         chat_lite_resp = await asyncio.wait_for(
-            loop.run_in_executor(
-                None,
+            loop.run_in_executor(_executor,
                 lambda: client.models.generate_content(
                     model="gemini-2.5-flash-lite",
                     contents=prompt,
@@ -426,8 +431,7 @@ async def gemini_chat(req: ChatRequest):
     for _attempt in range(2):
         try:
             resp = await asyncio.wait_for(
-                loop.run_in_executor(
-                    None,
+                loop.run_in_executor(_executor,
                     lambda: client.models.generate_content(
                         model="gemini-3.1-flash-lite",
                         contents=prompt,
