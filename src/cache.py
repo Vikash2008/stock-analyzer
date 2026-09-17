@@ -111,6 +111,36 @@ def set_known_symbols(symbols: list[str]) -> None:
     _known_symbols_ram = symbols
 
 
+# Union of every symbol seen across ANY portfolio built this process's lifetime, with a
+# last-seen timestamp per symbol — separate from _known_symbols_ram above, which only ever
+# holds the SINGLE most-recently-built portfolio's symbol set (used just to detect "did this
+# portfolio's own symbols change" for engine.py's force-refresh decision) and gets clobbered
+# every time a *different* portfolio is built (e.g. the demo endpoint, or a second device).
+# The background refresh loop (backend/price_refresh.py) needs every actively-used portfolio
+# kept warm at once, not just whichever was built last — otherwise a portfolio's prices quietly
+# stop being refreshed the moment anything else gets built in between, and go stale/null.
+_warm_symbols_ram: dict[str, float] = {}
+_WARM_SYMBOL_TTL = 24 * 3600.0  # drop a symbol if no portfolio has needed it in a day
+
+
+def touch_known_symbols(symbols: list[str]) -> None:
+    """Call on every portfolio build (not just FIFO recomputes) so a portfolio's symbols
+    stay in the warm set as long as it's actually being used."""
+    now = time.time()
+    for s in symbols:
+        _warm_symbols_ram[s] = now
+
+
+def get_all_known_symbols() -> list[str]:
+    """Union of symbols across every recently-built portfolio — what the background
+    refresh loop should keep warm."""
+    cutoff = time.time() - _WARM_SYMBOL_TTL
+    stale = [s for s, ts in _warm_symbols_ram.items() if ts < cutoff]
+    for s in stale:
+        _warm_symbols_ram.pop(s, None)
+    return list(_warm_symbols_ram)
+
+
 class Cache:
     def __init__(self) -> None:
         global _INSTANCE

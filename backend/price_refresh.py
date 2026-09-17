@@ -15,7 +15,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from src.cache import Cache, get_known_symbols
+from src.cache import Cache, get_all_known_symbols
 
 _REFRESH_SECONDS = 120.0
 
@@ -31,9 +31,9 @@ _executor = ThreadPoolExecutor(max_workers=1)
 
 
 def _known_symbols() -> list[str]:
-    symbols = get_known_symbols()
+    symbols = get_all_known_symbols()
     if symbols:
-        return list(symbols)
+        return symbols
     # Cold boot — nothing cached yet. Seed from the bundled demo file so the
     # very first request also lands on a warm cache instead of a cold fetch.
     from src.data_loader import load_transactions

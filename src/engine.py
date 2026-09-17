@@ -22,7 +22,7 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
-from src.cache import Cache, get_known_symbols, set_known_symbols
+from src.cache import Cache, get_known_symbols, set_known_symbols, touch_known_symbols
 
 _DATA_FILE  = Path("data/demo_msp_v2.csv")
 _USD_PORTS  = {"Vested", "IndMoney US", "IndMoney Mummy"}
@@ -188,6 +188,11 @@ def build(
         set_known_symbols(sorted(new_symbols))
     else:
         txns, holdings_raw, realized_all, fx_lots_all = cache.get_fifo(fifo_key)
+
+    # Mark this portfolio's symbols as actively in-use on every build (cache hit or not) —
+    # keeps them in the background refresh loop's warm set (see touch_known_symbols) even
+    # when nothing else about this request needs a live fetch.
+    touch_known_symbols(list(holdings_raw["yf_symbol"].unique()))
 
     # ── Layer 2: Prices + FX (30-min TTL) ────────────────────────────────────
     if force_refresh_prices or not cache.is_fresh("prices"):
