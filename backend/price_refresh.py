@@ -51,7 +51,9 @@ def _refresh_once() -> None:
     # Skip symbols whose market is closed and already has a price captured since the most
     # recent close (weekends, evenings, or the other market's symbols while this one's shut)
     # — the price can't have moved, so there's nothing to gain from re-fetching it every tick.
-    to_fetch = symbols_needing_price_fetch(symbols, current_prices=cache.get_stale("prices"))
+    to_fetch = symbols_needing_price_fetch(
+        symbols, current_prices=cache.get_stale("prices"), prev_closes=cache.get_stale("prev_closes")
+    )
     prices, prev_closes = get_prices_and_prev_close(to_fetch)
     usd_inr = get_usd_inr_rate()
 

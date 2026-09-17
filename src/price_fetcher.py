@@ -201,7 +201,9 @@ def _mark_fetched(prices: Dict[str, Optional[float]]) -> None:
             _last_fetched_at[s] = now
 
 
-def symbols_needing_price_fetch(symbols: List[str], now_utc=None, current_prices: Optional[dict] = None) -> List[str]:
+def symbols_needing_price_fetch(
+    symbols: List[str], now_utc=None, current_prices: Optional[dict] = None, prev_closes: Optional[dict] = None,
+) -> List[str]:
     """Drop symbols whose market is currently closed and already have a price captured
     since the most recent close — the price can't have moved since then, so refetching
     it every 2-min background tick (or on-demand refresh) on evenings/weekends, or for
@@ -214,10 +216,17 @@ def symbols_needing_price_fetch(symbols: List[str], now_utc=None, current_prices
     value (eviction, wipe, bug). Without also checking `current_prices`, a symbol whose
     cached price silently went missing would be skipped indefinitely (showing null)
     until the next market open, since nothing would ever re-trigger a fetch for it.
-    Confirmed live 2026-09-17: 81/82 symbols wrongly skipped post-market-close this way."""
+    Confirmed live 2026-09-17: 81/82 symbols wrongly skipped post-market-close this way.
+
+    `prev_closes` gets the same defensive check, added 2026-09-18: a fetch cycle that
+    lands on the download fallback (only path that can return a price with no matching
+    prev_close, when its 5-day history comes back with a single row) previously left
+    prev_close stuck at None indefinitely once the price-only check above let the symbol
+    get skipped — confirmed live: today's-% went to 0 for every Indian/MF holding this way."""
     from backend.market_hours import is_market_open, last_close_before
     now_utc = now_utc or pd.Timestamp.now("UTC")
     current_prices = current_prices or {}
+    prev_closes = prev_closes or {}
     out = []
     for s in symbols:
         if is_market_open(s, now_utc):
@@ -225,6 +234,9 @@ def symbols_needing_price_fetch(symbols: List[str], now_utc=None, current_prices
             continue
         cached = current_prices.get(s)
         if cached is None or cached <= 0:
+            out.append(s)
+            continue
+        if prev_closes.get(s) is None:
             out.append(s)
             continue
         last = _last_fetched_at.get(s)
