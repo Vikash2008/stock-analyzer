@@ -135,7 +135,12 @@ def _fetch_intraday_bars(yf_symbol: str) -> dict:
         del df  # full OHLCV frame no longer needed — free it before returning, not on GC
         idx = closes.index
         if idx.tz is None:
-            idx = idx.tz_localize('UTC')
+            # yfinance returns tz-naive intraday timestamps for NSE/BSE already in
+            # exchange-local (IST) wall-clock time, unlike US exchanges (tz-aware,
+            # America/New_York). Localizing NSE/BSE naive timestamps as UTC before
+            # converting to IST double-shifted them by +5:30.
+            exchange_tz = 'Asia/Kolkata' if yf_symbol.upper().endswith(('.NS', '.BO')) else 'UTC'
+            idx = idx.tz_localize(exchange_tz)
         idx_utc = idx.tz_convert('UTC')
         idx_ist = idx.tz_convert('Asia/Kolkata')
 
