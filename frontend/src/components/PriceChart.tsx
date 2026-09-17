@@ -14,6 +14,11 @@ import { fmt } from '../utils/fmt'
 import { computeChartFreshness } from '../utils/incrementalMerge'
 import { ChartFreshnessLabel, ChartErrorState, ChartEmptyState } from './ChartStateBlock'
 
+// Matches backend/routers/history.py's _INTRADAY_TTL (5 min) — the intraday cache legitimately
+// won't have anything newer than this, so using the daily-chart REFRESH_MS (2 min) here would
+// flag a perfectly normal, in-TTL response as "stale".
+const INTRADAY_REFRESH_MS = 5 * 60 * 1000
+
 interface PriceChartProps {
   transactions: Transaction[]
   yf_symbol:    string
@@ -229,10 +234,14 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
     ? (lastPrice - prevClose) / prevClose * 100
     : (firstPrice && lastPrice ? (lastPrice - firstPrice) / firstPrice * 100 : null)
   const priceColor = pctChange !== null ? (pctChange >= 0 ? '#0a7a42' : '#be1c1c') : '#94a3b8'
-  // Only meaningful for the daily path — intraday bars are a separate fetch shape with no
-  // dataAsOf/guardRejected envelope (Category 3 decision to keep them distinct).
-  const freshness = range !== '1d' && history?.dataAsOf
-    ? computeChartFreshness({ dataAsOfMs: history.dataAsOf * 1000, guardRejected: history.guardRejected }, REFRESH_MS)
+  // Intraday now carries its own dataAsOf/guardRejected (backend/routers/history.py) instead of
+  // being excluded here — its cache has its own TTL (INTRADAY_REFRESH_MS), separate from the
+  // daily path's REFRESH_MS, so each range's freshness reflects its own actual fetch, not a
+  // portfolio-wide refresh timestamp that doesn't actually describe this chart's data age.
+  const freshnessSource = range === '1d' ? intradayHistory : history
+  const freshnessWindow = range === '1d' ? INTRADAY_REFRESH_MS : REFRESH_MS
+  const freshness = freshnessSource?.dataAsOf
+    ? computeChartFreshness({ dataAsOfMs: freshnessSource.dataAsOf * 1000, guardRejected: freshnessSource.guardRejected }, freshnessWindow)
     : null
 
   return (

@@ -30,8 +30,12 @@ from src.price_fetcher import get_prices_and_prev_close
 
 router = APIRouter()
 
-_intraday_cache: dict[str, tuple[dict, float]] = {}
-_INTRADAY_TTL = 3600.0  # 1 hour  — intraday
+_intraday_cache: dict[str, tuple[dict, float, float]] = {}  # (data, monotonic_ts, wall_clock_ts)
+_INTRADAY_TTL = 300.0  # 5 min — was 1 hour, but the frontend already polls this endpoint every
+                       # 2 min (useHistory.ts's REFRESH_MS); an hour-long cache meant a "live"
+                       # 5-min-bar chart could silently sit up to an hour behind the real market
+                       # while claiming to be fresh. 5 min still cuts Yahoo calls per symbol by
+                       # >10x vs re-fetching on every poll, without the chart visibly lagging.
 _FETCH_TIMEOUT = 20.0   # per-request cap on the underlying yfinance call — a single slow/stuck
                         # symbol can no longer hang a request indefinitely; the background thread
                         # still finishes and populates the cache for the next request either way.
@@ -194,7 +198,7 @@ async def get_history(
         cache_key = f"{yf_symbol}:intraday"
         cached = _intraday_cache.get(cache_key)
         if cached and (now - cached[1]) < _INTRADAY_TTL:
-            return JSONResponse(content=cached[0])
+            return JSONResponse(content={**cached[0], "dataAsOf": cached[2], "guardRejected": False})
         try:
             async with _sem:
                 data = await asyncio.wait_for(_fetch_intraday(yf_symbol), timeout=_FETCH_TIMEOUT)
@@ -218,10 +222,11 @@ async def get_history(
                 span <= pd.Timedelta(hours=9)  # longer than any real single session incl. extended hours
                 and intraday_is_fresh(yf_symbol, last_ts)
             )
+        fetched_at = time.time()
         if trustworthy:
-            _intraday_cache[cache_key] = (data, now)
+            _intraday_cache[cache_key] = (data, now, fetched_at)
             _evict_oldest(_intraday_cache, _MAX_INTRADAY_SYMBOLS, lambda v: v[1])
-        return JSONResponse(content=data)
+        return JSONResponse(content={**data, "dataAsOf": fetched_at, "guardRejected": not trustworthy})
 
     if not start:
         return JSONResponse(content=_envelope({"dates": [], "prices": [], "error": "start required"}))
