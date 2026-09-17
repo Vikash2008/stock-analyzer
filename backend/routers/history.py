@@ -25,7 +25,7 @@ from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
 from backend import price_store
-from backend.market_hours import is_stale
+from backend.market_hours import is_stale, intraday_is_fresh
 from src.price_fetcher import get_prices_and_prev_close
 
 router = APIRouter()
@@ -134,14 +134,18 @@ def _fetch_intraday_bars(yf_symbol: str) -> dict:
         closes = df["Close"].dropna().copy()
         del df  # full OHLCV frame no longer needed — free it before returning, not on GC
         idx = closes.index
-        if idx.tz is not None:
-            idx = idx.tz_convert('Asia/Kolkata')
-        else:
-            idx = idx.tz_localize('UTC').tz_convert('Asia/Kolkata')
+        if idx.tz is None:
+            idx = idx.tz_localize('UTC')
+        idx_utc = idx.tz_convert('UTC')
+        idx_ist = idx.tz_convert('Asia/Kolkata')
 
         return {
-            "dates":  idx.strftime("%H:%M").tolist(),
+            "dates":  idx_ist.strftime("%H:%M").tolist(),
             "prices": [round(float(p), 4) for p in closes.tolist()],
+            # Internal only — used by get_history to sanity-check the response before caching
+            # it, stripped before the dict is ever sent to the client.
+            "_first_bar_utc": idx_utc[0].isoformat(),
+            "_last_bar_utc":  idx_utc[-1].isoformat(),
         }
     except Exception as exc:
         return {"dates": [], "prices": [], "error": str(exc)}
@@ -193,10 +197,23 @@ async def get_history(
             # Underlying thread keeps running and will populate the cache for next request —
             # this just stops the current one from hanging on a single slow/stuck symbol.
             return JSONResponse(content={"dates": [], "prices": [], "error": "timeout"})
-        # A yfinance hiccup can return a single stray/glitchy bar (e.g. a pre-market tick)
-        # instead of a real error — don't lock that into the cache for a full hour, let the
-        # next request retry instead.
-        if len(data.get("dates", [])) >= 2:
+        # A yfinance hiccup can return a single stray/glitchy bar (e.g. a pre-market tick),
+        # or — less obviously — a full, well-formed-looking response for the WRONG session
+        # (a Yahoo-side timing/caching quirk, not tied to any particular symbol: confirmed
+        # live as e.g. a ~24h-spanning result instead of one ~6.5h US session, or a session
+        # that's just plain stale relative to the real market clock). Neither should get
+        # locked into the cache for a full hour — let the next request retry instead.
+        first_bar_utc = data.pop("_first_bar_utc", None)
+        last_bar_utc  = data.pop("_last_bar_utc", None)
+        trustworthy = len(data.get("dates", [])) >= 2 and last_bar_utc is not None
+        if trustworthy:
+            last_ts = pd.Timestamp(last_bar_utc)
+            span = last_ts - pd.Timestamp(first_bar_utc) if first_bar_utc else pd.Timedelta(0)
+            trustworthy = (
+                span <= pd.Timedelta(hours=9)  # longer than any real single session incl. extended hours
+                and intraday_is_fresh(yf_symbol, last_ts)
+            )
+        if trustworthy:
             _intraday_cache[cache_key] = (data, now)
             _evict_oldest(_intraday_cache, _MAX_INTRADAY_SYMBOLS, lambda v: v[1])
         return JSONResponse(content=data)

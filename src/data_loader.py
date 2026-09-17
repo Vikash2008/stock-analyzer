@@ -1,3 +1,4 @@
+import uuid
 import pandas as pd
 from pathlib import Path
 from typing import Union
@@ -82,5 +83,17 @@ def load_transactions(source: Union[str, Path, object]) -> pd.DataFrame:
         df["notes"] = df["notes"].fillna("").astype(str).str.strip()
     else:
         df["notes"] = ""
+
+    # Stable per-row transaction ID — lets a delete target one exact row instead of
+    # matching on date/type/quantity/price, which can't tell two identical txns apart.
+    # Backfilled here so any row missing one (old exports, pre-migration CSVs) gets a
+    # permanent ID the moment it's read; callers that persist this df back to CSV make
+    # the backfill stick, so an ID stays stable across sessions once written once.
+    if "txn_id" not in df.columns:
+        df["txn_id"] = ""
+    df["txn_id"] = df["txn_id"].fillna("").astype(str).str.strip()
+    missing = df["txn_id"] == ""
+    if missing.any():
+        df.loc[missing, "txn_id"] = [str(uuid.uuid4()) for _ in range(missing.sum())]
 
     return df.sort_values("date").reset_index(drop=True)

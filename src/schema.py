@@ -19,7 +19,7 @@ REQUIRED_COLUMNS = {
     "yf_symbol", "currency",
 }
 
-OPTIONAL_COLUMNS = {"portfolio", "name"}
+OPTIONAL_COLUMNS = {"portfolio", "name", "txn_id"}
 
 VALID_EXCHANGES  = {"NSE", "BSE", "US"}
 VALID_TYPES      = {"BUY", "SELL", "DIVIDEND"}

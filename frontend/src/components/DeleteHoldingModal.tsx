@@ -65,10 +65,8 @@ function holdingKey(portfolio: string, symbol: string): string {
   return `${portfolio}:${symbol}`
 }
 
-// No stable row ID exists in the CSV schema, so a transaction is identified by the exact
-// combination of fields that also gets sent to the backend for an exact-match delete.
 function txnKey(t: Transaction): string {
-  return `${t.portfolio}:${t.symbol}:${t.date.slice(0, 10)}:${t.type}:${t.quantity}:${t.price}`
+  return t.txn_id
 }
 
 const DATE_FMT = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })
@@ -227,8 +225,7 @@ export function DeleteHoldingModal({ open, onClose, data, preFilledPortfolio, pr
       message: confirmMsg,
       run: () => {
         const deletions = targets.map(t => ({
-          portfolio: t.portfolio, symbol: t.symbol,
-          date: t.date.slice(0, 10), type: t.type, quantity: t.quantity, price: t.price,
+          portfolio: t.portfolio, symbol: t.symbol, txn_id: t.txn_id,
         }))
 
         mutate(deletions, {

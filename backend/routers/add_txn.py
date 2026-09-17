@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import uuid
 from pathlib import Path
 
 import pandas as pd
@@ -31,6 +32,7 @@ _DATA_FILE   = Path("data/demo_msp_v2.csv")
 # exported backup CSV matches the same minimal schema the app now requires on import.
 _EXPORT_COLS = [
     "date", "symbol", "exchange", "type", "quantity", "price", "portfolio", "tags", "notes",
+    "txn_id",
 ]
 
 
@@ -109,6 +111,7 @@ async def add_transaction(
             "name":        body.name or "",
             "yf_symbol":   yf_sym,
             "tags":        encode_tags(body.tags) if body.tags else "",
+            "txn_id":      str(uuid.uuid4()),
         }
         for port in body.portfolios
     ]
@@ -314,9 +317,11 @@ async def import_merge_tags(body: MergeTagsRequest):
 class HoldingDeletion(BaseModel):
     portfolio: str
     symbol:    str | None = None   # omitted = delete every symbol in this portfolio
-    # When the four fields below are also given, the mask narrows to one specific transaction
-    # row instead of the whole symbol's history — there's no stable row ID in the CSV schema,
-    # so an exact match on these fields is the only way to pin down a single row.
+    # txn_id (present on every row since data_loader.py's backfill) targets one exact
+    # transaction unambiguously. The four fields below are a fallback for callers that
+    # don't have a txn_id handy — an exact match on all given fields narrows the mask to
+    # one row, but can't distinguish two genuinely identical transactions from each other.
+    txn_id:    str   | None = None
     date:      str   | None = None   # YYYY-MM-DD
     type:      str   | None = None   # BUY / SELL / DIVIDEND
     quantity:  float | None = None
@@ -333,8 +338,9 @@ async def delete_holding(
     csv_hash: str = Query("demo"),
 ):
     """Permanently drop transaction rows matching each deletion. With only portfolio(+symbol)
-    given, drops that whole symbol's (or portfolio's) full history. With date/type/quantity/
-    price also given, narrows to one specific transaction row."""
+    given, drops that whole symbol's (or portfolio's) full history. With txn_id given, drops
+    exactly that one row. With date/type/quantity/price given instead, narrows to one row by
+    exact field match (fallback for callers without a txn_id)."""
     cache  = Cache()
     cached = cache.get_fifo(csv_hash)
 
@@ -350,6 +356,9 @@ async def delete_holding(
 
     mask = pd.Series(False, index=existing_txns.index)
     for d in body.deletions:
+        if d.txn_id is not None and "txn_id" in existing_txns.columns:
+            mask |= existing_txns["txn_id"] == d.txn_id
+            continue
         m = existing_txns["portfolio"] == d.portfolio
         if d.symbol is not None:
             m &= existing_txns["symbol"] == d.symbol.strip().upper()

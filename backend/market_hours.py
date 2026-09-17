@@ -58,6 +58,27 @@ def last_close_before(now_utc: pd.Timestamp, yf_symbol: str) -> pd.Timestamp:
     return candidate.tz_convert("UTC")
 
 
+def intraday_is_fresh(
+    yf_symbol: str,
+    last_bar_utc: pd.Timestamp,
+    now_utc: pd.Timestamp | None = None,
+) -> bool:
+    """True if a 1D intraday (5-min bar) series' last timestamp is plausible for right now.
+
+    yfinance's period=1d/interval=5m occasionally hands back a stale or short session for no
+    visible reason (a Yahoo-side timing/caching quirk, not tied to any particular symbol) —
+    a full, well-formed response that's simply the WRONG session, which the <2-bar degenerate
+    check next to this doesn't catch. Market open -> the last bar should be recent (within one
+    interval + buffer for fetch/processing lag). Market closed -> the last bar should cover
+    up to (near) the most recent close, not some older session a flaky response returned instead.
+    """
+    now_utc = now_utc or pd.Timestamp.now("UTC")
+    if is_market_open(yf_symbol, now_utc):
+        return (now_utc - last_bar_utc) <= pd.Timedelta(minutes=30)
+    close = last_close_before(now_utc, yf_symbol)
+    return last_bar_utc >= close - pd.Timedelta(minutes=10)
+
+
 def is_stale(
     yf_symbol: str,
     last_fetch_ts: float,

@@ -12,6 +12,7 @@ import { usePortfolio } from '../hooks/usePortfolio'
 import { useDividendForSymbol, getIncludeFxGains, getIncludeDividends } from '../hooks/useDividends'
 import { sliceSeries } from '../hooks/usePortfolioHistory'
 import type { DatedSeries, PortfolioSeries } from '../hooks/usePortfolioHistory'
+import { useHistory } from '../hooks/useHistory'
 import { useBackendPortfolioHistory, getChartFreshness } from '../hooks/useBackendPortfolioHistory'
 import { ChartFreshnessLabel, ChartErrorState, ChartEmptyState } from '../components/ChartStateBlock'
 import { idbFlush } from '../utils/idbStore'
@@ -234,6 +235,17 @@ export default function TransactionsPage({ currency }: Props) {
       ?? decoded.symbol
     )
   }, [data, portfolioFilter, decoded.symbol])
+
+  // Closed holdings have no entry in data.holdings (the FIFO engine drops a symbol once
+  // fully exited), so `holding` is null and there's no current_price to read — fall back to
+  // the last daily close from price history (same data source PriceChart already shows)
+  // instead of showing no LTP at all.
+  const { data: closedPriceHist } = useHistory(
+    isClosedStock ? yf_for_hook : null, isClosedStock ? '2022-01-01' : null, undefined, isClosedStock,
+  )
+  const closedLtp = closedPriceHist?.prices?.length
+    ? closedPriceHist.prices[closedPriceHist.prices.length - 1]
+    : null
 
   const { data: quickStats, isLoading: qsLoading, isFetching: qsFetching } = useQuickStats(yf_for_hook, activeTab === 'report' && !!data)
 
@@ -595,7 +607,7 @@ export default function TransactionsPage({ currency }: Props) {
         todayGain={tg}
         todayPct={tp}
         xirr={holdingXirr}
-        ltp={holding?.current_price ?? null}
+        ltp={holding?.current_price ?? closedLtp}
         ltpCurrency={holdingNativeCurrency}
         dividends={includeDividends ? (symDividends?.total_dividends ?? 0) * holdFx : undefined}
         fxGain={includeFxGains ? fxGainRaw * holdFx : undefined}

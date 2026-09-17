@@ -153,7 +153,9 @@ def build(
     """
     from src.data_loader import load_transactions
     from src.portfolio import calculate_holdings, enrich_holdings
-    from src.price_fetcher import get_prices_and_prev_close, get_tickers_info, get_usd_inr_rate
+    from src.price_fetcher import (
+        get_prices_and_prev_close, get_tickers_info, get_usd_inr_rate, symbols_needing_price_fetch,
+    )
 
     _build_t0 = time.perf_counter()
     cache = Cache()
@@ -190,13 +192,24 @@ def build(
     # ── Layer 2: Prices + FX (30-min TTL) ────────────────────────────────────
     if force_refresh_prices or not cache.is_fresh("prices"):
         symbols = list(holdings_raw["yf_symbol"].unique())
-        print(f"[engine] Fetching live prices… ({len(symbols)} symbols)")
+        # Skip symbols whose market is closed and already has a price captured since the
+        # most recent close — weekends/evenings/off-hours for that exchange, or an Indian
+        # holding's turn while only the US market happens to be open right now.
+        to_fetch = symbols_needing_price_fetch(symbols)
+        print(f"[engine] Fetching live prices… ({len(to_fetch)}/{len(symbols)} symbols need a fetch)")
         _t0 = time.perf_counter()
-        prices, prev_closes = get_prices_and_prev_close(symbols)
+        prices, prev_closes = get_prices_and_prev_close(to_fetch)
         print(f"[engine] get_prices_and_prev_close took {time.perf_counter() - _t0:.2f}s")
         _t0 = time.perf_counter()
         usd_inr = get_usd_inr_rate()
         print(f"[engine] get_usd_inr_rate took {time.perf_counter() - _t0:.2f}s")
+        # A partial/failed fetch (hard timeout, batch error) returns None for whichever
+        # symbols didn't come back in time — merge over the last-known-good cache instead
+        # of replacing it outright, so one bad cycle doesn't wipe prices for symbols the
+        # fresh fetch simply missed (same fix already applied in price_refresh.py's
+        # background loop; this call site had the same raw-overwrite bug independently).
+        prices      = {**(cache.get_stale("prices") or {}),      **{s: p for s, p in prices.items() if p is not None}}
+        prev_closes = {**(cache.get_stale("prev_closes") or {}), **{s: p for s, p in prev_closes.items() if p is not None}}
         cache.set("prices", prices)
         cache.set("prev_closes", prev_closes)
         cache.set("fx", usd_inr)

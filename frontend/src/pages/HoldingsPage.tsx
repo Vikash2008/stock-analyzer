@@ -1444,6 +1444,21 @@ export default function HoldingsPage({ currency }: Props) {
       if (!firstDateM.has(key) || dateStr < firstDateM.get(key)!) firstDateM.set(key, dateStr)
     }
 
+    // Per-key, chronological BUY/SELL cost log — replayed date-by-date below to reconstruct a
+    // running weighted-average cost basis, matching portfolio_history.py's 2026-09-09 fix
+    // (was applying today's all-time-blended avg_cost to every historical date, which made
+    // "Invested" include the cost of lots bought long after the target date).
+    const costTxns = new Map<string, { date: string; isBuy: boolean; qty: number; cost: number }[]>()
+    for (const tx of filtTxns) {
+      if (tx.type === 'DIVIDEND') continue
+      const key    = `${tx.portfolio}:${tx.yf_symbol}`
+      const isBuy  = tx.type === 'BUY'
+      const cost   = isBuy ? tx.quantity * tx.price + (tx.charges ?? 0) : 0
+      if (!costTxns.has(key)) costTxns.set(key, [])
+      costTxns.get(key)!.push({ date: tx.date.slice(0, 10), isBuy, qty: tx.quantity, cost })
+    }
+    for (const arr of costTxns.values()) arr.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
+
     function valueAndInvestedAtOrBefore(holdings: Holding[], target: string): { value: number; invested: number } {
       let value = 0, invested = 0
       for (const h of holdings) {
@@ -1453,12 +1468,26 @@ export default function HoldingsPage({ currency }: Props) {
         const deltas = qtyDelta.get(key) ?? new Map<string, number>()
         const first  = firstDateM.get(key) ?? allDates[0]
         const isUsd  = USD_PORTS.has(h.portfolio)
+        const txns   = costTxns.get(key) ?? []
         let qty = 0, lastPx: number | null = null, lastFx = usdInr
+        let cqty = 0, ccost = 0, ti = 0
         for (const d of allDates) {
           if (d > target) break
           if (d < first) continue
           const dlt = deltas.get(d)
           if (dlt !== undefined) qty = Math.max(0, qty + dlt)
+          while (ti < txns.length && txns[ti].date <= d) {
+            const t = txns[ti]
+            if (t.isBuy) {
+              cqty += t.qty
+              ccost += t.cost
+            } else {
+              const avg = cqty > 0 ? ccost / cqty : 0
+              ccost -= avg * Math.min(t.qty, cqty)
+              cqty = Math.max(0, cqty - t.qty)
+            }
+            ti++
+          }
           const px = pm.get(d)
           if (px !== undefined) lastPx = px
           if (isUsd) {
@@ -1474,8 +1503,9 @@ export default function HoldingsPage({ currency }: Props) {
           valueFx = lastFx
           investedFx = (includeFxGains && h.avg_buy_fx_rate && h.avg_buy_fx_rate > 10) ? h.avg_buy_fx_rate : lastFx
         }
+        const dateAvgCost = cqty > 0 ? ccost / cqty : h.avg_cost
         value += lastPx * qty * valueFx
-        invested += h.avg_cost * qty * investedFx
+        invested += dateAvgCost * qty * investedFx
       }
       return { value, invested }
     }

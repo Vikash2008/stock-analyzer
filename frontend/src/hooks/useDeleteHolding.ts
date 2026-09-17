@@ -5,7 +5,10 @@ const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
 export interface HoldingDeletion {
   portfolio: string
   symbol?:   string   // omitted = delete every symbol in this portfolio
-  // When also given, narrows to one specific transaction row instead of the whole symbol.
+  // txn_id targets one exact transaction row unambiguously — prefer this whenever the row's
+  // Transaction object is available. The four fields below are a fallback for narrowing to
+  // one row by exact field match when no txn_id is at hand.
+  txn_id?:   string
   date?:     string   // YYYY-MM-DD
   type?:     string   // BUY / SELL / DIVIDEND
   quantity?: number

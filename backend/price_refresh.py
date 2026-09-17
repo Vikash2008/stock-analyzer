@@ -42,13 +42,17 @@ def _known_symbols() -> list[str]:
 
 
 def _refresh_once() -> None:
-    from src.price_fetcher import get_prices_and_prev_close, get_usd_inr_rate
+    from src.price_fetcher import get_prices_and_prev_close, get_usd_inr_rate, symbols_needing_price_fetch
 
     symbols = _known_symbols()
     if not symbols:
         return
     cache = Cache()
-    prices, prev_closes = get_prices_and_prev_close(symbols)
+    # Skip symbols whose market is closed and already has a price captured since the most
+    # recent close (weekends, evenings, or the other market's symbols while this one's shut)
+    # — the price can't have moved, so there's nothing to gain from re-fetching it every tick.
+    to_fetch = symbols_needing_price_fetch(symbols)
+    prices, prev_closes = get_prices_and_prev_close(to_fetch)
     usd_inr = get_usd_inr_rate()
 
     # A partial/failed fetch (hard timeout, batch error) returns None for whichever

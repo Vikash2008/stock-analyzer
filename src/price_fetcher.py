@@ -175,6 +175,36 @@ def _fetch_download_fallback(
     return prices, prev_closes
 
 
+_last_fetched_at: Dict[str, float] = {}  # yf_symbol -> unix time of last confirmed live price
+
+
+def _mark_fetched(prices: Dict[str, Optional[float]]) -> None:
+    now = time.time()
+    for s, p in prices.items():
+        if p is not None:
+            _last_fetched_at[s] = now
+
+
+def symbols_needing_price_fetch(symbols: List[str], now_utc=None) -> List[str]:
+    """Drop symbols whose market is currently closed and already have a price captured
+    since the most recent close — the price can't have moved since then, so refetching
+    it every 2-min background tick (or on-demand refresh) on evenings/weekends, or for
+    the other market's symbols while this one is closed, is pure wasted yfinance load.
+    A symbol whose market is open, or that's never been fetched since its last close,
+    still goes through so the closing price actually gets captured once."""
+    from backend.market_hours import is_market_open, last_close_before
+    now_utc = now_utc or pd.Timestamp.now("UTC")
+    out = []
+    for s in symbols:
+        if is_market_open(s, now_utc):
+            out.append(s)
+            continue
+        last = _last_fetched_at.get(s)
+        if last is None or last < last_close_before(now_utc, s).timestamp():
+            out.append(s)
+    return out
+
+
 def get_prices_and_prev_close(
     symbols: List[str],
 ) -> Tuple[Dict[str, Optional[float]], Dict[str, Optional[float]]]:
@@ -188,7 +218,9 @@ def get_prices_and_prev_close(
     if not symbols:
         return {}, {}
     try:
-        return _with_hard_timeout(_fetch_quote_batch, symbols)
+        prices, prev_closes = _with_hard_timeout(_fetch_quote_batch, symbols)
+        _mark_fetched(prices)
+        return prices, prev_closes
     except Exception:
         pass
 
@@ -211,6 +243,7 @@ def get_prices_and_prev_close(
     for s in cooling:
         prices.setdefault(s, None)
         prev_closes.setdefault(s, None)
+    _mark_fetched(prices)
     return prices, prev_closes
 
 

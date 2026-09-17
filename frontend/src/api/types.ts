@@ -57,6 +57,7 @@ export interface Transaction {
   sell_fx_rate: number | null    // INR/USD rate at disposal time; null for INR or BUY/DIVIDEND
   tags:         string           // Bucket->Label assignments, e.g. "Asset Class=Stocks;Type=Indian Stocks"
   notes:        string           // JSON-encoded note list for this symbol (all portfolios share one); "" if none
+  txn_id:       string           // stable per-row ID; lets a delete target one exact row, even among identical txns
 }
 
 export interface Realized {
