@@ -195,7 +195,7 @@ def build(
         # Skip symbols whose market is closed and already has a price captured since the
         # most recent close — weekends/evenings/off-hours for that exchange, or an Indian
         # holding's turn while only the US market happens to be open right now.
-        to_fetch = symbols_needing_price_fetch(symbols)
+        to_fetch = symbols_needing_price_fetch(symbols, current_prices=cache.get_stale("prices"))
         print(f"[engine] Fetching live prices… ({len(to_fetch)}/{len(symbols)} symbols need a fetch)")
         _t0 = time.perf_counter()
         prices, prev_closes = get_prices_and_prev_close(to_fetch)

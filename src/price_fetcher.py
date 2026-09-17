@@ -185,18 +185,29 @@ def _mark_fetched(prices: Dict[str, Optional[float]]) -> None:
             _last_fetched_at[s] = now
 
 
-def symbols_needing_price_fetch(symbols: List[str], now_utc=None) -> List[str]:
+def symbols_needing_price_fetch(symbols: List[str], now_utc=None, current_prices: Optional[dict] = None) -> List[str]:
     """Drop symbols whose market is currently closed and already have a price captured
     since the most recent close — the price can't have moved since then, so refetching
     it every 2-min background tick (or on-demand refresh) on evenings/weekends, or for
     the other market's symbols while this one is closed, is pure wasted yfinance load.
     A symbol whose market is open, or that's never been fetched since its last close,
-    still goes through so the closing price actually gets captured once."""
+    still goes through so the closing price actually gets captured once.
+
+    `_last_fetched_at` only proves a fetch *succeeded at some point* — it's in-memory
+    and never invalidated if the actual price cache backing responses later loses that
+    value (eviction, wipe, bug). Without also checking `current_prices`, a symbol whose
+    cached price silently went missing would be skipped indefinitely (showing null)
+    until the next market open, since nothing would ever re-trigger a fetch for it.
+    Confirmed live 2026-09-17: 81/82 symbols wrongly skipped post-market-close this way."""
     from backend.market_hours import is_market_open, last_close_before
     now_utc = now_utc or pd.Timestamp.now("UTC")
+    current_prices = current_prices or {}
     out = []
     for s in symbols:
         if is_market_open(s, now_utc):
+            out.append(s)
+            continue
+        if current_prices.get(s) is None:
             out.append(s)
             continue
         last = _last_fetched_at.get(s)

@@ -151,9 +151,31 @@ function FetchingScreen() {
   )
 }
 
+// Reached only once the portfolio query has exhausted its retries with no data at
+// all — previously the gate below had no escape from this state (App.tsx:210's old
+// `!data` check just kept rendering FetchingScreen forever, with no way to even reach
+// Settings/Debug Log to diagnose it).
+function FetchErrorScreen({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4 px-6">
+      <div className="text-[22px] font-bold bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
+        Nexus
+      </div>
+      <div className="text-slate-400 text-[13px] text-center">Couldn't load your portfolio.</div>
+      <button
+        onClick={onRetry}
+        className="text-[13px] font-semibold text-white px-5 min-h-[44px] flex items-center justify-center rounded-full active:opacity-80"
+        style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
+      >
+        Retry
+      </button>
+    </div>
+  )
+}
+
 function AppRoutes({ currency, onCurrencyChange }: { currency: Currency; onCurrencyChange: (c: Currency) => void }) {
   const isRestoring = useIsRestoring()
-  const { data, error } = usePortfolio()
+  const { data, error, isError, refetch } = usePortfolio()
   const loggedRestore = useRef(false)
 
   // Dividends have no automatic refresh at all (see hooks/useDividends.ts) — manual only,
@@ -207,6 +229,7 @@ function AppRoutes({ currency, onCurrencyChange }: { currency: Currency; onCurre
   const hasCsv     = hasOwnCsv()
   const hasRealData = !!data?.csv_hash
   const awaitingRealData = hasCsv && !hasRealData && isSignedIn()
+  if (isError && !data) return <FetchErrorScreen onRetry={() => refetch()} />
   if (!data || awaitingRealData) return <FetchingScreen />
 
   // Not signed in — invite sign-in via a non-blocking banner. Never a full-screen gate.
