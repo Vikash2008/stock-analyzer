@@ -11,6 +11,7 @@ export interface Holding {
   total_invested:   number
   current_price:    number
   current_value:    number
+  price_stale:      boolean  // true when today's live price fetch failed and current_price/current_value fall back to previous_close
   unrealized_pnl:   number
   pnl_pct:          number | null
   sector:           string | null

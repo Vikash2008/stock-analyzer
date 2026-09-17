@@ -231,6 +231,20 @@ def enrich_holdings(
 
     df = holdings.copy()
     df["current_price"] = pd.to_numeric(df["yf_symbol"].map(prices), errors="coerce")
+
+    pc = prev_closes or {}
+    df["previous_close"] = pd.to_numeric(df["yf_symbol"].map(pc), errors="coerce")
+
+    # A live fetch can legitimately come back empty for a cycle (batch timeout, throttling,
+    # temporary Yahoo hiccup) — that's a "we don't know right now", not "this is worth zero".
+    # Falling straight through to current_value = qty * NaN used to serialize as null, and
+    # every frontend total/card then silently coerced that null to 0 via JS arithmetic,
+    # making an affected holding disappear from the portfolio total instead of just being
+    # flagged stale. Fall back to the last confirmed previous_close so the holding still
+    # carries a real (if a day old) value; price_stale tells the frontend to show that.
+    df["price_stale"] = df["current_price"].isna() & df["previous_close"].notna()
+    df["current_price"] = df["current_price"].fillna(df["previous_close"])
+
     df["current_value"] = df["quantity"] * df["current_price"]
     df["unrealized_pnl"] = df["current_value"] - df["total_invested"]
     df["pnl_pct"] = (df["unrealized_pnl"] / df["total_invested"] * 100).round(2)
@@ -243,9 +257,6 @@ def enrich_holdings(
     df["quote_type"] = df["yf_symbol"].map(
         lambda s: (ticker_info.get(s) or {}).get("quote_type") or "EQUITY"
     )
-
-    pc = prev_closes or {}
-    df["previous_close"] = pd.to_numeric(df["yf_symbol"].map(pc), errors="coerce")
 
     # Shares bought today have no real previous close — they didn't exist in the portfolio
     # yesterday — so their slice of today's gain is priced off today's buy cost instead of

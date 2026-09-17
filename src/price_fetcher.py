@@ -70,9 +70,12 @@ _QUOTE_CHUNK = 50
 _QUOTE_URL = "https://query1.finance.yahoo.com/v7/finance/quote"
 _QUOTE_TIMEOUT = 8  # seconds — passed to yfinance's own per-request timeout where it's honored,
                      # and now also the default floor _TimeoutSession forces on every call above
-_HARD_TIMEOUT = 10  # seconds — outer wall-clock cap; belt-and-suspenders alongside
+_HARD_TIMEOUT = 15  # seconds — per-round-trip wall-clock budget; belt-and-suspenders alongside
                      # _TimeoutSession above, in case some code path constructs its own session
-                     # or otherwise bypasses the one we pass in.
+                     # or otherwise bypasses the one we pass in. Raised from 10 — that only left
+                     # a 2s margin over _QUOTE_TIMEOUT=8s for a single round trip, too tight given
+                     # real-world latency variance; get_prices_and_prev_close() multiplies this by
+                     # the number of round trips a call actually needs.
 _executor = ThreadPoolExecutor(max_workers=12)  # raised from 8 — these are lightweight quote-JSON
                                                  # calls, not the heavier OHLCV downloads
                                                  # history.py's own concurrency cap is tuned for
@@ -207,7 +210,8 @@ def symbols_needing_price_fetch(symbols: List[str], now_utc=None, current_prices
         if is_market_open(s, now_utc):
             out.append(s)
             continue
-        if current_prices.get(s) is None:
+        cached = current_prices.get(s)
+        if cached is None or cached <= 0:
             out.append(s)
             continue
         last = _last_fetched_at.get(s)
@@ -229,7 +233,17 @@ def get_prices_and_prev_close(
     if not symbols:
         return {}, {}
     try:
-        prices, prev_closes = _with_hard_timeout(_fetch_quote_batch, symbols)
+        # _fetch_quote_batch does one cookie/crumb round-trip up front, then one more
+        # sequential HTTP round-trip per _QUOTE_CHUNK symbols (each up to _QUOTE_TIMEOUT=8s)
+        # — _HARD_TIMEOUT alone only budgets for a single round trip. A portfolio needing
+        # 2+ chunks (either >50 symbols, or both Indian + US markets open at once during
+        # their evening IST overlap) could legitimately need much longer and was getting
+        # its whole batch abandoned mid-flight, forcing every one of those symbols onto
+        # the slower/less reliable download fallback.
+        num_round_trips = 1 + (-(-len(symbols) // _QUOTE_CHUNK))  # cookie/crumb + ceil(chunks)
+        prices, prev_closes = _with_hard_timeout(
+            _fetch_quote_batch, symbols, timeout=_HARD_TIMEOUT * num_round_trips
+        )
         _mark_fetched(prices)
         return prices, prev_closes
     except Exception:

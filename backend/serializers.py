@@ -28,6 +28,8 @@ def _clean(v: Any) -> Any:
         return None if (math.isnan(f) or math.isinf(f)) else f
     if isinstance(v, np.integer):
         return int(v)
+    if isinstance(v, np.bool_):
+        return bool(v)
     if isinstance(v, pd.Timestamp):
         return v.isoformat()
     return v

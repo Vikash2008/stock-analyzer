@@ -139,6 +139,7 @@ interface CardRow {
   todayGain:  number | null
   todayPct:   number | null
   ltp:        number | null
+  priceStale: boolean   // true when ltp is a previous_close fallback, not today's live price
   currency:   Currency   // native (CSV-derived) currency of the holding, not the display toggle
   navPort:    string
   navSym:     string
@@ -171,6 +172,7 @@ function buildRows(
           todayGain:  h.disp_today_gain,
           todayPct:   h.today_pct,
           ltp:        h.current_price,
+          priceStale: h.price_stale,
           currency:   h.currency,
           navPort:    h.portfolio,
           navSym:     h.symbol,
@@ -196,6 +198,7 @@ function buildRows(
         todayGain:  h.disp_today_gain,
         todayPct:   null,
         ltp:        h.current_price,
+        priceStale: h.price_stale,
         currency:   h.currency,
         navPort:    h.portfolio,
         navSym:     h.symbol,
@@ -210,6 +213,7 @@ function buildRows(
       if (h.disp_today_gain !== null) {
         existing.todayGain = (existing.todayGain ?? 0) + h.disp_today_gain
       }
+      existing.priceStale = existing.priceStale || h.price_stale
       if (!existing.portfolios.includes(h.portfolio)) existing.portfolios.push(h.portfolio)
     }
   }
@@ -737,7 +741,7 @@ export default function HoldingsPage({ currency }: Props) {
         subLabel: nameMap.get(sym) ?? '',
         current: 0, nativeCurrent: 0, invested: 0,
         realGain: rg, realCost: rc,
-        todayGain: null, todayPct: null, ltp: null,
+        todayGain: null, todayPct: null, ltp: null, priceStale: false,
         currency: nativeCurrency,
         navPort: firstPort, navSym: sym,
         portfolios: ports,
@@ -2033,6 +2037,7 @@ export default function HoldingsPage({ currency }: Props) {
                 todayGain={r.todayGain !== null ? r.todayGain * cardFx : null}
                 todayPct={r.todayPct}
                 ltp={r.ltp}
+                priceStale={r.priceStale}
                 ltpCurrency={r.currency}
                 xirr={xirrMap.get(r.key) ?? null}
                 dividends={rawDiv > 0 ? rawDiv * cardFx : undefined}
