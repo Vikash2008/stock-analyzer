@@ -6,22 +6,27 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
-import requests
 import yfinance as yf
 
 
-class _TimeoutSession(requests.Session):
-    """A requests.Session that enforces a default timeout on every call. yfinance's internal
-    calls don't always pass their own `timeout=` kwarg through every code path (its cookie/crumb
-    fetch is a known case — see _HARD_TIMEOUT below), which otherwise leaves those requests free
-    to hang indefinitely on a stuck connection. Overriding `request()` here catches every outbound
-    call made through this session regardless of which yfinance internal function issued it."""
-    def request(self, *args, **kwargs):
-        kwargs.setdefault("timeout", _QUOTE_TIMEOUT)
-        return super().request(*args, **kwargs)
+# A custom requests.Session used to be passed to every yf.Ticker/yf.download call here to
+# force a bounded timeout (yfinance's cookie/crumb fetch is a known case that doesn't always
+# honor its own `timeout=` kwarg). Removed 2026-09-18 — this yfinance version requires a
+# curl_cffi-backed session (`YFDataException: Yahoo API requires curl_cffi session not
+# <_TimeoutSession>`), and our plain requests.Session subclass didn't qualify. That exception
+# was being silently swallowed by get_prices_and_prev_close()'s broad except, so EVERY call to
+# the fast primary path was failing on construction, always — not intermittently — and every
+# single price fetch was quietly falling through to the slower, less reliable yf.download()
+# fallback. Every call site below now lets yfinance manage its own default session instead,
+# and relies on the explicit `timeout=` kwarg each call already takes for the same bound.
 
-
-_http_session = _TimeoutSession()
+# All three of _fetch_quote_batch / _fetch_quote_names / _fetch_one_ticker_info create their
+# own yf.Ticker and trigger yfinance's cookie/crumb establishment. Even with yfinance managing
+# its own session per call, kept this lock as cheap insurance against concurrent threads (12-
+# worker pool, plus concurrent HTTP requests each calling build()) racing on Yahoo's cookie/
+# crumb — a corrupted crumb surfaces as "HTTP Error 401: Invalid Crumb" (confirmed live via VM
+# logs 2026-09-18) and fails that whole batch.
+_yahoo_session_lock = threading.Lock()
 
 _NAMES_FILE = Path("data/names.json")
 _static_names: Dict[str, dict] = {}
@@ -105,28 +110,29 @@ def _fetch_quote_batch(symbols: List[str]) -> Tuple[Dict[str, Optional[float]], 
     Runs on every 30-min price refresh across every held symbol, so this alone resolves most
     holdings' names for free — get_tickers_info() then only needs its own fetch for whatever this
     didn't cover (mainly closed/no-longer-held positions, which don't go through a price fetch)."""
-    t = yf.Ticker(symbols[0], session=_http_session)
-    d = t._data
-    # Establish cookie/crumb directly with a short timeout — avoids fast_info's extra
-    # (unused) network round trip and its unbounded default timeout.
-    d._get_cookie_and_crumb(timeout=_QUOTE_TIMEOUT)
-
     prices: Dict[str, Optional[float]] = {s: None for s in symbols}
     prev_closes: Dict[str, Optional[float]] = {s: None for s in symbols}
     resolved_names: Dict[str, Tuple[str, str]] = {}
-    for i in range(0, len(symbols), _QUOTE_CHUNK):
-        chunk = symbols[i:i + _QUOTE_CHUNK]
-        resp = d.get(_QUOTE_URL, params={"symbols": ",".join(chunk)}, timeout=_QUOTE_TIMEOUT)
-        results = resp.json().get("quoteResponse", {}).get("result", [])
-        for r in results:
-            sym = r.get("symbol")
-            if sym in prices:
-                prices[sym] = r.get("regularMarketPrice")
-                prev_closes[sym] = r.get("regularMarketPreviousClose")
-            name = r.get("longName") or r.get("shortName")
-            quote_type = r.get("quoteType")
-            if sym and name and quote_type:
-                resolved_names[sym] = name, quote_type
+    with _yahoo_session_lock:
+        t = yf.Ticker(symbols[0])
+        d = t._data
+        # Establish cookie/crumb directly with a short timeout — avoids fast_info's extra
+        # (unused) network round trip and its unbounded default timeout.
+        d._get_cookie_and_crumb(timeout=_QUOTE_TIMEOUT)
+
+        for i in range(0, len(symbols), _QUOTE_CHUNK):
+            chunk = symbols[i:i + _QUOTE_CHUNK]
+            resp = d.get(_QUOTE_URL, params={"symbols": ",".join(chunk)}, timeout=_QUOTE_TIMEOUT)
+            results = resp.json().get("quoteResponse", {}).get("result", [])
+            for r in results:
+                sym = r.get("symbol")
+                if sym in prices:
+                    prices[sym] = r.get("regularMarketPrice")
+                    prev_closes[sym] = r.get("regularMarketPreviousClose")
+                name = r.get("longName") or r.get("shortName")
+                quote_type = r.get("quoteType")
+                if sym and name and quote_type:
+                    resolved_names[sym] = name, quote_type
     if resolved_names:
         _harvest_names_from_quotes(resolved_names)
     return prices, prev_closes
@@ -150,14 +156,21 @@ def _fetch_download_fallback(
     """Old 5-day OHLCV download fallback, run inside _with_hard_timeout by the caller. yfinance
     retries each failing/delisted symbol internally before giving up — with no bound of its own,
     a handful of consistently-delisted symbols in one portfolio (confirmed live: 88s for one
-    32-symbol request, 9 of them delisted) can stall the whole request for well over a minute."""
-    raw = yf.download(
-        symbols,
-        period="5d",
-        auto_adjust=True,
-        progress=False,
-        threads=True,
-    )
+    32-symbol request, 9 of them delisted) can stall the whole request for well over a minute.
+
+    Shares _yahoo_session_lock with the primary quote-batch/names/info paths — lets yfinance
+    manage its own (curl_cffi-backed) session same as those, rather than a custom session that
+    isn't compatible with it; threads=False so yfinance's own internal per-symbol parallelism
+    here can't race with itself even with the lock serializing calls to this function."""
+    with _yahoo_session_lock:
+        raw = yf.download(
+            symbols,
+            period="5d",
+            auto_adjust=True,
+            progress=False,
+            threads=False,
+            timeout=_QUOTE_TIMEOUT,
+        )
     close = raw["Close"] if "Close" in raw else raw
 
     if isinstance(close, pd.Series):
@@ -285,22 +298,23 @@ def _fetch_quote_names(symbols: List[str]) -> Dict[str, dict]:
     empty for these, while this endpoint returns a proper longName. No sector/industry
     here though (not part of this endpoint's schema) — get_tickers_info still falls
     back to .info for that."""
-    t = yf.Ticker(symbols[0], session=_http_session)
-    d = t._data
-    d._get_cookie_and_crumb(timeout=_QUOTE_TIMEOUT)
-
     out: Dict[str, dict] = {}
-    for i in range(0, len(symbols), _QUOTE_CHUNK):
-        chunk = symbols[i:i + _QUOTE_CHUNK]
-        resp = d.get(_QUOTE_URL, params={"symbols": ",".join(chunk)}, timeout=_QUOTE_TIMEOUT)
-        results = resp.json().get("quoteResponse", {}).get("result", [])
-        for r in results:
-            sym = r.get("symbol")
-            if sym in symbols:
-                out[sym] = {
-                    "name":       r.get("longName") or r.get("shortName") or None,
-                    "quote_type": r.get("quoteType") or None,
-                }
+    with _yahoo_session_lock:
+        t = yf.Ticker(symbols[0])
+        d = t._data
+        d._get_cookie_and_crumb(timeout=_QUOTE_TIMEOUT)
+
+        for i in range(0, len(symbols), _QUOTE_CHUNK):
+            chunk = symbols[i:i + _QUOTE_CHUNK]
+            resp = d.get(_QUOTE_URL, params={"symbols": ",".join(chunk)}, timeout=_QUOTE_TIMEOUT)
+            results = resp.json().get("quoteResponse", {}).get("result", [])
+            for r in results:
+                sym = r.get("symbol")
+                if sym in symbols:
+                    out[sym] = {
+                        "name":       r.get("longName") or r.get("shortName") or None,
+                        "quote_type": r.get("quoteType") or None,
+                    }
     return out
 
 
@@ -315,10 +329,11 @@ def _infer_quote_type_from_symbol(sym: str) -> str:
 
 def _fetch_one_ticker_info(sym: str) -> Tuple[Optional[str], dict]:
     """One symbol's fast_info name + full .info dict, run inside _with_hard_timeout by the caller."""
-    t = yf.Ticker(sym, session=_http_session)
-    fi = t.fast_info
-    name = getattr(fi, "display_name", None) or getattr(fi, "short_name", None)
-    info = t.info
+    with _yahoo_session_lock:
+        t = yf.Ticker(sym)
+        fi = t.fast_info
+        name = getattr(fi, "display_name", None) or getattr(fi, "short_name", None)
+        info = t.info
     return name, info
 
 
@@ -366,10 +381,8 @@ def get_tickers_info(symbols: List[str]) -> Dict[str, dict]:
         name, info = None, {}
         for attempt in range(2):
             try:
-                # _http_session bounds the underlying HTTP calls; _with_hard_timeout is a second
-                # layer on top in case some internal yfinance path still opens its own connection
-                # outside that session — this loop previously had neither, so a single throttled/
-                # stuck symbol could block the whole request indefinitely.
+                # _with_hard_timeout bounds this — a single throttled/stuck symbol previously
+                # had nothing stopping it from blocking the whole request indefinitely.
                 name, info = _with_hard_timeout(_fetch_one_ticker_info, sym, timeout=_QUOTE_TIMEOUT + 2)
                 break
             except Exception:
