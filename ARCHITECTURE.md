@@ -243,8 +243,9 @@ msp_v2.csv
 | quantity | float | Current open qty |
 | avg_cost | float | Cost per share incl. charges |
 | total_invested | float | qty × avg_cost |
-| current_price | float | Live price |
+| current_price | float | Live price; falls back to previous_close if today's live fetch failed (2026-09-17) |
 | current_value | float | qty × current_price |
+| price_stale | bool | NEW 2026-09-17 — true when current_price is a previous_close fallback, not a live fetch |
 | unrealized_pnl | float | current_value − total_invested |
 | pnl_pct | float | unrealized_pnl / total_invested × 100 |
 | disp_invested | float | total_invested in display currency |
