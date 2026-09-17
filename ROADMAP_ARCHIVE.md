@@ -4,6 +4,8 @@
 
 | Item | Completed |
 |------|-----------|
+| Per-transaction delete with stable row ID — added `txn_id` (UUID4) to the transaction schema, backfilled on load; delete-holding + frontend `txnKey()` now target one exact row instead of date/type/quantity/price field-equality | 2026-09-17 |
+| Frontend `holdingBreakdownRows` vs backend Invested-basis mismatch — HoldingsPage.tsx Charts tab now replays a running weighted-average cost basis matching `portfolio_history.py`'s 2026-09-09 fix, instead of a constant all-time-blended avg_cost | 2026-09-17 |
 | Yearly activity performance analysis — annual returns/P&L/invested vs realised breakdown by year | 2026-08-14 |
 | Research Links — Indian: Screener/Trendlyne/NSE pills; US: Finviz/Macrotrends/EDGAR pills | 2026-08-14 |
 | User login / account system — Google Sign-In, Admin panel, Drive backup, and the signed `.apk` (Bubblewrap TWA) built, hosted, and wired to `/join`; landing page redesigned | 2026-08-14 |
