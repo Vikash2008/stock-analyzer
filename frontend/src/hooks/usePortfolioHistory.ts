@@ -21,8 +21,15 @@ async function fetchSymHistory(sym: string, start: string) {
     const since = existing?.dates?.[existing.dates.length - 1]
     const fetched = await fetchHistory(sym, start, undefined, since)
     if (!fetched.dates?.length) {
-      logDebug(`SYNC-BAR FETCH END ${sym} — ${Date.now() - startedAt}ms — empty response`)
-      return { dates: [] as string[], prices: [] as number[] }
+      // Cache the empty result too (e.g. a delisted symbol yfinance will never have data for) —
+      // otherwise this never gets an lsSet call, initialData never finds anything on the next
+      // boot, and every single reopen re-pays the backend's full ~20s yfinance timeout for a
+      // symbol that will never resolve. An empty cached entry still satisfies hasAllData via
+      // initialData, so the sync bar doesn't block on it again.
+      const empty = { dates: [] as string[], prices: [] as number[] }
+      lsSet(lsKey(sym), empty)
+      logDebug(`SYNC-BAR FETCH END ${sym} — ${Date.now() - startedAt}ms — empty response (cached)`)
+      return empty
     }
     let d = fetched
     if (fetched.partial_since && existing?.dates?.length) {
