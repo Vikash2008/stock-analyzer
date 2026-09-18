@@ -1,5 +1,10 @@
 # Design Decisions Log — Archive
 
+### 2026-08-14
+
+`JoinPage.tsx` (`/join`) redesigned from a plain centered stack into an intentional fintech landing page: full-bleed low-opacity chart-line watermark across the background (echoes the app icon's own uptrend sparkline), soft teal ambient glow behind the logo, tracked monospace "ticker" labels ("PORTFOLIO INTELLIGENCE" eyebrow, "ANDROID · APK · 950 KB" meta line) instead of decorative filler, SVG download icon replacing the emoji arrow, staggered fade-up load animation (`prefers-reduced-motion` respected). Sign-in button removed from the page entirely (download-only landing page now). Layout anchored at two fixed viewport points via absolute positioning — branding block at 38% down, download CTA at 75% down — per explicit user direction, rather than a single centered flex column.
+
+
 ### 2026-08-13
 
 Login/access-control UI, designed as extensions of the existing Settings popover rather than a new page: "Account" row (sign-in/out, same `bg-slate-50 border-slate-200` card style as Debug Log) with a compact "⬆ Back up to Drive / ⬇ Restore from Drive" pair beneath once signed in. "Admin — Users" section (same card style) only renders if the current user is actually an admin — email input + Add, then a scrollable list of compact rows (email, status pill, Revoke/Restore, ✕) with a `max-h-[180px]` cap. Two new full-screen states in `App.tsx`: `SignInGate` (blocking, no cached data) and `ReauthBanner` (non-blocking amber top banner, shown when stale cached data is on screen but the background refresh needs sign-in — avoids silently letting numbers go stale with no explanation). `JoinPage.tsx` (`/join`) is a standalone dark landing page matching the app's existing hero gradient/icon treatment, outside the normal nav — download button + inline Google Sign-In.

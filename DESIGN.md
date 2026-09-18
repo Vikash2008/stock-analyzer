@@ -376,7 +376,11 @@ Label row shows `TICKER Â· Company Name` (or `TICKER Â· Portfolio` in standa
 
 ## Design Decisions Log
 
-> Keep only the 3 most recent sessions here (size guard, same pattern as ROADMAP_ARCHIVE.md). Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-08-13
+> Keep only the 3 most recent sessions here (size guard, same pattern as ROADMAP_ARCHIVE.md). Full history: [DESIGN_HISTORY.md](DESIGN_HISTORY.md) — all entries through 2026-08-14
+
+### 2026-09-18
+
+Removed the manual "Update Charts"/"Refresh" buttons from Holdings/Transactions Settings (redundant now that chart refresh is lockstepped to the Overview clock + incremental — see `reference_incremental_aggregate_chart` memory) along with their cooldown/"up to date" toast. Unified every chart's freshness indicator to one format: a single "Updated as of HH:MM" + "↻ Refreshing…" row (was inconsistent layouts across PriceChart/Holdings/Transactions), amber-only on stale (no more explanatory suffix text). Add Txn/Add Holding modal no longer shows the Bucket (Asset Class/Market/Sector) fields for a symbol already held in any portfolio — only for genuinely new symbols.
 
 ### 2026-09-11
 
@@ -385,8 +389,4 @@ Overview Settings: the "Updated on" (build version/timestamp) row moved out of t
 ### 2026-09-02
 
 New `ManageCategoryModal.tsx` (Overview Settings → "Manage Category", below Manage Buckets) — split out of Manage Buckets rather than added as another section there, since Sector/benchmark editing is conceptually distinct from generic Bucket/Label management. Two collapsible sections matching the existing card style: "Manage Index" (category rows with a right-aligned benchmark-index text input, type-ahead dropdown below it on typing — compact list style borrowed from `PullHoldingsModal`'s broker-picker, not the full Explore-search card style) and "Manage Holdings" (one row per holding, `<select>` on the right for its category — same row layout as the Portfolios/Labels currency-pill rows elsewhere in Manage Buckets). Overview Settings: Account/Data/Admin panel sections now collapse by default (chevron header, same pattern Configuration already used) — was inconsistent, only Configuration collapsed before. Holdings page Charts tab: added a "By holding · <range>" list below the chart+range-selector card (`border-t` separator, no new card) — plain two-column rows (name left, colored ±amount right), deliberately no BUY/SELL badge or qty/price like Activity rows have, since this is a magnitude-sorted summary not a transaction log.
-
-### 2026-08-14
-
-`JoinPage.tsx` (`/join`) redesigned from a plain centered stack into an intentional fintech landing page: full-bleed low-opacity chart-line watermark across the background (echoes the app icon's own uptrend sparkline), soft teal ambient glow behind the logo, tracked monospace "ticker" labels ("PORTFOLIO INTELLIGENCE" eyebrow, "ANDROID · APK · 950 KB" meta line) instead of decorative filler, SVG download icon replacing the emoji arrow, staggered fade-up load animation (`prefers-reduced-motion` respected). Sign-in button removed from the page entirely (download-only landing page now). Layout anchored at two fixed viewport points via absolute positioning — branding block at 38% down, download CTA at 75% down — per explicit user direction, rather than a single centered flex column.
 
