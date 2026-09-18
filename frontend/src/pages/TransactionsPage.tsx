@@ -817,16 +817,14 @@ export default function TransactionsPage({ currency }: Props) {
         <div className="px-0 pt-0 pb-3">
           {/* Price chart */}
           {chartMetric === 'Price' && (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3">
-              <PriceChart
-                transactions={symTxns}
-                yf_symbol={yf}
-                currency={dispCur}
-                usdInr={data.usd_inr}
-                showZoom
-                isClosed={isClosedStock}
-              />
-            </div>
+            <PriceChart
+              transactions={symTxns}
+              yf_symbol={yf}
+              currency={dispCur}
+              usdInr={data.usd_inr}
+              showZoom
+              isClosed={isClosedStock}
+            />
           )}
 
           {/* Historical series charts */}

@@ -417,16 +417,14 @@ export default function ResearchPage() {
           )
         })()}
         {activeTab === 'charts' && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3 mt-1">
-            <PriceChart
-              transactions={[]}
-              yf_symbol={yf_symbol}
-              currency={isIndian ? 'INR' : 'USD'}
-              usdInr={95.5}
-              hideLegend
-              showZoom
-            />
-          </div>
+          <PriceChart
+            transactions={[]}
+            yf_symbol={yf_symbol}
+            currency={isIndian ? 'INR' : 'USD'}
+            usdInr={95.5}
+            hideLegend
+            showZoom
+          />
         )}
         {activeTab === 'notes' && (
           <AnalysisTab portfolio="research" symbol={yf_symbol} />
