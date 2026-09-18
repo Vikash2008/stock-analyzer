@@ -2016,7 +2016,7 @@ export default function HoldingsPage({ currency }: Props) {
               Freshness label + refreshing indicator share one row instead of stacking two lines. */}
           <div className="flex items-center justify-between mb-1">
             <ChartFreshnessLabel freshness={chartFreshness} />
-            {!histLoading && histIsFetching && (
+            {!chartLoading && chartFetching && (
               <span className="flex items-center gap-1 text-[9px] text-slate-400">
                 <span className="inline-block animate-spin leading-none">↻</span>
                 Refreshing…
@@ -2442,7 +2442,7 @@ export default function HoldingsPage({ currency }: Props) {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <ChartFreshnessLabel freshness={chartFreshness} />
-                {!histLoading && histIsFetching && (
+                {!chartLoading && chartFetching && (
                   <span className="flex items-center gap-1 text-[9px] text-slate-400">
                     <span className="inline-block animate-spin leading-none">↻</span>
                     Refreshing…
