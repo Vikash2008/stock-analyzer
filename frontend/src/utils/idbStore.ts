@@ -69,6 +69,12 @@ export function idbSet(key: string, value: unknown): void {
   try {
     const tx = _db.transaction(STORE, 'readwrite')
     tx.objectStore(STORE).put(value, key)
+    // Explicit commit instead of waiting for the browser's default auto-commit (which fires
+    // once the event loop returns) — closing/backgrounding the app within seconds of a write
+    // (e.g. right after this chart's cache refresh) can throttle that auto-commit long enough
+    // for the process to be killed first, silently losing the write and causing a cache miss
+    // (full loader instead of instant paint) on the very next reopen.
+    if (typeof tx.commit === 'function') tx.commit()
     const done = new Promise<void>(resolve => {
       tx.oncomplete = () => resolve()
       tx.onerror    = () => resolve()  // best-effort; don't let one failed write hang idbFlush

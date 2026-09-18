@@ -12,7 +12,7 @@ import type { Transaction } from '../api/types'
 import type { Currency } from '../App'
 import { fmt } from '../utils/fmt'
 import { computeChartFreshness } from '../utils/incrementalMerge'
-import { ChartFreshnessLabel, ChartErrorState, ChartEmptyState } from './ChartStateBlock'
+import { ChartFreshnessLabel, ChartErrorState, ChartEmptyState, ChartLoadingState } from './ChartStateBlock'
 
 // Matches backend/routers/history.py's _INTRADAY_TTL (5 min) — the intraday cache legitimately
 // won't have anything newer than this, so a shorter window here would flag a perfectly normal,
@@ -203,9 +203,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
   if (isLoading && !chartData.length) {
     return (
       <div className="mt-2">
-        <div className="h-48 flex items-center justify-center">
-          <div className="text-slate-400 text-xs animate-pulse">Loading chart…</div>
-        </div>
+        <ChartLoadingState height={192} />
         {rangeBar}
       </div>
     )

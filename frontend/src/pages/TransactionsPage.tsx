@@ -14,7 +14,7 @@ import { sliceSeries } from '../hooks/usePortfolioHistory'
 import type { DatedSeries, PortfolioSeries } from '../hooks/usePortfolioHistory'
 import { useHistory } from '../hooks/useHistory'
 import { useBackendPortfolioHistory, getChartFreshness } from '../hooks/useBackendPortfolioHistory'
-import { ChartFreshnessLabel, ChartErrorState, ChartEmptyState } from '../components/ChartStateBlock'
+import { ChartFreshnessLabel, ChartErrorState, ChartEmptyState, ChartLoadingState } from '../components/ChartStateBlock'
 import { idbFlush } from '../utils/idbStore'
 import type { Holding } from '../api/types'
 import { TxRow } from '../components/TxRow'
@@ -849,7 +849,7 @@ export default function TransactionsPage({ currency }: Props) {
               )}
 
               {histLoading && (
-                <p className="text-center text-[11px] text-slate-400 py-6">Loading chart…</p>
+                <ChartLoadingState height={220} />
               )}
               {!portSeries && !histLoading && histError && (
                 <ChartErrorState onRetry={() => refetchPortSeries()} />

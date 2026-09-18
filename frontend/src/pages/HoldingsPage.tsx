@@ -21,7 +21,7 @@ import { usePortfolioHistory, sliceSeries } from '../hooks/usePortfolioHistory'
 import { useBackendPortfolioHistory, getChartFreshness } from '../hooks/useBackendPortfolioHistory'
 import { usePrefetchHoldingCharts, REFRESH_MS } from '../hooks/useHistory'
 import { idbFlush } from '../utils/idbStore'
-import { ChartFreshnessLabel, ChartErrorState, ChartEmptyState } from '../components/ChartStateBlock'
+import { ChartFreshnessLabel, ChartErrorState, ChartEmptyState, ChartLoadingState } from '../components/ChartStateBlock'
 import type { DatedSeries, PortfolioSeries } from '../hooks/usePortfolioHistory'
 import { HoldingCard } from '../components/HoldingCard'
 import { SummaryCard } from '../components/SummaryCard'
@@ -2031,7 +2031,7 @@ export default function HoldingsPage({ currency }: Props) {
           )}
 
           {!portSeries && chartLoading && (
-            <p className="text-center text-[11px] text-slate-400 py-6">Loading chart…</p>
+            <ChartLoadingState height={220} />
           )}
 
           {!portSeries && !chartLoading && chartError && (
@@ -2450,7 +2450,7 @@ export default function HoldingsPage({ currency }: Props) {
                 )}
               </div>
               {!portSeries && chartLoading ? (
-                <p className="text-center text-[11px] text-slate-400 py-6">Loading chart…</p>
+                <ChartLoadingState height={220} />
               ) : !portSeries && chartError ? (
                 <ChartErrorState onRetry={() => refetchPortSeries()} />
               ) : periodData.length === 0 ? (
