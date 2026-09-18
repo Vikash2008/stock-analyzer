@@ -452,7 +452,7 @@ export default function TransactionsPage({ currency }: Props) {
       className="max-w-xl mx-auto flex flex-col"
       style={{ height: 'calc(100dvh - var(--reauth-banner-h, 0px))', marginTop: 'var(--reauth-banner-h, 0px)' }}
     >
-      <div className="shrink-0 px-1 bg-white relative z-20">
+      <div className="shrink-0 px-0.5 bg-white relative z-20">
       {!deepFullScreen && (
       <>
       {/* Nav bar */}
@@ -675,7 +675,7 @@ export default function TransactionsPage({ currency }: Props) {
         </div>
       )}
       </div>
-      <div className="flex-1 overflow-y-auto px-1 pb-4">
+      <div className="flex-1 overflow-y-auto px-0.5 pb-4">
 
       {activeTab === 'transactions' && (
         <>
