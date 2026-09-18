@@ -15,8 +15,10 @@ import { computeChartFreshness } from '../utils/incrementalMerge'
 import { ChartFreshnessLabel, ChartErrorState, ChartEmptyState } from './ChartStateBlock'
 
 // Matches backend/routers/history.py's _INTRADAY_TTL (5 min) — the intraday cache legitimately
-// won't have anything newer than this, so using the daily-chart REFRESH_MS (2 min) here would
-// flag a perfectly normal, in-TTL response as "stale".
+// won't have anything newer than this, so a shorter window here would flag a perfectly normal,
+// in-TTL response as "stale". Same value as useHistory.ts's REFRESH_MS now (2026-09-18
+// unification), kept as its own constant since they mean different things — this one names the
+// backend's re-check cadence, not the frontend's poll cadence.
 const INTRADAY_REFRESH_MS = 5 * 60 * 1000
 
 interface PriceChartProps {
@@ -246,7 +248,15 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
 
   return (
     <div className="mt-2">
-      <ChartFreshnessLabel freshness={freshness} />
+      <div className="flex items-center justify-between mb-1">
+        <ChartFreshnessLabel freshness={freshness} />
+        {isBgFetch && (
+          <span className="flex items-center gap-1 text-[9px] text-slate-400">
+            <span className="inline-block animate-spin leading-none">↻</span>
+            Refreshing…
+          </span>
+        )}
+      </div>
       {lastPrice !== null && (
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-baseline gap-2">
@@ -260,12 +270,6 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
             )}
           </div>
           <div className="flex items-center gap-2">
-            {isBgFetch && (
-              <span className="flex items-center gap-1 text-xs text-slate-500">
-                <span className="inline-block animate-spin leading-none">↻</span>
-                Refreshing…
-              </span>
-            )}
             {showZoom && (
               <button onClick={handleOpenZoom} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 active:opacity-70">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>

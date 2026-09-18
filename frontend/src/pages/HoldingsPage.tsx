@@ -37,11 +37,6 @@ import { computeXIRR } from '../utils/xirr'
 import type { Holding } from '../api/types'
 import type { Currency } from '../App'
 
-// Manual "Refresh" button (Settings → Charts) cooldown — deliberately its own constant, not
-// REFRESH_MS (useHistory.ts's 2-min per-symbol auto-refresh interval, a different concept
-// this button's cooldown previously borrowed by accident).
-const CHARTS_MANUAL_COOLDOWN_MS = 5 * 60 * 1000
-
 interface Props { currency: Currency }
 
 const METRICS = [
@@ -341,11 +336,8 @@ export default function HoldingsPage({ currency }: Props) {
     localStorage.setItem('hp:sortDir',       sortDir)
     localStorage.setItem('hp:sectorFilter',  sectorFilter)
   }, [holdingFilter, showClosed, activeTab, viewMode, sortField, sortDir, sectorFilter])
-  const [syncing,        setSyncing]        = useState(false)
   const [benchSyncing,   setBenchSyncing]   = useState(false)
   const refreshAllBenchmarks = useRefreshAllBenchmarks()
-  const [histLastSynced,  setHistLastSynced]  = useState<Date | null>(null)
-  const [chartsUpToDate,  setChartsUpToDate]  = useState(false)
   const [benchLastSynced, setBenchLastSynced] = useState<Date | null>(null)
   const [divSkipped,      setDivSkipped]      = useState<string[]>([])
   const [expandedSectors,     setExpandedSectors]     = useState<Set<string>>(new Set())
@@ -888,17 +880,6 @@ export default function HoldingsPage({ currency }: Props) {
   )
   const chartFreshness = getChartFreshness(portSeries)
 
-  // Stop sync spinner once BOTH the aggregate chart and the per-symbol history queries have
-  // finished refetching AND those results have actually been written to IndexedDB —
-  // otherwise the badge can claim "synced" a moment before a force-quit kills the app,
-  // losing writes that never reached disk (see idbFlush).
-  useEffect(() => {
-    if (!syncing || histIsFetching || chartFetching) return
-    let cancelled = false
-    idbFlush().then(() => { if (!cancelled) setSyncing(false) })
-    return () => { cancelled = true }
-  }, [syncing, histIsFetching, chartFetching])
-
   const {
     sectors:           benchSectors,
     overallActualXirr: benchActualXirr,
@@ -932,22 +913,6 @@ export default function HoldingsPage({ currency }: Props) {
   useEffect(() => {
     if (benchSyncing && !benchLoading && !benchFetching) setBenchSyncing(false)
   }, [benchSyncing, benchLoading, benchFetching])
-
-
-  // Set histLastSynced to the aggregate chart's real fetch timestamp (not "now") whenever
-  // it's available — this drives the Refresh button's cooldown gate and displayed "last
-  // synced" time, so it must reflect the freshness of the chart actually on screen
-  // (portSeries), not the separate per-symbol cache that only feeds symbolPriceMap/XIRR.
-  // Reopening the app with hours-old cached data should show its true age, not look freshly
-  // synced. Also gated on idbFlush(): the per-symbol IndexedDB writes a Refresh click also
-  // triggers are still in flight the instant portSeriesUpdatedAt flips — showing "synced"
-  // before those writes land risks losing them to a force-quit moments later.
-  useEffect(() => {
-    if (chartLoading || !portSeriesUpdatedAt) return
-    let cancelled = false
-    idbFlush().then(() => { if (!cancelled) setHistLastSynced(new Date(portSeriesUpdatedAt)) })
-    return () => { cancelled = true }
-  }, [chartLoading, portSeriesUpdatedAt])
 
   // Progress-bar "done" count must never visibly decrease — totalCount - histFetchingCount
   // (used once everything has loaded at least once) tracks *currently in-flight* requests,
@@ -1679,11 +1644,6 @@ export default function HoldingsPage({ currency }: Props) {
       className="max-w-xl mx-auto flex flex-col"
       style={{ height: 'calc(100dvh - var(--reauth-banner-h, 0px))', marginTop: 'var(--reauth-banner-h, 0px)' }}
     >
-      {chartsUpToDate && (
-        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[9999] bg-emerald-600 text-white font-bold text-[12px] px-4 py-2 rounded-full shadow-lg whitespace-nowrap">
-          Charts already up to date
-        </div>
-      )}
       {divSkipped.length > 0 && (
         <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[9999] bg-amber-600 text-white font-bold text-[12px] px-4 py-2 rounded-full shadow-lg max-w-[90vw] truncate">
           {divSkipped.length} symbol{divSkipped.length > 1 ? 's' : ''} didn't refresh: {divSkipped.join(', ')}
@@ -1753,41 +1713,6 @@ export default function HoldingsPage({ currency }: Props) {
                       <button onClick={() => { setSettingsOpen(false); setManageMenuOpen(true) }} className="w-[70px] text-center text-white text-[10px] font-semibold rounded-full px-3 py-1 active:opacity-80" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
                         Manage
                       </button>
-                    </div>
-                  </div>
-                  <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-semibold text-[#0b3b3a]">Charts</span>
-                    <div className="flex flex-col items-center gap-0.5 shrink-0">
-                      <button
-                        onClick={() => {
-                          if (syncing) return
-                          if (histLastSynced && Date.now() - histLastSynced.getTime() < CHARTS_MANUAL_COOLDOWN_MS) {
-                            setChartsUpToDate(true)
-                            setTimeout(() => setChartsUpToDate(false), 3000)
-                            return
-                          }
-                          setSyncing(true)
-                          // The chart actually on screen refetches immediately; the per-symbol
-                          // caches (feeding symbolPriceMap/XIRR) follow, priority-ordered so the
-                          // symbols of the view you clicked Refresh from finish first.
-                          refetchPortSeries()
-                          const activeSymbols = new Set(filteredHoldings.map(h => h.yf_symbol))
-                          qc.refetchQueries({
-                            predicate: q => q.queryKey[0] === 'history' && activeSymbols.has(q.queryKey[1] as string),
-                            type: 'active',
-                          }).then(() => qc.refetchQueries({
-                            predicate: q => q.queryKey[0] === 'history' && !activeSymbols.has(q.queryKey[1] as string),
-                            type: 'active',
-                          }))
-                        }}
-                        className="w-[70px] text-center text-white text-[10px] font-semibold rounded-full px-3 py-1 active:opacity-80"
-                        style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
-                      >
-                        {syncing ? 'Syncing…' : 'Refresh'}
-                      </button>
-                      {histLastSynced && (
-                        <span className="text-[9px] text-slate-400 whitespace-nowrap leading-none">{fmtSyncTime(histLastSynced)}</span>
-                      )}
                     </div>
                   </div>
                   <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
@@ -2057,9 +1982,10 @@ export default function HoldingsPage({ currency }: Props) {
       {/* ── Charts tab ── */}
       {activeTab === 'charts' && (
         <div className="pt-1 pb-3">
-          {/* Progress bar — true cold load, a manual sync in flight, or (for the heavier
-              aggregate "Total" view) any background refresh including 30-min auto-ticks */}
-          {(histLoading || (syncing && histIsFetching) || (segment === 'total' && histIsFetching)) && (() => {
+          {/* Progress bar — genuine cold load only (not every symbol has data yet). Routine
+              background refreshes (2026-09-18 on: incremental, cheap) just use the light
+              "Refreshing…" spinner below instead, same as every other chart. */}
+          {histLoading && (() => {
             const isFirst = loadedCount < totalCount
             const rawDone = isFirst ? loadedCount : totalCount - histFetchingCount
             histMaxDoneRef.current = Math.max(histMaxDoneRef.current, rawDone)
@@ -2090,7 +2016,7 @@ export default function HoldingsPage({ currency }: Props) {
               Freshness label + refreshing indicator share one row instead of stacking two lines. */}
           <div className="flex items-center justify-between mb-1">
             <ChartFreshnessLabel freshness={chartFreshness} />
-            {!histLoading && !syncing && histIsFetching && (
+            {!histLoading && histIsFetching && (
               <span className="flex items-center gap-1 text-[9px] text-slate-400">
                 <span className="inline-block animate-spin leading-none">↻</span>
                 Refreshing…
@@ -2100,12 +2026,12 @@ export default function HoldingsPage({ currency }: Props) {
 
           {portSeries && !metricSeries && (
             <div className="text-center py-10 text-slate-400 text-xs">
-              No data for this period.
+              No price history available.
             </div>
           )}
 
           {!portSeries && chartLoading && (
-            <p className="text-center text-[11px] text-slate-400 py-6">Loading price history…</p>
+            <p className="text-center text-[11px] text-slate-400 py-6">Loading chart…</p>
           )}
 
           {!portSeries && !chartLoading && chartError && (
@@ -2514,13 +2440,21 @@ export default function HoldingsPage({ currency }: Props) {
 
           {analysisSubTab === 'returns' && (
             <div>
-              <ChartFreshnessLabel freshness={chartFreshness} />
+              <div className="flex items-center justify-between mb-1">
+                <ChartFreshnessLabel freshness={chartFreshness} />
+                {!histLoading && histIsFetching && (
+                  <span className="flex items-center gap-1 text-[9px] text-slate-400">
+                    <span className="inline-block animate-spin leading-none">↻</span>
+                    Refreshing…
+                  </span>
+                )}
+              </div>
               {!portSeries && chartLoading ? (
-                <p className="text-center text-[11px] text-slate-400 py-6">Loading price history…</p>
+                <p className="text-center text-[11px] text-slate-400 py-6">Loading chart…</p>
               ) : !portSeries && chartError ? (
                 <ChartErrorState onRetry={() => refetchPortSeries()} />
               ) : periodData.length === 0 ? (
-                <p className="text-center text-[11px] text-slate-400 py-6">No data for this selection.</p>
+                <p className="text-center text-[11px] text-slate-400 py-6">No price history available.</p>
               ) : (() => {
                 const livePctBase = displayStats.inv > 0 ? displayStats.inv : displayStats.realCost
                 const liveReturnPct = livePctBase > 0

@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import type { Currency } from '../App'
 import type { PortfolioSeries } from './usePortfolioHistory'
 import { idbGet, idbSet } from '../utils/idbStore'
-import { guardShrink, MIN_HEALTHY_POINTS, computeChartFreshness, type ChartFreshness } from '../utils/incrementalMerge'
+import { guardShrink, mergeDateAligned, MIN_HEALTHY_POINTS, computeChartFreshness, type ChartFreshness } from '../utils/incrementalMerge'
 
 interface RawResponse {
   dates:      string[]
@@ -17,6 +17,11 @@ interface RawResponse {
   dataAsOf:      number   // epoch seconds
   guardRejected: boolean
   todayMismatch: boolean
+  // 2026-09-18 incremental fetch: incremental=true means `dates`/etc. only cover new days past
+  // the `since` this request sent — merge onto the cached series instead of replacing it.
+  // fingerprint is always present (even on a full response) — cache it for the next request.
+  incremental?: boolean
+  fingerprint?: string
 }
 
 // Same localStorage key usePortfolio.ts reads for the main bundle fetch — this endpoint needs
@@ -44,7 +49,9 @@ async function fetchPortfolioHistory(
   label?:    string,
   includeDivs = false,
   includeFx   = false,
-): Promise<PortfolioSeries | null> {
+  since?:      string,
+  fingerprint?: string,
+): Promise<(PortfolioSeries & { incremental?: boolean }) | null> {
   const base = import.meta.env.VITE_API_URL ?? ''
   const params = new URLSearchParams({ currency })
   if (portfolio) params.set('portfolio', portfolio)
@@ -54,6 +61,12 @@ async function fetchPortfolioHistory(
   if (label)     params.set('label',     label)
   if (includeDivs) params.set('include_divs', 'true')
   if (includeFx)   params.set('include_fx',   'true')
+  // Only sent once we have a cached series with a fingerprint to offer — the backend falls
+  // back to a full computation whenever either is missing or the fingerprint no longer matches.
+  if (since && fingerprint) {
+    params.set('since', since)
+    params.set('fingerprint', fingerprint)
+  }
 
   const csvContent = getCsvContent()
   const res = await fetch(
@@ -83,6 +96,64 @@ async function fetchPortfolioHistory(
     dataAsOf:      raw.dataAsOf * 1000,  // backend sends epoch seconds
     guardRejected: raw.guardRejected,
     todayMismatch: raw.todayMismatch,
+    incremental:   raw.incremental,
+    fingerprint:   raw.fingerprint,
+  }
+}
+
+// ── Incremental merge (2026-09-18) ──────────────────────────────────────────────────────────
+// PortfolioSeries is 6 parallel {dates,values} pairs (one per metric) sharing the same date
+// axis, plus a 7th (xirrTrend) on its own monthly axis — unlike useHistory.ts's single-series
+// shape, so it can't feed mergeDateAligned directly. These two helpers flatten it to the one
+// shared-dates shape mergeDateAligned expects, reusing that same proven merge (its dict-keyed-
+// by-date-string approach already correctly replaces, not duplicates, an overlapping date — the
+// case that matters here is checking in twice in the same day, where "today" reappears in the
+// delta and must overwrite the earlier-today entry, not append a duplicate).
+interface FlatDailySeries {
+  dates:      string[]
+  values:     number[]
+  invested:   number[]
+  unrealized: number[]
+  realized:   number[]
+  total:      number[]
+  returnPct:  number[]
+}
+const DAILY_KEYS: (keyof FlatDailySeries)[] = ['values', 'invested', 'unrealized', 'realized', 'total', 'returnPct']
+
+function toFlatDaily(s: PortfolioSeries): FlatDailySeries {
+  return {
+    dates:      s.value.dates.map(d => d.toISOString().slice(0, 10)),
+    values:     s.value.values,
+    invested:   s.invested.values,
+    unrealized: s.unrealized.values,
+    realized:   s.realized.values,
+    total:      s.total.values,
+    returnPct:  s.returnPct.values,
+  }
+}
+
+function mergeIncrementalDelta(existing: PortfolioSeries, delta: PortfolioSeries): PortfolioSeries {
+  const mergedDaily = mergeDateAligned(toFlatDaily(existing), toFlatDaily(delta), DAILY_KEYS)
+  const mergedXirr  = mergeDateAligned(
+    { dates: existing.xirrTrend.dates.map(d => d.toISOString().slice(0, 10)), values: existing.xirrTrend.values },
+    { dates: delta.xirrTrend.dates.map(d => d.toISOString().slice(0, 10)), values: delta.xirrTrend.values },
+    ['values'],
+  )
+  const dates = mergedDaily.dates.map(d => new Date(d))
+  return {
+    value:      { dates, values: mergedDaily.values     },
+    invested:   { dates, values: mergedDaily.invested   },
+    unrealized: { dates, values: mergedDaily.unrealized },
+    realized:   { dates, values: mergedDaily.realized   },
+    total:      { dates, values: mergedDaily.total      },
+    returnPct:  { dates, values: mergedDaily.returnPct  },
+    xirrTrend:  { dates: mergedXirr.dates.map(d => new Date(d)), values: mergedXirr.values },
+    // Delta wins for scalar fields — same rule mergeDateAligned applies to its own array fields,
+    // so "as of" always reflects this fetch, not the original cached one.
+    dataAsOf:      delta.dataAsOf,
+    guardRejected: delta.guardRejected,
+    todayMismatch: delta.todayMismatch,
+    fingerprint:   delta.fingerprint,
   }
 }
 
@@ -113,20 +184,16 @@ function lsSet(key: string, data: PortfolioSeries) {
   idbSet(key, { d: data, t: Date.now() })
 }
 
-// Matches the backend's result-cache TTL (portfolio_history.py's _CACHE_TTL). Raised back to
-// 30 min (2026-07-04) — the underlying daily-close price data only actually updates every 30
-// min during market hours anyway (market_hours.py's is_stale gate), so polling faster than that
-// doesn't get fresher data, just extra round-trips. Accepted tradeoff: the chart's "today" point
-// can now visibly lag the Hero/Holding cards (which refresh every 2 min via the separate
-// live-price pipeline) by up to 30 min — a manual refresh is available for anyone who needs it
-// to match immediately.
-// Same elapsed-time-poll + visibilitychange pattern as usePortfolio.ts/useHistory.ts/
-// usePortfolioHistory.ts, not a flat refetchInterval — a flat interval is mount-relative
-// (fires N minutes after mount, not N minutes after the real last fetch), which lets the
-// actual gap drift up to ~2x the interval. Without this poll, staleTime alone never
-// triggers a refetch on its own — it only gates whether the *next* mount/refocus-driven
-// fetch is skipped, so the chart would otherwise never update while the page just sits open.
-export const PORTFOLIO_CHART_REFRESH_MS = 30 * 60 * 1000
+// Used as this chart's own staleTime (mount-time freshness check) and as the window for the
+// amber-warning threshold (2x this) in getChartFreshness below. The actual refresh trigger is
+// no longer an independent timer — it's the lockstep subscription to usePortfolio.ts's bundle
+// query further down, which now also refreshes every 5 min (2026-09-18 unification: Overview,
+// this chart, and the per-symbol price chart all follow the same 5-min cadence). Note: the
+// backend's own result-cache TTL (portfolio_history.py's _CACHE_TTL) is still 30 min, kept
+// deliberately unchanged — see that file's comment (past OOM incidents tied to this endpoint's
+// recompute cost) — so a 5-min check-in mostly lands on a warm backend cache rather than a real
+// recompute; only the frontend's own polling cadence changed here.
+export const PORTFOLIO_CHART_REFRESH_MS = 5 * 60 * 1000
 
 export type { ChartFreshness }
 
@@ -155,70 +222,59 @@ export function useBackendPortfolioHistory(
   const lsKey    = lsKeyFor(csvHash, currency, portfolio, segment, symbol, bucket, label, includeDivs, includeFx)
   const cached   = lsGet(lsKey)
 
+  // Sole refresh trigger: refetch the instant usePortfolio.ts's bundle query updates, so this
+  // chart and the Hero/Holding cards are always fresh at the same instant (avoids the
+  // todayMismatch class of bug a drifting independent timer produced). No separate own-schedule
+  // poll — usePortfolio.ts is mounted app-wide (App.tsx's AppRoutes), so its ~5-min cycle is
+  // always running and this subscription alone keeps the chart in lockstep with it.
   useEffect(() => {
     if (!enabled) return
-    const refetchIfStale = () => {
-      const state = qc.getQueryState(queryKey)
-      const lastFetch = state?.dataUpdatedAt ?? 0
-      if (Date.now() - lastFetch >= PORTFOLIO_CHART_REFRESH_MS) {
-        qc.refetchQueries({ queryKey, type: 'active' })
-      }
-    }
-    // Cold mount needs its own check — visibilitychange never fires on first load.
-    refetchIfStale()
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') refetchIfStale()
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-    // Backstop for a continuously-foregrounded session: poll real elapsed time every
-    // minute so the fetch always lands at the true 5-min mark, not just on tab-switch. Kept
-    // as a fallback (e.g. this chart's page open with no portfolio bundle query active) —
-    // the subscription below is the primary trigger now.
-    const pollId = window.setInterval(refetchIfStale, 60_000)
-
-    // Re-check (and, unlike the timer above, force it regardless of this chart's own 5-min
-    // staleTime) the instant usePortfolio.ts's bundle refreshes — that's what drives
-    // HoldingCard/SummaryCard's "today" numbers, on its own independent ~2-min cycle. Without
-    // this, the two were "fresh within their own TTL" but not fresh at the same instant, which
-    // is exactly what produced the todayMismatch class of bug this session. The backend's own
-    // 5-min result cache still avoids real recomputation more than once per TTL window — this
-    // just makes the frontend check in lockstep instead of on an independently-drifting timer.
     const unsubscribe = qc.getQueryCache().subscribe(event => {
       if (event.type !== 'updated') return
       if (event.query.queryKey[0] !== 'portfolio') return
       qc.refetchQueries({ queryKey, type: 'active' })
     })
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibility)
-      window.clearInterval(pollId)
-      unsubscribe()
-    }
+    return () => unsubscribe()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, currency, portfolio, segment, symbol, bucket, label, includeDivs, includeFx, csvHash, qc])
 
   return useQuery<PortfolioSeries | null>({
     queryKey,
     queryFn: async () => {
-      const fresh = await fetchPortfolioHistory(currency, portfolio, segment, symbol, bucket, label, includeDivs, includeFx)
-      if (!fresh) return fresh
-      // This endpoint doesn't support delta responses (unlike useHistory.ts) — every request
-      // is a full recompute, so there's no merge step here, only the same shrink-guard applied
-      // client-side: don't let a suspiciously-shorter fresh response silently overwrite good
-      // cached data (shares the guardShrink helper from incrementalMerge.ts with useHistory.ts).
-      const { rejected } = guardShrink(cached?.d ? { dates: cached.d.value.dates } : undefined, { dates: fresh.value.dates })
+      const cachedD = cached?.d
+      // Only offered once we have a cached series with a fingerprint from a prior response —
+      // fetchPortfolioHistory only sends `since` when both are present, so a first-ever fetch
+      // for this scope (or one from before this fingerprint mechanism existed) is unaffected
+      // and just gets today's normal full response.
+      const since = cachedD?.fingerprint && cachedD.value.dates.length
+        ? cachedD.value.dates[cachedD.value.dates.length - 1].toISOString().slice(0, 10)
+        : undefined
+      const raw = await fetchPortfolioHistory(
+        currency, portfolio, segment, symbol, bucket, label, includeDivs, includeFx, since, cachedD?.fingerprint,
+      )
+      if (!raw) return raw
+      // Merge BEFORE the shrink-guard below — an incremental response is deliberately short
+      // (only new dates), so comparing its raw length against the full cached history would
+      // always look like a shrink. Merge first, then guard the merged (never-shorter) result,
+      // same as the full-response path always did.
+      const fresh = raw.incremental && cachedD ? mergeIncrementalDelta(cachedD, raw) : raw
+
+      // Same shrink-guard the full-response path always had: don't let a suspiciously-shorter
+      // fresh response silently overwrite good cached data (shares guardShrink from
+      // incrementalMerge.ts with useHistory.ts).
+      const { rejected } = guardShrink(cachedD ? { dates: cachedD.value.dates } : undefined, { dates: fresh.value.dates })
       // guardShrink only catches a truncated DATE range — it misses a same-length recompute
       // whose latest VALUE is far lower (e.g. a concurrent Refresh burst evicting entries this
       // view's symbols need from the backend's shared price_store mid-computation). Mirrors the
       // backend's own _guard_result value check so a bad low-value recompute can't become the
       // new cached truth on either side and stick around after a reload.
-      const cachedLast = cached?.d?.value.values.at(-1)
+      const cachedLast = cachedD?.value.values.at(-1)
       const freshLast  = fresh.value.values.at(-1)
-      const valueDropped = (cached?.d?.value.dates.length ?? 0) >= MIN_HEALTHY_POINTS
+      const valueDropped = (cachedD?.value.dates.length ?? 0) >= MIN_HEALTHY_POINTS
         && cachedLast !== undefined && cachedLast > 0
         && freshLast !== undefined && freshLast < cachedLast * 0.5
-      if ((rejected || valueDropped) && cached?.d) {
-        return { ...cached.d, guardRejected: true }
+      if ((rejected || valueDropped) && cachedD) {
+        return { ...cachedD, guardRejected: true }
       }
       lsSet(lsKey, fresh)
       return fresh

@@ -53,13 +53,12 @@ def _evict_oldest_cache_entries() -> None:
         _cache.pop(key, None)
 
 
-# 30 min (2026-07-04, was 5 min — briefly 30 before that too). Raised back to match the
-# frontend's own market_hours.is_stale gate: the underlying daily-close price data only
-# actually updates every 30 min during market hours, so a shorter result-cache TTL was just
-# recomputing off the same unchanged price data more often than useful. Accepted tradeoff:
-# the chart's "today" point can now visibly lag HoldingCard/SummaryCard (which refresh every
-# 2 min via the separate live-price pipeline) by up to 30 min.
-_CACHE_TTL = 1800.0
+# 5 min (2026-09-18, was 30 min). Now that _compute_incremental() lets a warm client (the
+# common case) skip this cache/blob path entirely and always get an always-live "today" point
+# for roughly the cost of walking a handful of new days, this TTL only really governs the full
+# first-ever-request-for-this-scope case (a fresh csv_hash, or a device with no local cache) —
+# no longer the thing standing between "today" and matching the Hero/Holding cards.
+_CACHE_TTL = 300.0
 
 # Below this point count, a shrink comparison isn't meaningful — short real histories exist
 # (e.g. a portfolio that only started a few weeks ago).
@@ -159,6 +158,28 @@ def _safe_float(v, default: float = 0.0) -> float:
         return default if pd.isna(f) else f
     except Exception:
         return default
+
+
+def _fingerprint_txns_upto(df_txns: "pd.DataFrame", upto_date: str) -> str:
+    """Stable hash of every (already portfolio/segment/symbol/bucket/label-scoped) transaction
+    row dated <= upto_date. The client caches this alongside the series it already has; on the
+    next request it sends both `since` (upto_date) and this hash back. We only trust an
+    incremental (new-dates-only) response if recomputing this hash now still matches what the
+    client sent — a backdated add/edit/delete to any transaction at or before `since` changes
+    the hash and forces a full recompute instead of silently continuing a delta onto history
+    that's no longer accurate. Column selection intentionally matches every field that feeds
+    the value/invested/realized/xirr computation below (quantity, price, charges, tags — the
+    tags check is dividend/FX-toggle-affecting through avg_buy_fx_rate downstream)."""
+    if df_txns.empty:
+        return "empty"
+    dates = df_txns["date"].astype(str).str.slice(0, 10)
+    scoped = df_txns[dates <= upto_date]
+    if scoped.empty:
+        return "empty"
+    cols = [c for c in ("date", "type", "portfolio", "yf_symbol", "quantity", "price", "charges", "tags")
+            if c in scoped.columns]
+    key_str = scoped[cols].astype(str).sort_values(cols).to_csv(index=False)
+    return hashlib.md5(key_str.encode()).hexdigest()
 
 
 def _compute(
@@ -721,6 +742,503 @@ def _compute(
         "dataAsOf":      time.time(),
         "guardRejected": False,  # _guard_result flips this to True if it rejects this result
         "todayMismatch": today_mismatch,
+        "incremental":   False,
+        "fingerprint":   _fingerprint_txns_upto(df_txns, today_str),
+    }
+
+
+def _compute_incremental(
+    currency: str,
+    portfolio_filter: Optional[str],
+    segment: Optional[str],
+    symbol_filter: Optional[str],
+    csv_content: Optional[str],
+    bucket: Optional[str],
+    label: Optional[str],
+    include_divs: bool,
+    include_fx: bool,
+    since: str,
+    client_fingerprint: str,
+) -> Optional[dict]:
+    """New-dates-only version of _compute() (2026-09-18). Mirrors its setup exactly (same
+    filtering, same bundle) but only walks dates after `since` instead of the full history —
+    the caller (frontend) already has everything through `since` cached and merges this onto
+    it. Returns None (never a partial/wrong result) when `client_fingerprint` no longer matches
+    the transactions at-or-before `since`, telling the caller a backdated edit invalidated the
+    client's cached history and it must fall back to the full _compute() instead.
+
+    Per-key state (qty, running weighted-avg cost, last known price) is seeded as of `since`
+    via cheap lookups — qty/cost from that key's own (small) transaction list, price via a
+    sorted-index lookup — rather than replaying every trading day from inception, which is the
+    actual O(dates x symbols) cost this whole function exists to avoid paying on every request."""
+    import bisect
+
+    bundle = build(currency=currency, csv_content=csv_content)
+    usd_inr = bundle.usd_inr or 95.5
+
+    portfolio_filter_set = (
+        {p.strip() for p in portfolio_filter.split(",") if p.strip()} if portfolio_filter else None
+    )
+
+    def port_ok(port: str) -> bool:
+        if port in _SKIP_PORTS:
+            return False
+        if portfolio_filter_set and port not in portfolio_filter_set:
+            return False
+        return _segment_ok(port, segment)
+
+    df_txns     = bundle.transactions.copy()
+    df_holdings = bundle.holdings.copy()
+    df_realized = bundle.realized.copy()
+
+    if "portfolio" in df_txns.columns:
+        df_txns = df_txns[df_txns["portfolio"].apply(port_ok)]
+    if "portfolio" in df_holdings.columns:
+        df_holdings = df_holdings[df_holdings["portfolio"].apply(port_ok)]
+    if "portfolio" in df_realized.columns:
+        df_realized = df_realized[df_realized["portfolio"].apply(port_ok)]
+
+    if symbol_filter:
+        if "symbol" in df_txns.columns:
+            df_txns = df_txns[df_txns["symbol"] == symbol_filter]
+        if "symbol" in df_holdings.columns:
+            df_holdings = df_holdings[df_holdings["symbol"] == symbol_filter]
+        if "symbol" in df_realized.columns:
+            df_realized = df_realized[df_realized["symbol"] == symbol_filter]
+
+    if bucket and label:
+        if "tags" in df_txns.columns:
+            df_txns = df_txns[df_txns["tags"].apply(lambda t: _resolve_label(t, bucket) == label)]
+        if "tags" in df_holdings.columns:
+            df_holdings = df_holdings[df_holdings["tags"].apply(lambda t: _resolve_label(t, bucket) == label)]
+        if "tags" in df_realized.columns:
+            df_realized = df_realized[df_realized["tags"].apply(lambda t: _resolve_label(t, bucket) == label)]
+
+    # ── Fingerprint check — the one thing that makes trusting a delta safe ─────────────────
+    fingerprint = _fingerprint_txns_upto(df_txns, since)
+    if fingerprint != client_fingerprint:
+        return None
+
+    buy_sell = df_txns[df_txns["type"].isin(["BUY", "SELL"])] if "type" in df_txns.columns else pd.DataFrame()
+    if buy_sell.empty:
+        return None  # nothing to walk forward from — let the caller fall back to full _compute()
+
+    symbols = list(buy_sell["yf_symbol"].dropna().unique())
+    if not symbols:
+        return None
+
+    earliest = pd.to_datetime(buy_sell["date"]).min() - pd.Timedelta(days=30)
+    start_dt = earliest.strftime("%Y-%m-%d")
+
+    price_store.ensure_prices(symbols + [_FX_SYMBOL], start_dt)
+
+    price_rows: dict[str, dict[str, float]] = {}
+    for sym in symbols:
+        entry = price_store.get_entry(sym)
+        if not entry:
+            continue
+        for d, p in zip(entry["dates"], entry["prices"]):
+            price_rows.setdefault(d, {})[sym] = p
+
+    if not price_rows:
+        return None
+    df_close = pd.DataFrame.from_dict(price_rows, orient="index").sort_index()
+
+    all_dates = sorted(df_close.index.tolist())
+    # Nothing new since the client's cursor is a valid, common case (not an error) — we still
+    # fall through to re-pin "today" below rather than returning None (None specifically means
+    # "the client's cached history is invalid, fall back to a full recompute").
+    walk_dates = [d for d in all_dates if d > since]
+    n = len(walk_dates)
+    val_arr = [0.0] * n
+    inv_arr = [0.0] * n
+
+    fx_entry = price_store.get_entry(_FX_SYMBOL)
+
+    def _fx_rate_on(date_str: str) -> float:
+        if not fx_entry or not fx_entry.get("dates"):
+            return usd_inr
+        ds = fx_entry["dates"]
+        idx = bisect.bisect_right(ds, date_str) - 1
+        return fx_entry["prices"][idx] if idx >= 0 else usd_inr
+
+    fx_rate_arr = [usd_inr] * n
+    if fx_entry and fx_entry.get("dates") and walk_dates:
+        fx_dates = fx_entry["dates"]
+        fx_prices = fx_entry["prices"]
+        # Seed from the rate as of `since` (cheap bisect), then forward-fill only the new dates.
+        last_rate = _fx_rate_on(since)
+        fi = bisect.bisect_right(fx_dates, since)
+        for i, d in enumerate(walk_dates):
+            while fi < len(fx_dates) and fx_dates[fi] <= d:
+                last_rate = fx_prices[fi]
+                fi += 1
+            fx_rate_arr[i] = last_rate
+
+    qty_deltas: dict[str, list[tuple[str, float]]] = defaultdict(list)
+    first_tx_date: dict[str, str] = {}
+    buy_totals: dict[str, tuple[float, float]] = {}
+    cost_txns: dict[str, list[tuple[str, bool, float, float]]] = defaultdict(list)
+
+    for _, tx in buy_sell.iterrows():
+        key   = f"{tx['portfolio']}:{tx['yf_symbol']}"
+        d     = str(tx["date"])[:10]
+        qty_  = _safe_float(tx["quantity"])
+        is_buy = tx["type"] == "BUY"
+        delta = qty_ if is_buy else -qty_
+        arr  = qty_deltas[key]
+        merged = False
+        for i, (ed, ev) in enumerate(arr):
+            if ed == d:
+                arr[i] = (d, ev + delta)
+                merged = True
+                break
+        if not merged:
+            arr.append((d, delta))
+        if key not in first_tx_date or d < first_tx_date[key]:
+            first_tx_date[key] = d
+        if is_buy:
+            cost = qty_ * _safe_float(tx["price"]) + _safe_float(tx.get("charges", 0))
+            tq, tc = buy_totals.get(key, (0.0, 0.0))
+            buy_totals[key] = (tq + qty_, tc + cost)
+            cost_txns[key].append((d, True, qty_, cost))
+        else:
+            cost_txns[key].append((d, False, qty_, 0.0))
+
+    for k in cost_txns:
+        cost_txns[k].sort(key=lambda t: t[0])
+    for k in qty_deltas:
+        qty_deltas[k].sort()
+
+    holdings_by_key: dict[str, "pd.Series"] = {}
+    for _, h in df_holdings.iterrows():
+        holdings_by_key.setdefault(f"{h['portfolio']}:{h['yf_symbol']}", h)
+
+    for key in set(holdings_by_key) | set(qty_deltas):
+        port, yf_sym = key.split(":", 1)
+        is_usd = port in _USD_PORTS
+        has_col = not df_close.empty and yf_sym in df_close.columns
+        h = holdings_by_key.get(key)
+
+        if h is not None:
+            avg_cost = _safe_float(h.get("avg_cost"))
+            const_px = _safe_float(h.get("current_price")) if not has_col else None
+            avg_buy_fx = _safe_float(h.get("avg_buy_fx_rate"))
+            avg_buy_fx = avg_buy_fx if avg_buy_fx > 10 else None
+        else:
+            tq, tc = buy_totals.get(key, (0.0, 0.0))
+            avg_cost = tc / tq if tq > 0 else 0.0
+            const_px = 0.0 if not has_col else None
+            avg_buy_fx = None
+
+        deltas = qty_deltas.get(key, [])
+        txns   = cost_txns.get(key, [])
+
+        # ── Seed qty/cost state as of `since` — bounded by this key's own transaction count,
+        # not by number of trading days, so cheap regardless of how long the history is. ──
+        # A no-price-data symbol (has_col False — delisted/NAV-only, matches _compute()'s own
+        # has_col-conditional seeding) has no real per-date curve to reconstruct either way, so
+        # _compute() collapses straight to the ALL-TIME final qty/cost-basis for its entire
+        # range rather than a date-by-date replay — seeding only through `since` here would
+        # silently understate qty/cost for any such symbol with activity after `since`. Mirror
+        # that by seeding through every transaction (boundary None) instead of just to `since`.
+        seed_boundary = since if has_col else None
+        qty = 0.0
+        di = 0
+        while di < len(deltas) and (seed_boundary is None or deltas[di][0] <= seed_boundary):
+            qty = max(0.0, qty + deltas[di][1])
+            di += 1
+
+        cqty = ccost = 0.0
+        ci = 0
+        while ci < len(txns) and (seed_boundary is None or txns[ci][0] <= seed_boundary):
+            _, is_buy_, q_, cost_ = txns[ci]
+            if is_buy_:
+                cqty  += q_
+                ccost += cost_
+            else:
+                avg = ccost / cqty if cqty > 0 else 0.0
+                ccost -= avg * min(q_, cqty)
+                cqty = max(0.0, cqty - q_)
+            ci += 1
+
+        # Seed last known price as of `since` — a sorted-index slice, not a per-day scan.
+        last_px: Optional[float] = None
+        if has_col:
+            # df_close.index is sorted, so a partial (:since) slice is safe even when `since`
+            # itself isn't an exact index label — pandas includes every entry <= since.
+            prior = df_close.loc[:since, yf_sym].dropna()
+            if not prior.empty:
+                last_px = float(prior.iloc[-1])
+        else:
+            last_px = const_px
+
+        for i, d in enumerate(walk_dates):
+            while di < len(deltas) and deltas[di][0] <= d:
+                qty = max(0.0, qty + deltas[di][1])
+                di += 1
+            while ci < len(txns) and txns[ci][0] <= d:
+                d2_, is_buy_, q_, cost_ = txns[ci]
+                if is_buy_:
+                    cqty  += q_
+                    ccost += cost_
+                else:
+                    avg = ccost / cqty if cqty > 0 else 0.0
+                    ccost -= avg * min(q_, cqty)
+                    cqty = max(0.0, cqty - q_)
+                ci += 1
+
+            if has_col:
+                cell = df_close.at[d, yf_sym] if d in df_close.index else float("nan")
+                if not pd.isna(cell):
+                    last_px = float(cell)
+            else:
+                last_px = const_px
+
+            if last_px is None or qty <= 0:
+                continue
+
+            rate_t = fx_rate_arr[i]
+            val_fx = (rate_t if is_usd else 1.0) if currency == "INR" else (1.0 if is_usd else 1.0 / rate_t)
+            if is_usd and currency == "INR":
+                inv_fx = avg_buy_fx if (include_fx and avg_buy_fx is not None) else rate_t
+            else:
+                inv_fx = val_fx
+            date_avg_cost = (ccost / cqty) if cqty > 0 else avg_cost
+
+            val_arr[i] += last_px * qty * val_fx
+            inv_arr[i] += date_avg_cost * qty * inv_fx
+
+    # ── Today pin — always freshly recomputed, exactly as _compute() does ──────────────────
+    today_str = pd.Timestamp.now().strftime("%Y-%m-%d")
+    today_val = float(df_holdings["disp_current"].sum()) if "disp_current" in df_holdings.columns else 0.0
+    today_inv = 0.0
+    for _, hh in df_holdings.iterrows():
+        is_usd_h = str(hh.get("portfolio", "")) in _USD_PORTS
+        cost_h   = _safe_float(hh.get("avg_cost"))
+        qty_h    = _safe_float(hh.get("quantity"))
+        if is_usd_h and currency == "INR":
+            buy_fx_h = _safe_float(hh.get("avg_buy_fx_rate"))
+            rate = (buy_fx_h if buy_fx_h > 10 else usd_inr) if include_fx else usd_inr
+        else:
+            rate = 1.0
+        today_inv += cost_h * qty_h * rate
+
+    pinned_today = bool(walk_dates and walk_dates[-1] == today_str)
+    computed_today_val = val_arr[-1] if pinned_today else None
+    computed_today_inv = inv_arr[-1] if pinned_today else None
+
+    if pinned_today:
+        val_arr[-1] = today_val
+        inv_arr[-1] = today_inv
+    else:
+        walk_dates.append(today_str)
+        val_arr.append(today_val)
+        inv_arr.append(today_inv)
+
+    def _mismatch(computed: Optional[float], live: float) -> bool:
+        if computed is None or live <= 0:
+            return False
+        diff = abs(computed - live)
+        return diff > 10_000 and diff / live > 0.02
+
+    today_mismatch = _mismatch(computed_today_val, today_val) or _mismatch(computed_today_inv, today_inv)
+
+    dates_s    = walk_dates
+    values     = val_arr
+    invested   = inv_arr
+    unrealized = [v - inv for v, inv in zip(values, invested)]
+
+    # ── Realized series — cumulative, seeded as of `since` then continued ─────────────────
+    real_evts: list[tuple[str, float, float]] = []
+    for _, r in df_realized.iterrows():
+        is_usd   = str(r.get("currency", "INR")) == "USD"
+        sell_d   = str(r.get("sell_date", ""))[:10]
+        r_type   = str(r.get("type", ""))
+        qty      = _safe_float(r.get("quantity"))
+        buy_px   = _safe_float(r.get("buy_price"))
+        sell_px  = _safe_float(r.get("sell_price"))
+        buy_fx   = _safe_float(r.get("buy_fx_rate"))
+        sell_fx  = _safe_float(r.get("sell_fx_rate"))
+        if currency == "INR" and is_usd and r_type == "SELL" and sell_fx > 10:
+            if include_fx and buy_fx > 10:
+                pnl  = sell_px * qty * sell_fx - buy_px * qty * buy_fx
+                cost = buy_px * qty * buy_fx
+            else:
+                pnl  = (sell_px - buy_px) * qty * sell_fx
+                cost = buy_px * qty * sell_fx
+        else:
+            fx   = (usd_inr if is_usd else 1.0) if currency == "INR" else (1.0 if is_usd else 1.0 / usd_inr)
+            pnl  = _safe_float(r.get("realized_pnl")) * fx
+            cost = qty * buy_px * fx if r_type == "SELL" else 0.0
+        real_evts.append((sell_d, pnl, cost))
+    real_evts.sort(key=lambda x: x[0])
+
+    cum_r = cum_c = 0.0
+    ri = 0
+    while ri < len(real_evts) and real_evts[ri][0] <= since:
+        cum_r += real_evts[ri][1]
+        cum_c += real_evts[ri][2]
+        ri += 1
+
+    realized_arr  = [0.0] * len(dates_s)
+    real_cost_arr = [0.0] * len(dates_s)
+    for i, d in enumerate(dates_s):
+        while ri < len(real_evts) and real_evts[ri][0] <= d:
+            cum_r += real_evts[ri][1]
+            cum_c += real_evts[ri][2]
+            ri += 1
+        realized_arr[i]  = cum_r
+        real_cost_arr[i] = cum_c
+
+    # ── Dividend series — same cumulative-seed pattern, only when include_divs ────────────
+    div_arr = [0.0] * len(dates_s)
+    if include_divs:
+        def _qty_at(key: str, target: str) -> float:
+            q = 0.0
+            for ed, dv in qty_deltas.get(key, []):
+                if ed > target:
+                    break
+                q = max(0.0, q + dv)
+            return q
+
+        div_evts: list[tuple[str, float]] = []
+        try:
+            from backend.routers.dividends import _fetch_symbol_divs
+            div_cache: dict[str, "pd.Series"] = {}
+            for key in set(holdings_by_key) | set(qty_deltas):
+                port, yf_sym = key.split(":", 1)
+                if yf_sym not in div_cache:
+                    try:
+                        div_cache[yf_sym] = _fetch_symbol_divs(yf_sym)
+                    except Exception:
+                        div_cache[yf_sym] = None
+                series = div_cache[yf_sym]
+                if series is None or series.empty:
+                    continue
+                is_usd = port in _USD_PORTS
+                for d, per_share in series.items():
+                    ex_date = pd.Timestamp(d).strftime("%Y-%m-%d")
+                    rate = _fx_rate_on(ex_date) if include_fx else usd_inr
+                    fx = (rate if is_usd else 1.0) if currency == "INR" else (1.0 if is_usd else 1.0 / rate)
+                    qty_h = _qty_at(key, ex_date)
+                    if qty_h > 0:
+                        div_evts.append((ex_date, qty_h * float(per_share) * fx))
+        except Exception as ex:
+            print(f"[portfolio_history] dividend series (incremental) skipped: {ex}")
+            div_evts = []
+
+        div_evts.sort(key=lambda x: x[0])
+        cum_d = 0.0
+        di2 = 0
+        while di2 < len(div_evts) and div_evts[di2][0] <= since:
+            cum_d += div_evts[di2][1]
+            di2 += 1
+        for i, d in enumerate(dates_s):
+            while di2 < len(div_evts) and div_evts[di2][0] <= d:
+                cum_d += div_evts[di2][1]
+                di2 += 1
+            div_arr[i] = cum_d
+
+    total_arr = [u + r + dv for u, r, dv in zip(unrealized, realized_arr, div_arr)]
+    return_pct = [
+        total_arr[i] / invested[i] * 100 if invested[i] > 0
+        else (total_arr[i] / real_cost_arr[i] * 100 if real_cost_arr[i] > 0 else 0.0)
+        for i in range(len(dates_s))
+    ]
+
+    # ── XIRR trend — only months after `since` (plus the always-live current month) ───────
+    xirr_dates: list[str] = []
+    xirr_vals:  list[float] = []
+    try:
+        from src.xirr import xirr as _xf  # type: ignore[import]
+        if not df_txns.empty:
+            rows_sorted = df_txns.sort_values("date").to_dict("records")
+            run_cfs: list[tuple[pd.Timestamp, float]] = []
+            ti = 0
+            now_ts = pd.Timestamp.now().replace(tzinfo=None)
+            t0_str = str(rows_sorted[0]["date"])[:10]
+            y, mo  = pd.Timestamp(t0_str).year, pd.Timestamp(t0_str).month
+
+            while True:
+                last_day = calendar.monthrange(y, mo)[1]
+                me_full  = pd.Timestamp(y, mo, last_day)
+                is_now   = me_full > now_ts
+                me       = now_ts if is_now else me_full
+                me_str   = me.strftime("%Y-%m-%d")
+
+                while ti < len(rows_sorted):
+                    tx   = rows_sorted[ti]
+                    tx_d = str(tx.get("date", ""))[:10]
+                    if tx_d > me_str:
+                        break
+                    ti += 1
+                    tx_type = str(tx.get("type", ""))
+                    if tx_type == "DIVIDEND" and not include_divs:
+                        continue
+                    if tx_type not in ("BUY", "SELL", "DIVIDEND"):
+                        continue
+                    is_usd = str(tx.get("portfolio", "")) in _USD_PORTS
+                    real_rate = None
+                    if include_fx and is_usd:
+                        if tx_type == "BUY":
+                            r = _safe_float(tx.get("buy_fx_rate"))
+                            real_rate = r if r > 10 else None
+                        elif tx_type == "SELL":
+                            r = _safe_float(tx.get("sell_fx_rate"))
+                            real_rate = r if r > 10 else None
+                        elif tx_type == "DIVIDEND":
+                            real_rate = _fx_rate_on(tx_d)
+                    fx = real_rate if real_rate is not None else (
+                        (usd_inr if is_usd else 1.0) if currency == "INR" else (1.0 if is_usd else 1.0 / usd_inr))
+                    amt    = _safe_float(tx.get("quantity")) * _safe_float(tx.get("price")) * fx
+                    c_amt  = _safe_float(tx.get("charges")) * fx
+                    ts     = pd.Timestamp(tx_d)
+                    if tx_type == "BUY":
+                        run_cfs.append((ts, -(amt + c_amt)))
+                    elif tx_type == "SELL":
+                        run_cfs.append((ts, amt - c_amt))
+                    elif tx_type == "DIVIDEND":
+                        run_cfs.append((ts, amt))
+
+                # Skip emitting (but still build run_cfs above — needed by later months
+                # regardless) for any month fully covered by the client's cached `since`.
+                if me_str > since or is_now:
+                    v_idx = len(dates_s) - 1
+                    while v_idx >= 0 and dates_s[v_idx] > me_str:
+                        v_idx -= 1
+                    if v_idx >= 0 and values[v_idx] > 0 and run_cfs:
+                        try:
+                            rv = _xf(run_cfs + [(me, values[v_idx])])
+                            if rv is not None and -0.99 < rv < 50:
+                                xirr_dates.append(me_str)
+                                xirr_vals.append(rv * 100)
+                        except Exception:
+                            pass
+
+                if is_now:
+                    break
+                mo += 1
+                if mo > 12:
+                    mo = 1
+                    y += 1
+    except Exception as ex:
+        print(f"[portfolio_history] xirr trend (incremental) skipped: {ex}")
+
+    return {
+        "dates":      dates_s,
+        "values":     values,
+        "invested":   invested,
+        "unrealized": unrealized,
+        "realized":   realized_arr,
+        "total":      total_arr,
+        "returnPct":  return_pct,
+        "xirrTrend":  {"dates": xirr_dates, "values": xirr_vals},
+        "dataAsOf":      time.time(),
+        "guardRejected": False,
+        "todayMismatch": today_mismatch,
+        "incremental":   True,
+        "fingerprint":   _fingerprint_txns_upto(df_txns, today_str),
     }
 
 
@@ -734,6 +1252,8 @@ def _portfolio_history_response(
     label: Optional[str] = None,
     include_divs: bool = False,
     include_fx: bool = False,
+    since: Optional[str] = None,
+    client_fingerprint: Optional[str] = None,
 ) -> dict:
     # Every cache key is prefixed with a hash of the caller's own CSV content ("demo" when
     # there is none) — two different real users filtering to a same-named portfolio (e.g.
@@ -742,6 +1262,19 @@ def _portfolio_history_response(
     csv_hash = hashlib.md5(csv_content.encode()).hexdigest() if csv_content else "demo"
     cache_key = (f"{csv_hash}:{currency}:{portfolio or ''}:{segment or ''}:{symbol or ''}:"
                  f"{bucket or ''}:{label or ''}:{int(include_divs)}:{int(include_fx)}")
+
+    # Incremental path (2026-09-18): the caller already has everything through `since` and
+    # sends back the fingerprint it was given for that cached history. Bypasses the blob
+    # _cache entirely — it's cheap enough (only new days) to always compute fresh, which is
+    # also what lets "today" stay always-live instead of pinned to a stale cached blob. A None
+    # return means the fingerprint no longer matches (a backdated edit invalidated the
+    # client's cache) — fall through to a full recompute below, same as a first-ever request.
+    if since and client_fingerprint:
+        delta = _compute_incremental(currency, portfolio, segment, symbol, csv_content, bucket, label,
+                                      include_divs, include_fx, since, client_fingerprint)
+        if delta is not None:
+            return delta
+
     prev_entry = _cache.get(cache_key)
     if prev_entry:
         result, ts = prev_entry
@@ -765,10 +1298,13 @@ def get_portfolio_history(
     label:     Optional[str] = Query(None, description="Label within bucket (e.g. 'Stocks')"),
     include_divs: bool = Query(False, description="Fold dividend cash into total/returnPct/xirrTrend"),
     include_fx:   bool = Query(False, description="Fold USD/INR FX gain into total/returnPct/xirrTrend"),
+    since:      Optional[str] = Query(None, description="Last date the caller already has cached — enables incremental (new-dates-only) computation"),
+    fingerprint: Optional[str] = Query(None, description="Fingerprint the caller was given for its cached history through `since` — must still match or a full recompute is returned instead"),
 ) -> dict:
     """No-CSV path — always computes from the server's demo file, same as before."""
     return _portfolio_history_response(currency, portfolio, segment, symbol, csv_content=None, bucket=bucket, label=label,
-                                        include_divs=include_divs, include_fx=include_fx)
+                                        include_divs=include_divs, include_fx=include_fx,
+                                        since=since, client_fingerprint=fingerprint)
 
 
 @router.post("/api/portfolio-history")
@@ -782,6 +1318,8 @@ async def post_portfolio_history(
     label:     Optional[str] = Query(None, description="Label within bucket (e.g. 'Stocks')"),
     include_divs: bool = Query(False, description="Fold dividend cash into total/returnPct/xirrTrend"),
     include_fx:   bool = Query(False, description="Fold USD/INR FX gain into total/returnPct/xirrTrend"),
+    since:      Optional[str] = Query(None, description="Last date the caller already has cached — enables incremental (new-dates-only) computation"),
+    fingerprint: Optional[str] = Query(None, description="Fingerprint the caller was given for its cached history through `since` — must still match or a full recompute is returned instead"),
 ) -> dict:
     """Real-portfolio path — body is the caller's raw CSV text, same convention as
     backend/routers/portfolio.py's POST. Without this, the chart was always computed from the
@@ -789,4 +1327,5 @@ async def post_portfolio_history(
     body = await request.body()
     csv_content = body.decode("utf-8", errors="replace") if body else None
     return _portfolio_history_response(currency, portfolio, segment, symbol, csv_content, bucket=bucket, label=label,
-                                        include_divs=include_divs, include_fx=include_fx)
+                                        include_divs=include_divs, include_fx=include_fx,
+                                        since=since, client_fingerprint=fingerprint)

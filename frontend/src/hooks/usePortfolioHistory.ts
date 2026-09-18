@@ -6,12 +6,10 @@ import { lsGet, lsGetStale, lsSet, lsGetTimestamp, mergeHistory, detectDrift, gu
 // Separate 3-year key — isolates symbolPriceMap cache from the full-history chart cache in useHistory.ts.
 const lsKey = (sym: string) => `${sym}:3y`
 
-// This feeds symbolPriceMap for XIRR/benchmarking, not a live-quote view — the backend's own
-// daily-close data only actually updates every 30 min during market hours (market_hours.py's
-// is_stale gate), so polling more often than that just re-asks for data that hasn't changed.
-// Deliberately its own constant, separate from useHistory.ts's REFRESH_MS (2 min), which still
-// governs PriceChart.tsx's own fetch — that one stays fast since it's the live-quote-like view.
-const OPEN_REFRESH_MS = 30 * 60 * 1000
+// This feeds symbolPriceMap for XIRR/benchmarking, not a live-quote view. Same 5-min cadence
+// as everything else now (2026-09-18 unification) — used as this hook's staleTime and as the
+// window the lockstep trigger below checks each symbol's own dataUpdatedAt against.
+const OPEN_REFRESH_MS = 5 * 60 * 1000
 
 async function fetchSymHistory(sym: string, start: string) {
   const existing = lsGet(lsKey(sym))
@@ -46,6 +44,13 @@ export interface PortfolioSeries {
   dataAsOf:      number
   guardRejected: boolean  // backend's shrink-guard rejected an update and kept prior data
   todayMismatch: boolean  // the historical build-up disagreed with the live total for "today"
+  // Fingerprint of the transactions this series was computed from, through its last date —
+  // cached alongside the series and sent back on the next request (useBackendPortfolioHistory.ts)
+  // so the backend can verify nothing at-or-before that date changed before trusting a
+  // new-dates-only (incremental) computation instead of a full recompute. Undefined for a
+  // response that didn't include one (e.g. this hook's own per-symbol usage, a different
+  // endpoint that has no such concept).
+  fingerprint?: string
 }
 
 const RANGE_DAYS: Record<string, number> = {
@@ -128,6 +133,12 @@ export function usePortfolioHistory(
     () => symbols.filter(s => !closedSet.has(s)).slice().sort().join(','),
     [symbols, closedSet],
   )
+  // Sole refresh trigger: refetch stale open-symbol queries the instant usePortfolio.ts's
+  // bundle query updates, in lockstep with it (2026-09-18) instead of an independent poll —
+  // that query is mounted app-wide (App.tsx's AppRoutes) so its ~5-min cycle is always
+  // running. refetchOnMount is off (see queries config above), so a cold reopen still needs
+  // its own check here — the subscription's initial "already have data" state doesn't cover
+  // that, so this fires once immediately too, same as before.
   useEffect(() => {
     if (!enabled || !openSymbolsKey) return
     const openSymbols = openSymbolsKey.split(',')
@@ -140,23 +151,13 @@ export function usePortfolioHistory(
         }
       }
     }
-    // `visibilitychange` never fires on a fresh page load (the document is already
-    // "visible" at mount) — it only catches background→foreground transitions on an
-    // already-open app. A cold reopen needs its own elapsed-time check at mount, or a
-    // cache older than OPEN_REFRESH_MS would sit there indefinitely with refetchOnMount off.
     refetchStaleSymbols()
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') refetchStaleSymbols()
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-    // Backstop for a continuously-foregrounded session (no visibilitychange transition ever
-    // fires): poll the real elapsed time every minute rather than relying on a single timer
-    // fired N minutes after mount, so the fetch always lands at the true OPEN_REFRESH_MS mark.
-    const pollId = window.setInterval(refetchStaleSymbols, 60_000)
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibility)
-      window.clearInterval(pollId)
-    }
+    const unsubscribe = qc.getQueryCache().subscribe(event => {
+      if (event.type !== 'updated') return
+      if (event.query.queryKey[0] !== 'portfolio') return
+      refetchStaleSymbols()
+    })
+    return () => unsubscribe()
   }, [enabled, openSymbolsKey, qc])
 
   const loadedCount   = queries.filter(q => q.status === 'success' || q.status === 'error').length

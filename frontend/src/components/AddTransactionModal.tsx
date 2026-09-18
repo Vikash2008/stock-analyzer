@@ -86,10 +86,11 @@ export function AddTransactionModal({
     }
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const existingHolding = data.holdings.find(h => h.yf_symbol === selYfSymbol)
+
   useEffect(() => {
     if (!selYfSymbol || lockSymbol) return
-    const existing = data.holdings.find(h => h.yf_symbol === selYfSymbol)
-    if (existing?.current_price) { setPrice(String(existing.current_price)); return }
+    if (existingHolding?.current_price) { setPrice(String(existingHolding.current_price)); return }
     setPriceLoading(true)
     fetch(`${BASE}/quickstats?yf_symbol=${encodeURIComponent(selYfSymbol)}`)
       .then(r => r.json())
@@ -298,8 +299,8 @@ export function AddTransactionModal({
             </div>
           )}
 
-          {/* Buckets — optional Label per existing Bucket; blank = auto-detect/unassigned */}
-          {buckets.length > 0 && (
+          {/* Buckets — only for a symbol not already held anywhere; an existing holding's buckets are already set */}
+          {buckets.length > 0 && !existingHolding && (
             <div className="bg-teal-50/60 rounded-lg border border-teal-100 p-2 space-y-1.5">
               <p className="text-[10px] text-[#0b3b3a] font-semibold uppercase tracking-widest">Buckets</p>
               {buckets.map(b => (

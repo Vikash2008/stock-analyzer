@@ -67,9 +67,10 @@ const LS_PREFIX = 'hist:'
 const LS_TTL        = 7 * 24 * 60 * 60 * 1000  // 7 days — open/default holdings
 export const CLOSED_LS_TTL = 30 * 24 * 60 * 60 * 1000  // 30 days — fully-exited holdings
 
-// Same cadence as the portfolio price sync (usePortfolio.ts) — keep both auto-refresh
-// loops on one consistent mental model even though they remain separate triggers.
-export const REFRESH_MS = 2 * 60 * 1000
+// Same cadence as the portfolio price sync (usePortfolio.ts) — this chart no longer has its
+// own timer at all (2026-09-18), it refetches in lockstep with that query instead (see the
+// effect below), so this constant now only sets staleTime and the amber-warning window.
+export const REFRESH_MS = 5 * 60 * 1000
 
 function readLsEntry(key: string, ttlMs: number): { d: HistoryData; t: number } | undefined {
   const entry = idbGet<{ d: HistoryData; t: number }>(LS_PREFIX + key)
@@ -175,22 +176,21 @@ export function useHistory(yf_symbol: string | null, start: string | null, perio
   // open this stock" trigger) but don't keep auto-ticking every 30 min while viewed.
   const autoRefresh = !isClosed
 
-  // Mobile browsers suspend JS timers when screen locks or app backgrounds — same
-  // visibilitychange + elapsed-check pattern usePortfolio.ts uses for price sync.
+  // Sole refresh trigger: refetch the instant usePortfolio.ts's bundle query updates, in
+  // lockstep with it (2026-09-18) instead of an independent timer — that query is mounted
+  // app-wide (App.tsx's AppRoutes) so its ~5-min cycle is always running. Covers the
+  // visibility/background-suspend case too, since usePortfolio.ts's own visibilitychange
+  // handler is what triggers the bundle update this subscribes to.
   useEffect(() => {
     if (!autoRefresh || !yf_symbol) return
-    const handleVisibility = () => {
-      if (document.visibilityState !== 'visible') return
-      const state = qc.getQueryState(queryKey)
-      const lastFetch = state?.dataUpdatedAt ?? 0
-      if (Date.now() - lastFetch >= REFRESH_MS) {
-        qc.refetchQueries({ queryKey, type: 'active' })
-      }
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-    return () => document.removeEventListener('visibilitychange', handleVisibility)
+    const unsubscribe = qc.getQueryCache().subscribe(event => {
+      if (event.type !== 'updated') return
+      if (event.query.queryKey[0] !== 'portfolio') return
+      qc.refetchQueries({ queryKey, type: 'active' })
+    })
+    return () => unsubscribe()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRefresh, yf_symbol, period, start])
+  }, [autoRefresh, yf_symbol, period, start, qc])
 
   return useQuery({
     queryKey,
@@ -214,8 +214,6 @@ export function useHistory(yf_symbol: string | null, start: string | null, perio
     enabled:         !!yf_symbol && (!!start || !!period),
     staleTime:       autoRefresh ? REFRESH_MS : Infinity,
     gcTime:          Infinity,
-    refetchInterval:             autoRefresh ? REFRESH_MS : false,
-    refetchIntervalInBackground: false,
     retry:           3,
     retryDelay:      20_000,
     // Open symbols: seed with the real cache timestamp so React Query's own staleTime

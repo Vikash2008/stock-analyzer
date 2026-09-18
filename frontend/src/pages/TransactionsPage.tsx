@@ -30,10 +30,6 @@ import { computeXIRR } from '../utils/xirr'
 import { fmt, fmtGainLine, truncateName } from '../utils/fmt'
 import type { Currency } from '../App'
 
-// Same cooldown value/purpose as HoldingsPage.tsx's Settings→Charts→Refresh button — kept as
-// its own constant per page rather than a shared import, since the two buttons are otherwise
-// independent (different queries, different pages).
-const CHARTS_MANUAL_COOLDOWN_MS = 5 * 60 * 1000
 
 const METRICS = [
   'Price',
@@ -109,10 +105,7 @@ export default function TransactionsPage({ currency }: Props) {
   useEffect(() => { window.scrollTo(0, 0) }, [])
   const [chartMetric, setChartMetric] = useState<ChartMetric>('Price')
   const [chartRange,  setChartRange]  = useState<ChartRange>('1y')
-  const [syncing,       setSyncing]       = useState(false)
   const [reportSyncing, setReportSyncing] = useState(false)
-  const [syncedAt,      setSyncedAt]      = useState<Date | null>(null)
-  const [chartsUpToDate, setChartsUpToDate] = useState(false)
   const [reportSubTab,  setReportSubTab]  = useState<'deep' | 'quickstats' | 'links'>('quickstats')
   const [reportUseLite, setReportUseLite] = useState(false)
   const [reportUse31,   setReportUse31]   = useState(false)
@@ -368,27 +361,6 @@ export default function TransactionsPage({ currency }: Props) {
   )
   const chartFreshness = getChartFreshness(portSeries)
 
-  // Set syncedAt to the real fetch timestamp (not "now") so reopening the app with
-  // hours-old cached data shows its true age. Gated on idbFlush() — dataUpdatedAt flips the
-  // instant a fetch resolves, but the on-device write (useBackendPortfolioHistory's new
-  // IndexedDB persistence) is still in flight at that moment.
-  useEffect(() => {
-    if (histLoading || !portSeriesUpdatedAt) return
-    let cancelled = false
-    idbFlush().then(() => { if (!cancelled) setSyncedAt(new Date(portSeriesUpdatedAt)) })
-    return () => { cancelled = true }
-  }, [histLoading, portSeriesUpdatedAt])
-
-  // Stop the sync spinner once the real refetch (not a fake timer) has actually finished
-  // and landed on disk — previously this button used a setTimeout(1200ms) that could stop
-  // spinning before the network request even completed on a slow connection.
-  useEffect(() => {
-    if (!syncing || histIsFetching) return
-    let cancelled = false
-    idbFlush().then(() => { if (!cancelled) setSyncing(false) })
-    return () => { cancelled = true }
-  }, [syncing, histIsFetching])
-
   const metricSeries = useMemo((): DatedSeries | null => {
     if (!portSeries || chartMetric === 'Price') return null
     const key = METRIC_SERIES_KEY[chartMetric as Exclude<ChartMetric, 'Price'>]
@@ -479,11 +451,6 @@ export default function TransactionsPage({ currency }: Props) {
       className="max-w-xl mx-auto flex flex-col"
       style={{ height: 'calc(100dvh - var(--reauth-banner-h, 0px))', marginTop: 'var(--reauth-banner-h, 0px)' }}
     >
-      {chartsUpToDate && (
-        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[9999] bg-emerald-600 text-white font-bold text-[12px] px-4 py-2 rounded-full shadow-lg whitespace-nowrap">
-          Chart already up to date
-        </div>
-      )}
       <div className="shrink-0 px-1 bg-white relative z-20">
       {!deepFullScreen && (
       <>
@@ -531,31 +498,6 @@ export default function TransactionsPage({ currency }: Props) {
                       >
                         Add Txn
                       </button>
-                    </div>
-                    <div className="bg-teal-50/60 border border-teal-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2">
-                      <span className="text-[12px] font-bold text-[#0b3b3a]">Charts</span>
-                      <div className="flex flex-col items-center gap-0.5 shrink-0">
-                        <button
-                          onClick={() => {
-                            if (syncing) return
-                            if (syncedAt && Date.now() - syncedAt.getTime() < CHARTS_MANUAL_COOLDOWN_MS) {
-                              setChartsUpToDate(true)
-                              setTimeout(() => setChartsUpToDate(false), 3000)
-                              return
-                            }
-                            setSyncing(true)
-                            refetchPortSeries()
-                            qc.invalidateQueries({ queryKey: ['history', yf] })
-                          }}
-                          className="w-[70px] text-center text-white text-[10px] font-semibold rounded-full px-3 py-1 active:opacity-80"
-                          style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}
-                        >
-                          {syncing ? 'Syncing…' : 'Refresh'}
-                        </button>
-                        {syncedAt && (
-                          <span className="text-[9px] text-slate-400 whitespace-nowrap leading-none">{fmtSyncTime(syncedAt)}</span>
-                        )}
-                      </div>
                     </div>
                     <div className="bg-teal-50/60 border border-teal-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2">
                       <span className="text-[12px] font-bold text-[#0b3b3a] shrink-0">AI Model</span>
@@ -892,7 +834,7 @@ export default function TransactionsPage({ currency }: Props) {
             <>
               <div className="flex items-center justify-between mb-1">
                 <ChartFreshnessLabel freshness={chartFreshness} />
-                {!histLoading && !syncing && histIsFetching && (
+                {!histLoading && histIsFetching && (
                   <span className="flex items-center gap-1 text-[9px] text-slate-400">
                     <span className="inline-block animate-spin leading-none">↻</span>
                     Refreshing…
@@ -902,12 +844,12 @@ export default function TransactionsPage({ currency }: Props) {
 
               {portSeries && !metricSeries && (
                 <div className="text-center py-10 text-slate-400 text-xs">
-                  No data for this period.
+                  No price history available.
                 </div>
               )}
 
-              {(histLoading || (syncing && histIsFetching)) && (
-                <p className="text-center text-[11px] text-slate-400 py-6">Loading price history…</p>
+              {histLoading && (
+                <p className="text-center text-[11px] text-slate-400 py-6">Loading chart…</p>
               )}
               {!portSeries && !histLoading && histError && (
                 <ChartErrorState onRetry={() => refetchPortSeries()} />

@@ -9,7 +9,7 @@ export function ChartFreshnessLabel({ freshness }: { freshness: ChartFreshness |
   if (!freshness) return null
   return (
     <div className={`text-[9px] mb-1 ${freshness.warning ? 'text-amber-600 font-semibold' : 'text-slate-400'}`}>
-      {freshness.label}{freshness.detail ? ` · ${freshness.detail}` : ''}
+      {freshness.label}
     </div>
   )
 }

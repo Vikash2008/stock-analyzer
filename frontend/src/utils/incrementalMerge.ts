@@ -96,7 +96,7 @@ interface FreshnessEnvelope {
 export function computeChartFreshness(series: FreshnessEnvelope | null | undefined, refreshMs: number): ChartFreshness | null {
   if (!series) return null
   const d = new Date(series.dataAsOfMs)
-  const label = `As of ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  const label = `Updated as of ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
   if (series.guardRejected) return { label, warning: true, detail: "couldn't verify latest update" }
   if (series.todayMismatch) return { label, warning: true, detail: 'numbers may be off' }
   if (Date.now() - series.dataAsOfMs > 2 * refreshMs) {
