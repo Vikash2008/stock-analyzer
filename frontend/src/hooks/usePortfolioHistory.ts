@@ -1,7 +1,8 @@
 import { useQueries, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { Holding } from '../api/types'
 import { lsGet, lsGetStale, lsSet, lsGetTimestamp, mergeHistory, detectDrift, guardFullResponse, fetchHistory, CLOSED_LS_TTL } from './useHistory'
+import { logDebug } from '../utils/debugLog'
 
 // Separate 3-year key — isolates symbolPriceMap cache from the full-history chart cache in useHistory.ts.
 const lsKey = (sym: string) => `${sym}:3y`
@@ -12,20 +13,32 @@ const lsKey = (sym: string) => `${sym}:3y`
 const OPEN_REFRESH_MS = 5 * 60 * 1000
 
 async function fetchSymHistory(sym: string, start: string) {
+  const startedAt = Date.now()
   const existing = lsGet(lsKey(sym))
-  const since = existing?.dates?.[existing.dates.length - 1]
-  const fetched = await fetchHistory(sym, start, undefined, since)
-  if (!fetched.dates?.length) return { dates: [] as string[], prices: [] as number[] }
-  let d = fetched
-  if (fetched.partial_since && existing?.dates?.length) {
-    d = detectDrift(existing, fetched)
-      ? await fetchHistory(sym, start)  // basis shifted — discard cache, refetch clean
-      : mergeHistory(existing, fetched)
-  } else {
-    d = guardFullResponse(existing ?? lsGetStale(lsKey(sym)), fetched, sym)
+  const cacheState = existing?.dates?.length ? `warm(${existing.dates.length}pts)` : 'COLD(no cache)'
+  logDebug(`SYNC-BAR FETCH START ${sym} — ${cacheState}`)
+  try {
+    const since = existing?.dates?.[existing.dates.length - 1]
+    const fetched = await fetchHistory(sym, start, undefined, since)
+    if (!fetched.dates?.length) {
+      logDebug(`SYNC-BAR FETCH END ${sym} — ${Date.now() - startedAt}ms — empty response`)
+      return { dates: [] as string[], prices: [] as number[] }
+    }
+    let d = fetched
+    if (fetched.partial_since && existing?.dates?.length) {
+      d = detectDrift(existing, fetched)
+        ? await fetchHistory(sym, start)  // basis shifted — discard cache, refetch clean
+        : mergeHistory(existing, fetched)
+    } else {
+      d = guardFullResponse(existing ?? lsGetStale(lsKey(sym)), fetched, sym)
+    }
+    lsSet(lsKey(sym), d)
+    logDebug(`SYNC-BAR FETCH END ${sym} — ${Date.now() - startedAt}ms — ${d.dates?.length ?? 0} pts`)
+    return d
+  } catch (e) {
+    logDebug(`SYNC-BAR FETCH ERROR ${sym} — ${Date.now() - startedAt}ms — ${e instanceof Error ? e.message : e}`)
+    throw e
   }
-  lsSet(lsKey(sym), d)
-  return d
 }
 
 export interface DatedSeries { dates: Date[]; values: number[] }
@@ -88,6 +101,23 @@ export function usePortfolioHistory(
     return [...all.filter(s => prioritySet.has(s)), ...all.filter(s => !prioritySet.has(s))]
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [holdings, extraSymbols, prioritySymbols])
+
+  // One-shot summary per distinct symbol set — tells us, the instant this hook sees a symbol
+  // list (e.g. right after reopening the app), exactly which symbols are already cached vs which
+  // will force a real network fetch, before any fetch has actually started. Correlate this
+  // against the SYNC-BAR FETCH START/END lines to see whether it's always the same stragglers
+  // (real fetch-side slowness/eviction) or a different random few each time (a cache/write issue).
+  const loggedSymbolsKeyRef = useRef<string>('')
+  const symbolsKeyForLog = useMemo(() => symbols.slice().sort().join(','), [symbols])
+  useEffect(() => {
+    if (!enabled || !symbols.length || symbolsKeyForLog === loggedSymbolsKeyRef.current) return
+    loggedSymbolsKeyRef.current = symbolsKeyForLog
+    const missing = symbols.filter(sym => {
+      const isClosed = closedSet.has(sym)
+      return !lsGet(lsKey(sym), isClosed ? CLOSED_LS_TTL : undefined)
+    })
+    logDebug(`SYNC-BAR MOUNT — ${symbols.length} symbols total, ${symbols.length - missing.length} cached, ${missing.length} MISSING: ${missing.join(', ') || '(none)'}`)
+  }, [enabled, symbols, symbolsKeyForLog, closedSet])
 
   const queries = useQueries({
     queries: symbols.map(sym => {
@@ -179,6 +209,17 @@ export function usePortfolioHistory(
   // wedge the progress bar on screen forever; the chart just renders without that symbol.
   const hasAllData    = symbols.length > 0 && queries.every(q => q.data !== undefined || q.status === 'error')
   const isLoading     = enabled && symbols.length > 0 && !hasAllData
+
+  // Marks when the sync bar (histLoading in HoldingsPage.tsx) actually clears — pairs with the
+  // SYNC-BAR MOUNT line above so the two timestamps give real end-to-end wall-clock time from
+  // reopen to "done".
+  const wasLoadingRef = useRef(false)
+  useEffect(() => {
+    if (wasLoadingRef.current && !isLoading) {
+      logDebug(`SYNC-BAR CLEARED — all ${symbols.length} symbols resolved`)
+    }
+    wasLoadingRef.current = isLoading
+  }, [isLoading, symbols.length])
 
   // Built from whatever queries have data — allows showing cached series while refetching
   const symbolPriceMap = useMemo((): Map<string, Map<string, number>> => {

@@ -202,7 +202,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
   // Range bar still renders so the user can tap to another range instead of getting stuck.
   if (isLoading && !chartData.length) {
     return (
-      <div className="mt-2">
+      <div>
         <ChartLoadingState height={192} />
         {rangeBar}
       </div>
@@ -215,7 +215,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
     // message, which is exactly what made this class of bug hard to diagnose.
     const dailyError = range !== '1d' && (dailyIsError || history?.error)
     return (
-      <div className="mt-2">
+      <div>
         {dailyError
           ? <ChartErrorState onRetry={() => refetchDaily()} />
           : <ChartEmptyState />}
@@ -245,7 +245,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
     : null
 
   return (
-    <div className="mt-2">
+    <div>
       <div className="flex items-center justify-between mb-1">
         <ChartFreshnessLabel freshness={freshness} />
         {isBgFetch && (
@@ -255,6 +255,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
           </span>
         )}
       </div>
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3 mt-1">
       {lastPrice !== null && (
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-baseline gap-2">
@@ -348,6 +349,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
           />}
         </LineChart>
       </ResponsiveContainer>
+      </div>
 
       {/* Range selector */}
       {rangeBar}

@@ -195,21 +195,29 @@ export function useHistory(yf_symbol: string | null, start: string | null, perio
   return useQuery({
     queryKey,
     queryFn:   async () => {
-      // Intraday entries key off time-of-day strings, not calendar dates — only
-      // meaningful to hint `since` on the daily-history path.
-      const since = !period ? cached?.dates?.[cached.dates.length - 1] : undefined
-      const fetched = await fetchHistory(yf_symbol!, start, period, since)
-      let data = fetched
-      if (fetched.partial_since && cached?.dates?.length) {
-        data = detectDrift(cached, fetched)
-          ? await fetchHistory(yf_symbol!, start, period)  // basis shifted — discard cache, refetch clean
-          : mergeHistory(cached, fetched)
-      } else if (!period) {
-        data = guardFullResponse(cached ?? lsGetStale(lsKey), fetched, yf_symbol ?? '')
+      const startedAt = Date.now()
+      logDebug(`HOLDING FETCH START ${yf_symbol} (${period ?? 'daily'})`)
+      try {
+        // Intraday entries key off time-of-day strings, not calendar dates — only
+        // meaningful to hint `since` on the daily-history path.
+        const since = !period ? cached?.dates?.[cached.dates.length - 1] : undefined
+        const fetched = await fetchHistory(yf_symbol!, start, period, since)
+        let data = fetched
+        if (fetched.partial_since && cached?.dates?.length) {
+          data = detectDrift(cached, fetched)
+            ? await fetchHistory(yf_symbol!, start, period)  // basis shifted — discard cache, refetch clean
+            : mergeHistory(cached, fetched)
+        } else if (!period) {
+          data = guardFullResponse(cached ?? lsGetStale(lsKey), fetched, yf_symbol ?? '')
+        }
+        // persist to localStorage so next cold-start shows data immediately
+        if (data.dates?.length) lsSet(lsKey, data)
+        logDebug(`HOLDING FETCH END ${yf_symbol} (${period ?? 'daily'}) — ${Date.now() - startedAt}ms, ${data.dates?.length ?? 0} pts`)
+        return data
+      } catch (e) {
+        logDebug(`HOLDING FETCH ERROR ${yf_symbol} (${period ?? 'daily'}) — ${Date.now() - startedAt}ms — ${e instanceof Error ? e.message : e}`)
+        throw e
       }
-      // persist to localStorage so next cold-start shows data immediately
-      if (data.dates?.length) lsSet(lsKey, data)
-      return data
     },
     enabled:         !!yf_symbol && (!!start || !!period),
     staleTime:       autoRefresh ? REFRESH_MS : Infinity,

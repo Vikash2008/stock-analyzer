@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import type { Currency } from '../App'
 import type { PortfolioSeries } from './usePortfolioHistory'
 import { idbGet, idbSet } from '../utils/idbStore'
+import { logDebug } from '../utils/debugLog'
 import { guardShrink, mergeDateAligned, MIN_HEALTHY_POINTS, computeChartFreshness, type ChartFreshness } from '../utils/incrementalMerge'
 
 interface RawResponse {
@@ -238,46 +239,60 @@ export function useBackendPortfolioHistory(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, currency, portfolio, segment, symbol, bucket, label, includeDivs, includeFx, csvHash, qc])
 
+  const scopeLabel = `portfolio=${portfolio ?? 'ALL'}${symbol ? ` symbol=${symbol}` : ''}${bucket ? ` bucket=${bucket}` : ''}${label ? ` label=${label}` : ''}`
+
   return useQuery<PortfolioSeries | null>({
     queryKey,
     queryFn: async () => {
-      const cachedD = cached?.d
-      // Only offered once we have a cached series with a fingerprint from a prior response —
-      // fetchPortfolioHistory only sends `since` when both are present, so a first-ever fetch
-      // for this scope (or one from before this fingerprint mechanism existed) is unaffected
-      // and just gets today's normal full response.
-      const since = cachedD?.fingerprint && cachedD.value.dates.length
-        ? cachedD.value.dates[cachedD.value.dates.length - 1].toISOString().slice(0, 10)
-        : undefined
-      const raw = await fetchPortfolioHistory(
-        currency, portfolio, segment, symbol, bucket, label, includeDivs, includeFx, since, cachedD?.fingerprint,
-      )
-      if (!raw) return raw
-      // Merge BEFORE the shrink-guard below — an incremental response is deliberately short
-      // (only new dates), so comparing its raw length against the full cached history would
-      // always look like a shrink. Merge first, then guard the merged (never-shorter) result,
-      // same as the full-response path always did.
-      const fresh = raw.incremental && cachedD ? mergeIncrementalDelta(cachedD, raw) : raw
+      const startedAt = Date.now()
+      logDebug(`PORTFOLIO-CHART FETCH START ${scopeLabel}`)
+      try {
+        const cachedD = cached?.d
+        // Only offered once we have a cached series with a fingerprint from a prior response —
+        // fetchPortfolioHistory only sends `since` when both are present, so a first-ever fetch
+        // for this scope (or one from before this fingerprint mechanism existed) is unaffected
+        // and just gets today's normal full response.
+        const since = cachedD?.fingerprint && cachedD.value.dates.length
+          ? cachedD.value.dates[cachedD.value.dates.length - 1].toISOString().slice(0, 10)
+          : undefined
+        const raw = await fetchPortfolioHistory(
+          currency, portfolio, segment, symbol, bucket, label, includeDivs, includeFx, since, cachedD?.fingerprint,
+        )
+        if (!raw) {
+          logDebug(`PORTFOLIO-CHART FETCH END ${scopeLabel} — ${Date.now() - startedAt}ms — empty`)
+          return raw
+        }
+        // Merge BEFORE the shrink-guard below — an incremental response is deliberately short
+        // (only new dates), so comparing its raw length against the full cached history would
+        // always look like a shrink. Merge first, then guard the merged (never-shorter) result,
+        // same as the full-response path always did.
+        const fresh = raw.incremental && cachedD ? mergeIncrementalDelta(cachedD, raw) : raw
 
-      // Same shrink-guard the full-response path always had: don't let a suspiciously-shorter
-      // fresh response silently overwrite good cached data (shares guardShrink from
-      // incrementalMerge.ts with useHistory.ts).
-      const { rejected } = guardShrink(cachedD ? { dates: cachedD.value.dates } : undefined, { dates: fresh.value.dates })
-      // guardShrink only catches a truncated DATE range — it misses a same-length recompute
-      // whose latest VALUE is far lower (e.g. a concurrent Refresh burst evicting entries this
-      // view's symbols need from the backend's shared price_store mid-computation). Mirrors the
-      // backend's own _guard_result value check so a bad low-value recompute can't become the
-      // new cached truth on either side and stick around after a reload.
-      const cachedLast = cachedD?.value.values.at(-1)
-      const freshLast  = fresh.value.values.at(-1)
-      const valueDropped = (cachedD?.value.dates.length ?? 0) >= MIN_HEALTHY_POINTS
-        && cachedLast !== undefined && cachedLast > 0
-        && freshLast !== undefined && freshLast < cachedLast * 0.5
-      if ((rejected || valueDropped) && cachedD) {
-        return { ...cachedD, guardRejected: true }
+        // Same shrink-guard the full-response path always had: don't let a suspiciously-shorter
+        // fresh response silently overwrite good cached data (shares guardShrink from
+        // incrementalMerge.ts with useHistory.ts).
+        const { rejected } = guardShrink(cachedD ? { dates: cachedD.value.dates } : undefined, { dates: fresh.value.dates })
+        // guardShrink only catches a truncated DATE range — it misses a same-length recompute
+        // whose latest VALUE is far lower (e.g. a concurrent Refresh burst evicting entries this
+        // view's symbols need from the backend's shared price_store mid-computation). Mirrors the
+        // backend's own _guard_result value check so a bad low-value recompute can't become the
+        // new cached truth on either side and stick around after a reload.
+        const cachedLast = cachedD?.value.values.at(-1)
+        const freshLast  = fresh.value.values.at(-1)
+        const valueDropped = (cachedD?.value.dates.length ?? 0) >= MIN_HEALTHY_POINTS
+          && cachedLast !== undefined && cachedLast > 0
+          && freshLast !== undefined && freshLast < cachedLast * 0.5
+        if ((rejected || valueDropped) && cachedD) {
+          logDebug(`PORTFOLIO-CHART FETCH END ${scopeLabel} — ${Date.now() - startedAt}ms — REJECTED by guard, kept cache`)
+          return { ...cachedD, guardRejected: true }
+        }
+        lsSet(lsKey, fresh)
+        logDebug(`PORTFOLIO-CHART FETCH END ${scopeLabel} — ${Date.now() - startedAt}ms — ${fresh.value.dates.length} pts${raw.incremental ? ' (incremental)' : ''}`)
+        return fresh
+      } catch (e) {
+        logDebug(`PORTFOLIO-CHART FETCH ERROR ${scopeLabel} — ${Date.now() - startedAt}ms — ${e instanceof Error ? e.message : e}`)
+        throw e
       }
-      lsSet(lsKey, fresh)
-      return fresh
     },
     enabled,
     staleTime: PORTFOLIO_CHART_REFRESH_MS,

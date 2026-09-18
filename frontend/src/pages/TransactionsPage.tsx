@@ -857,7 +857,7 @@ export default function TransactionsPage({ currency }: Props) {
               {!portSeries && !histLoading && !histError && <ChartEmptyState />}
 
               {metricSeries && rechartsData.length > 0 && (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3 mt-1">
                   {/* Stat line + zoom */}
                   <div className="flex items-center justify-between mb-2">
                   <div className="flex items-baseline gap-2 min-w-0">
