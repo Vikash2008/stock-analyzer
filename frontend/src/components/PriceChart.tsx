@@ -177,6 +177,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
 
   const yFmt = (v: number) => {
     if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}K`
+    if (Math.abs(v) < 100) return v.toFixed(1)
     return v.toFixed(0)
   }
 
@@ -278,7 +279,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
         </div>
       )}
       <ResponsiveContainer width="100%" height={240}>
-        <LineChart data={chartData} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+        <LineChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis
             dataKey="date"
@@ -296,22 +297,27 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
               return `${MONTHS[moIdx]} '${yr.slice(2)}`  // 2y, 3y, 5y, All
             }}
             minTickGap={['1y','2y','3y','5y','All'].includes(range) ? 50 : 40}
+            tickLine={false}
+            axisLine={false}
           />
           <YAxis
             tick={{ fontSize: 10, fill: '#94a3b8' }}
             tickFormatter={yFmt}
-            width={42}
+            width={48}
+            tickLine={false}
+            axisLine={false}
             domain={['auto', 'auto']}
           />
           <Tooltip content={<CustomTooltip currency={currency} usdInr={usdInr} />} />
 
           {/* Price line — no dots */}
           <Line
+            type="monotone"
             dataKey="price"
             stroke="#3b82f6"
             strokeWidth={1.5}
             dot={false}
-            activeDot={{ r: 3 }}
+            activeDot={{ r: 3, strokeWidth: 0 }}
             name="Price"
           />
 

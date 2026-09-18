@@ -4,6 +4,7 @@ import { QueryClient, useIsRestoring } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
 import { usePortfolio, hasOwnCsv } from './hooks/usePortfolio'
+import { useAutoReconcileTags } from './hooks/useSetTags'
 import { useRefreshAllBenchmarks, getLastBenchmarkAutoRefreshDay, setLastBenchmarkAutoRefreshDay } from './hooks/useBenchmarkXirr'
 import PortfoliosPage   from './pages/PortfoliosPage'
 import HoldingsPage     from './pages/HoldingsPage'
@@ -177,6 +178,11 @@ function AppRoutes({ currency, onCurrencyChange }: { currency: Currency; onCurre
   const isRestoring = useIsRestoring()
   const { data, error, isError, refetch } = usePortfolio()
   const loggedRestore = useRef(false)
+
+  // One-time self-heal for holdings whose Bucket/Label tags never got copied across when the
+  // same symbol was added to a second/third portfolio (see AddTransactionModal.tsx + this
+  // hook's own comment) — silently fixes existing mistagged rows, no UI.
+  useAutoReconcileTags(data?.holdings, data?.csv_hash)
 
   // Dividends have no automatic refresh at all (see hooks/useDividends.ts) — manual only,
   // triggered from the Settings popover or the Dividends tab's own "Refresh"/"Fetch" button.

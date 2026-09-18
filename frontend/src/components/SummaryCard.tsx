@@ -1,7 +1,7 @@
 // Top-of-page summary card — shown on HoldingsPage.
 // Dark hero style — mirrors design-mockups/holdings-page.html .metric-card.hero.
 
-import { fmt, fmtCompactGainLine, fmtPct } from '../utils/fmt'
+import { fmt, fmtCompact, fmtCompactGainLine, fmtPct } from '../utils/fmt'
 import type { Currency } from '../App'
 
 interface SummaryCardProps {
@@ -34,7 +34,11 @@ export function SummaryCard({
   const totalPct  = pctBase !== 0 ? (totalGain / pctBase) * 100 : 0
   const gain      = totalGain >= 0
 
-  const realColor  = realGain >= 0 ? '#5eead4' : '#fca5a5'
+  // Zero reads as neutral (same white as Invested), not a false "gain" — arrow+green only for
+  // a genuinely positive/negative amount.
+  const realColor  = realGain === 0 ? 'rgba(255,255,255,0.9)' : realGain > 0 ? '#5eead4' : '#fca5a5'
+  const fxColor    = fxAmt === 0 ? 'rgba(255,255,255,0.9)' : fxAmt > 0 ? '#5eead4' : '#fca5a5'
+  const divColor   = divAmt === 0 ? 'rgba(255,255,255,0.9)' : divAmt > 0 ? '#5eead4' : '#fca5a5'
   const tgColor    = (todayGain ?? 0) >= 0 ? '#5eead4' : '#fca5a5'
   const totColor   = gain ? '#5eead4' : '#fca5a5'
   const xirrColor  = (xirr ?? 0) >= 0 ? '#5eead4' : '#fca5a5'
@@ -66,11 +70,11 @@ export function SummaryCard({
 
         <div className="grid gap-y-0.5 items-center mt-1" style={{ gridTemplateColumns: '1fr auto', color: 'rgba(255,255,255,0.55)' }}>
           <span className="text-[11px]">Invested <span className="font-semibold text-white">{fmt(invested, currency)}</span></span>
-          <span className="text-[11px]">Realized <span className="font-semibold" style={{ color: realColor }}>{fmtCompactGainLine(realGain, null, currency)}</span></span>
+          <span className="text-[11px]">Realized <span className="font-semibold" style={{ color: realColor }}>{realGain === 0 ? fmtCompact(0, currency) : fmtCompactGainLine(realGain, null, currency)}</span></span>
           {(fxGain !== undefined || dividends !== undefined) && (
             <>
-              <span className="text-[10.5px]">{fxGain !== undefined && <>FX gains <span className="font-semibold" style={{ color: '#5eead4' }}>{fmtCompactGainLine(fxAmt, null, currency)}</span></>}</span>
-              <span className="text-[10.5px]">{dividends !== undefined && <>Dividend <span className="font-semibold" style={{ color: '#5eead4' }}>{fmtCompactGainLine(divAmt, null, currency)}</span></>}</span>
+              <span className="text-[10.5px]">{fxGain !== undefined && <>FX gains <span className="font-semibold" style={{ color: fxColor }}>{fxAmt === 0 ? fmtCompact(0, currency) : fmtCompactGainLine(fxAmt, null, currency)}</span></>}</span>
+              <span className="text-[10.5px]">{dividends !== undefined && <>Dividend <span className="font-semibold" style={{ color: divColor }}>{divAmt === 0 ? fmtCompact(0, currency) : fmtCompactGainLine(divAmt, null, currency)}</span></>}</span>
             </>
           )}
         </div>

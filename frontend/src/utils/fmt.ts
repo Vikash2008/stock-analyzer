@@ -5,6 +5,7 @@ export function fmtINR(value: number): string {
   const sign = value < 0 ? '-' : ''
   if (abs >= 1e7) return `${sign}₹${(abs / 1e7).toFixed(2)} Cr`
   if (abs >= 1e5) return `${sign}₹${(abs / 1e5).toFixed(2)} L`
+  if (abs < 100) return `${sign}₹${abs.toFixed(1)}`
   return `${sign}₹${Math.round(abs).toLocaleString('en-IN')}`
 }
 
@@ -12,6 +13,7 @@ export function fmtUSD(value: number): string {
   const abs = Math.abs(value)
   const sign = value < 0 ? '-' : ''
   if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(2)}M`
+  if (abs < 100) return `${sign}$${abs.toFixed(1)}`
   return `${sign}$${Math.round(abs).toLocaleString('en-US')}`
 }
 
@@ -44,13 +46,15 @@ export function fmtCompact(value: number, currency: 'INR' | 'USD'): string {
   const abs = Math.abs(value)
   const sign = value < 0 ? '-' : ''
   if (currency === 'INR') {
-    if (abs >= 1e7) return `${sign}₹${(abs / 1e7).toFixed(1)}Cr`
+    if (abs >= 1e7) return `${sign}₹${(abs / 1e7).toFixed(2)}Cr`
     if (abs >= 1e5) return `${sign}₹${(abs / 1e5).toFixed(1)}L`
     if (abs >= 1e3) return `${sign}₹${(abs / 1e3).toFixed(1)}K`
+    if (abs < 100) return `${sign}₹${abs.toFixed(1)}`
     return `${sign}₹${Math.round(abs)}`
   }
   if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(1)}M`
   if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(1)}K`
+  if (abs < 100) return `${sign}$${abs.toFixed(1)}`
   return `${sign}$${Math.round(abs)}`
 }
 

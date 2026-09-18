@@ -1143,7 +1143,7 @@ export default function PortfoliosPage({ currency, onCurrencyChange }: Props) {
                   </div>
 
                   {/* Body */}
-                  <div className="overflow-y-auto flex flex-col gap-1.5 px-3.5 py-2.5" style={{ background: '#f8fafc' }}>
+                  <div className="overflow-y-auto flex flex-col gap-1" style={{ background: '#f8fafc', padding: '10px 8px' }}>
 
                     {/* ── Account (collapsible, default collapsed) ── */}
                     <button

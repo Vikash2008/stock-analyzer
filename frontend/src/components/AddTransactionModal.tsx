@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import type { PortfolioData } from '../api/types'
 import { useAddTransaction } from '../hooks/useAddTransaction'
 import { SKIP_PORTS } from '../utils/segments'
-import { getBuckets, getAllLabelsInBucket } from '../utils/buckets'
+import { getBuckets, getAllLabelsInBucket, parseTags } from '../utils/buckets'
 
 const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
 
@@ -134,7 +134,16 @@ export function AddTransactionModal({
     if (!quantity || qty <= 0) { setError('Enter a valid quantity.'); return }
     if (!price || prc <= 0) { setError('Enter a valid price.'); return }
     setError('')
-    const tags = Object.fromEntries(Object.entries(tagSelections).filter(([, v]) => v))
+    // Tags are per-portfolio-row, not global per symbol — `existingHolding` may belong to a
+    // DIFFERENT portfolio than the one this transaction is for. The Buckets UI above is hidden
+    // whenever any holding of this symbol exists anywhere (on the assumption it's "already
+    // classified"), so without this, a symbol added to a second/third portfolio silently got no
+    // tags at all on that portfolio's own row — Unassigned in every bucket/label view, even
+    // though another portfolio's row for the same symbol was correctly tagged. Copy those tags
+    // across explicitly instead of relying on the (false) "already set" assumption.
+    const tags = existingHolding?.tags
+      ? parseTags(existingHolding.tags)
+      : Object.fromEntries(Object.entries(tagSelections).filter(([, v]) => v))
     mutate(
       { date, symbol: selSymbol, exchange: selExchange, type: txnType,
         quantity: qty, price: prc, portfolios: [portfolio],

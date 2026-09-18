@@ -28,6 +28,7 @@ function fmtDate(d: string): string {
 function fmtUsd(v: number): string {
   if (v >= 1e6) return `$${(v / 1e6).toFixed(2)}M`
   if (v >= 1000) return `$${(v / 1000).toFixed(1)}K`
+  if (v < 100) return `$${v.toFixed(1)}`
   return `$${v.toFixed(0)}`
 }
 
@@ -37,6 +38,7 @@ function fmtInr(v: number): string {
   if (abs >= 1e7) return `${sign}₹${(abs / 1e7).toFixed(2)}Cr`
   if (abs >= 1e5) return `${sign}₹${(abs / 1e5).toFixed(1)}L`
   if (abs >= 1e3) return `${sign}₹${(abs / 1e3).toFixed(1)}K`
+  if (abs < 100) return `${sign}₹${abs.toFixed(1)}`
   return `${sign}₹${abs.toFixed(0)}`
 }
 
@@ -45,6 +47,7 @@ function fmtUsdGain(v: number): string {
   const sign = v < 0 ? '-' : '+'
   if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(2)}M`
   if (abs >= 1000) return `${sign}$${(abs / 1000).toFixed(1)}K`
+  if (abs < 100) return `${sign}$${abs.toFixed(1)}`
   return `${sign}$${abs.toFixed(0)}`
 }
 

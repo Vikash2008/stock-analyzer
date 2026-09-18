@@ -440,9 +440,10 @@ export default function TransactionsPage({ currency }: Props) {
   const yTickFmt = (v: number) => {
     if (isPct) return `${v.toFixed(0)}%`
     const abs = Math.abs(v)
-    if (abs >= 1e7) return `${(v / 1e7).toFixed(1)}Cr`
+    if (abs >= 1e7) return `${(v / 1e7).toFixed(2)}Cr`
     if (abs >= 1e5) return `${(v / 1e5).toFixed(1)}L`
     if (abs >= 1e3) return `${(v / 1e3).toFixed(0)}K`
+    if (abs < 100) return v.toFixed(1)
     return v.toFixed(0)
   }
 
@@ -475,20 +476,19 @@ export default function TransactionsPage({ currency }: Props) {
               onClick={() => setSettingsOpen(o => !o)}
               className={`w-[30px] h-[30px] flex items-center justify-center rounded-full transition-colors text-[#0b3b3a] ${settingsOpen ? 'bg-teal-50' : 'active:bg-teal-50'}`}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                <path fillRule="evenodd" d="M11.078 2.25c-.917 0-1.699.663-1.85 1.567L9.05 4.889c-.02.12-.115.26-.297.348a7.493 7.493 0 0 0-.986.57c-.166.115-.334.126-.45.083L6.3 5.508a1.875 1.875 0 0 0-2.282.819l-.922 1.597a1.875 1.875 0 0 0 .432 2.385l.84.692c.095.078.17.229.154.43a7.598 7.598 0 0 0 0 1.139c.015.2-.059.352-.153.43l-.841.692a1.875 1.875 0 0 0-.432 2.385l.922 1.597a1.875 1.875 0 0 0 2.282.818l1.019-.382c.115-.043.283-.031.45.082.312.214.641.405.985.57.182.088.277.228.297.35l.178 1.071c.151.904.933 1.567 1.85 1.567h1.844c.916 0 1.699-.663 1.85-1.567l.178-1.072c.02-.12.114-.26.297-.349.344-.165.673-.356.985-.57.167-.114.335-.125.45-.082l1.02.382a1.875 1.875 0 0 0 2.28-.819l.923-1.597a1.875 1.875 0 0 0-.432-2.385l-.84-.692c-.095-.078-.17-.229-.154-.43a7.614 7.614 0 0 0 0-1.139c-.016-.2.059-.352.153-.43l.84-.692c.708-.582.891-1.59.433-2.385l-.922-1.597a1.875 1.875 0 0 0-2.282-.818l-1.02.382c-.114.043-.282.031-.449-.083a7.49 7.49 0 0 0-.985-.57c-.183-.087-.277-.227-.297-.348l-.179-1.072a1.875 1.875 0 0 0-1.85-1.567h-1.843ZM12 15.75a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Z" clipRule="evenodd" />
               </svg>
             </button>
             {settingsOpen && (
               <>
                 <div className="fixed inset-0 z-[998]" onClick={() => setSettingsOpen(false)} />
                 <div className="absolute right-0 top-full mt-1.5 z-[999] w-[320px] max-w-[calc(100vw-24px)] rounded-2xl overflow-hidden shadow-xl">
-                  <div className="flex items-center justify-between px-4 py-[11px]" style={{ background: 'linear-gradient(135deg, #0b3b3a 0%, #0d9488 100%)' }}>
+                  <div className="flex items-center justify-between px-4 py-[11px]" style={{ background: 'linear-gradient(150deg, #10243f 0%, #0b3b3a 100%)' }}>
                     <p className="text-[13.5px] font-extrabold text-white tracking-[-0.2px]">Settings</p>
                     <button onClick={() => setSettingsOpen(false)} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[13px] leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>✕</button>
                   </div>
-                  <div className="flex flex-col gap-1.5" style={{ background: '#f8fafc', padding: '10px 14px' }}>
+                  <div className="flex flex-col gap-1" style={{ background: '#f8fafc', padding: '10px 8px' }}>
                     <div className="bg-teal-50/60 border border-teal-100 rounded-lg px-2.5 py-[7px] flex items-center justify-between gap-2">
                       <span className="text-[12px] font-bold text-[#0b3b3a]">Add Transaction</span>
                       <button
