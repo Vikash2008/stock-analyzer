@@ -278,7 +278,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
           </div>
         </div>
       )}
-      <ResponsiveContainer width="100%" height={240}>
+      <ResponsiveContainer width="100%" height={220}>
         <LineChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis
