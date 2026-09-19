@@ -13,6 +13,7 @@ import { useDividendForSymbol, getIncludeFxGains, getIncludeDividends } from '..
 import { sliceSeries } from '../hooks/usePortfolioHistory'
 import type { DatedSeries, PortfolioSeries } from '../hooks/usePortfolioHistory'
 import { useHistory } from '../hooks/useHistory'
+import { useStickyChartTooltip } from '../utils/chartTouchClamp'
 import { useBackendPortfolioHistory, getChartFreshness } from '../hooks/useBackendPortfolioHistory'
 import { ChartFreshnessLabel, ChartErrorState, ChartEmptyState, ChartLoadingState } from '../components/ChartStateBlock'
 import { idbFlush } from '../utils/idbStore'
@@ -96,6 +97,7 @@ interface Props { currency: Currency }
 export default function TransactionsPage({ currency }: Props) {
   const navigate  = useNavigate()
   const location  = useLocation()
+  const stickyMetricRef = useStickyChartTooltip<HTMLDivElement>()
   const { portfolio = '', symbol = '' } = useParams<{ portfolio: string; symbol: string }>()
   const { data, isLoading, error } = usePortfolio(currency)
   const qc = useQueryClient()
@@ -918,8 +920,8 @@ export default function TransactionsPage({ currency }: Props) {
                             : fmt(v, currency),
                           chartMetric,
                         ]}
-                        contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #334155', background: '#1e293b', color: '#e2e8f0' }}
-                        labelStyle={{ fontSize: 10, color: '#94a3b8' }}
+                        contentStyle={{ fontSize: 10, borderRadius: 6, border: 'none', background: '#1e293b', color: '#f8fafc', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.3)' }}
+                        labelStyle={{ fontSize: 10, color: '#94a3b8' }} itemStyle={{ color: '#f8fafc', fontWeight: 600 }}
                         position={{ y: 0 }}
                       />
                       {ZERO_LINE_METRICS.has(chartMetric) && (
@@ -977,13 +979,13 @@ export default function TransactionsPage({ currency }: Props) {
               </div>
             ) : metricSeries && rechartsData.length > 0 ? (
               <>
-                <div style={{ flex: 1, minHeight: 0 }}>
+                <div ref={stickyMetricRef} style={{ flex: 1, minHeight: 0 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={rechartsData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                       <XAxis dataKey="t" tick={{ fontSize: 10, fill: '#94a3b8' }} interval={Math.max(0, Math.floor(rechartsData.length / 8) - 1)} tickFormatter={(d: string) => { const ms = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const [yr, mo] = d.split('-'); return `${ms[parseInt(mo,10)-1]}'${yr.slice(2)}` }} tickLine={false} axisLine={false} />
                       <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={yTickFmt} width={52} tickLine={false} axisLine={false} domain={yDomain} />
-                      <Tooltip formatter={(v: number) => [isPct ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%` : fmt(v, currency), chartMetric]} contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #334155', background: '#1e293b', color: '#e2e8f0' }} labelStyle={{ fontSize: 10, color: '#94a3b8' }} position={{ y: 0 }} />
+                      <Tooltip formatter={(v: number) => [isPct ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%` : fmt(v, currency), chartMetric]} contentStyle={{ fontSize: 10, borderRadius: 6, border: 'none', background: '#1e293b', color: '#f8fafc', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.3)' }} labelStyle={{ fontSize: 10, color: '#94a3b8' }} itemStyle={{ color: '#f8fafc', fontWeight: 600 }} position={{ y: 0 }} />
                       {ZERO_LINE_METRICS.has(chartMetric) && <ReferenceLine y={0} stroke="#475569" strokeDasharray="3 3" strokeWidth={1} />}
                       <Line type="monotone" dataKey="v" stroke={lineColor} strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
                     </LineChart>

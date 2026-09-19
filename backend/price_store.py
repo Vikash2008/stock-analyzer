@@ -92,6 +92,17 @@ _CHUNK_SIZE = 50
 _MAX_RETRIES = 1
 _RETRY_DELAY = 1.5
 
+# A symbol that comes back with zero data (delisted, mistyped, NAV-only) used to never get
+# written to the store at all, so every single request re-ran the full yfinance lookup for it —
+# confirmed live as a recurring 15-20s stall per request (IBREALEST.NS, "ET MONEY.NS"). Now an
+# empty result is cached (dates: []) with a miss_count, and re-tried on a 3-strikes schedule:
+# 3 quick misses 5 min apart (catches a transient blip fast), then one more chance a day later
+# (catches a longer outage), then marked permanent and never retried again. Every miss is
+# printed with the symbol name so a genuinely-bad symbol is traceable in the debug/journal logs.
+_NEGATIVE_RETRY_TTL = 300.0      # spacing for the first _NEGATIVE_MAX_QUICK_MISSES attempts
+_NEGATIVE_MAX_QUICK_MISSES = 3
+_NEGATIVE_DAILY_TTL = 24 * 3600  # spacing for the one final attempt after the quick misses
+
 
 def _series_to_entry(s: "pd.Series") -> Optional[dict]:
     s = s.dropna()
@@ -160,11 +171,24 @@ def ensure_prices(symbols: list[str], needed_from: str) -> None:
     fetching only what's missing or new instead of redownloading full history every call. This
     is the single shared fallback path: a symbol truly never seen before gets one on-demand
     fetch here, seeding the store for every future reader — any user, any chart type."""
+    now = time.time()
     missing_syms: list[str] = []
     stale_syms:   list[str] = []
     for s in symbols:
         entry = _store.get(s)
-        if not entry or not entry.get("dates") or entry["dates"][0] > needed_from:
+        if entry is None:
+            missing_syms.append(s)
+        elif not entry.get("dates"):
+            # Known no-data symbol. Permanent (confirmed over 2 separate days) -> never again.
+            # Otherwise on the 5-min quick-retry schedule until _NEGATIVE_MAX_QUICK_MISSES,
+            # then the one-day-later final check.
+            if entry.get("permanent"):
+                continue
+            miss_count = entry.get("miss_count", 1)
+            ttl = _NEGATIVE_RETRY_TTL if miss_count < _NEGATIVE_MAX_QUICK_MISSES else _NEGATIVE_DAILY_TTL
+            if now - entry.get("fetched_at", 0) > ttl:
+                missing_syms.append(s)
+        elif entry["dates"][0] > needed_from:
             missing_syms.append(s)
         else:
             stale_syms.append(s)
@@ -177,6 +201,19 @@ def ensure_prices(symbols: list[str], needed_from: str) -> None:
                 **entry, "fetched_at": now,
                 "last_bar_date": entry["dates"][-1] if entry["dates"] else None,
             }
+        for sym in missing_syms:
+            if sym not in fresh:
+                miss_count = _store.get(sym, {}).get("miss_count", 0) + 1
+                permanent = miss_count > _NEGATIVE_MAX_QUICK_MISSES
+                if permanent:
+                    print(f"[price_store] {sym}: still no price data after a day-later recheck — marking permanently delisted, will not retry again")
+                else:
+                    retry_in = "5 min" if miss_count < _NEGATIVE_MAX_QUICK_MISSES else "1 day"
+                    print(f"[price_store] {sym}: no price data (attempt {miss_count}/{_NEGATIVE_MAX_QUICK_MISSES}) — will retry in {retry_in}")
+                _store[sym] = {
+                    "dates": [], "prices": [], "fetched_at": now, "last_bar_date": None,
+                    "miss_count": miss_count, "permanent": permanent,
+                }
 
     if stale_syms:
         # One bulk delta call covers all of them, from the earliest last-cached-bar among

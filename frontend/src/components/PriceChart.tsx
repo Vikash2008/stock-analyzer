@@ -13,6 +13,7 @@ import type { Currency } from '../App'
 import { fmt } from '../utils/fmt'
 import { computeChartFreshness } from '../utils/incrementalMerge'
 import { ChartFreshnessLabel, ChartErrorState, ChartEmptyState, ChartLoadingState } from './ChartStateBlock'
+import { useStickyChartTooltip } from '../utils/chartTouchClamp'
 
 // Matches backend/routers/history.py's _INTRADAY_TTL (5 min) — the intraday cache legitimately
 // won't have anything newer than this, so a shorter window here would flag a perfectly normal,
@@ -129,6 +130,7 @@ function SellDot(props: any) {
 export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLegend = false, showZoom = false, isClosed = false }: PriceChartProps) {
   const [range,  setRange]  = useState<ChartRange>('1y')
   const [zoomed, setZoomed] = useState(false)
+  const stickyRef = useStickyChartTooltip<HTMLDivElement>()
 
   const handleOpenZoom = () => {
     setZoomed(true)
@@ -278,6 +280,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
           </div>
         </div>
       )}
+      <div ref={stickyRef}>
       <ResponsiveContainer width="100%" height={220}>
         <LineChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -355,6 +358,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
           />}
         </LineChart>
       </ResponsiveContainer>
+      </div>
 
       {/* Range selector */}
       {rangeBar}
