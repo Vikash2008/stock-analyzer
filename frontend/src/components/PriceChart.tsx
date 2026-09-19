@@ -308,7 +308,7 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
             axisLine={false}
             domain={['auto', 'auto']}
           />
-          <Tooltip content={<CustomTooltip currency={currency} usdInr={usdInr} />} />
+          <Tooltip content={<CustomTooltip currency={currency} usdInr={usdInr} />} position={{ y: 0 }} />
 
           {/* Price line — no dots */}
           <Line
@@ -355,10 +355,10 @@ export function PriceChart({ transactions, yf_symbol, currency, usdInr, hideLege
           />}
         </LineChart>
       </ResponsiveContainer>
-      </div>
 
       {/* Range selector */}
       {rangeBar}
+      </div>
 
       {/* Zoom overlay — ZoomChartOverlay (lightweight-charts) */}
       {showZoom && zoomed && (
