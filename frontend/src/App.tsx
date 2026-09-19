@@ -13,7 +13,6 @@ import ResearchPage     from './pages/ResearchPage'
 import JoinPage         from './pages/JoinPage'
 import DebugOverlay     from './components/DebugOverlay'
 import GoogleSignInButton from './components/GoogleSignInButton'
-import { logDebug } from './utils/debugLog'
 import { isSignedIn } from './utils/auth'
 
 const queryClient = new QueryClient({
@@ -177,7 +176,6 @@ function FetchErrorScreen({ onRetry }: { onRetry: () => void }) {
 function AppRoutes({ currency, onCurrencyChange }: { currency: Currency; onCurrencyChange: (c: Currency) => void }) {
   const isRestoring = useIsRestoring()
   const { data, error, isError, refetch } = usePortfolio()
-  const loggedRestore = useRef(false)
 
   // One-time self-heal for holdings whose Bucket/Label tags never got copied across when the
   // same symbol was added to a second/third portfolio (see AddTransactionModal.tsx + this
@@ -198,18 +196,6 @@ function AppRoutes({ currency, onCurrencyChange }: { currency: Currency; onCurre
     setLastBenchmarkAutoRefreshDay(today)
     refreshAllBenchmarks()
   }, [])
-
-  // One-time log of exactly what the gate saw right as restore finished — lets us tell,
-  // after the fact, whether a blocking FetchingScreen was justified (nothing cached yet)
-  // or a bug (real data was cached but the gate didn't see it in time).
-  useEffect(() => {
-    if (isRestoring || loggedRestore.current) return
-    loggedRestore.current = true
-    const hasCsv      = hasOwnCsv()
-    const hasRealData = !!data?.csv_hash
-    const willBlock    = !data || (hasCsv && !hasRealData && isSignedIn())
-    logDebug(`gate: hasData=${!!data} csv_hash=${data?.csv_hash ?? 'none'} hasCsv=${hasCsv} hasRealData=${hasRealData} signedIn=${isSignedIn()} -> ${willBlock ? 'BLOCKING (FetchingScreen)' : 'instant render'}`)
-  }, [isRestoring, data])
 
   // /join is a public landing page for the invite link — it doesn't need portfolio
   // data at all, so it must never sit behind the loading/sign-in gates below (a
@@ -285,21 +271,15 @@ export default function App() {
   }
 
   useEffect(() => {
-    // Ask the browser to exempt this origin from automatic storage eviction
-    // (default "best-effort" storage can be silently cleared under storage pressure
-    // or after a period of inactivity — this is what was wiping the imported CSV).
-    logDebug(`app mount: csvLen=${(localStorage.getItem('portfolio:csv') ?? '').length}`)
-
     // Orphaned key from a renamed/removed feature — nothing reads or writes it anymore,
     // but it sits at ~1.4MB on devices that had it written historically, eating quota
     // that the CSV import needs.
     localStorage.removeItem('stock-analyzer-chart-cache')
 
-    if (navigator.storage?.persist) {
-      navigator.storage.persist().then(granted => {
-        logDebug(granted ? 'storage.persist GRANTED' : 'storage.persist NOT granted')
-      })
-    }
+    // Ask the browser to exempt this origin from automatic storage eviction
+    // (default "best-effort" storage can be silently cleared under storage pressure
+    // or after a period of inactivity — this is what was wiping the imported CSV).
+    navigator.storage?.persist?.()
   }, [])
 
   return (

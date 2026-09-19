@@ -75,7 +75,6 @@ export function usePortfolio(_currency: 'INR' | 'USD' = 'INR') {
     const cached = qc.getQueryData<PortfolioData>(['portfolio'])
     if (!getCsvContent() && cached?.csv_hash) {
       qc.removeQueries({ queryKey: ['portfolio'] })
-      logDebug('csv mismatch: wiped stale portfolio cache')
       return true
     }
     return false
@@ -94,7 +93,6 @@ export function usePortfolio(_currency: 'INR' | 'USD' = 'INR') {
       const state = qc.getQueryState(['portfolio'])
       const lastFetch = state?.dataUpdatedAt ?? 0
       if (wiped || Date.now() - lastFetch >= REFRESH_MS) {
-        logDebug(`visibilitychange: ${wiped ? 'csv cleared' : 'stale'}, refetching`)
         qc.refetchQueries({ queryKey: ['portfolio'], type: 'active' })
       }
     }
