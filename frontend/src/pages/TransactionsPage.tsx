@@ -675,7 +675,7 @@ export default function TransactionsPage({ currency }: Props) {
         </div>
       )}
       </div>
-      <div className="flex-1 overflow-y-auto px-0.5 pb-4">
+      <div className="flex-1 overflow-y-auto px-0.5 pt-2 pb-4">
 
       {activeTab === 'transactions' && (
         <>
@@ -814,7 +814,7 @@ export default function TransactionsPage({ currency }: Props) {
       })()}
 
       {activeTab === 'charts' && (
-        <div className="px-0 pt-0 pb-3">
+        <div className="px-0 pt-1 pb-3">
           {/* Price chart */}
           {chartMetric === 'Price' && (
             <PriceChart
