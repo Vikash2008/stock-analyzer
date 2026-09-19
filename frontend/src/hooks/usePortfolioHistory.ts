@@ -13,39 +13,29 @@ const lsKey = (sym: string) => `${sym}:3y`
 const OPEN_REFRESH_MS = 5 * 60 * 1000
 
 async function fetchSymHistory(sym: string, start: string) {
-  const startedAt = Date.now()
   const existing = lsGet(lsKey(sym))
-  const cacheState = existing?.dates?.length ? `warm(${existing.dates.length}pts)` : 'COLD(no cache)'
-  logDebug(`SYNC-BAR FETCH START ${sym} — ${cacheState}`)
-  try {
-    const since = existing?.dates?.[existing.dates.length - 1]
-    const fetched = await fetchHistory(sym, start, undefined, since)
-    if (!fetched.dates?.length) {
-      // Cache the empty result too (e.g. a delisted symbol yfinance will never have data for) —
-      // otherwise this never gets an lsSet call, initialData never finds anything on the next
-      // boot, and every single reopen re-pays the backend's full ~20s yfinance timeout for a
-      // symbol that will never resolve. An empty cached entry still satisfies hasAllData via
-      // initialData, so the sync bar doesn't block on it again.
-      const empty = { dates: [] as string[], prices: [] as number[] }
-      lsSet(lsKey(sym), empty)
-      logDebug(`SYNC-BAR FETCH END ${sym} — ${Date.now() - startedAt}ms — empty response (cached)`)
-      return empty
-    }
-    let d = fetched
-    if (fetched.partial_since && existing?.dates?.length) {
-      d = detectDrift(existing, fetched)
-        ? await fetchHistory(sym, start)  // basis shifted — discard cache, refetch clean
-        : mergeHistory(existing, fetched)
-    } else {
-      d = guardFullResponse(existing ?? lsGetStale(lsKey(sym)), fetched, sym)
-    }
-    lsSet(lsKey(sym), d)
-    logDebug(`SYNC-BAR FETCH END ${sym} — ${Date.now() - startedAt}ms — ${d.dates?.length ?? 0} pts`)
-    return d
-  } catch (e) {
-    logDebug(`SYNC-BAR FETCH ERROR ${sym} — ${Date.now() - startedAt}ms — ${e instanceof Error ? e.message : e}`)
-    throw e
+  const since = existing?.dates?.[existing.dates.length - 1]
+  const fetched = await fetchHistory(sym, start, undefined, since)
+  if (!fetched.dates?.length) {
+    // Cache the empty result too (e.g. a delisted symbol yfinance will never have data for) —
+    // otherwise this never gets an lsSet call, initialData never finds anything on the next
+    // boot, and every single reopen re-pays the backend's full ~20s yfinance timeout for a
+    // symbol that will never resolve. An empty cached entry still satisfies hasAllData via
+    // initialData, so the sync bar doesn't block on it again.
+    const empty = { dates: [] as string[], prices: [] as number[] }
+    lsSet(lsKey(sym), empty)
+    return empty
   }
+  let d = fetched
+  if (fetched.partial_since && existing?.dates?.length) {
+    d = detectDrift(existing, fetched)
+      ? await fetchHistory(sym, start)  // basis shifted — discard cache, refetch clean
+      : mergeHistory(existing, fetched)
+  } else {
+    d = guardFullResponse(existing ?? lsGetStale(lsKey(sym)), fetched, sym)
+  }
+  lsSet(lsKey(sym), d)
+  return d
 }
 
 export interface DatedSeries { dates: Date[]; values: number[] }

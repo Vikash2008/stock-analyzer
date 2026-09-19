@@ -182,6 +182,33 @@ def _fingerprint_txns_upto(df_txns: "pd.DataFrame", upto_date: str) -> str:
     return hashlib.md5(key_str.encode()).hexdigest()
 
 
+def _apply_fifo_cost_txn(
+    lots: list, cqty: float, ccost: float, is_buy: bool, qty_: float, cost_: float,
+) -> tuple:
+    """A SELL removes cost from the oldest lot(s) first (mirrors src/portfolio.py's _run_fifo
+    lot matching), not a proportional slice of the blended average. `lots` is a per-key,
+    caller-owned list of [qty, unit_cost] mutated in place and replayed in chronological order.
+    Without this, a chart date sitting between a SELL and the next live "today" pin (below)
+    shows a weighted-average cost drop that doesn't match the FIFO-based Invested figure shown
+    everywhere else in the app (SummaryCard, Realized Gains) — the two only agreed on "today"
+    because that value is always freshly pinned from the live FIFO-based holdings bundle."""
+    if is_buy:
+        lots.append([qty_, cost_ / qty_ if qty_ > 0 else 0.0])
+        return cqty + qty_, ccost + cost_
+    remaining = qty_
+    removed_cost = 0.0
+    while remaining > 1e-9 and lots:
+        lot_qty, lot_unit_cost = lots[0]
+        take = min(lot_qty, remaining)
+        removed_cost += take * lot_unit_cost
+        remaining -= take
+        if lot_qty - take <= 1e-9:
+            lots.pop(0)
+        else:
+            lots[0][0] = lot_qty - take
+    return max(0.0, cqty - qty_), ccost - removed_cost
+
+
 def _compute(
     currency: str,
     portfolio_filter: Optional[str],
@@ -413,22 +440,17 @@ def _compute(
                 qty = max(0.0, qty + dv)
             di = len(deltas)
 
-        # Running weighted-average cost basis, replayed from this key's own BUY/SELL
-        # history — a SELL removes cost at whatever average prevailed at the time of sale.
+        # FIFO cost basis, replayed from this key's own BUY/SELL history — a SELL removes the
+        # oldest lot(s)' cost first, matching the live FIFO engine (see _apply_fifo_cost_txn).
         cqty  = 0.0
         ccost = 0.0
+        lots: list = []
         ci    = 0
 
         def _apply_cost_txn(idx: int) -> None:
             nonlocal cqty, ccost
             _, is_buy_, q_, cost_ = txns[idx]
-            if is_buy_:
-                cqty  += q_
-                ccost += cost_
-            else:
-                avg = ccost / cqty if cqty > 0 else 0.0
-                ccost -= avg * min(q_, cqty)
-                cqty = max(0.0, cqty - q_)
+            cqty, ccost = _apply_fifo_cost_txn(lots, cqty, ccost, is_buy_, q_, cost_)
 
         ci_boundary = all_dates[0] if (has_col and all_dates) else None
         while ci < len(txns) and (ci_boundary is None or txns[ci][0] < ci_boundary):
@@ -950,16 +972,11 @@ def _compute_incremental(
             di += 1
 
         cqty = ccost = 0.0
+        lots: list = []
         ci = 0
         while ci < len(txns) and (seed_boundary is None or txns[ci][0] <= seed_boundary):
             _, is_buy_, q_, cost_ = txns[ci]
-            if is_buy_:
-                cqty  += q_
-                ccost += cost_
-            else:
-                avg = ccost / cqty if cqty > 0 else 0.0
-                ccost -= avg * min(q_, cqty)
-                cqty = max(0.0, cqty - q_)
+            cqty, ccost = _apply_fifo_cost_txn(lots, cqty, ccost, is_buy_, q_, cost_)
             ci += 1
 
         # Seed last known price as of `since` — a sorted-index slice, not a per-day scan.
@@ -978,14 +995,8 @@ def _compute_incremental(
                 qty = max(0.0, qty + deltas[di][1])
                 di += 1
             while ci < len(txns) and txns[ci][0] <= d:
-                d2_, is_buy_, q_, cost_ = txns[ci]
-                if is_buy_:
-                    cqty  += q_
-                    ccost += cost_
-                else:
-                    avg = ccost / cqty if cqty > 0 else 0.0
-                    ccost -= avg * min(q_, cqty)
-                    cqty = max(0.0, cqty - q_)
+                _, is_buy_, q_, cost_ = txns[ci]
+                cqty, ccost = _apply_fifo_cost_txn(lots, cqty, ccost, is_buy_, q_, cost_)
                 ci += 1
 
             if has_col:

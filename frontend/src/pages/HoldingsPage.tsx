@@ -2104,7 +2104,7 @@ export default function HoldingsPage({ currency }: Props) {
                         : fmt(v, currency),
                       chartMetric,
                     ]}
-                    contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #e2e8f0' }}
+                    contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #334155', background: '#1e293b', color: '#e2e8f0' }}
                     labelStyle={{ fontSize: 10, color: '#94a3b8' }}
                     position={{ y: 0 }}
                   />
@@ -2590,7 +2590,7 @@ export default function HoldingsPage({ currency }: Props) {
                             name === 'cumul' ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%` : fmtV(v),
                             name === 'cumul' ? 'Cumul Return' : metricLabel,
                           ]}
-                          contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #e2e8f0' }}
+                          contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #334155', background: '#1e293b', color: '#e2e8f0' }}
                           labelStyle={{ fontSize: 10, color: '#94a3b8' }}
                           position={{ y: 0 }}
                           cursor={{ fill: '#f1f5f9' }}
